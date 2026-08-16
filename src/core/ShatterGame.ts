@@ -11,7 +11,7 @@ import { PowerUpTimers } from "@entities/powerups/PowerUpTimers";
 import { InputController } from "@input/InputController";
 import { zeroPad } from "@shared/format";
 
-import type { Sound } from "@audio/Sound";
+import type { SoundBank } from "@audio/SoundBank";
 import type { BrickFlash, BrickHit, BurstSpec, PanelView, PowerUpKind, ScreenName } from "@interfaces/types";
 import type { CanvasRenderer } from "@render/CanvasRenderer";
 import type { HiScores } from "@state/HiScores";
@@ -23,7 +23,7 @@ export interface ShatterGameDeps {
   renderer: CanvasRenderer;
   panel: Panel;
   screens: Screens;
-  sound: Sound;
+  sfx: SoundBank;
   hiScores: HiScores;
   scaler: StageScaler;
   lockTarget: HTMLElement;
@@ -198,7 +198,7 @@ export class ShatterGame {
     if (this.timers.isActive("L") && --this.laserCountdown <= 0) {
       this.laserCountdown = gameConfig.powerUps.laserCadenceTicks;
       this.shotPool.fireFromPaddle(this.paddle);
-      this.deps.sound.beep(880, 0.04, "square", 0.035);
+      this.deps.sfx.laserFire();
     }
     this.shotPool.step(this.grid, (hit) => this.damageBrick(hit));
 
@@ -256,17 +256,17 @@ export class ShatterGame {
       if (ball.x <= left) {
         ball.x = left;
         ball.velocity.x = Math.abs(ball.velocity.x);
-        this.deps.sound.beep(240, 0.05, "square", 0.05);
+        this.deps.sfx.wallBounce();
       }
       if (ball.x >= right - size) {
         ball.x = right - size;
         ball.velocity.x = -Math.abs(ball.velocity.x);
-        this.deps.sound.beep(240, 0.05, "square", 0.05);
+        this.deps.sfx.wallBounce();
       }
       if (ball.y <= top) {
         ball.y = top;
         ball.velocity.y = Math.abs(ball.velocity.y);
-        this.deps.sound.beep(240, 0.05, "square", 0.05);
+        this.deps.sfx.wallBounce();
       }
 
       const paddleTop = gameConfig.paddle.y;
@@ -280,14 +280,14 @@ export class ShatterGame {
         const relativeHit = relativePaddleHit(ball.centerX, this.paddle.bounds);
         ball.velocity = computePaddleBounceVelocity(relativeHit, this.speed(), gameConfig.bounce.maxAngleRad);
         ball.y = paddleTop - size;
-        this.deps.sound.beep(420 + relativeHit * 90, 0.08, "square", 0.06);
+        this.deps.sfx.paddleBounce(relativeHit);
       }
 
       if (this.wallArmed && ball.velocity.y > 0 && ball.y + size >= gameConfig.powerUps.wallY) {
         this.wallArmed = false;
         ball.y = gameConfig.powerUps.wallY - size;
         ball.velocity.y = -Math.abs(ball.velocity.y);
-        this.deps.sound.beep(320, 0.08, "square", 0.05);
+        this.deps.sfx.energyWallBounce();
       }
 
       if (ball.y > height) {
@@ -300,17 +300,24 @@ export class ShatterGame {
   private damageBrick(hit: BrickHit, source: "ball" | "laser" | "splash" = "ball"): void {
     const destroyed = this.grid.damage(hit);
     if (!destroyed) {
-      this.deps.sound.beep(180, 0.07, "square", 0.07);
+      // Splash damage is covered by the single BLAST boom; only direct hits clank.
+      if (source !== "splash") {
+        this.deps.sfx.brickArmored();
+      }
       return;
     }
 
     this.score += hit.cell.points * this.scoreMultiplier();
-    this.deps.sound.beep(560 + (5 - hit.row) * 45, 0.09, "square", 0.07);
+    if (source !== "splash") {
+      this.deps.sfx.brickDestroyed(hit.row);
+    }
     this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
 
     if (source !== "splash" && Math.random() < (this.debugDropRate ?? gameConfig.rules.dropRate)) {
       const { left, top, brickWidth, brickHeight } = gameConfig.grid;
-      this.dropPool.trySpawn(left + hit.column * brickWidth, top + hit.row * brickHeight);
+      if (this.dropPool.trySpawn(left + hit.column * brickWidth, top + hit.row * brickHeight)) {
+        this.deps.sfx.capsuleSpawn();
+      }
     }
 
     if (source === "ball" && this.timers.isActive("B")) {
@@ -328,6 +335,7 @@ export class ShatterGame {
   // Splash kills never chain and never drop capsules — one explosion per ball hit.
   private blastNeighbors(center: BrickHit): void {
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    let blasted = false;
 
     for (let deltaRow = -1; deltaRow <= 1; deltaRow++) {
       for (let deltaColumn = -1; deltaColumn <= 1; deltaColumn++) {
@@ -338,6 +346,7 @@ export class ShatterGame {
         if (!neighbor) {
           continue;
         }
+        blasted = true;
         this.brickFlashes.push({
           x: left + neighbor.column * brickWidth,
           y: top + neighbor.row * brickHeight,
@@ -346,6 +355,12 @@ export class ShatterGame {
         });
         this.damageBrick(neighbor, "splash");
       }
+    }
+
+    // The neighbors themselves stay silent (source "splash"): the chain reads as
+    // one explosion, not eight overlapping pops.
+    if (blasted) {
+      this.deps.sfx.blastExplosion();
     }
   }
 
@@ -376,7 +391,7 @@ export class ShatterGame {
     this.score += bonus;
     this.deps.screens.updateClear(levelAt(this.level).name, zeroPad(bonus, 5));
     this.setScreen("clear");
-    this.deps.sound.arp([523, 659, 784, 1046]);
+    this.deps.sfx.levelClear();
   }
 
   private applyPowerUp(kind: PowerUpKind): void {
@@ -424,14 +439,14 @@ export class ShatterGame {
     }
 
     if (kind === "J") {
-      this.deps.sound.arp([392, 196], 50);
+      this.deps.sfx.jammerPickup();
     } else {
-      this.deps.sound.arp([659, 880], 50);
+      this.deps.sfx.capsulePickup();
     }
   }
 
   private die(): void {
-    this.deps.sound.beep(140, 0.3, "sawtooth", 0.06);
+    this.deps.sfx.ballLost();
     this.lives--;
     if (this.lives <= 0) {
       this.gameOver();
@@ -483,7 +498,7 @@ export class ShatterGame {
     this.lives = gameConfig.rules.startLives;
     this.level = this.debugStartLevel;
     this.buildLevel(this.level);
-    this.deps.sound.arp([392, 523, 659]);
+    this.deps.sfx.gameStart();
   }
 
   private buildLevel(level: number): void {
@@ -520,7 +535,7 @@ export class ShatterGame {
     ball.followPaddle(this.paddle);
     ball.launch(this.speed());
     this.setScreen("play");
-    this.deps.sound.beep(520, 0.07);
+    this.deps.sfx.launch();
     for (const kind of this.debugPowerKinds) {
       this.applyPowerUp(kind);
     }
@@ -537,7 +552,7 @@ export class ShatterGame {
     this.clearCountdown = 0;
     this.deps.screens.updateOver(zeroPad(this.score, 6));
     this.setScreen("over");
-    this.deps.sound.arp([392, 330, 262, 196], 130);
+    this.deps.sfx.gameOver();
   }
 
   private afterOver(): void {
@@ -575,10 +590,10 @@ export class ShatterGame {
     const key = event.key.toLowerCase();
     if (key === "p" && (this.screen === "play" || this.screen === "pause")) {
       this.setScreen(this.screen === "play" ? "pause" : "play");
-      this.deps.sound.beep(300, 0.06);
+      this.deps.sfx.pauseToggle();
     }
     if (key === "m") {
-      this.deps.sound.toggleMuted();
+      this.deps.sfx.toggleMuted();
     }
     if (event.key === "Escape" && (this.screen === "play" || this.screen === "pause" || this.screen === "serve")) {
       this.gameOver();
@@ -589,7 +604,7 @@ export class ShatterGame {
     if (/^[a-z0-9]$/i.test(event.key) && this.entry.length < ENTRY_LENGTH) {
       this.entry += event.key.toUpperCase();
       this.updateEntryText();
-      this.deps.sound.beep(700, 0.04);
+      this.deps.sfx.uiKeyClick();
       if (this.entry.length === ENTRY_LENGTH) {
         this.entryCommitTimeoutId = window.setTimeout(() => this.commitScore(this.entry), ENTRY_COMMIT_DELAY_MS);
       }
@@ -662,7 +677,7 @@ export class ShatterGame {
       reserveLives: Math.max(0, this.lives - 1),
       powerLabel: this.powerLabel(),
       paydayActive: this.timers.isActive("X"),
-      muted: this.deps.sound.muted,
+      muted: this.deps.sfx.muted,
     };
   }
 

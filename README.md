@@ -10,13 +10,13 @@ The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372�
 - **15 levels**: SUNRISE, PYRAMID, GATEWAY, VORTEX, CHECKER, RAMPART, HELIX, ORBIT, HIVE, SERPENT, MIRROR, BUNKER, CASCADE, OMEGA, FINALE — looping with increasing ball speed. Silver bricks take 2 hits, gold bricks 3.
 - **Power-ups** dropped by destroyed bricks (13% chance): **WIDE** paddle, **MULTI** ball (up to 3 balls), **LASER** (paddle cannons), **PIERCE** (ball goes through bricks), **BLAST** (destroyed bricks damage their 8 neighbors), **WALL** (one-shot safety barrier at the bottom), **TEMPO** (bullet-time, balls at ×0.6), **PAYDAY** (points ×2) — plus **JAMMER**, the only trap capsule (blinking letter, rarer): it shrinks the paddle for 6 s, so dodge it.
 - **Scoring**: 60–200 points per brick by kind, level-clear bonus `(level+1) × 500`. The top-5 hall of fame is **shared across all players**: scores live in a server-side SQLite table behind the `shatter-api` service, with `localStorage` (`shatter.hiscores.v1`) as instant-boot cache and offline fallback — the game never waits on the network.
-- **Audio**: WebAudio oscillator chiptune SFX (square/sawtooth beeps and arpeggios), no assets. Beeps hold at peak before decaying, and an inaudible 30 Hz keep-warm tone stops browser/HDMI/Bluetooth silence detection from swallowing short impact blips.
+- **Audio**: WebAudio chiptune SFX, 100% synthesized (no assets): a per-event sound bank (square pitch-bends, detuned pairs, filtered noise bursts) on a master gain → compressor chain, with a 30 ms retrigger guard against same-tick pile-ups. An SFX volume fader lives in the side panel (persisted in `localStorage` `shatter.volume.v1`, scaling the master gain ahead of the compressor). An inaudible 30 Hz keep-warm tone stops browser/HDMI/Bluetooth silence detection from swallowing short impact blips.
 
 ### Controls
 
 - **Mouse** moves the paddle; **click** or **Space** starts the game, launches the ball, and advances screens.
 - Clicking also engages **Pointer Lock** (relative `movementX` control); without lock, absolute pointer position is used. Press `Esc` once to exit lock.
-- **P** pause · **M** sound on/off · **ESC** quit run (from lock, press `Esc` twice: first exits lock, second quits).
+- **P** pause · **M** sound on/off · **VOL** fader in the side panel (mouse-only, reachable whenever the cursor is free — title, pause, before launch) · **ESC** quit run (from lock, press `Esc` twice: first exits lock, second quits).
 - The mouse is the only paddle control, so a run **auto-pauses** whenever it would go on unsteered: cursor leaving the window, window losing focus, or pointer lock dropping. Click to resume — that click also re-engages the lock.
 
 ## Tutorial
@@ -100,7 +100,7 @@ src/
   render/            # CanvasRenderer (pixel sprites) + palette (canvas hex colors)
   ui/                # Panel (side panel), Screens (overlays), StageScaler (fit transform)
   input/             # InputController: mouse + keyboard + hybrid pointer lock
-  audio/             # Sound: WebAudio beeps/arpeggios, mute
+  audio/             # Sound: WebAudio engine (tone/noise/arp + compressor) · SoundBank: per-event SFX recipes
   state/             # HiScores (server table + localStorage fallback) + ScoreApi client
   interfaces/        # Shared TS types
   shared/            # DOM + formatting utilities

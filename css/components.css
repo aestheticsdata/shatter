@@ -166,6 +166,54 @@
   color: var(--color-panel-label);
 }
 
+/* The one mouse target in the panel: restore the cursor (body hides it) and give
+   the fader a Workbench look — inset track, raised gadget knob. */
+#panelVolume {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+#volFader {
+  appearance: none;
+  width: 62px;
+  height: 8px;
+  margin: 0;
+  background: var(--color-inset);
+  border-top: 1px solid var(--color-panel-edge-dark);
+  border-left: 1px solid var(--color-panel-edge-dark);
+  border-bottom: 1px solid var(--color-panel-edge-light);
+  border-right: 1px solid var(--color-panel-edge-light);
+  cursor: pointer;
+
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: 8px;
+    height: 8px;
+    background: var(--color-panel);
+    border-top: 1px solid var(--color-panel-edge-light);
+    border-left: 1px solid var(--color-panel-edge-light);
+    border-bottom: 1px solid var(--color-panel-edge-dark);
+    border-right: 1px solid var(--color-panel-edge-dark);
+  }
+
+  &::-moz-range-thumb {
+    width: 8px;
+    height: 8px;
+    border-radius: 0;
+    background: var(--color-panel);
+    border-top: 1px solid var(--color-panel-edge-light);
+    border-left: 1px solid var(--color-panel-edge-light);
+    border-bottom: 1px solid var(--color-panel-edge-dark);
+    border-right: 1px solid var(--color-panel-edge-dark);
+  }
+
+  &::-moz-range-track {
+    background: transparent;
+  }
+}
+
 #panelRev {
   position: absolute;
   left: 8px;

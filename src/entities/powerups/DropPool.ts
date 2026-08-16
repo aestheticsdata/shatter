@@ -34,16 +34,17 @@ export class DropPool {
     active: false,
   }));
 
-  trySpawn(brickLeft: number, brickTop: number): void {
+  trySpawn(brickLeft: number, brickTop: number): boolean {
     const drop = this.drops.find((candidate) => !candidate.active);
     if (!drop) {
-      return;
+      return false;
     }
 
     drop.kind = rollDropKind();
     drop.x = brickLeft + 5;
     drop.y = brickTop;
     drop.active = true;
+    return true;
   }
 
   step(paddleBounds: RectangleBounds, onCatch: (kind: PowerUpKind) => void): void {
