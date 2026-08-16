@@ -217,17 +217,17 @@ export class ShatterGame {
       if (ball.x <= left) {
         ball.x = left;
         ball.velocity.x = Math.abs(ball.velocity.x);
-        this.deps.sound.beep(240, 0.03, "square", 0.03);
+        this.deps.sound.beep(240, 0.05, "square", 0.05);
       }
       if (ball.x >= right - size) {
         ball.x = right - size;
         ball.velocity.x = -Math.abs(ball.velocity.x);
-        this.deps.sound.beep(240, 0.03, "square", 0.03);
+        this.deps.sound.beep(240, 0.05, "square", 0.05);
       }
       if (ball.y <= top) {
         ball.y = top;
         ball.velocity.y = Math.abs(ball.velocity.y);
-        this.deps.sound.beep(240, 0.03, "square", 0.03);
+        this.deps.sound.beep(240, 0.05, "square", 0.05);
       }
 
       const paddleTop = gameConfig.paddle.y;
@@ -241,7 +241,7 @@ export class ShatterGame {
         const relativeHit = relativePaddleHit(ball.centerX, this.paddle.bounds);
         ball.velocity = computePaddleBounceVelocity(relativeHit, this.speed(), gameConfig.bounce.maxAngleRad);
         ball.y = paddleTop - size;
-        this.deps.sound.beep(420 + relativeHit * 90, 0.05);
+        this.deps.sound.beep(420 + relativeHit * 90, 0.08, "square", 0.06);
       }
 
       if (this.wallArmed && ball.velocity.y > 0 && ball.y + size >= gameConfig.powerUps.wallY) {
@@ -261,12 +261,12 @@ export class ShatterGame {
   private damageBrick(hit: BrickHit, source: "ball" | "laser" | "splash" = "ball"): void {
     const destroyed = this.grid.damage(hit);
     if (!destroyed) {
-      this.deps.sound.beep(180, 0.04, "square", 0.045);
+      this.deps.sound.beep(180, 0.07, "square", 0.07);
       return;
     }
 
     this.score += hit.cell.points * this.scoreMultiplier();
-    this.deps.sound.beep(560 + (5 - hit.row) * 45, 0.05);
+    this.deps.sound.beep(560 + (5 - hit.row) * 45, 0.09, "square", 0.07);
 
     if (source !== "splash" && Math.random() < (this.debugDropRate ?? gameConfig.rules.dropRate)) {
       const { left, top, brickWidth, brickHeight } = gameConfig.grid;
