@@ -5,12 +5,12 @@ set -Eeuo pipefail
 # Configuration
 ######################################
 REMOTE_USER_HOST="${REMOTE_USER_HOST:-debian@ks-b}"
-WEB_ROOT_BASE="${WEB_ROOT_BASE:-/var/www/1991computer/arkanoid-2007}"
+WEB_ROOT_BASE="${WEB_ROOT_BASE:-/var/www/1991computer/shatter}"
 CURRENT_DIR="$WEB_ROOT_BASE"
 BACKUP_DIR="${BACKUP_DIR:-${WEB_ROOT_BASE}.bak}"
 RELEASES_DIR="$WEB_ROOT_BASE/releases"
-HEALTHCHECK_URL="${HEALTHCHECK_URL:-https://1991computer.com/arkanoid-2007/}"
-EXPECTED_HTML_MARKER="${EXPECTED_HTML_MARKER:-Breakout 2007}"
+HEALTHCHECK_URL="${HEALTHCHECK_URL:-https://shatter.1991computer.com/}"
+EXPECTED_HTML_MARKER="${EXPECTED_HTML_MARKER:-SHATTER}"
 MAX_RELEASES_TO_KEEP="${MAX_RELEASES_TO_KEEP:-20}"
 BUILD_BASE_PATH="${BUILD_BASE_PATH:-./}"
 
@@ -57,8 +57,6 @@ prepare_local_build() {
     exit 1
   fi
 
-  # Keep compatibility with current nginx config (`index arkanoid.html;`).
-  cp "$PROJECT_DIR/dist/index.html" "$PROJECT_DIR/dist/arkanoid.html"
 }
 
 write_release_metadata() {
@@ -139,10 +137,6 @@ if [ -d "$TMP_RELEASES_DIR" ]; then
 fi
 
 cp -a "$ACTIVATION_SOURCE_DIR"/. "$CURRENT_DIR"/
-
-if [ -f "$CURRENT_DIR/index.html" ] && [ ! -f "$CURRENT_DIR/arkanoid.html" ]; then
-  cp "$CURRENT_DIR/index.html" "$CURRENT_DIR/arkanoid.html"
-fi
 __REMOTE_ACTIVATE__
 }
 
@@ -226,7 +220,7 @@ run_healthcheck() {
     exit 1
   fi
 
-  if ! grep -Eq '(\./assets/|/arkanoid-2007/assets/|assets/)' <<< "$response"; then
+  if ! grep -Eq '(\./assets/|/assets/)' <<< "$response"; then
     echo "❌ ERROR: Healthcheck HTML does not reference any expected asset path" >&2
     exit 1
   fi
