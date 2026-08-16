@@ -1,0 +1,101 @@
+import type { BrickKind, PowerUpKind } from "@interfaces/types";
+
+export const gameConfig = {
+  rules: {
+    startLives: 3,
+    ballSpeedMultiplier: 1,
+    dropRate: 0.13,
+  },
+  loop: {
+    tickMs: 1000 / 60,
+    maxCatchUpSteps: 4,
+    maxFrameDeltaMs: 50,
+  },
+  stage: {
+    width: 480,
+    height: 300,
+  },
+  field: {
+    width: 372,
+    height: 300,
+    left: 3,
+    right: 369,
+    top: 3,
+  },
+  paddle: {
+    y: 276,
+    height: 7,
+    baseWidth: 46,
+    wideWidth: 72,
+    initialX: 163,
+  },
+  ball: {
+    size: 8,
+    collisionInset: 1,
+  },
+  grid: {
+    left: 6,
+    top: 38,
+    columns: 12,
+    brickWidth: 30,
+    brickHeight: 12,
+  },
+  speed: {
+    base: 3.1,
+    perLevel: 0.25,
+    max: 4.6,
+  },
+  launch: {
+    horizontalFactor: 0.55,
+    verticalFactor: 0.83,
+  },
+  bounce: {
+    maxAngleRad: 1.05,
+  },
+  powerUps: {
+    durationsTicks: { E: 720, M: 180, L: 720, P: 480 } satisfies Record<PowerUpKind, number>,
+    laserCadenceTicks: 26,
+    laserFirstShotDelayTicks: 10,
+    shotSpeed: 5.5,
+    maxShots: 6,
+    dropFallSpeed: 1.3,
+    maxDrops: 3,
+    maxExtraBalls: 2,
+    multiBallAngleRad: 0.6,
+  },
+  scoring: {
+    clearBonusPerLevel: 500,
+  },
+} as const;
+
+export const POWER_UP_NAMES: Record<PowerUpKind, string> = {
+  E: "WIDE",
+  M: "MULTI",
+  L: "LASER",
+  P: "PIERCE",
+};
+
+export const BRICK_POINTS: Record<BrickKind, number> = {
+  "1": 60,
+  "2": 70,
+  "3": 80,
+  "4": 90,
+  "5": 100,
+  S: 150,
+  G: 200,
+};
+
+export const BRICK_HIT_POINTS: Record<BrickKind, number> = {
+  "1": 1,
+  "2": 1,
+  "3": 1,
+  "4": 1,
+  "5": 1,
+  S: 2,
+  G: 3,
+};
+
+export function ballSpeedForLevel(level: number): number {
+  const { base, perLevel, max } = gameConfig.speed;
+  return Math.min(max, base + level * perLevel) * gameConfig.rules.ballSpeedMultiplier;
+}

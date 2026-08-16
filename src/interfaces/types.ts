@@ -1,3 +1,8 @@
+export interface Vector2D {
+  x: number;
+  y: number;
+}
+
 export interface RectangleBounds {
   left: number;
   right: number;
@@ -5,54 +10,48 @@ export interface RectangleBounds {
   bottom: number;
 }
 
-export interface Vector2D {
-  x: number;
-  y: number;
+export type ScreenName = "title" | "serve" | "play" | "pause" | "clear" | "over" | "scores" | "entry";
+
+export type BrickKind = "1" | "2" | "3" | "4" | "5" | "S" | "G";
+
+export interface BrickCell {
+  kind: BrickKind;
+  hitPoints: number;
+  points: number;
+  hurt: boolean;
 }
 
-export interface BrickVisualStyle {
-  color?: string;
-  background?: string;
-}
-
-export interface BrickRowConfig {
-  style: BrickVisualStyle;
-}
-
-export interface SpecialBrickConfig {
+export interface BrickHit {
+  cell: BrickCell;
   row: number;
   column: number;
-  style: BrickVisualStyle;
 }
 
-export interface BrickLayoutConfig {
-  columns: number;
-  rows: BrickRowConfig[];
-  width: number;
-  height: number;
-  horizontalGap: number;
-  verticalGap: number;
-  topOffset: number;
-  specialBricks: SpecialBrickConfig[];
+export type PowerUpKind = "E" | "M" | "L" | "P";
+
+export interface LevelDefinition {
+  name: string;
+  rows: readonly string[];
 }
 
-export type BrickState = "active" | "destroyed";
-export type CollisionAxis = "x" | "y";
-
-export interface BrickCollisionResult {
-  hit: boolean;
-  bounceAxis: CollisionAxis | null;
-  remainingBricks: number;
+export interface HiScoreEntry {
+  name: string;
+  score: number;
 }
 
-export interface BreakoutPhysicsConfig {
-  tickMs: number;
-  ballSpeed: number;
-  initialLaunchAngleDeg: number;
-  maxPaddleBounceAngleDeg: number;
+export interface ScoreRowView {
+  rank: string;
+  name: string;
+  score: string;
+  isTopRank: boolean;
 }
 
-export interface BreakoutConfig {
-  physics: BreakoutPhysicsConfig;
-  bricks: BrickLayoutConfig;
+export interface PanelView {
+  score: number;
+  hiScore: number;
+  levelNumber: number;
+  levelName: string;
+  reserveLives: number;
+  powerLabel: string;
+  muted: boolean;
 }
