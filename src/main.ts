@@ -3,6 +3,7 @@ import { ShatterGame } from "@core/ShatterGame";
 import { CanvasRenderer } from "@render/CanvasRenderer";
 import { getElementByIdOrThrow } from "@shared/dom";
 import { HiScores } from "@state/HiScores";
+import { ScoreApi } from "@state/ScoreApi";
 import { Panel } from "@ui/Panel";
 import { Screens } from "@ui/Screens";
 import { StageScaler } from "@ui/StageScaler";
@@ -38,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
       returnHint: getElementByIdOrThrow("returnHint"),
     }),
     sound: new Sound(),
-    hiScores: new HiScores(),
+    hiScores: new HiScores(new ScoreApi()),
     scaler: new StageScaler(stage),
     lockTarget: stage,
   });

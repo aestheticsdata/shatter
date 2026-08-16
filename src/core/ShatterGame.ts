@@ -107,10 +107,23 @@ export class ShatterGame {
   start(): void {
     this.deps.scaler.fit();
     this.input.attach();
+    this.deps.hiScores.onChange = () => this.onScoresChanged();
+    this.deps.hiScores.sync();
     this.grid.load(levelAt(0));
     this.resetServe();
     this.lastTime = performance.now();
     this.animationFrameId = requestAnimationFrame(this.frame);
+  }
+
+  // A remote score sync can land on any screen; refresh whichever one shows the table.
+  private onScoresChanged(): void {
+    if (this.screen === "title") {
+      const top = this.deps.hiScores.top;
+      this.deps.screens.updateTitle(zeroPad(Math.max(top.score, this.score), 6), top.name);
+    }
+    if (this.screen === "scores" || this.screen === "entry") {
+      this.refreshScoreRows();
+    }
   }
 
   stop(): void {
@@ -460,7 +473,9 @@ export class ShatterGame {
 
   private afterOver(): void {
     this.refreshScoreRows();
-    if (this.deps.hiScores.qualifies(this.score)) {
+    // Every run with points ends with initials entry: the server records all scores,
+    // even those that do not reach the displayed top 5 of the shared board.
+    if (this.score > 0) {
       this.entry = "";
       this.updateEntryText();
       this.setScreen("entry");
@@ -519,14 +534,16 @@ export class ShatterGame {
       return;
     }
 
-    if (event.key === "Enter" && this.entry.length > 0) {
+    // Exactly 3 initials: the server rejects shorter names, which would leave the
+    // score on the local board but silently missing from the shared one.
+    if (event.key === "Enter" && this.entry.length === ENTRY_LENGTH) {
       this.commitScore(this.entry);
     }
   }
 
   private commitScore(name: string): void {
     this.clearEntryCommitTimeout();
-    if (this.screen !== "entry" || name.length === 0) {
+    if (this.screen !== "entry" || name.length !== ENTRY_LENGTH) {
       return;
     }
 

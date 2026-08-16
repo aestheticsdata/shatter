@@ -4,6 +4,13 @@ import { Features } from "lightningcss";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  server: {
+    // Same-origin /api in dev, like nginx provides in production. Start the score
+    // service with `pnpm run api`; without it the game falls back to localStorage.
+    proxy: {
+      "/api": "http://127.0.0.1:7000",
+    },
+  },
   css: {
     transformer: "lightningcss",
     lightningcss: {

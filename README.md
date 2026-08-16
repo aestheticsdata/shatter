@@ -9,7 +9,7 @@ The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372�
 - **Screens**: title (animated copper bars) → serve → play, with pause, level-clear, game-over, and a hall of fame with 3-letter initials entry.
 - **15 levels**: SUNRISE, PYRAMID, GATEWAY, VORTEX, CHECKER, RAMPART, HELIX, ORBIT, HIVE, SERPENT, MIRROR, BUNKER, CASCADE, OMEGA, FINALE — looping with increasing ball speed. Silver bricks take 2 hits, gold bricks 3.
 - **Power-ups** dropped by destroyed bricks (13% chance): **WIDE** paddle, **MULTI** ball (up to 3 balls), **LASER** (paddle cannons), **PIERCE** (ball goes through bricks), **BLAST** (destroyed bricks damage their 8 neighbors), **WALL** (one-shot safety barrier at the bottom), **TEMPO** (bullet-time, balls at ×0.6), **PAYDAY** (points ×2) — plus **JAMMER**, the only trap capsule (blinking letter, rarer): it shrinks the paddle for 6 s, so dodge it.
-- **Scoring**: 60–200 points per brick by kind, level-clear bonus `(level+1) × 500`. Top-5 hi-scores persist in `localStorage` (`shatter.hiscores.v1`).
+- **Scoring**: 60–200 points per brick by kind, level-clear bonus `(level+1) × 500`. The top-5 hall of fame is **shared across all players**: scores live in a server-side SQLite table behind the `shatter-api` service, with `localStorage` (`shatter.hiscores.v1`) as instant-boot cache and offline fallback — the game never waits on the network.
 - **Audio**: WebAudio oscillator chiptune SFX (square/sawtooth beeps and arpeggios), no assets. Beeps hold at peak before decaying, and an inaudible 30 Hz keep-warm tone stops browser/HDMI/Bluetooth silence detection from swallowing short impact blips.
 
 ### Controls
@@ -26,6 +26,14 @@ pnpm dev
 ```
 
 Open the URL shown by Vite.
+
+Optionally run the score API next to it (otherwise the hall of fame falls back to `localStorage`):
+
+```bash
+cd server && pnpm install && cd .. && pnpm run api
+```
+
+Vite proxies `/api` to `127.0.0.1:7000` in dev, mirroring the nginx setup in production (port 7000 is shatter's Zeus registry allocation).
 
 ## How-to
 
@@ -92,7 +100,7 @@ src/
   ui/                # Panel (side panel), Screens (overlays), StageScaler (fit transform)
   input/             # InputController: mouse + keyboard + hybrid pointer lock
   audio/             # Sound: WebAudio beeps/arpeggios, mute
-  state/             # HiScores: localStorage persistence
+  state/             # HiScores (server table + localStorage fallback) + ScoreApi client
   interfaces/        # Shared TS types
   shared/            # DOM + formatting utilities
   main.ts            # Bootstrap / dependency wiring
@@ -104,8 +112,16 @@ css/
   components.css     # Panel widgets, overlay screens, blink/copper keyframes
   tokens/            # colors (SHATTER palette), sizes, typography, motion
 
+server/
+  src/
+    index.js         # shatter-api: Fastify routes, per-IP rate limit (6 POST/min)
+    db.js            # better-sqlite3 (WAL), schema + classic-board seeding
+    validate.js      # ^[A-Z0-9]{3}$ names, blocklist → "???", score cap
+  ecosystem.config.cjs  # pm2 app definition (port must match nginx + Zeus registry)
+
 scripts/
-  deploy.sh          # Deploy + rollback (auto/manual)
+  deploy.sh          # Deploy the game + rollback (auto/manual)
+  deploy-api.sh      # Deploy shatter-api (rsync + pnpm install + pm2 reload)
 ```
 
 ### Engine details
@@ -119,6 +135,15 @@ scripts/
 - **Panel updates are diffed**: DOM text is only written when a value changes, never per frame.
 - **Stage scaling**: `transform: scale(min(0.99·vw/480, 0.99·vh/300))`, with the stage rect cached and invalidated on resize/scroll; pointer coordinates are mapped through the scale.
 
+### Score API
+
+- `GET /api/scores` → `{ scores: [{ name, score }] }` (top 5, ties rank by insertion order).
+- `POST /api/scores` `{ name, score }` → `201` with the fresh top 5, or `422` on invalid input.
+- Server-side validation (the client is not trusted): names must match `^[A-Z0-9]{3}$` after uppercasing, a small blocklist of crude combos lands as `???`, scores are integers `0..10 000 000`.
+- Per-IP in-memory rate limit (6 POST/min, `429`) behind the nginx `limit_req` zone; submitter IPs are stored for abuse cleanup.
+- SQLite file: `server/data/shatter.db` locally (gitignored), `/home/debian/apps/shatter-api/data/shatter.db` on ks-b — a brand-new table is seeded with the classic board (AMI, CBM, PAL, FDD, KIK).
+- The front (`ScoreApi`) treats every failure as `null` and keeps the `localStorage` table; a remote sync landing refreshes whichever screen currently shows scores.
+
 ### Deployment
 
 - Target host default: `debian@ks-b`, path `/var/www/1991computer/shatter` (URL `https://shatter.1991computer.com/`).
@@ -126,6 +151,8 @@ scripts/
 - Each deploy creates a versioned `releases/release-<timestamp>-<branch>-<hash>` with `release.json` metadata; previous live version is kept as `.bak` and restored automatically if the healthcheck fails.
 - Healthcheck marker in the deployed HTML: `SHATTER`.
 - Overridable via env vars (`REMOTE_USER_HOST`, `WEB_ROOT_BASE`, `HEALTHCHECK_URL`, `EXPECTED_HTML_MARKER`, `MAX_RELEASES_TO_KEEP`, `BUILD_BASE_PATH`).
+- The score API deploys separately with `./scripts/deploy-api.sh`: rsync of `server/` to `/home/debian/apps/shatter-api` (the `data/` directory is never touched), `pnpm install --prod --frozen-lockfile`, `pm2 startOrReload`, then a healthcheck through the nginx `/api/` proxy.
+- The nginx `/api/` location must set `proxy_set_header X-Forwarded-For $remote_addr;` (overwrite, not append) — the API trusts exactly that one hop (`trustProxy: "127.0.0.1"`) so clients cannot forge `request.ip` to dodge the rate limit.
 
 ### Tooling policy
 

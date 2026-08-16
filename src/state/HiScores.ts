@@ -1,4 +1,5 @@
 import type { HiScoreEntry } from "@interfaces/types";
+import type { ScoreApi } from "@state/ScoreApi";
 
 const STORAGE_KEY = "shatter.hiscores.v1";
 const TABLE_SIZE = 5;
@@ -25,10 +26,15 @@ function isStoredEntry(value: unknown): value is StoredEntry {
   );
 }
 
+// Hall of fame backed by the shatter-api service, with localStorage as both the
+// instant-boot cache and the offline fallback: the game never waits on the network.
 export class HiScores {
   private list: HiScoreEntry[] = [...DEFAULT_ENTRIES];
 
-  constructor() {
+  // Fired when the table changes outside the game loop (a remote sync landing).
+  onChange: (() => void) | null = null;
+
+  constructor(private readonly api: ScoreApi | null = null) {
     this.load();
   }
 
@@ -40,13 +46,32 @@ export class HiScores {
     return this.list[0] ?? DEFAULT_ENTRIES[0];
   }
 
-  qualifies(score: number): boolean {
-    const lowest = this.list.length < TABLE_SIZE ? 0 : this.list[this.list.length - 1].score;
-    return score > lowest;
+  // Pull the shared table from the API; the local cache stays when unreachable
+  // or when the server table is empty (never wipe the board to nothing).
+  sync(): void {
+    void this.api?.fetchTop().then((remote) => {
+      if (remote && remote.length > 0) {
+        this.replace(remote);
+      }
+    });
   }
 
   commit(name: string, score: number): void {
-    this.list = [...this.list, { name, score }].toSorted((a, b) => b.score - a.score).slice(0, TABLE_SIZE);
+    this.replace([...this.list, { name, score }]);
+    void this.api?.submit(name, score).then((remote) => {
+      if (remote && remote.length > 0) {
+        this.replace(remote);
+      }
+    });
+  }
+
+  private replace(entries: readonly HiScoreEntry[]): void {
+    this.list = entries.toSorted((a, b) => b.score - a.score).slice(0, TABLE_SIZE);
+    this.persist();
+    this.onChange?.();
+  }
+
+  private persist(): void {
     try {
       const stored: StoredEntry[] = this.list.map((entry) => ({ n: entry.name, s: entry.score }));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
