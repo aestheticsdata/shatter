@@ -38,6 +38,9 @@ export class Panel {
     if (last?.powerLabel !== view.powerLabel) {
       this.elements.power.textContent = view.powerLabel;
     }
+    if (last?.paydayActive !== view.paydayActive) {
+      this.elements.score.classList.toggle("blink", view.paydayActive);
+    }
     if (last?.muted !== view.muted) {
       this.elements.soundHint.textContent = `M · SOUND ${view.muted ? "OFF" : "ON"}`;
     }

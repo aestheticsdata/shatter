@@ -27,7 +27,13 @@ export interface BrickHit {
   column: number;
 }
 
-export type PowerUpKind = "E" | "M" | "L" | "P";
+export type PowerUpKind = "E" | "M" | "L" | "P" | "B" | "W" | "T" | "X" | "J";
+
+export interface SplashFlash {
+  x: number;
+  y: number;
+  ticksLeft: number;
+}
 
 export interface LevelDefinition {
   name: string;
@@ -53,5 +59,6 @@ export interface PanelView {
   levelName: string;
   reserveLives: number;
   powerLabel: string;
+  paydayActive: boolean;
   muted: boolean;
 }

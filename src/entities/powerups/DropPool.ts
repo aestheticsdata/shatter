@@ -4,7 +4,20 @@ import type { PowerUpKind, RectangleBounds } from "@interfaces/types";
 
 const DROP_WIDTH = 20;
 const DROP_HEIGHT = 8;
-const DROP_KINDS: readonly PowerUpKind[] = ["E", "M", "L", "P"];
+const DROP_KINDS = Object.keys(gameConfig.powerUps.dropWeights) as PowerUpKind[];
+
+function rollDropKind(): PowerUpKind {
+  const weights = gameConfig.powerUps.dropWeights;
+  const total = DROP_KINDS.reduce((sum, kind) => sum + weights[kind], 0);
+  let roll = Math.random() * total;
+  for (const kind of DROP_KINDS) {
+    roll -= weights[kind];
+    if (roll <= 0) {
+      return kind;
+    }
+  }
+  return DROP_KINDS[DROP_KINDS.length - 1];
+}
 
 export interface Drop {
   x: number;
@@ -27,7 +40,7 @@ export class DropPool {
       return;
     }
 
-    drop.kind = DROP_KINDS[Math.floor(Math.random() * DROP_KINDS.length)];
+    drop.kind = rollDropKind();
     drop.x = brickLeft + 5;
     drop.y = brickTop;
     drop.active = true;

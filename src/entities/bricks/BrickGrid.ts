@@ -43,11 +43,12 @@ export class BrickGrid {
   }
 
   cellAt(x: number, y: number): BrickHit | null {
-    const { left, top, columns, brickWidth, brickHeight } = gameConfig.grid;
-    const column = Math.floor((x - left) / brickWidth);
-    const row = Math.floor((y - top) / brickHeight);
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    return this.hitAtCell(Math.floor((y - top) / brickHeight), Math.floor((x - left) / brickWidth));
+  }
 
-    if (row < 0 || column < 0 || column >= columns || row >= this.grid.length) {
+  hitAtCell(row: number, column: number): BrickHit | null {
+    if (row < 0 || column < 0 || column >= gameConfig.grid.columns || row >= this.grid.length) {
       return null;
     }
 

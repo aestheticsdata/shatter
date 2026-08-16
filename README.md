@@ -8,7 +8,7 @@ The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372�
 
 - **Screens**: title (animated copper bars) → serve → play, with pause, level-clear, game-over, and a hall of fame with 3-letter initials entry.
 - **5 levels**: SUNRISE, PYRAMID, GATEWAY, VORTEX, FINALE — looping with increasing ball speed. Silver bricks take 2 hits, gold bricks 3.
-- **Power-ups** dropped by destroyed bricks (13% chance): **WIDE** paddle, **MULTI** ball (up to 3 balls), **LASER** (paddle cannons), **PIERCE** (ball goes through bricks).
+- **Power-ups** dropped by destroyed bricks (13% chance): **WIDE** paddle, **MULTI** ball (up to 3 balls), **LASER** (paddle cannons), **PIERCE** (ball goes through bricks), **BLAST** (destroyed bricks damage their 8 neighbors), **WALL** (one-shot safety barrier at the bottom), **TEMPO** (bullet-time, balls at ×0.6), **PAYDAY** (points ×2) — plus **JAMMER**, the only trap capsule (blinking letter, rarer): it shrinks the paddle for 6 s, so dodge it.
 - **Scoring**: 60–200 points per brick by kind, level-clear bonus `(level+1) × 500`. Top-5 hi-scores persist in `localStorage` (`shatter.hiscores.v1`).
 - **Audio**: WebAudio oscillator chiptune SFX (square/sawtooth beeps and arpeggios), no assets.
 

@@ -27,6 +27,7 @@ export const gameConfig = {
     height: 7,
     baseWidth: 46,
     wideWidth: 72,
+    narrowWidth: 30,
     initialX: 163,
   },
   ball: {
@@ -53,7 +54,11 @@ export const gameConfig = {
     maxAngleRad: 1.05,
   },
   powerUps: {
-    durationsTicks: { E: 720, M: 180, L: 720, P: 480 } satisfies Record<PowerUpKind, number>,
+    durationsTicks: { E: 720, M: 180, L: 720, P: 480, B: 720, W: 0, T: 480, X: 600, J: 360 } satisfies Record<
+      PowerUpKind,
+      number
+    >,
+    dropWeights: { E: 1, M: 1, L: 1, P: 1, B: 1, W: 1, T: 1, X: 1, J: 0.5 } satisfies Record<PowerUpKind, number>,
     laserCadenceTicks: 26,
     laserFirstShotDelayTicks: 10,
     shotSpeed: 5.5,
@@ -62,9 +67,13 @@ export const gameConfig = {
     maxDrops: 3,
     maxExtraBalls: 2,
     multiBallAngleRad: 0.6,
+    tempoTimeScale: 0.6,
+    wallY: 294,
+    splashFlashTicks: 3,
   },
   scoring: {
     clearBonusPerLevel: 500,
+    paydayMultiplier: 2,
   },
 } as const;
 
@@ -73,6 +82,11 @@ export const POWER_UP_NAMES: Record<PowerUpKind, string> = {
   M: "MULTI",
   L: "LASER",
   P: "PIERCE",
+  B: "BLAST",
+  W: "WALL",
+  T: "TEMPO",
+  X: "PAYDAY",
+  J: "JAMMER",
 };
 
 export const BRICK_POINTS: Record<BrickKind, number> = {

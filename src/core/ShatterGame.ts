@@ -1,4 +1,4 @@
-import { ballSpeedForLevel, gameConfig } from "@core/config/GameConfig";
+import { ballSpeedForLevel, gameConfig, POWER_UP_NAMES } from "@core/config/GameConfig";
 import { levelAt } from "@core/levels/levels";
 import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/PaddleBounce";
 import { Ball } from "@entities/ball/Ball";
@@ -11,7 +11,7 @@ import { InputController } from "@input/InputController";
 import { zeroPad } from "@shared/format";
 
 import type { Sound } from "@audio/Sound";
-import type { BrickHit, PanelView, PowerUpKind, ScreenName } from "@interfaces/types";
+import type { BrickHit, PanelView, PowerUpKind, ScreenName, SplashFlash } from "@interfaces/types";
 import type { CanvasRenderer } from "@render/CanvasRenderer";
 import type { HiScores } from "@state/HiScores";
 import type { Panel } from "@ui/Panel";
@@ -32,6 +32,10 @@ const ENTRY_LENGTH = 3;
 const ENTRY_COMMIT_DELAY_MS = 260;
 const MAX_BALLS = 3;
 
+// Longest label that fits the POWER inset at 7px Silkscreen.
+const POWER_LABEL_MAX_CHARS = 13;
+const POWER_LABEL_CYCLE_TICKS = 60;
+
 // Dev-only level select (?level=N, 1-based); always 0 in production builds.
 function resolveDebugStartLevel(): number {
   if (!import.meta.env.DEV) {
@@ -41,6 +45,24 @@ function resolveDebugStartLevel(): number {
   return Number.isInteger(requested) && requested >= 1 ? requested - 1 : 0;
 }
 
+// Dev-only capsule drop-rate override (?droprate=0..1) to test power-ups quickly.
+function resolveDebugDropRate(): number | null {
+  if (!import.meta.env.DEV) {
+    return null;
+  }
+  const requested = Number(new URLSearchParams(window.location.search).get("droprate"));
+  return Number.isFinite(requested) && requested >= 0 && requested <= 1 ? requested : null;
+}
+
+// Dev-only power-up grant at every launch (?power=BWX — a string of capsule letters).
+function resolveDebugPowerKinds(): PowerUpKind[] {
+  if (!import.meta.env.DEV) {
+    return [];
+  }
+  const requested = new URLSearchParams(window.location.search).get("power") ?? "";
+  return [...requested.toUpperCase()].filter((char): char is PowerUpKind => char in POWER_UP_NAMES);
+}
+
 export class ShatterGame {
   private screen: ScreenName = "title";
   private score = 0;
@@ -48,7 +70,12 @@ export class ShatterGame {
   private level = 0;
   private entry = "";
   private booted = false;
+  private wallArmed = false;
+  private splashFlashes: SplashFlash[] = [];
+  private tickCount = 0;
   private readonly debugStartLevel = resolveDebugStartLevel();
+  private readonly debugDropRate = resolveDebugDropRate();
+  private readonly debugPowerKinds = resolveDebugPowerKinds();
 
   private readonly paddle = new Paddle();
   private readonly grid = new BrickGrid();
@@ -109,6 +136,8 @@ export class ShatterGame {
       balls: this.balls,
       drops: this.dropPool.drops,
       shots: this.shotPool.shots,
+      flashes: this.splashFlashes,
+      energyWallArmed: this.wallArmed,
     });
     this.deps.panel.update(this.panelView());
   };
@@ -122,8 +151,14 @@ export class ShatterGame {
       return;
     }
 
+    this.tickCount++;
+    this.splashFlashes = this.splashFlashes.filter((flash) => --flash.ticksLeft > 0);
+
     const expired = this.timers.tick();
-    if (expired.includes("E")) {
+    if (expired.includes("E") && !this.timers.isActive("J")) {
+      this.paddle.setWidth(gameConfig.paddle.baseWidth);
+    }
+    if (expired.includes("J") && !this.timers.isActive("E")) {
       this.paddle.setWidth(gameConfig.paddle.baseWidth);
     }
 
@@ -147,9 +182,13 @@ export class ShatterGame {
   }
 
   private moveBall(ball: Ball): void {
-    const subSteps = Math.max(1, Math.ceil(Math.max(Math.abs(ball.velocity.x), Math.abs(ball.velocity.y)) / 2));
-    const dx = ball.velocity.x / subSteps;
-    const dy = ball.velocity.y / subSteps;
+    // TEMPO scales displacement only, so stored velocities resume full speed on expiry.
+    const timeScale = this.timers.isActive("T") ? gameConfig.powerUps.tempoTimeScale : 1;
+    const stepVx = ball.velocity.x * timeScale;
+    const stepVy = ball.velocity.y * timeScale;
+    const subSteps = Math.max(1, Math.ceil(Math.max(Math.abs(stepVx), Math.abs(stepVy)) / 2));
+    const dx = stepVx / subSteps;
+    const dy = stepVy / subSteps;
     const { left, right, top, height } = gameConfig.field;
     const size = gameConfig.ball.size;
     const pierce = () => this.timers.isActive("P");
@@ -205,6 +244,13 @@ export class ShatterGame {
         this.deps.sound.beep(420 + relativeHit * 90, 0.05);
       }
 
+      if (this.wallArmed && ball.velocity.y > 0 && ball.y + size >= gameConfig.powerUps.wallY) {
+        this.wallArmed = false;
+        ball.y = gameConfig.powerUps.wallY - size;
+        ball.velocity.y = -Math.abs(ball.velocity.y);
+        this.deps.sound.beep(320, 0.08, "square", 0.05);
+      }
+
       if (ball.y > height) {
         ball.active = false;
         return;
@@ -212,19 +258,23 @@ export class ShatterGame {
     }
   }
 
-  private damageBrick(hit: BrickHit): void {
+  private damageBrick(hit: BrickHit, source: "ball" | "laser" | "splash" = "ball"): void {
     const destroyed = this.grid.damage(hit);
     if (!destroyed) {
       this.deps.sound.beep(180, 0.04, "square", 0.045);
       return;
     }
 
-    this.score += hit.cell.points;
+    this.score += hit.cell.points * this.scoreMultiplier();
     this.deps.sound.beep(560 + (5 - hit.row) * 45, 0.05);
 
-    if (Math.random() < gameConfig.rules.dropRate) {
+    if (source !== "splash" && Math.random() < (this.debugDropRate ?? gameConfig.rules.dropRate)) {
       const { left, top, brickWidth, brickHeight } = gameConfig.grid;
       this.dropPool.trySpawn(left + hit.column * brickWidth, top + hit.row * brickHeight);
+    }
+
+    if (source === "ball" && this.timers.isActive("B")) {
+      this.blastNeighbors(hit);
     }
 
     if (this.grid.remaining <= 0) {
@@ -232,8 +282,35 @@ export class ShatterGame {
     }
   }
 
+  // Splash kills never chain and never drop capsules — one explosion per ball hit.
+  private blastNeighbors(center: BrickHit): void {
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+
+    for (let deltaRow = -1; deltaRow <= 1; deltaRow++) {
+      for (let deltaColumn = -1; deltaColumn <= 1; deltaColumn++) {
+        if (deltaRow === 0 && deltaColumn === 0) {
+          continue;
+        }
+        const neighbor = this.grid.hitAtCell(center.row + deltaRow, center.column + deltaColumn);
+        if (!neighbor) {
+          continue;
+        }
+        this.splashFlashes.push({
+          x: left + neighbor.column * brickWidth,
+          y: top + neighbor.row * brickHeight,
+          ticksLeft: gameConfig.powerUps.splashFlashTicks,
+        });
+        this.damageBrick(neighbor, "splash");
+      }
+    }
+  }
+
+  private scoreMultiplier(): number {
+    return this.timers.isActive("X") ? gameConfig.scoring.paydayMultiplier : 1;
+  }
+
   private onLevelCleared(): void {
-    const bonus = (this.level + 1) * gameConfig.scoring.clearBonusPerLevel;
+    const bonus = (this.level + 1) * gameConfig.scoring.clearBonusPerLevel * this.scoreMultiplier();
     this.score += bonus;
     this.deps.screens.updateClear(levelAt(this.level).name, zeroPad(bonus, 5));
     this.setScreen("clear");
@@ -244,6 +321,7 @@ export class ShatterGame {
     const durations = gameConfig.powerUps.durationsTicks;
 
     if (kind === "E") {
+      this.timers.deactivate("J");
       this.paddle.setWidth(gameConfig.paddle.wideWidth);
       this.timers.activate("E", durations.E);
     }
@@ -265,8 +343,29 @@ export class ShatterGame {
           .forEach((ball, index) => ball.cloneFrom(source, index === 0 ? -spread : spread, this.speed()));
       }
     }
+    if (kind === "B") {
+      this.timers.activate("B", durations.B);
+    }
+    if (kind === "W") {
+      this.wallArmed = true;
+    }
+    if (kind === "T") {
+      this.timers.activate("T", durations.T);
+    }
+    if (kind === "X") {
+      this.timers.activate("X", durations.X);
+    }
+    if (kind === "J") {
+      this.timers.deactivate("E");
+      this.paddle.setWidth(gameConfig.paddle.narrowWidth);
+      this.timers.activate("J", durations.J);
+    }
 
-    this.deps.sound.arp([659, 880], 50);
+    if (kind === "J") {
+      this.deps.sound.arp([392, 196], 50);
+    } else {
+      this.deps.sound.arp([659, 880], 50);
+    }
   }
 
   private die(): void {
@@ -327,6 +426,8 @@ export class ShatterGame {
     this.dropPool.reset();
     this.shotPool.reset();
     this.laserCountdown = 0;
+    this.wallArmed = false;
+    this.splashFlashes = [];
 
     if (this.booted) {
       this.setScreen("serve");
@@ -342,6 +443,9 @@ export class ShatterGame {
     ball.launch(this.speed());
     this.setScreen("play");
     this.deps.sound.beep(520, 0.07);
+    for (const kind of this.debugPowerKinds) {
+      this.applyPowerUp(kind);
+    }
   }
 
   private gameOver(): void {
@@ -459,8 +563,26 @@ export class ShatterGame {
       levelNumber: this.level + 1,
       levelName: levelAt(this.level).name,
       reserveLives: Math.max(0, this.lives - 1),
-      powerLabel: this.timers.activeLabel() || "- - -",
+      powerLabel: this.powerLabel(),
+      paydayActive: this.timers.isActive("X"),
       muted: this.deps.sound.muted,
     };
+  }
+
+  private powerLabel(): string {
+    const names = this.timers.activeNames();
+    if (this.wallArmed) {
+      names.push(POWER_UP_NAMES.W);
+    }
+    if (names.length === 0) {
+      return "- - -";
+    }
+
+    const joined = names.join(" ");
+    if (joined.length <= POWER_LABEL_MAX_CHARS) {
+      return joined;
+    }
+    // Too many active effects for the inset: cycle through them one per second.
+    return names[Math.floor(this.tickCount / POWER_LABEL_CYCLE_TICKS) % names.length];
   }
 }

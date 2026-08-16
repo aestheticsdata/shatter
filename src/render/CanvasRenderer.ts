@@ -1,10 +1,10 @@
 import { gameConfig } from "@core/config/GameConfig";
-import { BRICK_COLORS, canvasPalette, DROP_COLORS } from "@render/palette";
+import { BRICK_COLORS, canvasPalette, DARK_LETTER_DROP_KINDS, DROP_COLORS } from "@render/palette";
 
 import type { Ball } from "@entities/ball/Ball";
 import type { Shot } from "@entities/laser/ShotPool";
 import type { Drop } from "@entities/powerups/DropPool";
-import type { BrickCell } from "@interfaces/types";
+import type { BrickCell, SplashFlash } from "@interfaces/types";
 
 const BALL_PIXEL_ROWS: ReadonlyArray<readonly [number, number]> = [
   [2, 4],
@@ -31,6 +31,8 @@ export interface RenderView {
   balls: readonly Ball[];
   drops: readonly Drop[];
   shots: readonly Shot[];
+  flashes: readonly SplashFlash[];
+  energyWallArmed: boolean;
 }
 
 interface Star {
@@ -42,6 +44,7 @@ interface Star {
 export class CanvasRenderer {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly stars: Star[];
+  private frameCount = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -60,6 +63,7 @@ export class CanvasRenderer {
   }
 
   draw(view: RenderView): void {
+    this.frameCount++;
     const { width, height } = gameConfig.field;
     this.ctx.fillStyle = canvasPalette.fieldBackground;
     this.ctx.fillRect(0, 0, width, height);
@@ -77,6 +81,12 @@ export class CanvasRenderer {
       });
     });
 
+    for (const flash of view.flashes) {
+      this.pixel(flash.x + 1, flash.y + 1, 28, 10, canvasPalette.blastFlash);
+    }
+    if (view.energyWallArmed) {
+      this.pixel(gameConfig.field.left, gameConfig.powerUps.wallY, 366, 2, canvasPalette.energyWall);
+    }
     for (const drop of view.drops) {
       if (drop.active) {
         this.drawDrop(drop);
@@ -160,7 +170,14 @@ export class CanvasRenderer {
     this.pixel(x + 2, y + 1, 16, 1, canvasPalette.dropSheen);
     this.pixel(x + 2, y + 7, 16, 1, canvasPalette.dropShade);
 
-    this.ctx.fillStyle = drop.kind === "P" ? canvasPalette.dropLetterDark : canvasPalette.dropLetterLight;
+    // The JAMMER trap telegraphs itself with a blinking letter.
+    if (drop.kind === "J" && (this.frameCount & 8) !== 0) {
+      return;
+    }
+
+    this.ctx.fillStyle = DARK_LETTER_DROP_KINDS.has(drop.kind)
+      ? canvasPalette.dropLetterDark
+      : canvasPalette.dropLetterLight;
     this.ctx.font = "7px Silkscreen, monospace";
     this.ctx.textAlign = "center";
     this.ctx.textBaseline = "middle";
