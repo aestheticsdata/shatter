@@ -477,6 +477,13 @@ export class ShatterGame {
       return;
     }
 
+    if (event.key === " ") {
+      // Space mirrors the mouse click: start on title, launch on serve, advance end screens.
+      event.preventDefault();
+      this.advance();
+      return;
+    }
+
     const key = event.key.toLowerCase();
     if (key === "p" && (this.screen === "play" || this.screen === "pause")) {
       this.setScreen(this.screen === "play" ? "pause" : "play");

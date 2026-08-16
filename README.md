@@ -14,7 +14,7 @@ The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372�
 
 ### Controls
 
-- **Mouse** moves the paddle; **click** launches / advances screens.
+- **Mouse** moves the paddle; **click** or **Space** starts the game, launches the ball, and advances screens.
 - Clicking also engages **Pointer Lock** (relative `movementX` control); without lock, absolute pointer position is used. Press `Esc` once to exit lock.
 - **P** pause · **M** sound on/off · **ESC** quit run (from lock, press `Esc` twice: first exits lock, second quits).
 
