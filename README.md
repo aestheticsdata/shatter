@@ -1,58 +1,24 @@
-# Breakout (2007, modernized)
+# SHATTER
 
-Tiny browser Breakout game originally made in 2007, modernized with Vite, strict TypeScript, and native CSS.
+Amiga-style brick breaker for one player. Originally written in 2007, rebuilt in 2026 from the playable Claude Design mockup ([SHATTER.dc.html](https://claude.ai/design/p/ef3c88b2-5b26-4718-81f4-0d354e0592bc?file=SHATTER.dc.html)) — REV 2.0.
 
-## What Changed
+The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372×300 canvas playfield** (pixel-art rendering) next to a **108px Workbench-style side panel** (DOM). Vite + strict TypeScript + native CSS with Lightning CSS.
 
-### Build and tooling modernization
+## Gameplay
 
-- Migrated from legacy setup to `Vite`.
-- Switched to `pnpm` scripts and workflow.
-- Added strict TypeScript type-checking.
-- Added `oxfmt` as formatter (`printWidth: 120`).
-- Added `oxlint` as linter with `style` category disabled to avoid formatter conflicts.
-- Added Lightning CSS as the CSS transformer in Vite.
-- Enabled CSS nesting transpilation through Lightning CSS `include: Features.Nesting`.
+- **Screens**: title (animated copper bars) → serve → play, with pause, level-clear, game-over, and a hall of fame with 3-letter initials entry.
+- **5 levels**: SUNRISE, PYRAMID, GATEWAY, VORTEX, FINALE — looping with increasing ball speed. Silver bricks take 2 hits, gold bricks 3.
+- **Power-ups** dropped by destroyed bricks (13% chance): **WIDE** paddle, **MULTI** ball (up to 3 balls), **LASER** (paddle cannons), **PIERCE** (ball goes through bricks).
+- **Scoring**: 60–200 points per brick by kind, level-clear bonus `(level+1) × 500`. Top-5 hi-scores persist in `localStorage` (`shatter.hiscores.v1`).
+- **Audio**: WebAudio oscillator chiptune SFX (square/sawtooth beeps and arpeggios), no assets.
 
-### Architecture refactor
+### Controls
 
-- Refactored codebase from legacy DOM-style procedural logic to OOP TypeScript.
-- Split responsibilities into dedicated modules:
-  - `core`: game orchestration + config + physics helpers
-  - `entities`: `ball`, `paddle`, `bricks`
-  - `ui`: scoreboard rendering
-  - `interfaces`: shared types/contracts
-  - `shared`: DOM utilities
-- Added TypeScript/Vite path aliases (`@core`, `@entities`, `@interfaces`, `@ui`, `@shared`, `@`).
-
-### Gameplay changes
-
-- Ball now starts on the paddle (inside game area) instead of spawning outside.
-- Paddle collision now computes a dynamic bounce angle based on impact position.
-- Pointer control now supports a hybrid mode with `Pointer Lock API` (relative mouse delta) plus classic fallback.
-- Brick wall now supports multiple configurable rows.
-- Brick style is now fully configurable:
-  - per-row colors/styles
-  - per-brick overrides for special bricks (including gradients)
-- Current default configuration uses `2` brick rows for validation.
-
-### CSS system overhaul
-
-- Replaced old CSS approach with native modular CSS files and token files.
-- Introduced design tokens in `css/tokens/*` (colors, sizes, radii, typography, motion).
-- Migrated color tokens to `oklch(...)`.
-- Ball is rendered with CSS (gradient/glow), no image asset required.
-- Brick visuals rely on `.brick` class and CSS custom properties instead of legacy inline hardcoded style values.
-- Cursor hiding is handled with modern CSS state: `#gameArea.is-playing { cursor: none; }` (no blank `.ico` hack).
-
-### Naming and terminology cleanup
-
-- Removed remaining French identifiers in code naming (variables/functions/types).
-- Replaced Arkanoid naming with Breakout naming across the project.
+- **Mouse** moves the paddle; **click** launches / advances screens.
+- Clicking also engages **Pointer Lock** (relative `movementX` control); without lock, absolute pointer position is used. Press `Esc` once to exit lock.
+- **P** pause · **M** sound on/off · **ESC** quit run (from lock, press `Esc` twice: first exits lock, second quits).
 
 ## Tutorial
-
-Get the project running locally:
 
 ```bash
 pnpm install
@@ -63,7 +29,7 @@ Open the URL shown by Vite.
 
 ## How-to
 
-Build for production:
+Build and preview production assets:
 
 ```bash
 pnpm build
@@ -91,243 +57,77 @@ Deploy to production (versioned release + auto rollback on failure):
 ./scripts/deploy.sh deploy
 ```
 
-Manual rollback to last backup:
+Manual rollback:
 
 ```bash
 ./scripts/deploy.sh rollback
-```
-
-Manual rollback to a specific version:
-
-```bash
 ./scripts/deploy.sh list-releases
 ./scripts/deploy.sh rollback-to release-YYYYMMDD-HHMMSS-branch-hash
 ```
 
 ## Reference
 
-### Scripts
-
-- `pnpm dev`: start dev server
-- `pnpm build`: build production assets
-- `pnpm preview`: preview the production build
-- `pnpm run fmt`: format files with `oxfmt`
-- `pnpm run fmt:check`: verify formatting without writing
-- `pnpm run lint`: run `oxlint`
-- `pnpm run lint:fix`: apply safe lint fixes
-- `pnpm run typecheck`: run TypeScript type-checking (`tsc --noEmit`)
-- `./scripts/deploy.sh deploy`: build + upload + activate release with automatic rollback on detected failure
-- `./scripts/deploy.sh rollback`: rollback to the previous backup version
-- `./scripts/deploy.sh rollback-to <release_name>`: rollback to a specific stored release
-- `./scripts/deploy.sh list-releases`: list versioned releases stored on the server
-
-### Deployment strategy
-
-- Target host default: `debian@ks-b`.
-- Target path default: `/var/www/1991computer/arkanoid-2007`.
-- Versioning:
-  - each deploy creates `releases/release-<timestamp>-<branch>-<gitHash>`
-  - each release includes `release.json` metadata
-- Switch strategy:
-  - staged release upload to `releases/...`
-  - activation copies staged release into live directory
-  - previous live version is stored in `/var/www/1991computer/arkanoid-2007.bak`
-- Auto rollback:
-  - if deploy fails after live switch or healthcheck fails, script restores backup automatically
-- Manual rollback:
-  - `rollback` restores `.bak`
-  - `rollback-to` reactivates any specific release from `releases/`
-- Healthcheck:
-  - URL: `https://1991computer.com/arkanoid-2007/`
-  - marker checked in HTML: `Breakout 2007`
-- Nginx compatibility:
-  - deploy script copies `index.html` to `arkanoid.html` to match current nginx `index arkanoid.html` config.
-
-You can override defaults with env vars when running the script:
-
-```bash
-REMOTE_USER_HOST=debian@ks-b \
-WEB_ROOT_BASE=/var/www/1991computer/arkanoid-2007 \
-HEALTHCHECK_URL=https://1991computer.com/arkanoid-2007/ \
-EXPECTED_HTML_MARKER="Breakout 2007" \
-MAX_RELEASES_TO_KEEP=20 \
-BUILD_BASE_PATH=./ \
-./scripts/deploy.sh deploy
-```
-
 ### Project structure
 
 ```text
 src/
   core/
-    config/     # Gameplay configuration (physics + brick rows/styles)
-    physics/    # Shared gameplay physics helpers
-    BreakoutGame.ts
+    ShatterGame.ts   # Orchestrator: state machine, fixed-timestep loop, game rules
+    config/          # GameConfig: geometry, speeds, timers, points (single source of truth)
+    levels/          # ASCII level definitions (5 layouts)
+    physics/         # Paddle bounce math
   entities/
-    ball/
-    paddle/
-    bricks/
-  interfaces/   # Shared TS types/interfaces
-  shared/       # Shared utilities (DOM helpers)
-  ui/           # UI concerns (Scoreboard)
-  main.ts       # Bootstrap
-
-scripts/
-  deploy.sh     # Deploy + rollback (auto/manual)
+    ball/            # Ball position/velocity, launch, multi-ball cloning
+    paddle/          # Paddle position/width with field clamping
+    bricks/          # BrickGrid: cell parsing, HP, grid collision queries
+    powerups/        # PowerUpTimers (E/M/L/P) + DropPool (falling capsules)
+    laser/           # ShotPool (paddle cannon shots)
+  render/            # CanvasRenderer (pixel sprites) + palette (canvas hex colors)
+  ui/                # Panel (side panel), Screens (overlays), StageScaler (fit transform)
+  input/             # InputController: mouse + keyboard + hybrid pointer lock
+  audio/             # Sound: WebAudio beeps/arpeggios, mute
+  state/             # HiScores: localStorage persistence
+  interfaces/        # Shared TS types
+  shared/            # DOM + formatting utilities
+  main.ts            # Bootstrap / dependency wiring
 
 css/
-  main.css      # CSS entrypoint
-  base.css
-  layout.css
-  components.css
-  tokens/
-    index.css
-    colors.css
-    sizes.css
-    radii.css
-    typography.css
-    motion.css
+  main.css           # Entrypoint (@import)
+  base.css           # Reset, cursor hiding, [hidden] handling
+  layout.css         # Stage, playfield canvas, panel placement
+  components.css     # Panel widgets, overlay screens, blink/copper keyframes
+  tokens/            # colors (SHATTER palette), sizes, typography, motion
+
+scripts/
+  deploy.sh          # Deploy + rollback (auto/manual)
 ```
 
-### TypeScript configuration
+### Engine details
 
-- Strict mode is enabled.
-- Path aliases are configured in both `tsconfig.json` and `vite.config.ts`.
-- Available aliases: `@/*`, `@core/*`, `@entities/*`, `@interfaces/*`, `@ui/*`, `@shared/*`.
-- Brick rows, row colors, special bricks, and core physics values are configured in `src/core/config/BreakoutConfig.ts`.
+- **Fixed timestep**: 60 Hz accumulator (frame delta clamped to 50 ms, max 4 catch-up steps per frame); rendering every animation frame.
+- **Sub-stepped ball movement**: each tick is split into `ceil(max(|vx|,|vy|)/2)` micro-steps, X then Y, with a brick-grid collision query per axis — fast balls can't tunnel through bricks.
+- **Brick collision**: O(1) grid lookup (`cellAt`) + 4-corner overlap test for the 8px ball, instead of scanning all bricks.
+- **Paddle bounce**: `relativeHit ∈ [-1, 1]` → angle `relativeHit × 1.05 rad`; speed is preserved, so center hits go up and edge hits go wide.
+- **Ball speed**: `min(4.6, 3.1 + level × 0.25)` px/tick, times the `ballSpeedMultiplier` config.
+- **Canvas palette** lives in `src/render/palette.ts` (canvas cannot read CSS custom properties); the same colors are exposed to the DOM as CSS tokens in `css/tokens/colors.css`.
+- **Panel updates are diffed**: DOM text is only written when a value changes, never per frame.
+- **Stage scaling**: `transform: scale(min(0.99·vw/480, 0.99·vh/300))`, with the stage rect cached and invalidated on resize/scroll; pointer coordinates are mapped through the scale.
 
-### Gameplay configuration
+### Deployment
 
-Main gameplay tuning is centralized in `src/core/config/BreakoutConfig.ts`:
-
-- Physics:
-  - `tickMs`
-  - `ballSpeed`
-  - `initialLaunchAngleDeg`
-  - `maxPaddleBounceAngleDeg`
-- Bricks:
-  - `columns`
-  - `rows` (array; one entry per row with style)
-  - `width`, `height`
-  - `horizontalGap`, `verticalGap`
-  - `topOffset`
-  - `specialBricks` (targeted row/column overrides)
-
-Example:
-
-```ts
-bricks: {
-  columns: 17,
-  rows: [{ style: { color: "var(--color-brick-row-1)" } }, { style: { color: "var(--color-brick-row-2)" } }],
-  specialBricks: [
-    { row: 0, column: 4, style: { background: "var(--gradient-brick-special)" } },
-    { row: 1, column: 12, style: { background: "var(--gradient-brick-special-alt)" } }
-  ]
-}
-```
-
-### Brick collision pre-calculation
-
-`BrickWall` uses a pre-calculated grid lookup so each tick does not scan all bricks.
-
-How it works:
-
-- At mount time, bricks are stored in `brickGrid[row][column]`.
-- Global wall bounds are precomputed (`wallBounds` + `wallStartX`).
-- During collision checks:
-  - first, a wall-level AABB culling rejects balls fully outside the brick zone
-  - then only a small candidate range of rows/columns is tested
-- This keeps collision checks closer to O(k) (local candidates) instead of O(n) (all bricks).
-
-### Pointer input optimization
-
-`BreakoutGame` caches the game area DOM rect to avoid calling `getBoundingClientRect()` on every mouse move event.
-
-How it works:
-
-- The rect is initialized when the game starts.
-- It is refreshed on viewport changes (`resize` and `scroll`).
-- Mouse move handling reuses the cached rect for paddle movement calculations.
-
-This keeps pointer tracking behavior identical while reducing repeated layout reads during high-frequency input.
-
-### Pointer Lock mode
-
-`BreakoutGame` uses a hybrid pointer model to keep controls responsive when the mouse leaves the game area.
-
-How it works:
-
-- Default mode: classic absolute pointer control (`clientX`).
-- Click inside `#gameArea`: requests `Pointer Lock` and switches to relative control (`movementX`).
-- While locked, paddle movement no longer depends on pointer position in the viewport.
-- Press `Esc` to exit lock and return to classic mode.
-
-This avoids losing paddle control in edge cases where absolute mouse tracking stops receiving meaningful position updates.
-
-### Paddle bounce angle
-
-Paddle rebound is handled in `src/core/physics/PaddleBounce.ts` and applied from `src/core/BreakoutGame.ts`.
-
-Principle:
-
-- The paddle is split conceptually from left edge to right edge.
-- Hit near center: mostly vertical rebound (safe, straight up).
-- Hit near edges: stronger horizontal component (sharper angle).
-
-Computation:
-
-- `relativeHit = (ballCenterX - paddleCenterX) / (paddleWidth / 2)`, clamped to `[-1, 1]`.
-- `bounceAngle = relativeHit * maxPaddleBounceAngleDeg`.
-- New velocity keeps constant speed:
-  - `vx = speed * sin(bounceAngle)`
-  - `vy = -abs(speed * cos(bounceAngle))`
-
-ASCII sketch:
-
-```text
-                  Upward playfield
-                        ^
-                        |
-        sharper left    |   sharper right
-             \          |        /
-              \         |       /
-               \        |      /
-------------------------+------------------------> X
-      left edge      paddle center           right edge
-
-relativeHit = -1                      relativeHit = +1
-angle ~= -max                         angle ~= +max
-vx < 0, vy < 0                        vx > 0, vy < 0
-```
-
-Tuning:
-
-- Increase `maxPaddleBounceAngleDeg` for more aggressive side rebounds.
-- Decrease it for more vertical/forgiving gameplay.
-
-### CSS architecture
-
-- Native CSS modules through file-level separation and native `@import`.
-- Design tokens are centralized in `css/tokens/*`.
-- Color tokens use `oklch(...)`.
-- CSS nesting transpilation is enabled via Lightning CSS `include: Features.Nesting`.
-- Lightning CSS repository: <https://github.com/parcel-bundler/lightningcss>
-- Gameplay cursor hiding uses `#gameArea.is-playing { cursor: none; }`.
+- Target host default: `debian@ks-b`, path `/var/www/1991computer/shatter` (URL `https://shatter.1991computer.com/`).
+- Nginx vhost: `/etc/nginx/conf.d/shatter.conf` on ks-b, with its own Let's Encrypt certificate (webroot renewal, like the other subdomains). The legacy `https://1991computer.com/arkanoid-2007/` path is dropped and returns 404.
+- Each deploy creates a versioned `releases/release-<timestamp>-<branch>-<hash>` with `release.json` metadata; previous live version is kept as `.bak` and restored automatically if the healthcheck fails.
+- Healthcheck marker in the deployed HTML: `SHATTER`.
+- Overridable via env vars (`REMOTE_USER_HOST`, `WEB_ROOT_BASE`, `HEALTHCHECK_URL`, `EXPECTED_HTML_MARKER`, `MAX_RELEASES_TO_KEEP`, `BUILD_BASE_PATH`).
 
 ### Tooling policy
 
 - Formatter: `oxfmt` (`printWidth: 120`) is the single formatting source of truth.
 - Linter: `oxlint` enforces `correctness` and `suspicious`; `style` is disabled to avoid formatter conflicts.
-- Oxfmt docs: <https://oxc.rs/docs/guide/usage/formatter>
-- Oxfmt repository: <https://github.com/oxc-project/oxc>
-- Oxlint docs: <https://oxc.rs/docs/guide/usage/linter>
-- Oxlint repository: <https://github.com/oxc-project/oxc>
+- CSS: Lightning CSS transformer with native nesting (`Features.Nesting`); design tokens in `css/tokens/*`.
+- Strict TypeScript (`ES2023` lib for `Array#toSorted`), path aliases in both `tsconfig.json` and `vite.config.ts`: `@`, `@audio`, `@core`, `@entities`, `@input`, `@interfaces`, `@render`, `@shared`, `@state`, `@ui`.
 
 ## Explanation
 
-The project intentionally uses standards-first CSS and lightweight tooling:
-
-- Native CSS + tokens keeps styling future-proof and framework-independent.
-- Lightning CSS enables modern syntax (including nesting) while keeping output optimized.
-- Strict TypeScript and OOP folder boundaries (`core`, `entities`, `ui`) make future feature additions safer.
-- Splitting formatter (`oxfmt`) and linter (`oxlint`) responsibilities prevents style-rule conflicts.
+The 2007 original (and its first modernization) rendered the ball, paddle, and bricks as DOM elements. REV 2.0 moves gameplay rendering to a single pixel-art canvas — DOM stays where it is better (crisp text in the side panel and overlay screens) and the canvas handles everything that moves at 60 Hz. The Claude Design mockup is the spec of record: its embedded script defines the exact geometry, physics constants, palette, and screen flow that this codebase re-implements as typed, testable modules.

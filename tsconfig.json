@@ -1,17 +1,20 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
     "target": "ES2022",
     "module": "ESNext",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "moduleResolution": "Bundler",
     "paths": {
-      "@/*": ["src/*"],
-      "@core/*": ["src/core/*"],
-      "@entities/*": ["src/entities/*"],
-      "@interfaces/*": ["src/interfaces/*"],
-      "@ui/*": ["src/ui/*"],
-      "@shared/*": ["src/shared/*"]
+      "@/*": ["./src/*"],
+      "@audio/*": ["./src/audio/*"],
+      "@core/*": ["./src/core/*"],
+      "@entities/*": ["./src/entities/*"],
+      "@input/*": ["./src/input/*"],
+      "@interfaces/*": ["./src/interfaces/*"],
+      "@render/*": ["./src/render/*"],
+      "@shared/*": ["./src/shared/*"],
+      "@state/*": ["./src/state/*"],
+      "@ui/*": ["./src/ui/*"]
     },
     "isolatedModules": true,
     "strict": true,
