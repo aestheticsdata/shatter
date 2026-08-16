@@ -32,6 +32,15 @@ const ENTRY_LENGTH = 3;
 const ENTRY_COMMIT_DELAY_MS = 260;
 const MAX_BALLS = 3;
 
+// Dev-only level select (?level=N, 1-based); always 0 in production builds.
+function resolveDebugStartLevel(): number {
+  if (!import.meta.env.DEV) {
+    return 0;
+  }
+  const requested = Number(new URLSearchParams(window.location.search).get("level"));
+  return Number.isInteger(requested) && requested >= 1 ? requested - 1 : 0;
+}
+
 export class ShatterGame {
   private screen: ScreenName = "title";
   private score = 0;
@@ -39,6 +48,7 @@ export class ShatterGame {
   private level = 0;
   private entry = "";
   private booted = false;
+  private readonly debugStartLevel = resolveDebugStartLevel();
 
   private readonly paddle = new Paddle();
   private readonly grid = new BrickGrid();
@@ -296,8 +306,8 @@ export class ShatterGame {
     this.booted = true;
     this.score = 0;
     this.lives = gameConfig.rules.startLives;
-    this.level = 0;
-    this.buildLevel(0);
+    this.level = this.debugStartLevel;
+    this.buildLevel(this.level);
     this.deps.sound.arp([392, 523, 659]);
   }
 
