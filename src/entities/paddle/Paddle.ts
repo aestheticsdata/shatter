@@ -1,3 +1,5 @@
+import { gameConfig } from "@core/config/GameConfig";
+
 import type { RectangleBounds } from "@interfaces/types";
 
 function clamp(value: number, min: number, max: number): number {
@@ -5,42 +7,38 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export class Paddle {
-  private xPos: number;
-  private readonly yPos: number;
-  private readonly paddleWidth: number;
-  private readonly paddleHeight: number;
+  x: number = gameConfig.paddle.initialX;
+  width: number = gameConfig.paddle.baseWidth;
 
-  constructor(private readonly element: HTMLDivElement) {
-    this.xPos = this.element.offsetLeft;
-    this.yPos = this.element.offsetTop;
-    this.paddleWidth = this.element.offsetWidth;
-    this.paddleHeight = this.element.offsetHeight;
+  get centerX(): number {
+    return this.x + this.width / 2;
   }
 
   get bounds(): RectangleBounds {
     return {
-      left: this.xPos,
-      right: this.xPos + this.paddleWidth,
-      top: this.yPos,
-      bottom: this.yPos + this.paddleHeight,
+      left: this.x,
+      right: this.x + this.width,
+      top: gameConfig.paddle.y,
+      bottom: gameConfig.paddle.y + gameConfig.paddle.height,
     };
   }
 
-  moveWithPointer(clientX: number, gameAreaRect: DOMRectReadOnly): void {
-    const pointerXInGameArea = clientX - gameAreaRect.left;
-    const maxLeft = gameAreaRect.width - this.paddleWidth;
-
-    this.xPos = clamp(pointerXInGameArea - this.paddleWidth / 2, 0, maxLeft);
-    this.render();
+  setWidth(width: number): void {
+    this.width = width;
+    this.clampX();
   }
 
-  moveByDelta(deltaX: number, gameAreaWidth: number): void {
-    const maxLeft = gameAreaWidth - this.paddleWidth;
-    this.xPos = clamp(this.xPos + deltaX, 0, maxLeft);
-    this.render();
+  moveCenterTo(fieldX: number): void {
+    this.x = fieldX - this.width / 2;
+    this.clampX();
   }
 
-  render(): void {
-    this.element.style.left = `${this.xPos}px`;
+  moveByDelta(deltaX: number): void {
+    this.x += deltaX;
+    this.clampX();
+  }
+
+  private clampX(): void {
+    this.x = clamp(this.x, gameConfig.field.left, gameConfig.field.right - this.width);
   }
 }
