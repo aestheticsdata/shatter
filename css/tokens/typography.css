@@ -1,3 +1,4 @@
 :root {
-  --score-font-size: 12px;
+  --font-pixel: Silkscreen, ui-monospace, monospace;
+  --font-display: "Press Start 2P", monospace;
 }

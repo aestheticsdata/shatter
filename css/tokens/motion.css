@@ -1,5 +1,4 @@
 :root {
-  --transition-brick-color: 0.5s ease;
-  --transition-brick-transform: 0.3s ease;
-  --animation-shrink-duration: 0.25s;
+  --blink-duration: 1s;
+  --copper-duration: 2.2s;
 }

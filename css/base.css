@@ -1,3 +1,18 @@
+html,
 body {
-  background: radial-gradient(circle, var(--color-bg-start), var(--color-bg-end));
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--color-page);
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-pixel);
+  user-select: none;
+  cursor: none;
+}
+
+[hidden] {
+  display: none !important;
 }

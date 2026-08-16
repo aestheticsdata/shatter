@@ -3,16 +3,93 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Breakout 2007</title>
+    <title>SHATTER</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230b0b26'/%3E%3Crect x='1' y='2' width='6' height='3' fill='%23e8384f'/%3E%3Crect x='9' y='2' width='6' height='3' fill='%232d7fe0'/%3E%3Crect x='5' y='7' width='6' height='3' fill='%23ffcf1c'/%3E%3Crect x='2' y='12' width='2' height='2' fill='%23ffe14a'/%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/css/main.css" />
   </head>
   <body>
-    <div id="gameArea">
-      <div id="brickAnchor"></div>
-      <div id="ball"></div>
-      <div id="paddle"></div>
+    <div id="app">
+      <div id="stage">
+        <canvas id="playfield" width="372" height="300"></canvas>
+
+        <aside id="panel">
+          <div id="panelLogo">SHATTER</div>
+          <div class="panel-label" id="labelScore">SCORE</div>
+          <div class="panel-inset" id="insetScore"><span id="panelScore">000000</span></div>
+          <div class="panel-label" id="labelHiScore">HI-SCORE</div>
+          <div class="panel-inset" id="insetHiScore"><span id="panelHiScore">000000</span></div>
+          <div class="panel-label" id="labelLevel">LEVEL</div>
+          <div class="panel-inset" id="insetLevel">
+            <span id="panelLevelNumber">01</span>
+            <span id="panelLevelName">SUNRISE</span>
+          </div>
+          <div class="panel-label" id="labelLives">LIVES</div>
+          <div id="panelLives"></div>
+          <div class="panel-label" id="labelPower">POWER</div>
+          <div class="panel-inset" id="insetPower"><span id="panelPower">- - -</span></div>
+          <div class="panel-divider"></div>
+          <div id="panelHints">
+            <span>P · PAUSE</span>
+            <span id="panelSoundHint">M · SOUND ON</span>
+            <span>ESC · QUIT</span>
+          </div>
+          <div id="panelRev">REV 2.0</div>
+        </aside>
+
+        <div id="screenServe" class="blink" hidden>CLICK TO LAUNCH</div>
+
+        <div id="screenPause" class="field-overlay" hidden>
+          <div class="pause-heading">PAUSE</div>
+          <div class="pause-divider"></div>
+          <div class="pause-hint">PRESS P TO RESUME</div>
+        </div>
+
+        <div id="screenClear" class="field-overlay" hidden>
+          <div class="clear-heading">GRID CLEARED</div>
+          <div id="clearLevelName">SUNRISE</div>
+          <div class="clear-divider"></div>
+          <div id="clearBonus">BONUS 00500</div>
+          <div class="continue-hint blink">CLICK TO CONTINUE</div>
+        </div>
+
+        <div id="screenOver" class="field-overlay" hidden>
+          <div class="over-heading">GAME OVER</div>
+          <div class="over-divider"></div>
+          <div id="overScore">SCORE 000000</div>
+          <div class="continue-hint blink">CLICK TO CONTINUE</div>
+        </div>
+
+        <div id="screenTitle" class="stage-screen">
+          <div id="titleCopper"></div>
+          <div id="titleWordmark">SHATTER</div>
+          <div id="titleTagline">A BRICK BREAKER FOR ONE PLAYER</div>
+          <div class="title-divider"></div>
+          <div id="titleInfo">
+            <span id="titleTopScore">TOP SCORE 012500 · AMI</span>
+            <span class="title-controls">MOVE THE MOUSE · CLICK TO LAUNCH</span>
+          </div>
+          <div id="titlePlayHint" class="blink">CLICK TO PLAY</div>
+          <div id="titleFooter">ORIGINAL 2007 · REBUILT 2026</div>
+        </div>
+
+        <div id="screenScores" class="stage-screen" hidden>
+          <div id="scoresHeading">HALL OF FAME</div>
+          <div class="scores-divider"></div>
+          <div id="scoreRows"></div>
+          <div id="entryLine" hidden><span id="entryText">TYPE YOUR INITIALS · ___</span></div>
+          <div id="returnHint" class="blink" hidden>CLICK TO RETURN</div>
+        </div>
+      </div>
     </div>
-    <div id="scoreBoard">remaining bricks : <span id="score"></span></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

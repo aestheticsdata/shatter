@@ -1,27 +1,34 @@
-#gameArea {
-  position: relative;
-  overflow: hidden;
-  cursor: auto;
-  margin: auto;
-  width: var(--game-area-width);
-  height: var(--game-area-height);
-  border: solid var(--game-area-border-width) var(--color-white);
-  border-radius: var(--game-area-radius);
-}
-
-#gameArea.is-playing {
-  cursor: none;
-}
-
-#brickAnchor {
-  position: absolute;
+#app {
+  position: fixed;
   inset: 0;
-  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
-#scoreBoard {
-  text-align: center;
-  font-family: Arial, serif;
-  font-size: var(--score-font-size);
-  font-weight: bold;
+#stage {
+  position: relative;
+  width: var(--stage-width);
+  height: var(--stage-height);
+  background: var(--color-page);
+  transform-origin: center center;
+}
+
+#playfield {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--playfield-width);
+  height: var(--stage-height);
+  image-rendering: pixelated;
+}
+
+#panel {
+  position: absolute;
+  left: var(--playfield-width);
+  top: 0;
+  width: var(--panel-width);
+  height: var(--stage-height);
+  background: var(--color-panel);
 }

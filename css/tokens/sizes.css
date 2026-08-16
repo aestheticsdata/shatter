@@ -1,18 +1,6 @@
 :root {
-  --game-area-width: 945px;
-  --game-area-height: 635px;
-  --game-area-border-width: 3px;
-
-  --ball-size: 15px;
-  --ball-initial-top: 300px;
-
-  --paddle-width: 100px;
-  --paddle-height: 16px;
-  --paddle-initial-top: 610px;
-  --paddle-initial-left: 600px;
-  --paddle-endcap-width: 10px;
-
-  --brick-width: 50px;
-  --brick-height: 15px;
-  --brick-gap: 2px;
+  --stage-width: 480px;
+  --stage-height: 300px;
+  --playfield-width: 372px;
+  --panel-width: 108px;
 }

@@ -1,20 +1,27 @@
 :root {
-  --color-bg-start: oklch(0.83 0.09 231);
-  --color-bg-end: oklch(0.65 0.19 256);
+  --color-page: #000;
+  --color-screen-deep: #05050f;
+  --color-field: #0b0b26;
 
-  --color-white: oklch(1 0 0);
-  --color-red: oklch(0.64 0.26 29);
+  --color-panel: #a8aabb;
+  --color-panel-edge-dark: #2a2c3c;
+  --color-panel-edge-light: #e6e8f4;
+  --color-panel-divider: #7a7c90;
+  --color-panel-label: #3b3d4e;
+  --color-inset: #0d0d24;
+  --color-logo-tile: #0b4fa8;
 
-  --color-brick-default: oklch(0.52 0.28 266);
-  --color-brick-row-1: oklch(0.57 0.26 274);
-  --color-brick-row-2: oklch(0.69 0.19 243);
-  --color-brick-row-3: oklch(0.7 0.2914 343.06);
-  --gradient-brick-special: linear-gradient(135deg, oklch(0.76 0.24 70), oklch(0.62 0.2 20));
-  --gradient-brick-special-alt: linear-gradient(135deg, oklch(0.8 0.18 165), oklch(0.64 0.2 220));
-
-  --color-ball-highlight: oklch(0.98 0.04 104);
-  --color-ball-mid: oklch(0.96 0.17 111);
-  --color-ball-shadow: oklch(0.88 0.16 103);
-  --ball-glow-primary: oklch(0.94 0.11 103 / 0.85);
-  --ball-glow-secondary: oklch(0.91 0.15 105 / 0.55);
+  --color-white: #fff;
+  --color-red: #e8384f;
+  --color-red-shadow: #55000f;
+  --color-orange: #f07d10;
+  --color-orange-shadow: #8a3d00;
+  --color-yellow: #ffcf1c;
+  --color-green: #3fbf4f;
+  --color-green-shadow: #155c1f;
+  --color-blue: #2d7fe0;
+  --color-sky: #8fd0ff;
+  --color-grey-text: #9a9caf;
+  --color-dim-text: #4a4c60;
+  --color-title-divider: #3c50a0;
 }
