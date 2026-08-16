@@ -101,6 +101,7 @@ export class ShatterGame {
       onPointerMoveBy: (deltaX) => this.paddle.moveByDelta(deltaX),
       onAdvance: () => this.advance(),
       onKeyDown: (event) => this.onKeyDown(event),
+      onInputLost: () => this.onInputLost(),
     });
   }
 
@@ -395,6 +396,17 @@ export class ShatterGame {
     }
   }
 
+  // A run must never keep playing while the paddle has no input: the ball and the
+  // capsules would go on without the player, who has no cue that anything is wrong
+  // because the cursor is hidden. Only "play" is at risk — on "serve" the ball is
+  // still parked on the paddle. Resuming goes through advance(), whose click also
+  // re-arms pointer lock.
+  private onInputLost(): void {
+    if (this.screen === "play") {
+      this.setScreen("pause");
+    }
+  }
+
   private advance(): void {
     switch (this.screen) {
       case "title":
@@ -402,6 +414,9 @@ export class ShatterGame {
         break;
       case "serve":
         this.launch();
+        break;
+      case "pause":
+        this.setScreen("play");
         break;
       case "clear":
         this.level++;
