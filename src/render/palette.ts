@@ -51,4 +51,5 @@ export const canvasPalette = {
   dropShade: "#0b0b26",
   energyWall: "#8fd0ff",
   blastFlash: "#ffc27a",
+  deathFlash: "#ffffff",
 } as const;

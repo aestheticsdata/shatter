@@ -2,9 +2,10 @@ import { gameConfig } from "@core/config/GameConfig";
 import { BRICK_COLORS, canvasPalette, DARK_LETTER_DROP_KINDS, DROP_COLORS } from "@render/palette";
 
 import type { Ball } from "@entities/ball/Ball";
+import type { Particle } from "@entities/effects/ParticleField";
 import type { Shot } from "@entities/laser/ShotPool";
 import type { Drop } from "@entities/powerups/DropPool";
-import type { BrickCell, SplashFlash } from "@interfaces/types";
+import type { BrickCell, BrickFlash, BrickFlashKind } from "@interfaces/types";
 
 const BALL_PIXEL_ROWS: ReadonlyArray<readonly [number, number]> = [
   [2, 4],
@@ -19,6 +20,11 @@ const BALL_PIXEL_ROWS: ReadonlyArray<readonly [number, number]> = [
 
 const STAR_COUNT = 58;
 
+const FLASH_COLORS: Record<BrickFlashKind, string> = {
+  death: canvasPalette.deathFlash,
+  blast: canvasPalette.blastFlash,
+};
+
 export interface PaddleRenderState {
   x: number;
   width: number;
@@ -31,7 +37,8 @@ export interface RenderView {
   balls: readonly Ball[];
   drops: readonly Drop[];
   shots: readonly Shot[];
-  flashes: readonly SplashFlash[];
+  flashes: readonly BrickFlash[];
+  particles: readonly Particle[];
   energyWallArmed: boolean;
 }
 
@@ -82,8 +89,18 @@ export class CanvasRenderer {
     });
 
     for (const flash of view.flashes) {
-      this.pixel(flash.x + 1, flash.y + 1, 28, 10, canvasPalette.blastFlash);
+      this.pixel(flash.x + 1, flash.y + 1, 28, 10, FLASH_COLORS[flash.kind]);
     }
+    // Slot index cycles the brick's three palette colors — sequential ring-buffer
+    // slots give each burst a flat/light/dark mix without storing a color per particle.
+    view.particles.forEach((particle, index) => {
+      if (particle.ticksLeft <= 0) {
+        return;
+      }
+      const colors = BRICK_COLORS[particle.brickKind];
+      const color = [colors.flat, colors.light, colors.dark][index % 3];
+      this.pixel(particle.x, particle.y, particle.size, particle.size, color);
+    });
     if (view.energyWallArmed) {
       this.pixel(gameConfig.field.left, gameConfig.powerUps.wallY, 366, 2, canvasPalette.energyWall);
     }

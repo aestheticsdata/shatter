@@ -3,6 +3,7 @@ import { levelAt } from "@core/levels/levels";
 import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/PaddleBounce";
 import { Ball } from "@entities/ball/Ball";
 import { BrickGrid } from "@entities/bricks/BrickGrid";
+import { ParticleField } from "@entities/effects/ParticleField";
 import { ShotPool } from "@entities/laser/ShotPool";
 import { Paddle } from "@entities/paddle/Paddle";
 import { DropPool } from "@entities/powerups/DropPool";
@@ -11,7 +12,7 @@ import { InputController } from "@input/InputController";
 import { zeroPad } from "@shared/format";
 
 import type { Sound } from "@audio/Sound";
-import type { BrickHit, PanelView, PowerUpKind, ScreenName, SplashFlash } from "@interfaces/types";
+import type { BrickFlash, BrickHit, BurstSpec, PanelView, PowerUpKind, ScreenName } from "@interfaces/types";
 import type { CanvasRenderer } from "@render/CanvasRenderer";
 import type { HiScores } from "@state/HiScores";
 import type { Panel } from "@ui/Panel";
@@ -75,7 +76,7 @@ export class ShatterGame {
   private entry = "";
   private booted = false;
   private wallArmed = false;
-  private splashFlashes: SplashFlash[] = [];
+  private brickFlashes: BrickFlash[] = [];
   private tickCount = 0;
   private readonly debugStartLevel = resolveDebugStartLevel();
   private readonly debugDropRate = resolveDebugDropRate();
@@ -87,6 +88,8 @@ export class ShatterGame {
   private readonly dropPool = new DropPool();
   private readonly shotPool = new ShotPool();
   private readonly balls: Ball[] = Array.from({ length: MAX_BALLS }, () => new Ball());
+  private readonly particles = new ParticleField();
+  private clearCountdown = 0;
   private laserCountdown = 0;
 
   private readonly input: InputController;
@@ -154,7 +157,8 @@ export class ShatterGame {
       balls: this.balls,
       drops: this.dropPool.drops,
       shots: this.shotPool.shots,
-      flashes: this.splashFlashes,
+      flashes: this.brickFlashes,
+      particles: this.particles.particles,
       energyWallArmed: this.wallArmed,
     });
     this.deps.panel.update(this.panelView());
@@ -170,7 +174,18 @@ export class ShatterGame {
     }
 
     this.tickCount++;
-    this.splashFlashes = this.splashFlashes.filter((flash) => --flash.ticksLeft > 0);
+    this.brickFlashes = this.brickFlashes.filter((flash) => --flash.ticksLeft > 0);
+    this.particles.step();
+
+    // A pending level clear freezes the rest of the simulation so the final
+    // brick's shatter can play out — no ball can be lost, no capsule caught,
+    // no timer expiring behind the effect.
+    if (this.clearCountdown > 0) {
+      if (--this.clearCountdown === 0) {
+        this.onLevelCleared();
+      }
+      return;
+    }
 
     const expired = this.timers.tick();
     if (expired.includes("E") && !this.timers.isActive("J")) {
@@ -192,11 +207,17 @@ export class ShatterGame {
         this.moveBall(ball);
       }
     }
-    if (!this.balls.some((ball) => ball.active)) {
+    // Trigger-tick guard: a kill earlier in this same tick may have set
+    // clearCountdown; the freeze must already apply — a drained ball must not
+    // cost a life on a cleared level, and no capsule may be caught behind a
+    // pending clear.
+    if (this.clearCountdown === 0 && !this.balls.some((ball) => ball.active)) {
       this.die();
     }
 
-    this.dropPool.step(this.paddle.bounds, (kind) => this.applyPowerUp(kind));
+    if (this.clearCountdown === 0) {
+      this.dropPool.step(this.paddle.bounds, (kind) => this.applyPowerUp(kind));
+    }
   }
 
   private moveBall(ball: Ball): void {
@@ -285,6 +306,7 @@ export class ShatterGame {
 
     this.score += hit.cell.points * this.scoreMultiplier();
     this.deps.sound.beep(560 + (5 - hit.row) * 45, 0.09, "square", 0.07);
+    this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
 
     if (source !== "splash" && Math.random() < (this.debugDropRate ?? gameConfig.rules.dropRate)) {
       const { left, top, brickWidth, brickHeight } = gameConfig.grid;
@@ -295,8 +317,11 @@ export class ShatterGame {
       this.blastNeighbors(hit);
     }
 
+    // Idempotent on purpose: a BLAST chain reaches here recursively when the
+    // splash kill and its outer ball kill both empty the grid in one tick —
+    // the old direct onLevelCleared() call double-scored the clear bonus.
     if (this.grid.remaining <= 0) {
-      this.onLevelCleared();
+      this.clearCountdown = gameConfig.effects.clearDelayTicks;
     }
   }
 
@@ -313,14 +338,33 @@ export class ShatterGame {
         if (!neighbor) {
           continue;
         }
-        this.splashFlashes.push({
+        this.brickFlashes.push({
           x: left + neighbor.column * brickWidth,
           y: top + neighbor.row * brickHeight,
           ticksLeft: gameConfig.powerUps.splashFlashTicks,
+          kind: "blast",
         });
         this.damageBrick(neighbor, "splash");
       }
     }
+  }
+
+  // White death flash on the brick footprint plus a debris burst in the
+  // brick's own colors, shared by ordinary kills and NUKE kills.
+  private emitBurst(hit: BrickHit, spec: BurstSpec): void {
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    this.brickFlashes.push({
+      x: left + hit.column * brickWidth,
+      y: top + hit.row * brickHeight,
+      ticksLeft: gameConfig.effects.deathFlashTicks,
+      kind: "death",
+    });
+    this.particles.burst(
+      left + hit.column * brickWidth + brickWidth / 2,
+      top + hit.row * brickHeight + brickHeight / 2,
+      hit.cell.kind,
+      spec,
+    );
   }
 
   private scoreMultiplier(): number {
@@ -459,7 +503,9 @@ export class ShatterGame {
     this.shotPool.reset();
     this.laserCountdown = 0;
     this.wallArmed = false;
-    this.splashFlashes = [];
+    this.brickFlashes = [];
+    this.particles.reset();
+    this.clearCountdown = 0;
 
     if (this.booted) {
       this.setScreen("serve");
@@ -481,6 +527,14 @@ export class ShatterGame {
   }
 
   private gameOver(): void {
+    // Esc can end a run mid-effect, and a last-life drain lands here mid-tick:
+    // no stale effect may stay frozen behind the GAME OVER overlay, and the
+    // emptied capsule pool makes this tick's trailing dropPool.step a no-op —
+    // nothing can be caught on the over screen.
+    this.brickFlashes = [];
+    this.particles.reset();
+    this.dropPool.reset();
+    this.clearCountdown = 0;
     this.deps.screens.updateOver(zeroPad(this.score, 6));
     this.setScreen("over");
     this.deps.sound.arp([392, 330, 262, 196], 130);

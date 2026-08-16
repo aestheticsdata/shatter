@@ -29,10 +29,23 @@ export interface BrickHit {
 
 export type PowerUpKind = "E" | "M" | "L" | "P" | "B" | "W" | "T" | "X" | "J";
 
-export interface SplashFlash {
+export type BrickFlashKind = "death" | "blast";
+
+export interface BrickFlash {
   x: number;
   y: number;
   ticksLeft: number;
+  kind: BrickFlashKind;
+}
+
+export interface BurstSpec {
+  chunkCount: number;
+  minChunkSize: number;
+  maxChunkSize: number;
+  minSpeed: number;
+  maxSpeed: number;
+  minLifeTicks: number;
+  maxLifeTicks: number;
 }
 
 export interface LevelDefinition {

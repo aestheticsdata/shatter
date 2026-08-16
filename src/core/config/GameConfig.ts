@@ -1,4 +1,4 @@
-import type { BrickKind, PowerUpKind } from "@interfaces/types";
+import type { BrickKind, BurstSpec, PowerUpKind } from "@interfaces/types";
 
 export const gameConfig = {
   rules: {
@@ -74,6 +74,22 @@ export const gameConfig = {
   scoring: {
     clearBonusPerLevel: 500,
     paydayMultiplier: 2,
+  },
+  effects: {
+    particlePoolSize: 512,
+    particleGravity: 0.12,
+    deathFlashTicks: 2,
+    // Ordinary last-brick kill: short freeze so the shatter plays before the clear screen.
+    clearDelayTicks: 20,
+    brickDeathBurst: {
+      chunkCount: 6,
+      minChunkSize: 2,
+      maxChunkSize: 2,
+      minSpeed: 0.6,
+      maxSpeed: 1.6,
+      minLifeTicks: 15,
+      maxLifeTicks: 15,
+    } satisfies BurstSpec,
   },
 } as const;
 
