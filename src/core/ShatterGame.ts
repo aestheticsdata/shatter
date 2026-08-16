@@ -32,7 +32,8 @@ export interface ShatterGameDeps {
 
 const ENTRY_LENGTH = 3;
 const ENTRY_COMMIT_DELAY_MS = 260;
-const MAX_BALLS = 3;
+// The pool is exactly the SWARM size; MULTI tier 3's 9 balls fit inside it.
+const MAX_BALLS = 12;
 
 // Longest label that fits the POWER inset at 7px Silkscreen.
 const POWER_LABEL_MAX_CHARS = 13;
@@ -91,6 +92,8 @@ export class ShatterGame {
   private readonly balls: Ball[] = Array.from({ length: MAX_BALLS }, () => new Ball());
   private readonly particles = new ParticleField();
   private readonly detonation = new Detonation();
+  private multiTier = 0;
+  private swarmLive = false;
   private clearCountdown = 0;
   private laserCountdown = 0;
 
@@ -215,6 +218,12 @@ export class ShatterGame {
       if (ball.active) {
         this.moveBall(ball);
       }
+    }
+    // The MULTI ladder and the swarm end as soon as a single ball is left —
+    // checked before capsule catches so a fresh pickup is not instantly reset.
+    if (this.balls.filter((ball) => ball.active).length <= 1) {
+      this.multiTier = 0;
+      this.swarmLive = false;
     }
     // Trigger-tick guard: a kill earlier in this same tick may have set
     // clearCountdown; the freeze must already apply — a drained ball must not
@@ -469,16 +478,21 @@ export class ShatterGame {
     if (kind === "P") {
       this.timers.activate("P", durations.P);
     }
-    if (kind === "M") {
+    if (kind === "M" && !this.swarmLive) {
+      // Stacking ladder: each catch climbs a tier and tops the field up to its
+      // count. While a swarm is live, MULTI is inert (only the chime plays).
+      this.multiTier = Math.min(gameConfig.powerUps.multiTierBallCounts.length, this.multiTier + 1);
+      this.topUpBalls(gameConfig.powerUps.multiTierBallCounts[this.multiTier - 1]);
       this.timers.activate("M", durations.M);
-      const source = this.balls.find((ball) => ball.active);
-      if (source) {
-        const spread = gameConfig.powerUps.multiBallAngleRad;
-        this.balls
-          .filter((ball) => !ball.active)
-          .slice(0, gameConfig.powerUps.maxExtraBalls)
-          .forEach((ball, index) => ball.cloneFrom(source, index === 0 ? -spread : spread, this.speed()));
-      }
+    }
+    if (kind === "S") {
+      // SWARM replaces the MULTI ladder outright and never stacks with anything:
+      // a second catch only tops the field back up to the same 12.
+      this.swarmLive = true;
+      this.multiTier = 0;
+      this.timers.deactivate("M");
+      this.timers.activate("S", durations.S);
+      this.topUpBalls(gameConfig.powerUps.swarmBallCount);
     }
     if (kind === "B") {
       this.timers.activate("B", durations.B);
@@ -505,11 +519,34 @@ export class ShatterGame {
     if (kind === "N") {
       // One detonation instead of a pickup jingle — and instead of ~70 per-brick beeps.
       this.deps.sfx.nukeDetonation();
+    } else if (kind === "S") {
+      this.deps.sfx.swarmPickup();
     } else if (kind === "J") {
       this.deps.sfx.jammerPickup();
     } else {
       this.deps.sfx.capsulePickup();
     }
+  }
+
+  // Fills the field up to targetCount from whatever is alive, cloning from the
+  // first live ball in an even upward fan. Never removes a ball.
+  private topUpBalls(targetCount: number): void {
+    const source = this.balls.find((ball) => ball.active);
+    if (!source) {
+      return;
+    }
+    const missing = targetCount - this.balls.filter((ball) => ball.active).length;
+    if (missing <= 0) {
+      return;
+    }
+    const { ballFanRad, ballFanJitterRad } = gameConfig.powerUps;
+    this.balls
+      .filter((ball) => !ball.active)
+      .slice(0, missing)
+      .forEach((ball, index) => {
+        const angle = ballFanRad * ((2 * (index + 0.5)) / missing - 1) + (Math.random() - 0.5) * ballFanJitterRad;
+        ball.cloneFrom(source, angle, this.speed());
+      });
   }
 
   private die(): void {
@@ -585,6 +622,8 @@ export class ShatterGame {
     this.shotPool.reset();
     this.laserCountdown = 0;
     this.wallArmed = false;
+    this.multiTier = 0;
+    this.swarmLive = false;
     this.brickFlashes = [];
     this.particles.reset();
     this.detonation.reset();
@@ -751,7 +790,10 @@ export class ShatterGame {
   }
 
   private powerLabel(): string {
-    const names = this.timers.activeNames();
+    // "MULTI x2" / "MULTI x3" while the ladder is stacked (fits the 13-char inset).
+    const names = this.timers
+      .activeNames()
+      .map((name) => (name === POWER_UP_NAMES.M && this.multiTier >= 2 ? `${name} x${this.multiTier}` : name));
     if (this.wallArmed) {
       names.push(POWER_UP_NAMES.W);
     }

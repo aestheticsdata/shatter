@@ -54,11 +54,20 @@ export const gameConfig = {
     maxAngleRad: 1.05,
   },
   powerUps: {
-    durationsTicks: { E: 720, M: 180, L: 720, P: 480, B: 720, W: 0, T: 480, X: 600, J: 360, N: 0 } satisfies Record<
-      PowerUpKind,
-      number
-    >,
-    dropWeights: { E: 1, M: 1, L: 1, P: 1, B: 1, W: 1, T: 1, X: 1, J: 0.5, N: 0.3 } satisfies Record<
+    durationsTicks: {
+      E: 720,
+      M: 180,
+      L: 720,
+      P: 480,
+      B: 720,
+      W: 0,
+      T: 480,
+      X: 600,
+      J: 360,
+      N: 0,
+      S: 180,
+    } satisfies Record<PowerUpKind, number>,
+    dropWeights: { E: 1, M: 1, L: 1, P: 1, B: 1, W: 1, T: 1, X: 1, J: 0.5, N: 0.3, S: 0.3 } satisfies Record<
       PowerUpKind,
       number
     >,
@@ -68,8 +77,14 @@ export const gameConfig = {
     maxShots: 6,
     dropFallSpeed: 1.3,
     maxDrops: 3,
-    maxExtraBalls: 2,
-    multiBallAngleRad: 0.6,
+    // MULTI ladder: field ball count per stacked catch; SWARM jumps straight to 12.
+    multiTierBallCounts: [3, 6, 9],
+    swarmBallCount: 12,
+    // Half-width of the upward spawn fan; n=2 extras land at today's ∓0.6 rad.
+    ballFanRad: 1.2,
+    // Tiny per-ball angle jitter: same-tick stacked pickups (?power=MMM) would
+    // otherwise spawn balls on identical trajectories that never diverge.
+    ballFanJitterRad: 0.12,
     tempoTimeScale: 0.6,
     wallY: 294,
     splashFlashTicks: 3,
@@ -124,6 +139,7 @@ export const POWER_UP_NAMES: Record<PowerUpKind, string> = {
   X: "PAYDAY",
   J: "JAMMER",
   N: "NUKE",
+  S: "SWARM",
 };
 
 export const BRICK_POINTS: Record<BrickKind, number> = {

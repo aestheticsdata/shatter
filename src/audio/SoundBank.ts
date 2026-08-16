@@ -142,6 +142,18 @@ export class SoundBank {
     });
   }
 
+  // A whole swarm arrives: longer, louder and brighter than the capsule chime,
+  // with a detuned shadow for width.
+  swarmPickup(): void {
+    if (!this.allow("swarmPickup")) {
+      return;
+    }
+    [392, 523, 659, 784, 1046].forEach((freq, index) => {
+      this.sound.tone({ freq, dur: 0.08, vol: 0.09, delayS: index * 0.035 });
+      this.sound.tone({ freq, dur: 0.08, vol: 0.05, delayS: index * 0.035, detuneCents: 12 });
+    });
+  }
+
   // Detune-beat "womp": the two layers drift apart as they fall.
   jammerPickup(): void {
     if (!this.allow("jammer")) {

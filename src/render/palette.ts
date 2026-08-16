@@ -27,10 +27,11 @@ export const DROP_COLORS: Record<PowerUpKind, string> = {
   X: "#dfae2c",
   J: "#d13be8",
   N: "#b6ff00",
+  S: "#1fd8c4",
 };
 
 // Light capsule bodies need a dark letter to stay readable.
-export const DARK_LETTER_DROP_KINDS: ReadonlySet<PowerUpKind> = new Set(["P", "W", "T", "X", "N"]);
+export const DARK_LETTER_DROP_KINDS: ReadonlySet<PowerUpKind> = new Set(["P", "W", "T", "X", "N", "S"]);
 
 export const canvasPalette = {
   fieldBackground: "#0b0b26",

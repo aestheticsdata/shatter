@@ -2,8 +2,10 @@ import { POWER_UP_NAMES } from "@core/config/GameConfig";
 
 import type { PowerUpKind } from "@interfaces/types";
 
-// W (WALL) is a one-shot charge owned by the game, not a timed effect.
-const TIMED_KINDS: readonly PowerUpKind[] = ["E", "M", "L", "P", "B", "T", "X", "J"];
+// W (WALL) is a one-shot charge owned by the game, not a timed effect, and
+// N (NUKE) is driven by the Detonation. S (SWARM) is instantaneous like M:
+// its timer only keeps the POWER inset label lit.
+const TIMED_KINDS: readonly PowerUpKind[] = ["E", "M", "L", "P", "B", "T", "X", "J", "S"];
 
 export class PowerUpTimers {
   private readonly ticksLeft: Record<PowerUpKind, number> = {
@@ -17,6 +19,7 @@ export class PowerUpTimers {
     X: 0,
     J: 0,
     N: 0,
+    S: 0,
   };
 
   isActive(kind: PowerUpKind): boolean {

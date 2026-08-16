@@ -8,7 +8,7 @@ The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372�
 
 - **Screens**: title (animated copper bars) → serve → play, with pause, level-clear, game-over, and a hall of fame with 3-letter initials entry.
 - **15 levels**: SUNRISE, PYRAMID, GATEWAY, VORTEX, CHECKER, RAMPART, HELIX, ORBIT, HIVE, SERPENT, MIRROR, BUNKER, CASCADE, OMEGA, FINALE — looping with increasing ball speed. Silver bricks take 2 hits, gold bricks 3.
-- **Power-ups** dropped by destroyed bricks (13% chance): **WIDE** paddle, **MULTI** ball (up to 3 balls), **LASER** (paddle cannons), **PIERCE** (ball goes through bricks), **BLAST** (destroyed bricks damage their 8 neighbors), **WALL** (one-shot safety barrier at the bottom), **TEMPO** (bullet-time, balls at ×0.6), **PAYDAY** (points ×2), **NUKE** (rare: a shockwave destroys every brick on the field, full points) — plus **JAMMER**, the only trap capsule (blinking letter, rarer): it shrinks the paddle for 6 s, so dodge it.
+- **Power-ups** dropped by destroyed bricks (13% chance): **WIDE** paddle, **MULTI** ball (stacks: 3 → 6 → 9 balls), **LASER** (paddle cannons), **PIERCE** (ball goes through bricks), **BLAST** (destroyed bricks damage their 8 neighbors), **WALL** (one-shot safety barrier at the bottom), **TEMPO** (bullet-time, balls at ×0.6), **PAYDAY** (points ×2), **NUKE** (rare: a shockwave destroys every brick on the field, full points), **SWARM** (rare: 12 balls at once) — plus **JAMMER**, the only trap capsule (blinking letter, rarer): it shrinks the paddle for 6 s, so dodge it.
 - **Scoring**: 60–200 points per brick by kind, level-clear bonus `(level+1) × 500`. The top-5 hall of fame is **shared across all players**: scores live in a server-side SQLite table behind the `shatter-api` service, with `localStorage` (`shatter.hiscores.v1`) as instant-boot cache and offline fallback — the game never waits on the network.
 - **Audio**: WebAudio chiptune SFX, 100% synthesized (no assets): a per-event sound bank (square pitch-bends, detuned pairs, filtered noise bursts) on a master gain → compressor chain, with a 30 ms retrigger guard against same-tick pile-ups. An SFX volume fader lives in the side panel (persisted in `localStorage` `shatter.volume.v1`, scaling the master gain ahead of the compressor). An inaudible 30 Hz keep-warm tone stops browser/HDMI/Bluetooth silence detection from swallowing short impact blips.
 
@@ -64,7 +64,7 @@ Test gameplay quickly with the dev-only URL params (inert in production builds):
 
 - `?level=N` — start at level N (1-based)
 - `?droprate=0..1` — override the 13% capsule drop rate (`1` = every brick drops)
-- `?power=BWX` — grant power-ups at every launch (capsule letters E/M/L/P/B/W/T/X/J/N)
+- `?power=BWX` — grant power-ups at every launch (capsule letters E/M/L/P/B/W/T/X/J/N/S; repeat a letter to stack, e.g. `MMM`)
 
 Deploy to production (versioned release + auto rollback on failure):
 
