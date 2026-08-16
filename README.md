@@ -7,10 +7,10 @@ The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372�
 ## Gameplay
 
 - **Screens**: title (animated copper bars) → serve → play, with pause, level-clear, game-over, and a hall of fame with 3-letter initials entry.
-- **5 levels**: SUNRISE, PYRAMID, GATEWAY, VORTEX, FINALE — looping with increasing ball speed. Silver bricks take 2 hits, gold bricks 3.
+- **15 levels**: SUNRISE, PYRAMID, GATEWAY, VORTEX, CHECKER, RAMPART, HELIX, ORBIT, HIVE, SERPENT, MIRROR, BUNKER, CASCADE, OMEGA, FINALE — looping with increasing ball speed. Silver bricks take 2 hits, gold bricks 3.
 - **Power-ups** dropped by destroyed bricks (13% chance): **WIDE** paddle, **MULTI** ball (up to 3 balls), **LASER** (paddle cannons), **PIERCE** (ball goes through bricks), **BLAST** (destroyed bricks damage their 8 neighbors), **WALL** (one-shot safety barrier at the bottom), **TEMPO** (bullet-time, balls at ×0.6), **PAYDAY** (points ×2) — plus **JAMMER**, the only trap capsule (blinking letter, rarer): it shrinks the paddle for 6 s, so dodge it.
 - **Scoring**: 60–200 points per brick by kind, level-clear bonus `(level+1) × 500`. Top-5 hi-scores persist in `localStorage` (`shatter.hiscores.v1`).
-- **Audio**: WebAudio oscillator chiptune SFX (square/sawtooth beeps and arpeggios), no assets.
+- **Audio**: WebAudio oscillator chiptune SFX (square/sawtooth beeps and arpeggios), no assets. Beeps hold at peak before decaying, and an inaudible 30 Hz keep-warm tone stops browser/HDMI/Bluetooth silence detection from swallowing short impact blips.
 
 ### Controls
 
@@ -51,6 +51,12 @@ pnpm run fmt
 pnpm run lint:fix
 ```
 
+Test gameplay quickly with the dev-only URL params (inert in production builds):
+
+- `?level=N` — start at level N (1-based)
+- `?droprate=0..1` — override the 13% capsule drop rate (`1` = every brick drops)
+- `?power=BWX` — grant power-ups at every launch (capsule letters E/M/L/P/B/W/T/X/J)
+
 Deploy to production (versioned release + auto rollback on failure):
 
 ```bash
@@ -74,13 +80,13 @@ src/
   core/
     ShatterGame.ts   # Orchestrator: state machine, fixed-timestep loop, game rules
     config/          # GameConfig: geometry, speeds, timers, points (single source of truth)
-    levels/          # ASCII level definitions (5 layouts)
+    levels/          # ASCII level definitions (15 layouts)
     physics/         # Paddle bounce math
   entities/
     ball/            # Ball position/velocity, launch, multi-ball cloning
     paddle/          # Paddle position/width with field clamping
     bricks/          # BrickGrid: cell parsing, HP, grid collision queries
-    powerups/        # PowerUpTimers (E/M/L/P) + DropPool (falling capsules)
+    powerups/        # PowerUpTimers (timed effects) + DropPool (weighted falling capsules)
     laser/           # ShotPool (paddle cannon shots)
   render/            # CanvasRenderer (pixel sprites) + palette (canvas hex colors)
   ui/                # Panel (side panel), Screens (overlays), StageScaler (fit transform)
