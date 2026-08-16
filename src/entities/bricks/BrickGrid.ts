@@ -87,4 +87,12 @@ export class BrickGrid {
     this.remainingCount--;
     return true;
   }
+
+  // NUKE kills: remove the cell outright, regardless of remaining hit points.
+  destroy(hit: BrickHit): void {
+    if (this.grid[hit.row][hit.column] !== null) {
+      this.grid[hit.row][hit.column] = null;
+      this.remainingCount--;
+    }
+  }
 }

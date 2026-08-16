@@ -3,6 +3,7 @@ import { levelAt } from "@core/levels/levels";
 import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/PaddleBounce";
 import { Ball } from "@entities/ball/Ball";
 import { BrickGrid } from "@entities/bricks/BrickGrid";
+import { Detonation } from "@entities/effects/Detonation";
 import { ParticleField } from "@entities/effects/ParticleField";
 import { ShotPool } from "@entities/laser/ShotPool";
 import { Paddle } from "@entities/paddle/Paddle";
@@ -89,6 +90,7 @@ export class ShatterGame {
   private readonly shotPool = new ShotPool();
   private readonly balls: Ball[] = Array.from({ length: MAX_BALLS }, () => new Ball());
   private readonly particles = new ParticleField();
+  private readonly detonation = new Detonation();
   private clearCountdown = 0;
   private laserCountdown = 0;
 
@@ -159,6 +161,7 @@ export class ShatterGame {
       shots: this.shotPool.shots,
       flashes: this.brickFlashes,
       particles: this.particles.particles,
+      detonation: this.detonation,
       energyWallArmed: this.wallArmed,
     });
     this.deps.panel.update(this.panelView());
@@ -180,6 +183,12 @@ export class ShatterGame {
     // A pending level clear freezes the rest of the simulation so the final
     // brick's shatter can play out — no ball can be lost, no capsule caught,
     // no timer expiring behind the effect.
+    // A NUKE detonation freezes the rest of the simulation the same way while
+    // its shockwave sweeps the field and its debris falls.
+    if (this.detonation.active) {
+      this.stepDetonation();
+      return;
+    }
     if (this.clearCountdown > 0) {
       if (--this.clearCountdown === 0) {
         this.onLevelCleared();
@@ -216,7 +225,13 @@ export class ShatterGame {
     }
 
     if (this.clearCountdown === 0) {
-      this.dropPool.step(this.paddle.bounds, (kind) => this.applyPowerUp(kind));
+      this.dropPool.step(this.paddle.bounds, (kind) => {
+        // Two capsules can reach the paddle on one tick; nothing applies once
+        // a NUKE detonation has started.
+        if (!this.detonation.active) {
+          this.applyPowerUp(kind);
+        }
+      });
     }
   }
 
@@ -382,11 +397,56 @@ export class ShatterGame {
     );
   }
 
+  private stepDetonation(): void {
+    if (this.detonation.holding) {
+      if (this.detonation.stepHold()) {
+        this.detonation.reset();
+        this.onLevelCleared();
+      }
+      return;
+    }
+    this.detonation.step();
+    this.nukeBricksWithin(this.detonation.sweepExpired ? Number.POSITIVE_INFINITY : this.detonation.radius);
+    if (this.grid.remaining <= 0) {
+      this.detonation.beginHold();
+    }
+  }
+
+  // Detonates every live brick whose centre the shockwave has reached. Nuke
+  // kills bypass damageBrick(): full points (PAYDAY applies), but no capsule
+  // drops, no BLAST chaining, no per-brick beep, and silver/gold die outright.
+  private nukeBricksWithin(radius: number): void {
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    const radiusSquared = radius * radius;
+
+    this.grid.rows.forEach((row, rowIndex) => {
+      row.forEach((cell, columnIndex) => {
+        if (!cell) {
+          return;
+        }
+        const deltaX = left + columnIndex * brickWidth + brickWidth / 2 - this.detonation.x;
+        const deltaY = top + rowIndex * brickHeight + brickHeight / 2 - this.detonation.y;
+        if (deltaX * deltaX + deltaY * deltaY > radiusSquared) {
+          return;
+        }
+        const hit = { cell, row: rowIndex, column: columnIndex };
+        this.grid.destroy(hit);
+        this.score += cell.points * this.scoreMultiplier();
+        this.emitBurst(hit, gameConfig.effects.nukeBurst);
+      });
+    });
+  }
+
   private scoreMultiplier(): number {
     return this.timers.isActive("X") ? gameConfig.scoring.paydayMultiplier : 1;
   }
 
   private onLevelCleared(): void {
+    // Nuke chunks (30-45 ticks) can outlive the 30-tick hold: flush so nothing
+    // freezes mid-air behind the CLEARED overlay. The ordinary path is clean
+    // by construction (15-tick chunks vs a 20-tick delay).
+    this.brickFlashes = [];
+    this.particles.reset();
     const bonus = (this.level + 1) * gameConfig.scoring.clearBonusPerLevel * this.scoreMultiplier();
     this.score += bonus;
     this.deps.screens.updateClear(levelAt(this.level).name, zeroPad(bonus, 5));
@@ -437,8 +497,15 @@ export class ShatterGame {
       this.paddle.setWidth(gameConfig.paddle.narrowWidth);
       this.timers.activate("J", durations.J);
     }
+    if (kind === "N") {
+      // The shockwave ring starts where the capsule was caught: the paddle centre.
+      this.detonation.start(this.paddle.x + this.paddle.width / 2, gameConfig.paddle.y);
+    }
 
-    if (kind === "J") {
+    if (kind === "N") {
+      // One detonation instead of a pickup jingle — and instead of ~70 per-brick beeps.
+      this.deps.sfx.nukeDetonation();
+    } else if (kind === "J") {
       this.deps.sfx.jammerPickup();
     } else {
       this.deps.sfx.capsulePickup();
@@ -520,6 +587,7 @@ export class ShatterGame {
     this.wallArmed = false;
     this.brickFlashes = [];
     this.particles.reset();
+    this.detonation.reset();
     this.clearCountdown = 0;
 
     if (this.booted) {
@@ -549,6 +617,7 @@ export class ShatterGame {
     this.brickFlashes = [];
     this.particles.reset();
     this.dropPool.reset();
+    this.detonation.reset();
     this.clearCountdown = 0;
     this.deps.screens.updateOver(zeroPad(this.score, 6));
     this.setScreen("over");
@@ -685,6 +754,9 @@ export class ShatterGame {
     const names = this.timers.activeNames();
     if (this.wallArmed) {
       names.push(POWER_UP_NAMES.W);
+    }
+    if (this.detonation.active) {
+      names.push(POWER_UP_NAMES.N);
     }
     if (names.length === 0) {
       return "- - -";

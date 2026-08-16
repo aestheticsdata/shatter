@@ -54,11 +54,14 @@ export const gameConfig = {
     maxAngleRad: 1.05,
   },
   powerUps: {
-    durationsTicks: { E: 720, M: 180, L: 720, P: 480, B: 720, W: 0, T: 480, X: 600, J: 360 } satisfies Record<
+    durationsTicks: { E: 720, M: 180, L: 720, P: 480, B: 720, W: 0, T: 480, X: 600, J: 360, N: 0 } satisfies Record<
       PowerUpKind,
       number
     >,
-    dropWeights: { E: 1, M: 1, L: 1, P: 1, B: 1, W: 1, T: 1, X: 1, J: 0.5 } satisfies Record<PowerUpKind, number>,
+    dropWeights: { E: 1, M: 1, L: 1, P: 1, B: 1, W: 1, T: 1, X: 1, J: 0.5, N: 0.3 } satisfies Record<
+      PowerUpKind,
+      number
+    >,
     laserCadenceTicks: 26,
     laserFirstShotDelayTicks: 10,
     shotSpeed: 5.5,
@@ -90,6 +93,23 @@ export const gameConfig = {
       minLifeTicks: 15,
       maxLifeTicks: 15,
     } satisfies BurstSpec,
+    nukeBurst: {
+      chunkCount: 10,
+      minChunkSize: 2,
+      maxChunkSize: 3,
+      minSpeed: 1.4,
+      maxSpeed: 3,
+      minLifeTicks: 30,
+      maxLifeTicks: 45,
+    } satisfies BurstSpec,
+    nuke: {
+      ringSpeed: 14,
+      maxSweepTicks: 48,
+      fieldFlashTicks: 3,
+      // Must be >= 1: Detonation.beginHold clamps, since a zero hold would never
+      // enter the holding branch and the empty-grid sweep would spin forever.
+      holdTicks: 30,
+    },
   },
 } as const;
 
@@ -103,6 +123,7 @@ export const POWER_UP_NAMES: Record<PowerUpKind, string> = {
   T: "TEMPO",
   X: "PAYDAY",
   J: "JAMMER",
+  N: "NUKE",
 };
 
 export const BRICK_POINTS: Record<BrickKind, number> = {

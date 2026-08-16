@@ -26,10 +26,11 @@ export const DROP_COLORS: Record<PowerUpKind, string> = {
   T: "#f2f4ff",
   X: "#dfae2c",
   J: "#d13be8",
+  N: "#b6ff00",
 };
 
 // Light capsule bodies need a dark letter to stay readable.
-export const DARK_LETTER_DROP_KINDS: ReadonlySet<PowerUpKind> = new Set(["P", "W", "T", "X"]);
+export const DARK_LETTER_DROP_KINDS: ReadonlySet<PowerUpKind> = new Set(["P", "W", "T", "X", "N"]);
 
 export const canvasPalette = {
   fieldBackground: "#0b0b26",
@@ -52,4 +53,6 @@ export const canvasPalette = {
   energyWall: "#8fd0ff",
   blastFlash: "#ffc27a",
   deathFlash: "#ffffff",
+  nukeFlash: "#ffffff",
+  nukeRing: "#eaf7ff",
 } as const;

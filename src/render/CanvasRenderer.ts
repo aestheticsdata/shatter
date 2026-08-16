@@ -2,6 +2,7 @@ import { gameConfig } from "@core/config/GameConfig";
 import { BRICK_COLORS, canvasPalette, DARK_LETTER_DROP_KINDS, DROP_COLORS } from "@render/palette";
 
 import type { Ball } from "@entities/ball/Ball";
+import type { Detonation } from "@entities/effects/Detonation";
 import type { Particle } from "@entities/effects/ParticleField";
 import type { Shot } from "@entities/laser/ShotPool";
 import type { Drop } from "@entities/powerups/DropPool";
@@ -39,6 +40,7 @@ export interface RenderView {
   shots: readonly Shot[];
   flashes: readonly BrickFlash[];
   particles: readonly Particle[];
+  detonation: Detonation;
   energyWallArmed: boolean;
 }
 
@@ -121,7 +123,28 @@ export class CanvasRenderer {
       }
     }
 
+    this.drawDetonation(view.detonation);
+
     this.drawWalls();
+  }
+
+  // Full-field impact flash for the first ticks, then the expanding shockwave
+  // ring (it lingers at its final radius through the debris hold). Drawn over
+  // the sprites, under the wall frame.
+  private drawDetonation(detonation: Detonation): void {
+    if (!detonation.active) {
+      return;
+    }
+    if (detonation.flashTicksLeft > 0) {
+      this.pixel(0, 0, gameConfig.field.width, gameConfig.field.height, canvasPalette.nukeFlash);
+    }
+    if (detonation.radius > 0) {
+      this.ctx.strokeStyle = canvasPalette.nukeRing;
+      this.ctx.lineWidth = 3;
+      this.ctx.beginPath();
+      this.ctx.arc(detonation.x, detonation.y, detonation.radius, 0, Math.PI * 2);
+      this.ctx.stroke();
+    }
   }
 
   private pixel(x: number, y: number, width: number, height: number, color: string): void {

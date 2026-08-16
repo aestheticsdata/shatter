@@ -27,7 +27,7 @@ export interface BrickHit {
   column: number;
 }
 
-export type PowerUpKind = "E" | "M" | "L" | "P" | "B" | "W" | "T" | "X" | "J";
+export type PowerUpKind = "E" | "M" | "L" | "P" | "B" | "W" | "T" | "X" | "J" | "N";
 
 export type BrickFlashKind = "death" | "blast";
 

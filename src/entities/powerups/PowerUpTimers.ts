@@ -6,7 +6,18 @@ import type { PowerUpKind } from "@interfaces/types";
 const TIMED_KINDS: readonly PowerUpKind[] = ["E", "M", "L", "P", "B", "T", "X", "J"];
 
 export class PowerUpTimers {
-  private readonly ticksLeft: Record<PowerUpKind, number> = { E: 0, M: 0, L: 0, P: 0, B: 0, W: 0, T: 0, X: 0, J: 0 };
+  private readonly ticksLeft: Record<PowerUpKind, number> = {
+    E: 0,
+    M: 0,
+    L: 0,
+    P: 0,
+    B: 0,
+    W: 0,
+    T: 0,
+    X: 0,
+    J: 0,
+    N: 0,
+  };
 
   isActive(kind: PowerUpKind): boolean {
     return this.ticksLeft[kind] > 0;
