@@ -192,13 +192,15 @@
   }
 }
 
+/* The copper gradient repeats every 16px; the animation must scroll exactly one
+   period per cycle or the loop lands mid-pattern and visibly jumps. */
 @keyframes shatterCopper {
   from {
     background-position: 0 0;
   }
 
   to {
-    background-position: 0 24px;
+    background-position: 0 16px;
   }
 }
 
