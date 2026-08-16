@@ -50,7 +50,11 @@ function resolveDebugDropRate(): number | null {
   if (!import.meta.env.DEV) {
     return null;
   }
-  const requested = Number(new URLSearchParams(window.location.search).get("droprate"));
+  const raw = new URLSearchParams(window.location.search).get("droprate");
+  if (raw === null) {
+    return null; // Number(null) would be 0 and silently disable all drops.
+  }
+  const requested = Number(raw);
   return Number.isFinite(requested) && requested >= 0 && requested <= 1 ? requested : null;
 }
 
