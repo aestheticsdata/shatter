@@ -4,8 +4,9 @@ import type { PowerUpKind } from "@interfaces/types";
 
 // W (WALL) is a one-shot charge owned by the game, not a timed effect, and
 // N (NUKE) is driven by the Detonation. S (SWARM) is instantaneous like M:
-// its timer only keeps the POWER inset label lit.
-const TIMED_KINDS: readonly PowerUpKind[] = ["E", "M", "L", "P", "B", "T", "X", "J", "S"];
+// its timer only keeps the POWER inset label lit. U/Z/R are instantaneous with
+// no lingering state at all — the catch pop is their whole acknowledgment.
+const TIMED_KINDS: readonly PowerUpKind[] = ["E", "M", "L", "P", "B", "T", "X", "J", "S", "G"];
 
 export class PowerUpTimers {
   private readonly ticksLeft: Record<PowerUpKind, number> = {
@@ -20,6 +21,10 @@ export class PowerUpTimers {
     J: 0,
     N: 0,
     S: 0,
+    U: 0,
+    Z: 0,
+    R: 0,
+    G: 0,
   };
 
   isActive(kind: PowerUpKind): boolean {

@@ -172,7 +172,8 @@ export class SoundBank {
     this.sound.tone({ freq: 120, freqEnd: 60, dur: 0.15, vol: 0.1 });
   }
 
-  // Shipped for SHA-23 (NUKE capsule); no caller yet. Bigger and longer than BLAST.
+  // Bigger and longer than BLAST; replaces both the pickup jingle and the
+  // ~70 per-brick beeps a full-field sweep would otherwise fire.
   nukeDetonation(): void {
     if (!this.allow("nuke")) {
       return;
@@ -180,6 +181,14 @@ export class SoundBank {
     this.sound.tone({ freq: 120, freqEnd: 30, dur: 0.7, vol: 0.12, type: "sawtooth" });
     this.sound.tone({ freq: 120, freqEnd: 30, dur: 0.7, vol: 0.08, type: "sawtooth", detuneCents: 15 });
     this.sound.noise({ dur: 0.6, vol: 0.25, filter: { type: "lowpass", freq: 400, freqEnd: 60 } });
+  }
+
+  // Rising 1UP fanfare — brighter than the capsule chime, shorter than a jingle.
+  extraLife(): void {
+    if (!this.allow("extraLife")) {
+      return;
+    }
+    this.sound.arp([659, 784, 988, 1319], 45, { detunePair: true });
   }
 
   ballLost(): void {

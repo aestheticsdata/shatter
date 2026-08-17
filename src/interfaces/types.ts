@@ -27,9 +27,18 @@ export interface BrickHit {
   column: number;
 }
 
-export type PowerUpKind = "E" | "M" | "L" | "P" | "B" | "W" | "T" | "X" | "J" | "N" | "S";
+export type PowerUpKind = "E" | "M" | "L" | "P" | "B" | "W" | "T" | "X" | "J" | "N" | "S" | "U" | "Z" | "R" | "G";
 
 export type BrickFlashKind = "death" | "blast";
+
+// Floating text acknowledging a capsule catch at the paddle.
+export interface CatchPop {
+  x: number;
+  y: number;
+  label: string;
+  malus: boolean;
+  ticksLeft: number;
+}
 
 export interface BrickFlash {
   x: number;

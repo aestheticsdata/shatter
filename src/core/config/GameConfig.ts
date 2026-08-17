@@ -3,8 +3,10 @@ import type { BrickKind, BurstSpec, PowerUpKind } from "@interfaces/types";
 export const gameConfig = {
   rules: {
     startLives: 3,
+    // 1UP stops counting here: the LIVES inset fits 5 reserve bars.
+    maxLives: 6,
     ballSpeedMultiplier: 1,
-    dropRate: 0.13,
+    dropRate: 0.15,
   },
   loop: {
     tickMs: 1000 / 60,
@@ -66,17 +68,38 @@ export const gameConfig = {
       J: 360,
       N: 0,
       S: 180,
+      U: 0,
+      Z: 0,
+      R: 0,
+      G: 720,
     } satisfies Record<PowerUpKind, number>,
-    dropWeights: { E: 1, M: 1, L: 1, P: 1, B: 1, W: 1, T: 1, X: 1, J: 0.5, N: 0.3, S: 0.3 } satisfies Record<
-      PowerUpKind,
-      number
-    >,
+    // N at 0.3 starved: ~2.3 nukes DROPPED across a full 15-level run — QA never
+    // saw one. 0.65 lands one roughly every 3 levels while staying the rarest.
+    dropWeights: {
+      E: 1,
+      M: 1,
+      L: 1,
+      P: 1,
+      B: 1,
+      W: 1,
+      T: 1,
+      X: 1,
+      J: 0.5,
+      N: 0.65,
+      S: 0.5,
+      U: 0.25,
+      Z: 0.6,
+      R: 0.5,
+      G: 1,
+    } satisfies Record<PowerUpKind, number>,
     laserCadenceTicks: 26,
     laserFirstShotDelayTicks: 10,
     shotSpeed: 5.5,
     maxShots: 6,
     dropFallSpeed: 1.3,
-    maxDrops: 3,
+    // 3 slots silently swallowed spawns whenever 3 capsules were airborne —
+    // constant at ?droprate=1, where QA reads the missing capsules as a bug.
+    maxDrops: 6,
     // MULTI ladder: field ball count per stacked catch; SWARM jumps straight to 12.
     multiTierBallCounts: [3, 6, 9],
     swarmBallCount: 12,
@@ -88,13 +111,18 @@ export const gameConfig = {
     tempoTimeScale: 0.6,
     wallY: 294,
     splashFlashTicks: 3,
+    catchPopLifeTicks: 48,
+    catchPopRiseSpeed: 0.45,
+    rainSpawnCount: 4,
   },
   scoring: {
     clearBonusPerLevel: 500,
     paydayMultiplier: 2,
   },
   effects: {
-    particlePoolSize: 512,
+    // Must hold a full-field NUKE: FINALE's 72 bricks x 10 chunks with 30-45
+    // tick lifetimes peak above 512, which recycled the earliest bursts mid-air.
+    particlePoolSize: 1024,
     particleGravity: 0.12,
     deathFlashTicks: 2,
     // Ordinary last-brick kill: short freeze so the shatter plays before the clear screen.
@@ -140,6 +168,10 @@ export const POWER_UP_NAMES: Record<PowerUpKind, string> = {
   J: "JAMMER",
   N: "NUKE",
   S: "SWARM",
+  U: "1UP",
+  Z: "ZAP",
+  R: "RAIN",
+  G: "GLUE",
 };
 
 export const BRICK_POINTS: Record<BrickKind, number> = {

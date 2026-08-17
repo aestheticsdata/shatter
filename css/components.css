@@ -116,11 +116,12 @@
   left: 8px;
   top: 157px;
   display: flex;
-  gap: 5px;
+  gap: 3px;
 }
 
 .panel-life {
-  width: 20px;
+  /* 5 reserve bars (1UP cap, maxLives 6) must fit the 108px panel: 5×16 + 4×3 = 92. */
+  width: 16px;
   height: 5px;
   background: var(--color-blue);
 }

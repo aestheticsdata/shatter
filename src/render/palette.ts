@@ -28,10 +28,26 @@ export const DROP_COLORS: Record<PowerUpKind, string> = {
   J: "#d13be8",
   N: "#b6ff00",
   S: "#1fd8c4",
+  U: "#ff70b8",
+  Z: "#4ae0ff",
+  R: "#8a5cf5",
+  G: "#b07840",
 };
 
-// Light capsule bodies need a dark letter to stay readable.
-export const DARK_LETTER_DROP_KINDS: ReadonlySet<PowerUpKind> = new Set(["P", "W", "T", "X", "N", "S"]);
+// Light and mid-tone capsule bodies need a dark letter to stay readable; white
+// on M's green and B's orange sat under 3:1.
+export const DARK_LETTER_DROP_KINDS: ReadonlySet<PowerUpKind> = new Set([
+  "M",
+  "B",
+  "P",
+  "W",
+  "T",
+  "X",
+  "N",
+  "S",
+  "U",
+  "Z",
+]);
 
 export const canvasPalette = {
   fieldBackground: "#0b0b26",
@@ -52,6 +68,9 @@ export const canvasPalette = {
   dropSheen: "#ffffff",
   dropShade: "#0b0b26",
   energyWall: "#8fd0ff",
+  popBonus: "#c8ffc8",
+  popMalus: "#ff70d0",
+  popShadow: "#0b0b26",
   blastFlash: "#ffc27a",
   deathFlash: "#ffffff",
   nukeFlash: "#ffffff",

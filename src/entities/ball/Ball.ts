@@ -8,6 +8,8 @@ export class Ball {
   y = 0;
   velocity: Vector2D = { x: 0, y: 0 };
   active = false;
+  // GLUE: offset from the paddle's left edge while stuck to it, null in flight.
+  stuckOffsetX: number | null = null;
 
   get centerX(): number {
     return this.x + gameConfig.ball.size / 2;
@@ -28,6 +30,7 @@ export class Ball {
 
   cloneFrom(source: Ball, angleRad: number, speed: number): void {
     this.active = true;
+    this.stuckOffsetX = null;
     this.x = source.x;
     this.y = source.y;
     this.velocity = {

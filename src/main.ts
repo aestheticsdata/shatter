@@ -51,4 +51,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   game.start();
+
+  // Dev-only QA handle: lets debug tooling drive and inspect the live game.
+  if (import.meta.env.DEV) {
+    (window as Window & { __shatter?: ShatterGame }).__shatter = game;
+  }
 });

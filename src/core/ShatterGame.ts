@@ -13,7 +13,7 @@ import { InputController } from "@input/InputController";
 import { zeroPad } from "@shared/format";
 
 import type { SoundBank } from "@audio/SoundBank";
-import type { BrickFlash, BrickHit, BurstSpec, PanelView, PowerUpKind, ScreenName } from "@interfaces/types";
+import type { BrickFlash, BrickHit, BurstSpec, CatchPop, PanelView, PowerUpKind, ScreenName } from "@interfaces/types";
 import type { CanvasRenderer } from "@render/CanvasRenderer";
 import type { HiScores } from "@state/HiScores";
 import type { Panel } from "@ui/Panel";
@@ -73,12 +73,13 @@ function resolveDebugPowerKinds(): PowerUpKind[] {
 export class ShatterGame {
   private screen: ScreenName = "title";
   private score = 0;
-  private lives = gameConfig.rules.startLives;
+  private lives: number = gameConfig.rules.startLives;
   private level = 0;
   private entry = "";
   private booted = false;
   private wallArmed = false;
   private brickFlashes: BrickFlash[] = [];
+  private catchPops: CatchPop[] = [];
   private tickCount = 0;
   private readonly debugStartLevel = resolveDebugStartLevel();
   private readonly debugDropRate = resolveDebugDropRate();
@@ -163,6 +164,7 @@ export class ShatterGame {
       drops: this.dropPool.drops,
       shots: this.shotPool.shots,
       flashes: this.brickFlashes,
+      pops: this.catchPops,
       particles: this.particles.particles,
       detonation: this.detonation,
       energyWallArmed: this.wallArmed,
@@ -181,6 +183,12 @@ export class ShatterGame {
 
     this.tickCount++;
     this.brickFlashes = this.brickFlashes.filter((flash) => --flash.ticksLeft > 0);
+    // Pops animate above the freeze returns below, so the catch that started a
+    // NUKE (or ended the level) still gets its acknowledgment on screen.
+    for (const pop of this.catchPops) {
+      pop.y -= gameConfig.powerUps.catchPopRiseSpeed;
+    }
+    this.catchPops = this.catchPops.filter((pop) => --pop.ticksLeft > 0);
     this.particles.step();
 
     // A pending level clear freezes the rest of the simulation so the final
@@ -206,18 +214,30 @@ export class ShatterGame {
     if (expired.includes("J") && !this.timers.isActive("E")) {
       this.paddle.setWidth(gameConfig.paddle.baseWidth);
     }
+    // Expired glue may not strand balls on the paddle with no way to launch.
+    if (expired.includes("G")) {
+      this.releaseStuckBalls();
+    }
 
     if (this.timers.isActive("L") && --this.laserCountdown <= 0) {
       this.laserCountdown = gameConfig.powerUps.laserCadenceTicks;
       this.shotPool.fireFromPaddle(this.paddle);
       this.deps.sfx.laserFire();
     }
-    this.shotPool.step(this.grid, (hit) => this.damageBrick(hit));
+    this.shotPool.step(this.grid, (hit) => this.damageBrick(hit, "laser"));
 
     for (const ball of this.balls) {
-      if (ball.active) {
-        this.moveBall(ball);
+      if (!ball.active) {
+        continue;
       }
+      if (ball.stuckOffsetX !== null) {
+        // Glued balls ride the paddle; the offset re-clamps in case a WIDE or
+        // JAMMER catch changed the width underneath them.
+        ball.x = this.paddle.x + Math.min(ball.stuckOffsetX, this.paddle.width - gameConfig.ball.size);
+        ball.y = gameConfig.paddle.y - gameConfig.ball.size;
+        continue;
+      }
+      this.moveBall(ball);
     }
     // The MULTI ladder and the swarm end as soon as a single ball is left —
     // checked before capsule catches so a fresh pickup is not instantly reset.
@@ -235,11 +255,13 @@ export class ShatterGame {
 
     if (this.clearCountdown === 0) {
       this.dropPool.step(this.paddle.bounds, (kind) => {
-        // Two capsules can reach the paddle on one tick; nothing applies once
-        // a NUKE detonation has started.
-        if (!this.detonation.active) {
-          this.applyPowerUp(kind);
+        // Two capsules can reach the paddle on one tick; nothing applies once a
+        // NUKE detonation has started — the refused drop stays live and freezes.
+        if (this.detonation.active) {
+          return false;
         }
+        this.applyPowerUp(kind);
+        return true;
       });
     }
   }
@@ -301,6 +323,14 @@ export class ShatterGame {
         ball.x + size > this.paddle.x &&
         ball.x < this.paddle.x + this.paddle.width;
       if (paddleCatch) {
+        if (this.timers.isActive("G")) {
+          // GLUE: the ball parks on the paddle; a click (or Space) releases it.
+          ball.velocity = { x: 0, y: 0 };
+          ball.stuckOffsetX = ball.x - this.paddle.x;
+          ball.y = paddleTop - size;
+          this.deps.sfx.wallBounce();
+          return;
+        }
         const relativeHit = relativePaddleHit(ball.centerX, this.paddle.bounds);
         ball.velocity = computePaddleBounceVelocity(relativeHit, this.speed(), gameConfig.bounce.maxAngleRad);
         ball.y = paddleTop - size;
@@ -455,6 +485,7 @@ export class ShatterGame {
     // freezes mid-air behind the CLEARED overlay. The ordinary path is clean
     // by construction (15-tick chunks vs a 20-tick delay).
     this.brickFlashes = [];
+    this.catchPops = [];
     this.particles.reset();
     const bonus = (this.level + 1) * gameConfig.scoring.clearBonusPerLevel * this.scoreMultiplier();
     this.score += bonus;
@@ -465,6 +496,16 @@ export class ShatterGame {
 
   private applyPowerUp(kind: PowerUpKind): void {
     const durations = gameConfig.powerUps.durationsTicks;
+
+    // Every catch gets an unmistakable on-field acknowledgment: passive effects
+    // (PAYDAY, BLAST, PIERCE) and refresh catches are otherwise invisible.
+    this.catchPops.push({
+      x: this.paddle.centerX,
+      y: gameConfig.paddle.y - 6,
+      label: POWER_UP_NAMES[kind],
+      malus: kind === "J",
+      ticksLeft: gameConfig.powerUps.catchPopLifeTicks,
+    });
 
     if (kind === "E") {
       this.timers.deactivate("J");
@@ -515,6 +556,18 @@ export class ShatterGame {
       // The shockwave ring starts where the capsule was caught: the paddle centre.
       this.detonation.start(this.paddle.x + this.paddle.width / 2, gameConfig.paddle.y);
     }
+    if (kind === "U") {
+      this.lives = Math.min(gameConfig.rules.maxLives, this.lives + 1);
+    }
+    if (kind === "Z") {
+      this.zapBottomRow();
+    }
+    if (kind === "R") {
+      this.dropPool.rainSpawn(gameConfig.powerUps.rainSpawnCount);
+    }
+    if (kind === "G") {
+      this.timers.activate("G", durations.G);
+    }
 
     if (kind === "N") {
       // One detonation instead of a pickup jingle — and instead of ~70 per-brick beeps.
@@ -523,8 +576,55 @@ export class ShatterGame {
       this.deps.sfx.swarmPickup();
     } else if (kind === "J") {
       this.deps.sfx.jammerPickup();
+    } else if (kind === "U") {
+      this.deps.sfx.extraLife();
+    } else if (kind === "Z") {
+      // The row vaporizes silently brick-by-brick; one boom covers the sweep.
+      this.deps.sfx.blastExplosion();
     } else {
       this.deps.sfx.capsulePickup();
+    }
+  }
+
+  // ZAP vaporizes the bottom-most occupied row outright: full points (PAYDAY
+  // applies), silver and gold die in one hit, but like a nuke it drops no
+  // capsules and never chains BLAST.
+  private zapBottomRow(): void {
+    for (let row = this.grid.rows.length - 1; row >= 0; row--) {
+      const hits: BrickHit[] = [];
+      for (let column = 0; column < gameConfig.grid.columns; column++) {
+        const hit = this.grid.hitAtCell(row, column);
+        if (hit) {
+          hits.push(hit);
+        }
+      }
+      if (hits.length === 0) {
+        continue;
+      }
+      for (const hit of hits) {
+        this.grid.destroy(hit);
+        this.score += hit.cell.points * this.scoreMultiplier();
+        this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
+      }
+      break;
+    }
+    // Same idempotent clear trigger as damageBrick: ZAP can take the last row.
+    if (this.grid.remaining <= 0) {
+      this.clearCountdown = gameConfig.effects.clearDelayTicks;
+    }
+  }
+
+  // GLUE release: every stuck ball leaves with a fresh paddle bounce, exactly
+  // as if it had struck the paddle at its current spot.
+  private releaseStuckBalls(): void {
+    for (const ball of this.balls) {
+      if (ball.active && ball.stuckOffsetX !== null) {
+        ball.stuckOffsetX = null;
+        const relativeHit = relativePaddleHit(ball.centerX, this.paddle.bounds);
+        ball.velocity = computePaddleBounceVelocity(relativeHit, this.speed(), gameConfig.bounce.maxAngleRad);
+        ball.y = gameConfig.paddle.y - gameConfig.ball.size;
+        this.deps.sfx.paddleBounce(relativeHit);
+      }
     }
   }
 
@@ -578,6 +678,10 @@ export class ShatterGame {
       case "serve":
         this.launch();
         break;
+      case "play":
+        // A click during play only means something while GLUE holds balls.
+        this.releaseStuckBalls();
+        break;
       case "pause":
         this.setScreen("play");
         break;
@@ -614,6 +718,7 @@ export class ShatterGame {
     this.balls.forEach((ball, index) => {
       ball.active = index === 0;
       ball.velocity = { x: 0, y: 0 };
+      ball.stuckOffsetX = null;
     });
     this.balls[0].followPaddle(this.paddle);
     this.paddle.setWidth(gameConfig.paddle.baseWidth);
@@ -625,6 +730,7 @@ export class ShatterGame {
     this.multiTier = 0;
     this.swarmLive = false;
     this.brickFlashes = [];
+    this.catchPops = [];
     this.particles.reset();
     this.detonation.reset();
     this.clearCountdown = 0;
@@ -652,11 +758,16 @@ export class ShatterGame {
     // Esc can end a run mid-effect, and a last-life drain lands here mid-tick:
     // no stale effect may stay frozen behind the GAME OVER overlay, and the
     // emptied capsule pool makes this tick's trailing dropPool.step a no-op —
-    // nothing can be caught on the over screen.
+    // nothing can be caught on the over screen. Timers and the wall charge must
+    // die too: the side panel stays visible, and a leaked WIDE/PAYDAY label (or
+    // the PAYDAY score blink) would keep showing through the overlay.
     this.brickFlashes = [];
+    this.catchPops = [];
     this.particles.reset();
     this.dropPool.reset();
     this.detonation.reset();
+    this.timers.reset();
+    this.wallArmed = false;
     this.clearCountdown = 0;
     this.deps.screens.updateOver(zeroPad(this.score, 6));
     this.setScreen("over");

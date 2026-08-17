@@ -6,7 +6,7 @@ import type { Detonation } from "@entities/effects/Detonation";
 import type { Particle } from "@entities/effects/ParticleField";
 import type { Shot } from "@entities/laser/ShotPool";
 import type { Drop } from "@entities/powerups/DropPool";
-import type { BrickCell, BrickFlash, BrickFlashKind } from "@interfaces/types";
+import type { BrickCell, BrickFlash, BrickFlashKind, CatchPop } from "@interfaces/types";
 
 const BALL_PIXEL_ROWS: ReadonlyArray<readonly [number, number]> = [
   [2, 4],
@@ -39,6 +39,7 @@ export interface RenderView {
   drops: readonly Drop[];
   shots: readonly Shot[];
   flashes: readonly BrickFlash[];
+  pops: readonly CatchPop[];
   particles: readonly Particle[];
   detonation: Detonation;
   energyWallArmed: boolean;
@@ -121,6 +122,10 @@ export class CanvasRenderer {
       if (ball.active) {
         this.drawBall(ball);
       }
+    }
+
+    for (const pop of view.pops) {
+      this.drawPop(pop);
     }
 
     this.drawDetonation(view.detonation);
@@ -222,6 +227,24 @@ export class CanvasRenderer {
     this.ctx.textAlign = "center";
     this.ctx.textBaseline = "middle";
     this.ctx.fillText(drop.kind, x + 10, y + 4.5);
+  }
+
+  // Rising catch label; blinks through its last third so the fade-out reads as
+  // pixel-era decay instead of a smooth alpha ramp.
+  private drawPop(pop: CatchPop): void {
+    const fading = pop.ticksLeft < 16 && (pop.ticksLeft & 4) === 0;
+    if (fading) {
+      return;
+    }
+    const x = Math.round(pop.x);
+    const y = Math.round(pop.y);
+    this.ctx.font = "7px Silkscreen, monospace";
+    this.ctx.textAlign = "center";
+    this.ctx.textBaseline = "middle";
+    this.ctx.fillStyle = canvasPalette.popShadow;
+    this.ctx.fillText(pop.label, x + 1, y + 1);
+    this.ctx.fillStyle = pop.malus ? canvasPalette.popMalus : canvasPalette.popBonus;
+    this.ctx.fillText(pop.label, x, y);
   }
 
   private drawWalls(): void {
