@@ -108,7 +108,7 @@ export class ShatterGame {
     this.input = new InputController(deps.lockTarget, deps.scaler, {
       onPointerMoveTo: (stageX) => this.paddle.moveCenterTo(stageX),
       onPointerMoveBy: (deltaX) => this.paddle.moveByDelta(deltaX),
-      onAdvance: () => this.advance(),
+      onAdvance: () => this.advanceGated(),
       onKeyDown: (event) => this.onKeyDown(event),
       onInputLost: () => this.onInputLost(),
     });
@@ -178,6 +178,14 @@ export class ShatterGame {
     }
     if (this.screen === "serve") {
       this.balls[0].followPaddle(this.paddle);
+      return;
+    }
+
+    // Belt over the pointer-lock gate: however "play" was reached, it may not
+    // keep running unlocked while this setup is expected to lock. Any leak
+    // lands on the pause screen instead of playing with a free, hidden cursor.
+    if (!this.input.isLocked && this.input.lockExpected) {
+      this.setScreen("pause");
       return;
     }
 
@@ -670,6 +678,18 @@ export class ShatterGame {
     }
   }
 
+  // Serve and pause are the screens whose advance enters live play: that
+  // advance re-arms pointer lock and waits for the grant, whether a click,
+  // Space or P asked for it. Menu screens advance ungated — they must never
+  // stall on a lock rejection — and a click during play is the GLUE release.
+  private advanceGated(): void {
+    if (this.screen === "pause" || this.screen === "serve") {
+      this.input.runGated(() => this.advance());
+    } else {
+      this.advance();
+    }
+  }
+
   private advance(): void {
     switch (this.screen) {
       case "title":
@@ -802,14 +822,21 @@ export class ShatterGame {
     if (event.key === " ") {
       // Space mirrors the mouse click: start on title, launch on serve, advance end screens.
       event.preventDefault();
-      this.advance();
+      this.advanceGated();
       return;
     }
 
     const key = event.key.toLowerCase();
-    if (key === "p" && (this.screen === "play" || this.screen === "pause")) {
-      this.setScreen(this.screen === "play" ? "pause" : "play");
+    if (key === "p" && this.screen === "play") {
+      this.setScreen("pause");
       this.deps.sfx.pauseToggle();
+    } else if (key === "p" && this.screen === "pause") {
+      // Resuming by key must re-arm the lock exactly like the resume click: an
+      // ungated P would silently rebuild the free-cursor run the gate prevents.
+      this.input.runGated(() => {
+        this.setScreen("play");
+        this.deps.sfx.pauseToggle();
+      });
     }
     if (key === "m") {
       this.deps.sfx.toggleMuted();
