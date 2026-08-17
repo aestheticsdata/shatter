@@ -1,4 +1,3 @@
-import { debugConfig } from "@core/config/DebugConfig";
 import { ballSpeedForLevel, gameConfig, POWER_UP_NAMES } from "@core/config/GameConfig";
 import { levelAt, levelIndexOf } from "@core/levels/levels";
 import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/PaddleBounce";
@@ -41,7 +40,7 @@ const POWER_LABEL_MAX_CHARS = 13;
 const POWER_LABEL_CYCLE_TICKS = 60;
 
 // Dev-only level select (?level=N, 1-based); always 0 in production builds.
-function resolveDebugStartLevel(): number {
+function resolveStartLevelOverride(): number {
   if (!import.meta.env.DEV) {
     return 0;
   }
@@ -50,7 +49,7 @@ function resolveDebugStartLevel(): number {
 }
 
 // Dev-only capsule drop-rate override (?droprate=0..1) to test power-ups quickly.
-function resolveDebugDropRate(): number | null {
+function resolveBonusSpreadOverride(): number | null {
   if (!import.meta.env.DEV) {
     return null;
   }
@@ -63,7 +62,7 @@ function resolveDebugDropRate(): number | null {
 }
 
 // Dev-only power-up grant at every launch (?power=BWX — a string of capsule letters).
-function resolveDebugPowerKinds(): PowerUpKind[] {
+function resolvePowerKindsOverride(): PowerUpKind[] {
   if (!import.meta.env.DEV) {
     return [];
   }
@@ -82,9 +81,9 @@ export class ShatterGame {
   private brickFlashes: BrickFlash[] = [];
   private catchPops: CatchPop[] = [];
   private tickCount = 0;
-  private readonly debugStartLevel = resolveDebugStartLevel();
-  private readonly debugDropRate = resolveDebugDropRate();
-  private readonly debugPowerKinds = resolveDebugPowerKinds();
+  private readonly startLevelOverride = resolveStartLevelOverride();
+  private readonly bonusSpreadOverride = resolveBonusSpreadOverride();
+  private readonly powerKindsOverride = resolvePowerKindsOverride();
 
   private readonly paddle = new Paddle();
   private readonly grid = new BrickGrid();
@@ -378,7 +377,7 @@ export class ShatterGame {
     }
     this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
 
-    if (source !== "splash" && Math.random() < this.dropRate()) {
+    if (source !== "splash" && Math.random() < this.bonusSpreadAmount()) {
       const { left, top, brickWidth, brickHeight } = gameConfig.grid;
       if (this.dropPool.trySpawn(left + hit.column * brickWidth, top + hit.row * brickHeight)) {
         this.deps.sfx.capsuleSpawn();
@@ -491,12 +490,12 @@ export class ShatterGame {
     return this.timers.isActive("X") ? gameConfig.scoring.paydayMultiplier : 1;
   }
 
-  // Capsule drop chance for this kill: the dev URL override beats the debug
-  // constant, which beats the shipped rate. Clamped, so a typo in the constant
-  // (1.5, -1) cannot make the roll nonsensical.
-  private dropRate(): number {
-    const rate = this.debugDropRate ?? debugConfig.dropRate ?? gameConfig.rules.dropRate;
-    return Math.min(1, Math.max(0, rate));
+  // Chance that this kill drops a bonus capsule: the dev URL override beats the
+  // config knob. Clamped, so a typo in the knob (1.5, -1) cannot make the roll
+  // nonsensical.
+  private bonusSpreadAmount(): number {
+    const amount = this.bonusSpreadOverride ?? gameConfig.rules.bonusSpreadAmount;
+    return Math.min(1, Math.max(0, amount));
   }
 
   // WARP (the Ctrl+Option+Command+N easter egg): finish the level on the spot. The
@@ -749,7 +748,7 @@ export class ShatterGame {
     this.booted = true;
     this.score = 0;
     this.lives = gameConfig.rules.startLives;
-    this.level = this.debugStartLevel;
+    this.level = this.startLevelOverride;
     this.buildLevel(this.level);
     this.deps.sfx.gameStart();
   }
@@ -794,7 +793,7 @@ export class ShatterGame {
     ball.launch(this.speed());
     this.setScreen("play");
     this.deps.sfx.launch();
-    for (const kind of this.debugPowerKinds) {
+    for (const kind of this.powerKindsOverride) {
       this.applyPowerUp(kind);
     }
   }

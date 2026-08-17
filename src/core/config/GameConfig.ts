@@ -6,7 +6,10 @@ export const gameConfig = {
     // 1UP stops counting here: the LIVES inset fits 5 reserve bars.
     maxLives: 6,
     ballSpeedMultiplier: 1,
-    dropRate: 0.15,
+    // THE bonus knob: chance (0..1) that a destroyed brick drops a capsule.
+    // Crank to 1 while debugging (every brick drops one), set back to what
+    // players should get before deploying — deploy.sh prints the value it ships.
+    bonusSpreadAmount: 0.7,
   },
   loop: {
     tickMs: 1000 / 60,

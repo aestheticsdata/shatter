@@ -53,7 +53,6 @@ pnpm run fmt:check
 pnpm run lint
 pnpm run typecheck
 pnpm run check:backgrounds
-pnpm run check:debug
 ```
 
 Auto-fix formatting and lint issues:
@@ -72,7 +71,7 @@ Test gameplay quickly with the dev-only URL params (inert in production builds):
 Two debug affordances work in **production builds too**, so the deployed site can be debugged where the URL params above are stripped:
 
 - **WARP easter egg** — `Ctrl`+`Option`+`Command`+`N` (⌃⌥⌘N) during serve, play or pause instantly wins the current level, straight to the CLEARED screen. Nothing claims all three modifiers at once: Chrome binds only ⌘N and ⇧⌘N, and macOS has no ⌃⌥⌘ default. Matched on the physical key (`event.code === "KeyN"`), because Option rewrites `event.key` into the alternate glyph while the N keycap sits in the same place on AZERTY, QWERTY and QWERTZ. **A warp scores nothing** — no brick points, and the clear bonus shows `00000`: the hall of fame is shared across all players, so skipping a level must never be worth points.
-- **Debug switches** — `src/core/config/DebugConfig.ts` holds the constants worth flipping by hand, today `dropRate` (capsule chance per brick, `1` = every brick drops, `null` = the shipped 15%). They compile into every build, so `pnpm run check:debug` fails while any of them is flipped, and `deploy.sh` runs it before the production build — a forgotten switch blocks the deploy instead of reaching players. To change the rate players actually get, edit `gameConfig.rules.dropRate` instead.
+- **The bonus knob** — `gameConfig.rules.bonusSpreadAmount` (`src/core/config/GameConfig.ts`) is the chance a destroyed brick drops a capsule: crank it to `1` while debugging (every brick drops one), set it back to what players should get before deploying. It ships as-is; `deploy.sh` prints the value in the deploy log so a knob left cranked is caught by eye. In dev, `?droprate=` overrides it without touching the file.
 
 Deploy to production (versioned release + auto rollback on failure):
 
@@ -96,7 +95,7 @@ Manual rollback:
 src/
   core/
     ShatterGame.ts   # Orchestrator: state machine, fixed-timestep loop, game rules
-    config/          # GameConfig: geometry, speeds, timers, points (single source of truth) · DebugConfig: hand-flipped debug switches
+    config/          # GameConfig: geometry, speeds, timers, points (single source of truth)
     levels/          # ASCII level definitions (28 layouts) + 3×5 pixel font for word levels
     physics/         # Paddle bounce math
   entities/
@@ -133,7 +132,6 @@ scripts/
   deploy.sh          # Deploy the game + rollback (auto/manual)
   deploy-api.sh      # Deploy shatter-api (rsync + pnpm install + pm2 reload)
   check-backgrounds.mjs # Background readability + level-assignment guard (pnpm run check:backgrounds)
-  check-debug.mjs    # Refuses a build with debug switches left flipped (pnpm run check:debug)
 ```
 
 ### Engine details

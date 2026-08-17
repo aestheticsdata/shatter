@@ -303,13 +303,10 @@ prepare_local_build() {
   cd "$PROJECT_DIR"
   pnpm install --frozen-lockfile
 
-  # DebugConfig.ts ships in production builds on purpose (the deployed site has no
-  # ?droprate= to lean on), so a switch left flipped would reach players.
-  log "➡️  Checking debug switches"
-  if ! pnpm run check:debug; then
-    echo "❌ ERROR: debug switches are flipped in src/core/config/DebugConfig.ts — refusing to deploy" >&2
-    exit 1
-  fi
+  # The bonus knob ships as-is: surface the value in the deploy log so a knob
+  # left cranked for debugging (1 = every brick drops a capsule) is caught by
+  # eye before it reaches players.
+  log "➡️  $(grep -o 'bonusSpreadAmount: [0-9.]*' src/core/config/GameConfig.ts | head -1) (bonus capsule chance per brick shipped to players)"
 
   log "➡️  Building production assets with base path: $BUILD_BASE_PATH"
   pnpm exec vite build --base="$BUILD_BASE_PATH"
