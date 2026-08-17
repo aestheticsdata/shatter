@@ -149,9 +149,9 @@ scripts/
 
 ### Deployment
 
-- Target host default: `debian@ks-b`, path `/var/www/shatter` (URL `https://shatter.1991computer.com/`).
+- Target host default: `debian@ks-b`, app folder `/var/www/shatter` (URL `https://shatter.1991computer.com/`). Everything lives inside it, bkmk-style: live root `front/` (the nginx root), versioned history `front-releases/`, previous version `front.bak/`.
 - Nginx vhost: `/etc/nginx/conf.d/shatter.conf` on ks-b, with its own Let's Encrypt certificate (webroot renewal, like the other subdomains). The legacy `https://1991computer.com/arkanoid-2007/` path is dropped and returns 404.
-- Each deploy creates a versioned `releases/release-<timestamp>-<branch>-<hash>` with `release.json` metadata; previous live version is kept as `.bak` and restored automatically if the healthcheck fails.
+- Each deploy creates a versioned `front-releases/release-<timestamp>-<branch>-<hash>` with `release.json` metadata; previous live version is kept as `front.bak` and restored automatically if the healthcheck fails.
 - Healthcheck marker in the deployed HTML: `SHATTER`.
 - Overridable via env vars (`REMOTE_USER_HOST`, `WEB_ROOT_BASE`, `HEALTHCHECK_URL`, `EXPECTED_HTML_MARKER`, `MAX_RELEASES_TO_KEEP`, `BUILD_BASE_PATH`).
 - The score API deploys separately with `./scripts/deploy-api.sh`: rsync of `server/` to `/home/debian/apps/shatter-api` (the `data/` directory is never touched), `pnpm install --prod --frozen-lockfile`, `pm2 startOrReload`, then a healthcheck through the nginx `/api/` proxy.
