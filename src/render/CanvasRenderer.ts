@@ -21,6 +21,12 @@ const BALL_PIXEL_ROWS: ReadonlyArray<readonly [number, number]> = [
 
 const STAR_COUNT = 58;
 
+// The backing store is SCALE× the 372×300 game grid. Static art snaps to whole
+// game pixels (each drawn as a SCALE×SCALE block, so stills are unchanged);
+// moving sprites snap to the finer backing grid, stepping in thirds of a game
+// pixel instead of jumping whole ones.
+const SCALE = 3;
+
 const FLASH_COLORS: Record<BrickFlashKind, string> = {
   death: canvasPalette.deathFlash,
   blast: canvasPalette.blastFlash,
@@ -57,6 +63,9 @@ export class CanvasRenderer {
   private frameCount = 0;
 
   constructor(canvas: HTMLCanvasElement) {
+    const { width, height } = gameConfig.field;
+    canvas.width = width * SCALE;
+    canvas.height = height * SCALE;
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       throw new Error("2D canvas context unavailable");
@@ -64,7 +73,6 @@ export class CanvasRenderer {
     this.ctx = ctx;
     this.ctx.imageSmoothingEnabled = false;
 
-    const { width, height } = gameConfig.field;
     this.stars = Array.from({ length: STAR_COUNT }, (_, index) => ({
       x: 4 + Math.floor(Math.random() * (width - 8)),
       y: 4 + Math.floor(Math.random() * (height - 8)),
@@ -75,8 +83,7 @@ export class CanvasRenderer {
   draw(view: RenderView): void {
     this.frameCount++;
     const { width, height } = gameConfig.field;
-    this.ctx.fillStyle = canvasPalette.fieldBackground;
-    this.ctx.fillRect(0, 0, width, height);
+    this.pixel(0, 0, width, height, canvasPalette.fieldBackground);
 
     for (const star of this.stars) {
       this.pixel(star.x, star.y, 1, 1, star.color);
@@ -102,7 +109,7 @@ export class CanvasRenderer {
       }
       const colors = BRICK_COLORS[particle.brickKind];
       const color = [colors.flat, colors.light, colors.dark][index % 3];
-      this.pixel(particle.x, particle.y, particle.size, particle.size, color);
+      this.spritePixel(particle.x, particle.y, particle.size, particle.size, color);
     });
     if (view.energyWallArmed) {
       this.pixel(gameConfig.field.left, gameConfig.powerUps.wallY, 366, 2, canvasPalette.energyWall);
@@ -114,7 +121,7 @@ export class CanvasRenderer {
     }
     for (const shot of view.shots) {
       if (shot.active) {
-        this.pixel(shot.x, shot.y, 2, 9, canvasPalette.laserShot);
+        this.spritePixel(shot.x, shot.y, 2, 9, canvasPalette.laserShot);
       }
     }
     this.drawPaddle(view.paddle);
@@ -145,16 +152,23 @@ export class CanvasRenderer {
     }
     if (detonation.radius > 0) {
       this.ctx.strokeStyle = canvasPalette.nukeRing;
-      this.ctx.lineWidth = 3;
+      this.ctx.lineWidth = 3 * SCALE;
       this.ctx.beginPath();
-      this.ctx.arc(detonation.x, detonation.y, detonation.radius, 0, Math.PI * 2);
+      this.ctx.arc(detonation.x * SCALE, detonation.y * SCALE, detonation.radius * SCALE, 0, Math.PI * 2);
       this.ctx.stroke();
     }
   }
 
   private pixel(x: number, y: number, width: number, height: number, color: string): void {
     this.ctx.fillStyle = color;
-    this.ctx.fillRect(Math.round(x), Math.round(y), width, height);
+    this.ctx.fillRect(Math.round(x) * SCALE, Math.round(y) * SCALE, width * SCALE, height * SCALE);
+  }
+
+  // Same chunky block art as pixel(), but the position snaps to the backing
+  // grid instead of the game grid — sub-game-pixel placement for anything that moves.
+  private spritePixel(x: number, y: number, width: number, height: number, color: string): void {
+    this.ctx.fillStyle = color;
+    this.ctx.fillRect(Math.round(x * SCALE), Math.round(y * SCALE), width * SCALE, height * SCALE);
   }
 
   private drawBrick(x: number, y: number, cell: BrickCell): void {
@@ -170,50 +184,48 @@ export class CanvasRenderer {
   }
 
   private drawPaddle(paddle: PaddleRenderState): void {
-    const x = Math.round(paddle.x);
+    const x = paddle.x;
     const y = gameConfig.paddle.y;
     const width = paddle.width;
     const height = gameConfig.paddle.height;
 
-    this.pixel(x + 1, y, width - 2, height, canvasPalette.paddleBody);
-    this.pixel(x, y + 1, width, height - 2, canvasPalette.paddleBody);
-    this.pixel(x + 1, y, 7, 1, canvasPalette.paddleCap);
-    this.pixel(x, y + 1, 8, height - 2, canvasPalette.paddleCap);
-    this.pixel(x + 1, y + height - 1, 7, 1, canvasPalette.paddleCap);
-    this.pixel(x + width - 8, y, 7, 1, canvasPalette.paddleCap);
-    this.pixel(x + width - 8, y + 1, 8, height - 2, canvasPalette.paddleCap);
-    this.pixel(x + width - 8, y + height - 1, 7, 1, canvasPalette.paddleCap);
-    this.pixel(x + 9, y + 1, width - 18, 1, canvasPalette.paddleTopSheen);
-    this.pixel(x + 9, y + height - 1, width - 18, 1, canvasPalette.paddleBottomShade);
+    this.spritePixel(x + 1, y, width - 2, height, canvasPalette.paddleBody);
+    this.spritePixel(x, y + 1, width, height - 2, canvasPalette.paddleBody);
+    this.spritePixel(x + 1, y, 7, 1, canvasPalette.paddleCap);
+    this.spritePixel(x, y + 1, 8, height - 2, canvasPalette.paddleCap);
+    this.spritePixel(x + 1, y + height - 1, 7, 1, canvasPalette.paddleCap);
+    this.spritePixel(x + width - 8, y, 7, 1, canvasPalette.paddleCap);
+    this.spritePixel(x + width - 8, y + 1, 8, height - 2, canvasPalette.paddleCap);
+    this.spritePixel(x + width - 8, y + height - 1, 7, 1, canvasPalette.paddleCap);
+    this.spritePixel(x + 9, y + 1, width - 18, 1, canvasPalette.paddleTopSheen);
+    this.spritePixel(x + 9, y + height - 1, width - 18, 1, canvasPalette.paddleBottomShade);
 
     if (paddle.laserActive) {
-      this.pixel(x + 5, y - 3, 2, 3, canvasPalette.laserCannon);
-      this.pixel(x + width - 7, y - 3, 2, 3, canvasPalette.laserCannon);
+      this.spritePixel(x + 5, y - 3, 2, 3, canvasPalette.laserCannon);
+      this.spritePixel(x + width - 7, y - 3, 2, 3, canvasPalette.laserCannon);
     }
   }
 
   private drawBall(ball: Ball): void {
-    const x = Math.round(ball.x);
-    const y = Math.round(ball.y);
+    const { x, y } = ball;
 
     BALL_PIXEL_ROWS.forEach(([offset, span], rowIndex) => {
-      this.pixel(x + offset, y + rowIndex, span, 1, canvasPalette.ballBody);
+      this.spritePixel(x + offset, y + rowIndex, span, 1, canvasPalette.ballBody);
     });
-    this.pixel(x + 2, y + 1, 2, 1, canvasPalette.ballHighlight);
-    this.pixel(x + 1, y + 2, 1, 2, canvasPalette.ballHighlight);
-    this.pixel(x + 3, y + 6, 3, 1, canvasPalette.ballShade);
-    this.pixel(x + 6, y + 4, 1, 2, canvasPalette.ballShade);
+    this.spritePixel(x + 2, y + 1, 2, 1, canvasPalette.ballHighlight);
+    this.spritePixel(x + 1, y + 2, 1, 2, canvasPalette.ballHighlight);
+    this.spritePixel(x + 3, y + 6, 3, 1, canvasPalette.ballShade);
+    this.spritePixel(x + 6, y + 4, 1, 2, canvasPalette.ballShade);
   }
 
   private drawDrop(drop: Drop): void {
-    const x = Math.round(drop.x);
-    const y = Math.round(drop.y);
+    const { x, y } = drop;
     const color = DROP_COLORS[drop.kind];
 
-    this.pixel(x + 1, y, 18, 8, color);
-    this.pixel(x, y + 1, 20, 6, color);
-    this.pixel(x + 2, y + 1, 16, 1, canvasPalette.dropSheen);
-    this.pixel(x + 2, y + 7, 16, 1, canvasPalette.dropShade);
+    this.spritePixel(x + 1, y, 18, 8, color);
+    this.spritePixel(x, y + 1, 20, 6, color);
+    this.spritePixel(x + 2, y + 1, 16, 1, canvasPalette.dropSheen);
+    this.spritePixel(x + 2, y + 7, 16, 1, canvasPalette.dropShade);
 
     // The JAMMER trap telegraphs itself with a blinking letter.
     if (drop.kind === "J" && (this.frameCount & 8) !== 0) {
@@ -223,10 +235,10 @@ export class CanvasRenderer {
     this.ctx.fillStyle = DARK_LETTER_DROP_KINDS.has(drop.kind)
       ? canvasPalette.dropLetterDark
       : canvasPalette.dropLetterLight;
-    this.ctx.font = "7px Silkscreen, monospace";
+    this.ctx.font = `${7 * SCALE}px Silkscreen, monospace`;
     this.ctx.textAlign = "center";
     this.ctx.textBaseline = "middle";
-    this.ctx.fillText(drop.kind, x + 10, y + 4.5);
+    this.ctx.fillText(drop.kind, Math.round((x + 10) * SCALE), Math.round((y + 4.5) * SCALE));
   }
 
   // Rising catch label; blinks through its last third so the fade-out reads as
@@ -236,13 +248,13 @@ export class CanvasRenderer {
     if (fading) {
       return;
     }
-    const x = Math.round(pop.x);
-    const y = Math.round(pop.y);
-    this.ctx.font = "7px Silkscreen, monospace";
+    const x = Math.round(pop.x * SCALE);
+    const y = Math.round(pop.y * SCALE);
+    this.ctx.font = `${7 * SCALE}px Silkscreen, monospace`;
     this.ctx.textAlign = "center";
     this.ctx.textBaseline = "middle";
     this.ctx.fillStyle = canvasPalette.popShadow;
-    this.ctx.fillText(pop.label, x + 1, y + 1);
+    this.ctx.fillText(pop.label, x + SCALE, y + SCALE);
     this.ctx.fillStyle = pop.malus ? canvasPalette.popMalus : canvasPalette.popBonus;
     this.ctx.fillText(pop.label, x, y);
   }
