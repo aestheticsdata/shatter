@@ -7,7 +7,8 @@ The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372�
 ## Gameplay
 
 - **Screens**: title (animated copper bars) → serve → play, with pause, level-clear, game-over, and a hall of fame with 3-letter initials entry.
-- **15 levels**: SUNRISE, PYRAMID, GATEWAY, VORTEX, CHECKER, RAMPART, HELIX, ORBIT, HIVE, SERPENT, MIRROR, BUNKER, CASCADE, OMEGA, FINALE — looping with increasing ball speed. Silver bricks take 2 hits, gold bricks 3.
+- **28 levels**: SUNRISE, SMILEY, PYRAMID, CHOMP, GATEWAY, HEART, VORTEX, BOLT, CHECKER, INVADER, RAMPART, ROCKET, HELIX, TETRA, ORBIT, COOL, HIVE, DNA, SERPENT, SKULL, MIRROR, BUNKER, CASCADE, PLAY, MAZE, OMEGA, 1991, FINALE — looping with increasing ball speed. Silver bricks take 2 hits, gold bricks 3.
+- **Per-level backgrounds**: eight playfield themes (starfield, nebula haze, blueprint grid, sunrise horizon, gas giant, circuit board, CRT cathode, stone vault), assigned so no two consecutive levels look alike, each seeded per level so the levels sharing a theme still differ. Every theme is static and stays darker than the sprite palette — a `check:backgrounds` script enforces it.
 - **Power-ups** dropped by destroyed bricks (15% chance), each catch acknowledged by a floating label at the paddle: **WIDE** paddle, **MULTI** ball (stacks: 3 → 6 → 9 balls), **LASER** (paddle cannons), **PIERCE** (ball goes through bricks), **BLAST** (bricks destroyed by a ball damage their 8 neighbors), **WALL** (one-shot safety barrier at the bottom), **TEMPO** (bullet-time, balls at ×0.6), **PAYDAY** (points ×2), **GLUE** (balls stick to the paddle; click or Space releases them), **ZAP** (vaporizes the bottom-most brick row), **RAIN** (a shower of 4 fresh capsules from the top), **1UP** (rare: extra life, max 6), **NUKE** (rare: a shockwave destroys every brick on the field, full points), **SWARM** (rare: 12 balls at once) — plus **JAMMER**, the only trap capsule (blinking letter, rarer): it shrinks the paddle for 6 s, so dodge it.
 - **Scoring**: 60–200 points per brick by kind, level-clear bonus `(level+1) × 500`. The top-5 hall of fame is **shared across all players**: scores live in a server-side SQLite table behind the `shatter-api` service, with `localStorage` (`shatter.hiscores.v1`) as instant-boot cache and offline fallback — the game never waits on the network.
 - **Audio**: WebAudio chiptune SFX, 100% synthesized (no assets): a per-event sound bank (square pitch-bends, detuned pairs, filtered noise bursts) on a master gain → compressor chain, with a 30 ms retrigger guard against same-tick pile-ups. An SFX volume fader lives in the side panel (persisted in `localStorage` `shatter.volume.v1`, scaling the master gain ahead of the compressor). An inaudible 30 Hz keep-warm tone stops browser/HDMI/Bluetooth silence detection from swallowing short impact blips.
@@ -51,6 +52,7 @@ Run quality checks:
 pnpm run fmt:check
 pnpm run lint
 pnpm run typecheck
+pnpm run check:backgrounds
 ```
 
 Auto-fix formatting and lint issues:
@@ -89,7 +91,7 @@ src/
   core/
     ShatterGame.ts   # Orchestrator: state machine, fixed-timestep loop, game rules
     config/          # GameConfig: geometry, speeds, timers, points (single source of truth)
-    levels/          # ASCII level definitions (15 layouts)
+    levels/          # ASCII level definitions (28 layouts) + 3×5 pixel font for word levels
     physics/         # Paddle bounce math
   entities/
     ball/            # Ball position/velocity, launch, multi-ball cloning
@@ -98,7 +100,7 @@ src/
     powerups/        # PowerUpTimers (timed effects) + DropPool (weighted falling capsules)
     effects/         # ParticleField (debris ring buffer) + Detonation (NUKE shockwave)
     laser/           # ShotPool (paddle cannon shots)
-  render/            # CanvasRenderer (pixel sprites) + palette (canvas hex colors)
+  render/            # CanvasRenderer (pixel sprites) + palette (sprite hex colors) + backgrounds (per-level field art)
   ui/                # Panel (side panel), Screens (overlays), StageScaler (fit transform)
   input/             # InputController: mouse + keyboard + hybrid pointer lock
   audio/             # Sound: WebAudio engine (tone/noise/arp + compressor) · SoundBank: per-event SFX recipes
@@ -124,6 +126,7 @@ server/
 scripts/
   deploy.sh          # Deploy the game + rollback (auto/manual)
   deploy-api.sh      # Deploy shatter-api (rsync + pnpm install + pm2 reload)
+  check-backgrounds.mjs # Background readability + level-assignment guard (pnpm run check:backgrounds)
 ```
 
 ### Engine details
@@ -135,6 +138,7 @@ scripts/
 - **Paddle bounce**: `relativeHit ∈ [-1, 1]` → angle `relativeHit × 1.05 rad`; speed is preserved, so center hits go up and edge hits go wide.
 - **Ball speed**: `min(4.6, 3.1 + level × 0.25)` px/tick, times the `ballSpeedMultiplier` config.
 - **Canvas palette** lives in `src/render/palette.ts` (canvas cannot read CSS custom properties); the same colors are exposed to the DOM as CSS tokens in `css/tokens/colors.css`.
+- **Backgrounds are pre-rendered**: each level names a theme (`background` in its definition) painted once into an offscreen 1× layer and blitted per frame with smoothing off (an exact 3× upscale), so theme detail is free in the loop — measured slightly cheaper than the old flat fill + 58 star rects. Layouts come from a seeded generator keyed by theme and level, so a level's field art never changes between visits. Theme tones are split into `area` (large regions, kept as dark as the classic field) and `speck` (1–3px sparkle); `pnpm run check:backgrounds` fails the build on a tone that is too bright, too close to a brick/capsule color, or on two adjacent levels sharing a theme.
 - **Panel updates are diffed**: DOM text is only written when a value changes, never per frame.
 - **Stage scaling**: `transform: scale(min(0.99·vw/480, 0.99·vh/300))`, with the stage rect cached and invalidated on resize/scroll; pointer coordinates are mapped through the scale.
 

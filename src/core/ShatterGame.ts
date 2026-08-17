@@ -1,5 +1,5 @@
 import { ballSpeedForLevel, gameConfig, POWER_UP_NAMES } from "@core/config/GameConfig";
-import { levelAt } from "@core/levels/levels";
+import { levelAt, levelIndexOf } from "@core/levels/levels";
 import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/PaddleBounce";
 import { Ball } from "@entities/ball/Ball";
 import { BrickGrid } from "@entities/bricks/BrickGrid";
@@ -158,6 +158,8 @@ export class ShatterGame {
     }
 
     this.deps.renderer.draw({
+      background: levelAt(this.level).background,
+      backgroundVariant: levelIndexOf(this.level),
       grid: this.grid.rows,
       paddle: { x: this.paddle.x, width: this.paddle.width, laserActive: this.timers.isActive("L") },
       balls: this.balls,

@@ -1,4 +1,5 @@
 import { gameConfig } from "@core/config/GameConfig";
+import { BackgroundLayer } from "@render/backgrounds";
 import { BRICK_COLORS, canvasPalette, DARK_LETTER_DROP_KINDS, DROP_COLORS } from "@render/palette";
 
 import type { Ball } from "@entities/ball/Ball";
@@ -6,7 +7,7 @@ import type { Detonation } from "@entities/effects/Detonation";
 import type { Particle } from "@entities/effects/ParticleField";
 import type { Shot } from "@entities/laser/ShotPool";
 import type { Drop } from "@entities/powerups/DropPool";
-import type { BrickCell, BrickFlash, BrickFlashKind, CatchPop } from "@interfaces/types";
+import type { BackgroundId, BrickCell, BrickFlash, BrickFlashKind, CatchPop } from "@interfaces/types";
 
 const BALL_PIXEL_ROWS: ReadonlyArray<readonly [number, number]> = [
   [2, 4],
@@ -18,8 +19,6 @@ const BALL_PIXEL_ROWS: ReadonlyArray<readonly [number, number]> = [
   [1, 6],
   [2, 4],
 ];
-
-const STAR_COUNT = 58;
 
 // The backing store is SCALE× the 372×300 game grid. Static art snaps to whole
 // game pixels (each drawn as a SCALE×SCALE block, so stills are unchanged);
@@ -39,6 +38,10 @@ export interface PaddleRenderState {
 }
 
 export interface RenderView {
+  background: BackgroundId;
+  // Levels sharing a theme get their own layout from this seed (the wrapped
+  // level index).
+  backgroundVariant: number;
   grid: ReadonlyArray<ReadonlyArray<BrickCell | null>>;
   paddle: PaddleRenderState;
   balls: readonly Ball[];
@@ -51,15 +54,9 @@ export interface RenderView {
   energyWallArmed: boolean;
 }
 
-interface Star {
-  x: number;
-  y: number;
-  color: string;
-}
-
 export class CanvasRenderer {
   private readonly ctx: CanvasRenderingContext2D;
-  private readonly stars: Star[];
+  private readonly background: BackgroundLayer;
   private frameCount = 0;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -72,22 +69,17 @@ export class CanvasRenderer {
     }
     this.ctx = ctx;
     this.ctx.imageSmoothingEnabled = false;
-
-    this.stars = Array.from({ length: STAR_COUNT }, (_, index) => ({
-      x: 4 + Math.floor(Math.random() * (width - 8)),
-      y: 4 + Math.floor(Math.random() * (height - 8)),
-      color: canvasPalette.starColors[index % canvasPalette.starColors.length],
-    }));
+    this.background = new BackgroundLayer(width, height);
   }
 
   draw(view: RenderView): void {
     this.frameCount++;
     const { width, height } = gameConfig.field;
-    this.pixel(0, 0, width, height, canvasPalette.fieldBackground);
-
-    for (const star of this.stars) {
-      this.pixel(star.x, star.y, 1, 1, star.color);
-    }
+    // The level's field art, painted at 1× on a theme change and blitted here
+    // with smoothing off — an exact 3× nearest-neighbour upscale, so the
+    // background keeps the same chunky game pixels as the sprites.
+    const layer = this.background.imageFor(view.background, view.backgroundVariant);
+    this.ctx.drawImage(layer, 0, 0, width * SCALE, height * SCALE);
 
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
     view.grid.forEach((row, rowIndex) => {

@@ -57,8 +57,14 @@ export interface BurstSpec {
   maxLifeTicks: number;
 }
 
+// Playfield background themes, painted in `src/render/backgrounds.ts`. Every
+// level names one: no default, so a new level cannot silently inherit its
+// neighbour's field.
+export type BackgroundId = "starfield" | "nebula" | "grid" | "horizon" | "planet" | "circuit" | "cathode" | "vault";
+
 export interface LevelDefinition {
   name: string;
+  background: BackgroundId;
   rows: readonly string[];
 }
 

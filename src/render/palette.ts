@@ -49,9 +49,9 @@ export const DARK_LETTER_DROP_KINDS: ReadonlySet<PowerUpKind> = new Set([
   "Z",
 ]);
 
+// Sprite and effect colors. The playfield field tones live per theme in
+// `src/render/backgrounds.ts`.
 export const canvasPalette = {
-  fieldBackground: "#0b0b26",
-  starColors: ["#232a52", "#3a4a86", "#7f92c8"],
   wallLight: "#dbe4ff",
   wallShade: "#8f9ac8",
   paddleBody: "#2d7fe0",
