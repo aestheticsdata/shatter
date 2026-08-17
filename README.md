@@ -149,7 +149,7 @@ scripts/
 
 ### Deployment
 
-- Target host default: `debian@ks-b`, path `/var/www/1991computer/shatter` (URL `https://shatter.1991computer.com/`).
+- Target host default: `debian@ks-b`, path `/var/www/shatter` (URL `https://shatter.1991computer.com/`).
 - Nginx vhost: `/etc/nginx/conf.d/shatter.conf` on ks-b, with its own Let's Encrypt certificate (webroot renewal, like the other subdomains). The legacy `https://1991computer.com/arkanoid-2007/` path is dropped and returns 404.
 - Each deploy creates a versioned `releases/release-<timestamp>-<branch>-<hash>` with `release.json` metadata; previous live version is kept as `.bak` and restored automatically if the healthcheck fails.
 - Healthcheck marker in the deployed HTML: `SHATTER`.

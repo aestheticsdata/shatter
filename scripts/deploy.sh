@@ -5,7 +5,7 @@ set -Eeuo pipefail
 # Configuration
 ######################################
 REMOTE_USER_HOST="${REMOTE_USER_HOST:-debian@ks-b}"
-WEB_ROOT_BASE="${WEB_ROOT_BASE:-/var/www/1991computer/shatter}"
+WEB_ROOT_BASE="${WEB_ROOT_BASE:-/var/www/shatter}"
 CURRENT_DIR="$WEB_ROOT_BASE"
 BACKUP_DIR="${BACKUP_DIR:-${WEB_ROOT_BASE}.bak}"
 RELEASES_DIR="$WEB_ROOT_BASE/releases"
