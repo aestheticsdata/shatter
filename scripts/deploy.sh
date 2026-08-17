@@ -303,6 +303,14 @@ prepare_local_build() {
   cd "$PROJECT_DIR"
   pnpm install --frozen-lockfile
 
+  # DebugConfig.ts ships in production builds on purpose (the deployed site has no
+  # ?droprate= to lean on), so a switch left flipped would reach players.
+  log "➡️  Checking debug switches"
+  if ! pnpm run check:debug; then
+    echo "❌ ERROR: debug switches are flipped in src/core/config/DebugConfig.ts — refusing to deploy" >&2
+    exit 1
+  fi
+
   log "➡️  Building production assets with base path: $BUILD_BASE_PATH"
   pnpm exec vite build --base="$BUILD_BASE_PATH"
 

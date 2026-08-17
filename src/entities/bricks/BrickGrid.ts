@@ -88,6 +88,15 @@ export class BrickGrid {
     return true;
   }
 
+  // WARP easter egg: empty the field outright — no points, no debris, no sound.
+  // Not a gameplay kill, so it deliberately shares nothing with damage/destroy.
+  wipe(): void {
+    for (const row of this.grid) {
+      row.fill(null);
+    }
+    this.remainingCount = 0;
+  }
+
   // NUKE kills: remove the cell outright, regardless of remaining hit points.
   destroy(hit: BrickHit): void {
     if (this.grid[hit.row][hit.column] !== null) {

@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "check:backgrounds": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/check-backgrounds.mjs",
+    "check:debug": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/check-debug.mjs",
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix",
     "fmt": "oxfmt .",

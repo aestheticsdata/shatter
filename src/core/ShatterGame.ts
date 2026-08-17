@@ -1,3 +1,4 @@
+import { debugConfig } from "@core/config/DebugConfig";
 import { ballSpeedForLevel, gameConfig, POWER_UP_NAMES } from "@core/config/GameConfig";
 import { levelAt, levelIndexOf } from "@core/levels/levels";
 import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/PaddleBounce";
@@ -377,7 +378,7 @@ export class ShatterGame {
     }
     this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
 
-    if (source !== "splash" && Math.random() < (this.debugDropRate ?? gameConfig.rules.dropRate)) {
+    if (source !== "splash" && Math.random() < this.dropRate()) {
       const { left, top, brickWidth, brickHeight } = gameConfig.grid;
       if (this.dropPool.trySpawn(left + hit.column * brickWidth, top + hit.row * brickHeight)) {
         this.deps.sfx.capsuleSpawn();
@@ -490,14 +491,36 @@ export class ShatterGame {
     return this.timers.isActive("X") ? gameConfig.scoring.paydayMultiplier : 1;
   }
 
-  private onLevelCleared(): void {
+  // Capsule drop chance for this kill: the dev URL override beats the debug
+  // constant, which beats the shipped rate. Clamped, so a typo in the constant
+  // (1.5, -1) cannot make the roll nonsensical.
+  private dropRate(): number {
+    const rate = this.debugDropRate ?? debugConfig.dropRate ?? gameConfig.rules.dropRate;
+    return Math.min(1, Math.max(0, rate));
+  }
+
+  // WARP (the Ctrl+Option+Command+N easter egg): finish the level on the spot. The
+  // bricks are removed without scoring and the clear bonus is skipped — the hall
+  // of fame is shared across all players, so a warp must never be worth points.
+  // Allowed from pause too: pausing to reach for a three-modifier chord is normal.
+  private warpLevel(): void {
+    if (this.screen !== "play" && this.screen !== "serve" && this.screen !== "pause") {
+      return;
+    }
+    this.grid.wipe();
+    this.detonation.reset();
+    this.clearCountdown = 0;
+    this.onLevelCleared(false);
+  }
+
+  private onLevelCleared(awardBonus = true): void {
     // Nuke chunks (30-45 ticks) can outlive the 30-tick hold: flush so nothing
     // freezes mid-air behind the CLEARED overlay. The ordinary path is clean
     // by construction (15-tick chunks vs a 20-tick delay).
     this.brickFlashes = [];
     this.catchPops = [];
     this.particles.reset();
-    const bonus = (this.level + 1) * gameConfig.scoring.clearBonusPerLevel * this.scoreMultiplier();
+    const bonus = awardBonus ? (this.level + 1) * gameConfig.scoring.clearBonusPerLevel * this.scoreMultiplier() : 0;
     this.score += bonus;
     this.deps.screens.updateClear(levelAt(this.level).name, zeroPad(bonus, 5));
     this.setScreen("clear");
@@ -825,6 +848,20 @@ export class ShatterGame {
       // Space mirrors the mouse click: start on title, launch on serve, advance end screens.
       event.preventDefault();
       this.advanceGated();
+      return;
+    }
+
+    // WARP easter egg: Ctrl+Option+Command+N clears the level on the spot (see
+    // warpLevel). All three modifiers together are claimed by nothing: Chrome binds
+    // ⌘N and ⇧⌘N only, and macOS has no ⌃⌥⌘ default.
+    //
+    // Matched on `event.code`, not `event.key`: Option rewrites `event.key` into
+    // the alternate glyph (⌥N is even a dead key), while the N keycap sits at the
+    // same physical spot on AZERTY, QWERTY and QWERTZ — so the physical key is the
+    // layout-proof one here. Read before the plain-letter keys below.
+    if (event.code === "KeyN" && event.ctrlKey && event.altKey && event.metaKey) {
+      event.preventDefault();
+      this.warpLevel();
       return;
     }
 
