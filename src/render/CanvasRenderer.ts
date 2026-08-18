@@ -1,4 +1,5 @@
 import { gameConfig } from "@core/config/GameConfig";
+import { POWER_UP_GLYPHS } from "@core/config/powerUps";
 import { BackgroundLayer } from "@render/backgrounds";
 import { BRICK_COLORS, canvasPalette, DARK_LETTER_DROP_KINDS, DROP_COLORS } from "@render/palette";
 
@@ -24,7 +25,23 @@ const BALL_PIXEL_ROWS: ReadonlyArray<readonly [number, number]> = [
 // game pixels (each drawn as a SCALE×SCALE block, so stills are unchanged);
 // moving sprites snap to the finer backing grid, stepping in thirds of a game
 // pixel instead of jumping whole ones.
-const SCALE = 3;
+export const SCALE = 3;
+
+// The capsule letter must stay inside the pill's sheen span (x+2 … x+18).
+export const DROP_GLYPH_SPAN = 16;
+
+const DROP_GLYPH_FONTS = {
+  // One character keeps the 7px the roster has always drawn at.
+  single: `${7 * SCALE}px Silkscreen, monospace`,
+  // Two drop to 5px: ~8.6 game px at Silkscreen's advance, well inside the span.
+  double: `${5 * SCALE}px Silkscreen, monospace`,
+} as const;
+
+// Exported for the DEV legibility pass, which must measure exactly what
+// `drawDrop` paints — see `@render/checkCapsules`.
+export function dropGlyphFont(glyph: string): string {
+  return glyph.length > 1 ? DROP_GLYPH_FONTS.double : DROP_GLYPH_FONTS.single;
+}
 
 const FLASH_COLORS: Record<BrickFlashKind, string> = {
   death: canvasPalette.deathFlash,
@@ -224,13 +241,15 @@ export class CanvasRenderer {
       return;
     }
 
+    // The glyph, not the id: two-character ids exist and draw one size down.
+    const glyph = POWER_UP_GLYPHS[drop.kind];
     this.ctx.fillStyle = DARK_LETTER_DROP_KINDS.has(drop.kind)
       ? canvasPalette.dropLetterDark
       : canvasPalette.dropLetterLight;
-    this.ctx.font = `${7 * SCALE}px Silkscreen, monospace`;
+    this.ctx.font = dropGlyphFont(glyph);
     this.ctx.textAlign = "center";
     this.ctx.textBaseline = "middle";
-    this.ctx.fillText(drop.kind, Math.round((x + 10) * SCALE), Math.round((y + 4.5) * SCALE));
+    this.ctx.fillText(glyph, Math.round((x + 10) * SCALE), Math.round((y + 4.5) * SCALE));
   }
 
   // Rising catch label; blinks through its last third so the fade-out reads as

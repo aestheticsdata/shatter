@@ -64,7 +64,7 @@ pnpm run lint:fix
 
 Test gameplay quickly with the **dev test console** — `Ctrl`+`Option`+`Command`+`K` (⌃⌥⌘K) during serve, play or pause, the same screens WARP allows. It opens a modal over the field, in the pause screen's own style, and freezes the run behind it. The modal lists its own commands and every capsule, and `Enter` applies the line and closes. **Every command is a word followed by its arguments** — `POWER M`, not `M`. A line it cannot use keeps what you typed and says why, so a mistake is one `Backspace` from fixed: a bare capsule or number answers `TYPE: POWER M` / `TYPE: LEVEL 3` / `TYPE: BONUS 0.5`, a known command with a bad argument answers for itself (`LEVELS START AT 1`, `BONUS IS 0 TO 1`, `NO SUCH CAPSULE: ZZ`, `POWER NEEDS A CAPSULE`), and only an unrecognised word falls back to `UNKNOWN COMMAND`:
 
-- `power nuke` · `power N` · `power E M L` — apply capsules on the spot, exactly as if they had been caught. **Name or letter, whichever you remember** — and the modal prints the whole roster (`E WIDE`, `M MULTI`, …) underneath, generated from `POWER_UP_NAMES`, so a new capsule appears there by itself. Repeat one to stack (`power M M M`); one unrecognised capsule refuses the whole line rather than granting half of it.
+- `power nuke` · `power N` · `power E M L` — apply capsules on the spot, exactly as if they had been caught. **Name or letter, whichever you remember** — and the modal prints the whole roster (`E WIDE`, `M MULTI`, …) underneath, generated from the capsule registry, so a new capsule appears there by itself. Repeat one to stack (`power M M M`); one unrecognised capsule refuses the whole line rather than granting half of it.
 - `level 12` — jump to a level (1-based, unbounded: runs loop past level 28, so `level 30` is level 2 at its wrapped ball speed)
 - `bonus 1` — set `bonusSpreadAmount` for this run: the chance a destroyed brick drops a capsule at all, not how fast one falls (0..1; kept until changed or reloaded)
 
@@ -99,7 +99,7 @@ Manual rollback:
 src/
   core/
     ShatterGame.ts   # Orchestrator: state machine, fixed-timestep loop, game rules
-    config/          # GameConfig: geometry, speeds, timers, points (single source of truth)
+    config/          # GameConfig: geometry, speeds, timers, points · powerUps: the capsule roster
     levels/          # ASCII level definitions (28 layouts) + 3×5 pixel font for word levels
     physics/         # Paddle bounce math
   entities/
@@ -147,6 +147,7 @@ scripts/
 - **Paddle bounce**: `relativeHit ∈ [-1, 1]` → angle `relativeHit × 1.05 rad`; speed is preserved, so center hits go up and edge hits go wide.
 - **Ball speed**: `min(4.6, 3.1 + level × 0.25)` px/tick, times the `ballSpeedMultiplier` config.
 - **Canvas palette** lives in `src/render/palette.ts` (canvas cannot read CSS custom properties); the same colors are exposed to the DOM as CSS tokens in `css/tokens/colors.css`.
+- **Capsules are a registry**: `src/core/config/powerUps.ts` holds one row per power-up — id, glyph, name, body color, letter tone, duration, drop weight, timed-ness — and everything else derives from it: the `PowerUpKind` union, the name/glyph/duration/weight lookups, `DROP_COLORS` and `DARK_LETTER_DROP_KINDS` in the palette, the timers' countdown list, and the console's roster. **Adding a capsule is adding one row**, and forgetting to is a type error rather than a silent gap. The **glyph is separate from the id** because the roster outgrew the alphabet: a two-character id like `MT` draws its glyph one font size down so it still fits the pill. In dev, a pass after `document.fonts.ready` measures every glyph against the pill and checks every letter clears 3:1 on its body.
 - **Backgrounds are pre-rendered**: each level names a theme (`background` in its definition) painted once into an offscreen 1× layer and blitted per frame with smoothing off (an exact 3× upscale), so theme detail is free in the loop — measured slightly cheaper than the old flat fill + 58 star rects. Layouts come from a seeded generator keyed by theme and level, so a level's field art never changes between visits. Theme tones are split into `area` (large regions, kept as dark as the classic field) and `speck` (1–3px sparkle); `pnpm run check:backgrounds` fails the build on a tone that is too bright, too close to a brick/capsule color, or on two adjacent levels sharing a theme.
 - **Panel updates are diffed**: DOM text is only written when a value changes, never per frame.
 - **Stage scaling**: `transform: scale(min(0.99·vw/480, 0.99·vh/300))`, with the stage rect cached and invalidated on resize/scroll; pointer coordinates are mapped through the scale.

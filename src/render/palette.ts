@@ -1,3 +1,5 @@
+import { byId, POWER_UPS } from "@core/config/powerUps";
+
 import type { BrickKind, PowerUpKind } from "@interfaces/types";
 
 export interface BrickColorSet {
@@ -16,38 +18,16 @@ export const BRICK_COLORS: Record<BrickKind, BrickColorSet> = {
   G: { flat: "#dfae2c", light: "#ffe9a0", dark: "#7a5a08" },
 };
 
-export const DROP_COLORS: Record<PowerUpKind, string> = {
-  E: "#2d7fe0",
-  M: "#3fbf4f",
-  L: "#e8384f",
-  P: "#ffcf1c",
-  B: "#f07d10",
-  W: "#8fd0ff",
-  T: "#f2f4ff",
-  X: "#dfae2c",
-  J: "#d13be8",
-  N: "#b6ff00",
-  S: "#1fd8c4",
-  U: "#ff70b8",
-  Z: "#4ae0ff",
-  R: "#8a5cf5",
-  G: "#b07840",
-};
+// Capsule bodies and letter tones are authored per capsule in
+// `@core/config/powerUps`; both tables are derived so they can never drift out
+// of step with the roster. Names and types are unchanged for their consumers.
+export const DROP_COLORS: Record<PowerUpKind, string> = byId((definition) => definition.color);
 
 // Light and mid-tone capsule bodies need a dark letter to stay readable; white
 // on M's green and B's orange sat under 3:1.
-export const DARK_LETTER_DROP_KINDS: ReadonlySet<PowerUpKind> = new Set([
-  "M",
-  "B",
-  "P",
-  "W",
-  "T",
-  "X",
-  "N",
-  "S",
-  "U",
-  "Z",
-]);
+export const DARK_LETTER_DROP_KINDS: ReadonlySet<PowerUpKind> = new Set(
+  POWER_UPS.filter((definition) => definition.dark).map((definition) => definition.id),
+);
 
 // Sprite and effect colors. The playfield field tones live per theme in
 // `src/render/backgrounds.ts`.

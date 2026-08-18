@@ -1,31 +1,13 @@
-import { POWER_UP_NAMES } from "@core/config/GameConfig";
+import { byId, POWER_UP_NAMES, TIMED_KINDS } from "@core/config/powerUps";
 
 import type { PowerUpKind } from "@interfaces/types";
 
-// W (WALL) is a one-shot charge owned by the game, not a timed effect, and
-// N (NUKE) is driven by the Detonation. S (SWARM) is instantaneous like M:
-// its timer only keeps the POWER inset label lit. U/Z/R are instantaneous with
-// no lingering state at all — the catch pop is their whole acknowledgment.
-const TIMED_KINDS: readonly PowerUpKind[] = ["E", "M", "L", "P", "B", "T", "X", "J", "S", "G"];
-
+// Which capsules count down is the `timed` flag on each roster entry — see the
+// note there for why WALL, NUKE and the instantaneous capsules are left out.
 export class PowerUpTimers {
-  private readonly ticksLeft: Record<PowerUpKind, number> = {
-    E: 0,
-    M: 0,
-    L: 0,
-    P: 0,
-    B: 0,
-    W: 0,
-    T: 0,
-    X: 0,
-    J: 0,
-    N: 0,
-    S: 0,
-    U: 0,
-    Z: 0,
-    R: 0,
-    G: 0,
-  };
+  // A slot per capsule, timed or not: `activate`/`isActive` are called with any
+  // kind, and only the countdown below is scoped to the timed ones.
+  private readonly ticksLeft: Record<PowerUpKind, number> = byId(() => 0);
 
   isActive(kind: PowerUpKind): boolean {
     return this.ticksLeft[kind] > 0;

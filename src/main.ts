@@ -1,6 +1,7 @@
 import { SoundBank } from "@audio/SoundBank";
 import { ShatterGame } from "@core/ShatterGame";
 import { CanvasRenderer } from "@render/CanvasRenderer";
+import { checkCapsuleLegibility } from "@render/checkCapsules";
 import { getElementByIdOrThrow } from "@shared/dom";
 import { HiScores } from "@state/HiScores";
 import { ScoreApi } from "@state/ScoreApi";
@@ -55,5 +56,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Dev-only QA handle: lets debug tooling drive and inspect the live game.
   if (import.meta.env.DEV) {
     (window as Window & { __shatter?: ShatterGame }).__shatter = game;
+    // Once, and only once Silkscreen has loaded: the fallback font is wider and
+    // would report glyph widths no capsule actually draws at.
+    void document.fonts.ready.then(() => checkCapsuleLegibility());
   }
 });

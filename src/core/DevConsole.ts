@@ -1,4 +1,4 @@
-import { POWER_UP_NAMES } from "@core/config/GameConfig";
+import { POWER_UP_BY_ID, POWER_UP_IDS, POWER_UP_NAMES, POWER_UPS } from "@core/config/powerUps";
 import { getElementByIdOrThrow } from "@shared/dom";
 
 import type { PowerUpKind } from "@interfaces/types";
@@ -24,8 +24,8 @@ const EXAMPLES: readonly (readonly [string, string])[] = [
   ["BONUS 1", "CHANCE A BRICK DROPS A CAPSULE · 1 = ALL"],
 ];
 const EXAMPLE_WIDTH = 12;
-// The roster is printed in full underneath: fifteen letters is more than anyone
-// keeps in their head, and the registry (SHA-41) will make it thirty-four.
+// The roster is printed in full underneath: fifteen ids is already more than
+// anyone keeps in their head, and it grows with the registry it is built from.
 const ROSTER_COLUMNS = 5;
 const ROSTER_CELL_WIDTH = 9;
 const CLOSE_HINT = "ENTER APPLIES · ESC OR CLICK CLOSES";
@@ -143,9 +143,9 @@ export class DevConsole {
     }
   }
 
-  // `power N`, `power NUKE`, `power E M L`, and — once two-character ids exist —
-  // `power MT`. Every capsule resolves before any of them is granted: half a line
-  // would leave the run in a state nobody asked for.
+  // `power N`, `power NUKE`, `power E M L`, and `power MT` for a two-character
+  // id. Every capsule resolves before any of them is granted: half a line would
+  // leave the run in a state nobody asked for.
   private grantPowerUps(operands: string[]): string | null {
     if (operands.length === 0) {
       return "POWER NEEDS A CAPSULE";
@@ -277,23 +277,18 @@ function resolveCapsule(word: string): PowerUpKind | null {
   if (isPowerUpKind(wanted)) {
     return wanted;
   }
-  for (const id of Object.keys(POWER_UP_NAMES)) {
-    if (isPowerUpKind(id) && POWER_UP_NAMES[id] === wanted) {
-      return id;
-    }
-  }
-  return null;
+  return POWER_UP_IDS.find((id) => POWER_UP_NAMES[id] === wanted) ?? null;
 }
 
 // hasOwn, not `in`: `power constructor` would otherwise pass as a capsule id.
 function isPowerUpKind(id: string): id is PowerUpKind {
-  return Object.hasOwn(POWER_UP_NAMES, id);
+  return Object.hasOwn(POWER_UP_BY_ID, id);
 }
 
 // "E WIDE   M MULTI  L LASER  ..." — the whole roster, laid out in a grid the
-//366px field can hold, built from the names so a new capsule appears by itself.
+//366px field can hold, built from the registry so a new capsule appears by itself.
 function rosterRows(): string[] {
-  const cells = Object.entries(POWER_UP_NAMES).map(([id, name]) => `${id} ${name}`.padEnd(ROSTER_CELL_WIDTH));
+  const cells = POWER_UPS.map((definition) => `${definition.id} ${definition.name}`.padEnd(ROSTER_CELL_WIDTH));
   const rows: string[] = [];
   for (let index = 0; index < cells.length; index += ROSTER_COLUMNS) {
     rows.push(

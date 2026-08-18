@@ -1,14 +1,19 @@
 import { gameConfig } from "@core/config/GameConfig";
+import { POWER_UP_DROP_WEIGHTS, POWER_UP_IDS } from "@core/config/powerUps";
 
 import type { PowerUpKind, RectangleBounds } from "@interfaces/types";
 
 const DROP_WIDTH = 20;
 const DROP_HEIGHT = 8;
-const DROP_KINDS = Object.keys(gameConfig.powerUps.dropWeights) as PowerUpKind[];
+const NO_EXCLUSIONS: readonly PowerUpKind[] = [];
+const RAIN_EXCLUDES: readonly PowerUpKind[] = ["R"];
 
-function rollDropKind(exclude?: PowerUpKind): PowerUpKind {
-  const kinds = DROP_KINDS.filter((kind) => kind !== exclude);
-  const weights = gameConfig.powerUps.dropWeights;
+// `exclude` is a list because capsules that spawn other capsules keep growing:
+// RAIN already bars itself, and this is the shape the ones after it use rather
+// than each widening the signature again.
+function rollDropKind(exclude: readonly PowerUpKind[] = NO_EXCLUSIONS): PowerUpKind {
+  const kinds = exclude.length === 0 ? POWER_UP_IDS : POWER_UP_IDS.filter((kind) => !exclude.includes(kind));
+  const weights = POWER_UP_DROP_WEIGHTS;
   const total = kinds.reduce((sum, kind) => sum + weights[kind], 0);
   let roll = Math.random() * total;
   for (const kind of kinds) {
@@ -58,7 +63,7 @@ export class DropPool {
       if (!drop) {
         break;
       }
-      drop.kind = rollDropKind("R");
+      drop.kind = rollDropKind(RAIN_EXCLUDES);
       drop.x = left + ((i + 0.5) * (right - left)) / count - DROP_WIDTH / 2 + (Math.random() - 0.5) * 16;
       drop.y = top + 8;
       drop.active = true;

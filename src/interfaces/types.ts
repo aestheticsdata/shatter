@@ -27,7 +27,10 @@ export interface BrickHit {
   column: number;
 }
 
-export type PowerUpKind = "E" | "M" | "L" | "P" | "B" | "W" | "T" | "X" | "J" | "N" | "S" | "U" | "Z" | "R" | "G";
+// Inferred from the capsule roster in `@core/config/powerUps`, so a new capsule
+// widens this union by itself. Re-exported here because every consumer already
+// reaches for its types through this module.
+export type { PowerUpKind } from "@core/config/powerUps";
 
 export type BrickFlashKind = "death" | "blast";
 

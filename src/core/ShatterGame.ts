@@ -1,4 +1,5 @@
-import { ballSpeedForLevel, gameConfig, POWER_UP_NAMES } from "@core/config/GameConfig";
+import { ballSpeedForLevel, gameConfig } from "@core/config/GameConfig";
+import { POWER_UP_DURATIONS, POWER_UP_NAMES } from "@core/config/powerUps";
 import { DevConsole } from "@core/DevConsole";
 import { levelAt, levelIndexOf } from "@core/levels/levels";
 import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/PaddleBounce";
@@ -517,7 +518,7 @@ export class ShatterGame {
   }
 
   private applyPowerUp(kind: PowerUpKind): void {
-    const durations = gameConfig.powerUps.durationsTicks;
+    const durations = POWER_UP_DURATIONS;
 
     // Every catch gets an unmistakable on-field acknowledgment: passive effects
     // (PAYDAY, BLAST, PIERCE) and refresh catches are otherwise invisible.

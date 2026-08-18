@@ -1,4 +1,4 @@
-import type { BrickKind, BurstSpec, PowerUpKind } from "@interfaces/types";
+import type { BrickKind, BurstSpec } from "@interfaces/types";
 
 export const gameConfig = {
   rules: {
@@ -58,43 +58,10 @@ export const gameConfig = {
   bounce: {
     maxAngleRad: 1.05,
   },
+  // Per-capsule durations, weights, names and colors are not here: they live one
+  // row per capsule in `src/core/config/powerUps.ts`. What stays is the shared
+  // machinery no single capsule owns.
   powerUps: {
-    durationsTicks: {
-      E: 720,
-      M: 180,
-      L: 720,
-      P: 480,
-      B: 720,
-      W: 0,
-      T: 480,
-      X: 600,
-      J: 360,
-      N: 0,
-      S: 180,
-      U: 0,
-      Z: 0,
-      R: 0,
-      G: 720,
-    } satisfies Record<PowerUpKind, number>,
-    // N at 0.3 starved: ~2.3 nukes DROPPED across a full 15-level run — QA never
-    // saw one. 0.65 lands one roughly every 3 levels while staying the rarest.
-    dropWeights: {
-      E: 1,
-      M: 1,
-      L: 1,
-      P: 1,
-      B: 1,
-      W: 1,
-      T: 1,
-      X: 1,
-      J: 0.5,
-      N: 0.65,
-      S: 0.5,
-      U: 0.25,
-      Z: 0.6,
-      R: 0.5,
-      G: 1,
-    } satisfies Record<PowerUpKind, number>,
     laserCadenceTicks: 26,
     laserFirstShotDelayTicks: 10,
     shotSpeed: 5.5,
@@ -158,24 +125,6 @@ export const gameConfig = {
     },
   },
 } as const;
-
-export const POWER_UP_NAMES: Record<PowerUpKind, string> = {
-  E: "WIDE",
-  M: "MULTI",
-  L: "LASER",
-  P: "PIERCE",
-  B: "BLAST",
-  W: "WALL",
-  T: "TEMPO",
-  X: "PAYDAY",
-  J: "JAMMER",
-  N: "NUKE",
-  S: "SWARM",
-  U: "1UP",
-  Z: "ZAP",
-  R: "RAIN",
-  G: "GLUE",
-};
 
 export const BRICK_POINTS: Record<BrickKind, number> = {
   "1": 60,
