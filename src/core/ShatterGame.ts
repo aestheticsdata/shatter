@@ -1,4 +1,5 @@
 import { ballSpeedForLevel, gameConfig, POWER_UP_NAMES } from "@core/config/GameConfig";
+import { DevConsole } from "@core/DevConsole";
 import { levelAt, levelIndexOf } from "@core/levels/levels";
 import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/PaddleBounce";
 import { Ball } from "@entities/ball/Ball";
@@ -39,37 +40,6 @@ const MAX_BALLS = 12;
 const POWER_LABEL_MAX_CHARS = 13;
 const POWER_LABEL_CYCLE_TICKS = 60;
 
-// Dev-only level select (?level=N, 1-based); always 0 in production builds.
-function resolveStartLevelOverride(): number {
-  if (!import.meta.env.DEV) {
-    return 0;
-  }
-  const requested = Number(new URLSearchParams(window.location.search).get("level"));
-  return Number.isInteger(requested) && requested >= 1 ? requested - 1 : 0;
-}
-
-// Dev-only capsule drop-rate override (?droprate=0..1) to test power-ups quickly.
-function resolveBonusSpreadOverride(): number | null {
-  if (!import.meta.env.DEV) {
-    return null;
-  }
-  const raw = new URLSearchParams(window.location.search).get("droprate");
-  if (raw === null) {
-    return null; // Number(null) would be 0 and silently disable all drops.
-  }
-  const requested = Number(raw);
-  return Number.isFinite(requested) && requested >= 0 && requested <= 1 ? requested : null;
-}
-
-// Dev-only power-up grant at every launch (?power=BWX — a string of capsule letters).
-function resolvePowerKindsOverride(): PowerUpKind[] {
-  if (!import.meta.env.DEV) {
-    return [];
-  }
-  const requested = new URLSearchParams(window.location.search).get("power") ?? "";
-  return [...requested.toUpperCase()].filter((char): char is PowerUpKind => char in POWER_UP_NAMES);
-}
-
 export class ShatterGame {
   private screen: ScreenName = "title";
   private score = 0;
@@ -81,9 +51,24 @@ export class ShatterGame {
   private brickFlashes: BrickFlash[] = [];
   private catchPops: CatchPop[] = [];
   private tickCount = 0;
-  private readonly startLevelOverride = resolveStartLevelOverride();
-  private readonly bonusSpreadOverride = resolveBonusSpreadOverride();
-  private readonly powerKindsOverride = resolvePowerKindsOverride();
+  // `null` until a `drop` command sets it; see bonusSpreadAmount().
+  private bonusSpreadOverride: number | null = null;
+
+  // Dev-only test console (see DevConsole). Production builds get `null`, and
+  // the module drops out of the bundle with this branch.
+  private readonly devConsole: DevConsole | null = import.meta.env.DEV
+    ? new DevConsole({
+        grantPowerUp: (kind) => this.applyPowerUp(kind),
+        // `level N` is 1-based; rebuilding the grid serves at the new level.
+        jumpToLevel: (levelNumber) => {
+          this.level = levelNumber - 1;
+          this.buildLevel(this.level);
+        },
+        setBonusSpread: (amount) => {
+          this.bonusSpreadOverride = amount;
+        },
+      })
+    : null;
 
   private readonly paddle = new Paddle();
   private readonly grid = new BrickGrid();
@@ -180,6 +165,11 @@ export class ShatterGame {
     }
     if (this.screen === "serve") {
       this.balls[0].followPaddle(this.paddle);
+      return;
+    }
+    // An open console freezes the run exactly like the pause screen: a command
+    // is typed one key at a time and may not land in a field still moving.
+    if (this.devConsole?.isOpen) {
       return;
     }
 
@@ -490,9 +480,9 @@ export class ShatterGame {
     return this.timers.isActive("X") ? gameConfig.scoring.paydayMultiplier : 1;
   }
 
-  // Chance that this kill drops a bonus capsule: the dev URL override beats the
-  // config knob. Clamped, so a typo in the knob (1.5, -1) cannot make the roll
-  // nonsensical.
+  // Chance that this kill drops a bonus capsule: the console's `drop` command
+  // beats the config knob. Clamped, so a typo in the knob (1.5, -1) cannot make
+  // the roll nonsensical.
   private bonusSpreadAmount(): number {
     const amount = this.bonusSpreadOverride ?? gameConfig.rules.bonusSpreadAmount;
     return Math.min(1, Math.max(0, amount));
@@ -707,6 +697,12 @@ export class ShatterGame {
   // Space or P asked for it. Menu screens advance ungated — they must never
   // stall on a lock rejection — and a click during play is the GLUE release.
   private advanceGated(): void {
+    // A click dismisses the console instead of launching a ball behind it — one
+    // that did nothing at all would read as a frozen game.
+    if (this.devConsole?.isOpen) {
+      this.devConsole.close();
+      return;
+    }
     if (this.screen === "pause" || this.screen === "serve") {
       this.input.runGated(() => this.advance());
     } else {
@@ -748,7 +744,7 @@ export class ShatterGame {
     this.booted = true;
     this.score = 0;
     this.lives = gameConfig.rules.startLives;
-    this.level = this.startLevelOverride;
+    this.level = 0;
     this.buildLevel(this.level);
     this.deps.sfx.gameStart();
   }
@@ -793,9 +789,6 @@ export class ShatterGame {
     ball.launch(this.speed());
     this.setScreen("play");
     this.deps.sfx.launch();
-    for (const kind of this.powerKindsOverride) {
-      this.applyPowerUp(kind);
-    }
   }
 
   private gameOver(): void {
@@ -840,6 +833,35 @@ export class ShatterGame {
   private onKeyDown(event: KeyboardEvent): void {
     if (this.screen === "entry") {
       this.handleEntryKey(event);
+      return;
+    }
+
+    // Dev test console: Ctrl+Option+Command+K, WARP's neighbour on the keyboard
+    // and matched the same way, on the physical key. The whole branch folds away
+    // in production builds, where `import.meta.env.DEV` is a literal `false`.
+    if (import.meta.env.DEV && event.code === "KeyK" && event.ctrlKey && event.altKey && event.metaKey) {
+      event.preventDefault();
+      if (this.devConsole?.isOpen) {
+        this.devConsole.close();
+        return;
+      }
+      // Serve, play and pause, exactly like WARP: the console freezes a run to
+      // take a command, so it has no meaning on a menu, and pausing to reach for
+      // a three-modifier chord is normal. Never over the two effects that
+      // already own the simulation, whose freeze it would have to unwind.
+      const live = this.screen === "play" || this.screen === "serve" || this.screen === "pause";
+      if (live && !this.detonation.active && this.clearCountdown === 0) {
+        // Frees the cursor and hands Escape back to the page. Losing the lock
+        // pauses a live run through onInputLost, which is the freeze we want.
+        this.input.releaseLock();
+        this.devConsole?.open();
+      }
+      return;
+    }
+
+    // An open console owns the keyboard, so no command can also drive the game.
+    if (this.devConsole?.isOpen) {
+      this.devConsole.handleKey(event);
       return;
     }
 

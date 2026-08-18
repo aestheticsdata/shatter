@@ -62,16 +62,20 @@ pnpm run fmt
 pnpm run lint:fix
 ```
 
-Test gameplay quickly with the dev-only URL params (inert in production builds):
+Test gameplay quickly with the **dev test console** — `Ctrl`+`Option`+`Command`+`K` (⌃⌥⌘K) during serve, play or pause, the same screens WARP allows. It opens a modal over the field, in the pause screen's own style, and freezes the run behind it. The modal lists its own commands and every capsule, and `Enter` applies the line and closes. **Every command is a word followed by its arguments** — `POWER M`, not `M`. A line it cannot use keeps what you typed and says why, so a mistake is one `Backspace` from fixed: a bare capsule or number answers `TYPE: POWER M` / `TYPE: LEVEL 3` / `TYPE: BONUS 0.5`, a known command with a bad argument answers for itself (`LEVELS START AT 1`, `BONUS IS 0 TO 1`, `NO SUCH CAPSULE: ZZ`, `POWER NEEDS A CAPSULE`), and only an unrecognised word falls back to `UNKNOWN COMMAND`:
 
-- `?level=N` — start at level N (1-based)
-- `?droprate=0..1` — override the 15% capsule drop rate (`1` = every brick drops)
-- `?power=BWX` — grant power-ups at every launch (capsule letters E/M/L/P/B/W/T/X/J/N/S/U/Z/R/G; repeat a letter to stack, e.g. `MMM`)
+- `power nuke` · `power N` · `power E M L` — apply capsules on the spot, exactly as if they had been caught. **Name or letter, whichever you remember** — and the modal prints the whole roster (`E WIDE`, `M MULTI`, …) underneath, generated from `POWER_UP_NAMES`, so a new capsule appears there by itself. Repeat one to stack (`power M M M`); one unrecognised capsule refuses the whole line rather than granting half of it.
+- `level 12` — jump to a level (1-based, unbounded: runs loop past level 28, so `level 30` is level 2 at its wrapped ball speed)
+- `bonus 1` — set `bonusSpreadAmount` for this run: the chance a destroyed brick drops a capsule at all, not how fast one falls (0..1; kept until changed or reloaded)
 
-Two debug affordances work in **production builds too**, so the deployed site can be debugged where the URL params above are stripped:
+**It gives the cursor back, and it never traps you.** Opening the console releases pointer lock first: the cursor reappears where you can see it, and `Escape` reaches the page — the browser only swallows that key when it needs it to exit a lock, which is why a modal must not hold one. Losing the lock also pauses a live run, which is exactly the freeze wanted behind a modal. `Escape`, ⌃⌥⌘K again, or a click anywhere all close it; the click that resumes from the pause screen re-captures the cursor as usual.
+
+The console is **dev-only** — it is built behind `import.meta.env.DEV`, so `src/core/DevConsole.ts` and the chord that opens it are absent from production bundles, exactly like the `?level=` / `?droprate=` / `?power=` URL params it replaces. It builds its own markup and carries its own inline styles for the same reason: nothing about it reaches `index.html` or `css/`.
+
+Two debug affordances work in **production builds too**, where the console does not exist:
 
 - **WARP easter egg** — `Ctrl`+`Option`+`Command`+`N` (⌃⌥⌘N) during serve, play or pause instantly wins the current level, straight to the CLEARED screen. Nothing claims all three modifiers at once: Chrome binds only ⌘N and ⇧⌘N, and macOS has no ⌃⌥⌘ default. Matched on the physical key (`event.code === "KeyN"`), because Option rewrites `event.key` into the alternate glyph while the N keycap sits in the same place on AZERTY, QWERTY and QWERTZ. **A warp scores nothing** — no brick points, and the clear bonus shows `00000`: the hall of fame is shared across all players, so skipping a level must never be worth points.
-- **The bonus knob** — `gameConfig.rules.bonusSpreadAmount` (`src/core/config/GameConfig.ts`) is the chance a destroyed brick drops a capsule: crank it to `1` while debugging (every brick drops one), set it back to what players should get before deploying. It ships as-is; `deploy.sh` prints the value in the deploy log so a knob left cranked is caught by eye. In dev, `?droprate=` overrides it without touching the file.
+- **The bonus knob** — `gameConfig.rules.bonusSpreadAmount` (`src/core/config/GameConfig.ts`) is the chance a destroyed brick drops a capsule: crank it to `1` while debugging (every brick drops one), set it back to what players should get before deploying. It ships as-is; `deploy.sh` prints the value in the deploy log so a knob left cranked is caught by eye. In dev, the console's `bonus` command overrides it for one run without touching the file.
 
 Deploy to production (versioned release + auto rollback on failure):
 

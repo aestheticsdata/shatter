@@ -88,6 +88,15 @@ export class InputController {
     this.requestPointerLock();
   }
 
+  // A modal over the field may not keep the cursor captive: the player cannot see
+  // it, and the browser eats the Escape that would close the modal, since it
+  // takes that key to exit the lock itself. Releasing hands both back.
+  releaseLock(): void {
+    if (document.pointerLockElement === this.lockTarget) {
+      document.exitPointerLock();
+    }
+  }
+
   // For the game's watchdog: "play" may never keep running unlocked while a
   // lock is still expected on this setup.
   get isLocked(): boolean {
