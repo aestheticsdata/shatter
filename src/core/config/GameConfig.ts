@@ -240,6 +240,16 @@ export const gameConfig = {
       shakeTicks: 24,
       amplitude: 4,
     },
+    // CRITTER's grub. `stepSpeed` is a brick every 18 ticks — 30 px at 1.667 —
+    // slow enough to watch it work and slow enough that the row it is eating is
+    // still worth playing; over ground it has already cleared it doubles, so a
+    // stripped row is crossed rather than paraded across. 15 s of life is about
+    // four full rows of chewing, and it usually walks off the bottom first.
+    critter: {
+      lifeTicks: 900,
+      stepSpeed: 1.667,
+      emptyRowSpeed: 3.33,
+    },
     // BOMB. The fuse is how long the run holds still while the paddle burns:
     // long enough to read as an explosion, short enough not to play the
     // punishment twice. No chunk outlives it, so the reset never snatches

@@ -90,4 +90,11 @@ export const canvasPalette = {
   bumperBody: "#ff00aa",
   bumperRim: "#f2f4ff",
   bumperCore: "#0b0b26",
+  // CRITTER: the grub's acid lime over a brown belly and feet, and a red jaw at
+  // the leading end — the one warm pixel on it, so which way it is walking can
+  // be read without waiting to see it move.
+  critterBody: "#a3e04a",
+  critterUnder: "#8a5a2a",
+  critterJaw: "#e8384f",
+  critterEye: "#0b0b26",
 } as const;

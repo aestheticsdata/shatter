@@ -5,6 +5,7 @@ import { BackgroundLayer } from "@render/backgrounds";
 import { BRICK_COLORS, canvasPalette, DARK_LETTER_DROP_KINDS, DROP_COLORS } from "@render/palette";
 
 import type { Ball } from "@entities/ball/Ball";
+import type { Critter } from "@entities/effects/Critter";
 import type { Detonation } from "@entities/effects/Detonation";
 import type { Particle } from "@entities/effects/ParticleField";
 import type { Quake } from "@entities/effects/Quake";
@@ -203,6 +204,7 @@ export interface RenderView {
   detonation: Detonation;
   singularity: Singularity;
   quake: Quake;
+  critter: Critter;
   energyWallArmed: boolean;
 }
 
@@ -261,6 +263,7 @@ export class CanvasRenderer {
         this.drawHomingMark(ball.homingRow, ball.homingColumn);
       }
     }
+    this.drawCritter(view.critter);
     // Slot index cycles the brick's three palette colors — sequential ring-buffer
     // slots give each burst a flat/light/dark mix without storing a color per particle.
     view.particles.forEach((particle, index) => {
@@ -535,6 +538,30 @@ export class CanvasRenderer {
     this.ctx.textAlign = "center";
     this.ctx.textBaseline = "middle";
     this.ctx.fillText(glyph, Math.round((x + 10) * SCALE), Math.round((y + 4.5) * SCALE));
+  }
+
+  // CRITTER's grub: a lime body with a brown belly, a red jaw at the leading end
+  // and three feet that shuffle one pixel every 8 frames, JAMMER's blink clock —
+  // enough to read as walking rather than sliding, on a sprite 10 px wide. Drawn
+  // over the bricks it is eating and under the debris it makes, with
+  // `spritePixel`, since it moves in thirds of a game pixel.
+  private drawCritter(critter: Critter): void {
+    if (!critter.alive) {
+      return;
+    }
+    const { x, y } = critter;
+    const leading = critter.direction > 0;
+
+    this.spritePixel(x, y + 2, 10, 4, canvasPalette.critterBody);
+    this.spritePixel(x + 1, y + 1, 8, 6, canvasPalette.critterBody);
+    this.spritePixel(x + 1, y + 6, 8, 1, canvasPalette.critterUnder);
+    this.spritePixel(leading ? x + 9 : x, y + 3, 1, 2, canvasPalette.critterJaw);
+    this.spritePixel(leading ? x + 7 : x + 2, y + 2, 1, 1, canvasPalette.critterEye);
+
+    const stride = (this.frameCount & 8) === 0 ? 0 : 1;
+    for (const foot of [1, 4, 7]) {
+      this.spritePixel(x + foot + stride, y + 7, 1, 1, canvasPalette.critterUnder);
+    }
   }
 
   // A CHAIN arc: the mint stroke laid down first, a thinner white core over it,

@@ -33,6 +33,7 @@ The game runs on a fixed **480Ã—300 stage** scaled to fit the viewport: a **372Ã
   | `Z`  | ZAP         | vaporizes the bottom-most brick row                         | instant  | uncommon |
   | `Q`  | QUAKE       | the bottom row dies, the rest slide down, field shakes      | instant  | uncommon |
   | `R`  | RAIN        | a shower of 4 fresh capsules from the top                   | instant  | uncommon |
+  | `CR` | CRITTER     | a grub walks the grid eating a brick every 0.3 s            | 15 s     | uncommon |
   | `N`  | NUKE        | a shockwave destroys every brick, full points               | instant  | rare     |
   | `S`  | SWARM       | 12 balls at once                                            | instant  | rare     |
   | `U`  | 1UP         | extra life, max 6                                           | instant  | rare     |

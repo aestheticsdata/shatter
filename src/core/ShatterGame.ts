@@ -6,6 +6,7 @@ import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/Pa
 import { Ball } from "@entities/ball/Ball";
 import { BrickGrid } from "@entities/bricks/BrickGrid";
 import { BumperField } from "@entities/effects/BumperField";
+import { Critter } from "@entities/effects/Critter";
 import { Detonation } from "@entities/effects/Detonation";
 import { ParticleField } from "@entities/effects/ParticleField";
 import { Quake } from "@entities/effects/Quake";
@@ -81,6 +82,7 @@ export class ShatterGame {
   private readonly singularity = new Singularity();
   private readonly bumpers = new BumperField();
   private readonly quake = new Quake();
+  private readonly critter = new Critter();
   // Ticks each ball has spent inside the core's reach. Indexed by ball slot,
   // which is a stable identity: `balls` is a fixed array built once at
   // construction and never reordered. If that ever changes, this moves onto Ball.
@@ -206,6 +208,7 @@ export class ShatterGame {
       detonation: this.detonation,
       singularity: this.singularity,
       quake: this.quake,
+      critter: this.critter,
       energyWallArmed: this.wallArmed,
     });
     this.deps.panel.update(this.panelView());
@@ -323,6 +326,7 @@ export class ShatterGame {
       this.deps.sfx.laserFire();
     }
     this.shotPool.step(this.grid, this.timers.isActive("GH"), (hit) => this.damageBrick(hit, "laser"));
+    this.stepCritter();
 
     for (let index = 0; index < this.balls.length; index++) {
       const ball = this.balls[index];
@@ -965,6 +969,73 @@ export class ShatterGame {
     });
   }
 
+  /**
+   * CRITTER: one tick of the grub, and the brick it closes its jaws on.
+   *
+   * Bites are of the nuke's kill class rather than the ball's: full points
+   * (PAYDAY doubles them) and silver and gold go in one, but no capsule drops,
+   * no per-brick beep and neither BLAST nor CHAIN spreads off them. The pet
+   * plays *for* the player, not *as* them, and a grub that could set off the
+   * player's own combos would be doing the level rather than helping with it.
+   *
+   * Nothing collides with it — balls, shots and capsules all pass straight
+   * through. A pet that deflected a ball would be an obstacle the player never
+   * asked to place.
+   */
+  private stepCritter(): void {
+    if (!this.critter.alive) {
+      return;
+    }
+    // It crawls while there is something to chew in the column ahead and scoots
+    // over ground already cleared: 30 px of brick is 18 ticks either way, and a
+    // stripped row costs a third of that to cross.
+    const { stepSpeed, emptyRowSpeed } = gameConfig.effects.critter;
+    const ahead = this.grid.hitAtCell(this.critter.row, this.critterColumn() + this.critter.direction);
+    this.critter.step(ahead ? stepSpeed : emptyRowSpeed);
+
+    // Out of life, or chewed its way off the bottom of the grid.
+    if (this.critter.ticksLeft <= 0 || this.critter.row >= this.grid.rows.length) {
+      this.despawnCritter();
+      return;
+    }
+
+    const hit = this.grid.hitAtCell(this.critter.row, this.critterColumn());
+    if (!hit) {
+      return;
+    }
+    this.grid.destroy(hit);
+    this.score += hit.cell.points * this.scoreMultiplier();
+    this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
+    this.deps.sfx.critterBite();
+    // Same idempotent clear trigger as damageBrick: the pet can take the last brick.
+    if (this.grid.remaining <= 0) {
+      this.clearCountdown = gameConfig.effects.clearDelayTicks;
+    }
+  }
+
+  // Which column the grub's jaws are over. Its own centre, so the bite lands
+  // when the sprite is on the brick rather than when its nose touches it.
+  private critterColumn(): number {
+    return Math.floor((this.critter.centerX - gameConfig.grid.left) / gameConfig.grid.brickWidth);
+  }
+
+  // Dropped on the top row that still has bricks, walking in from the paddle's
+  // own side of the field: the pet arrives from where the player is looking.
+  private spawnCritter(): void {
+    const row = this.grid.rows.findIndex((cells) => cells.some((cell) => cell !== null));
+    if (row < 0) {
+      return;
+    }
+    this.critter.spawn(row, this.paddle.centerX < gameConfig.field.width / 2);
+  }
+
+  // It goes out in a puff of yellow: `ParticleField` colours debris by
+  // `BrickKind`, and "3" is the closest the field can paint to a lime grub.
+  private despawnCritter(): void {
+    this.particles.burst(this.critter.centerX, this.critter.centerY, "3", gameConfig.effects.brickDeathBurst);
+    this.critter.reset();
+  }
+
   private scoreMultiplier(): number {
     return this.timers.isActive("X") ? gameConfig.scoring.paydayMultiplier : 1;
   }
@@ -1004,6 +1075,7 @@ export class ShatterGame {
     this.closeSingularity();
     this.bumpers.reset();
     this.quake.reset();
+    this.critter.reset();
     this.ghostBlend = 0;
     this.particles.reset();
     const bonus = awardBonus ? (this.level + 1) * gameConfig.scoring.clearBonusPerLevel * this.scoreMultiplier() : 0;
@@ -1140,6 +1212,9 @@ export class ShatterGame {
         this.bumpers.spawn(gameConfig.grid.top + this.grid.rows.length * gameConfig.grid.brickHeight);
       }
       this.timers.activate("O", durations.O);
+    }
+    if (kind === "CR") {
+      this.spawnCritter();
     }
 
     if (kind === "N") {
@@ -1385,6 +1460,7 @@ export class ShatterGame {
     this.closeSingularity();
     this.bumpers.reset();
     this.quake.reset();
+    this.critter.reset();
     this.ghostBlend = 0;
     this.particles.reset();
     this.detonation.reset();
@@ -1422,6 +1498,7 @@ export class ShatterGame {
     this.closeSingularity();
     this.bumpers.reset();
     this.quake.reset();
+    this.critter.reset();
     this.ghostBlend = 0;
     this.particles.reset();
     this.dropPool.reset();
@@ -1624,6 +1701,9 @@ export class ShatterGame {
     }
     if (this.detonation.active) {
       live.add("N");
+    }
+    if (this.critter.alive) {
+      live.add("CR");
     }
     return POWER_UP_IDS.filter((kind) => live.has(kind));
   }

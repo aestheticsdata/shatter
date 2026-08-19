@@ -232,6 +232,17 @@ export class SoundBank {
     this.sound.noise({ dur: 0.5, vol: 0.09, filter: { type: "lowpass", freq: 300, freqEnd: 50 } });
   }
 
+  // One bite of the grub: a short chirp falling away under a click of noise,
+  // small on purpose — it lands every 18 ticks for as long as the pet lives, and
+  // anything with body to it would turn a row into a drum solo.
+  critterBite(): void {
+    if (!this.allow("critterBite")) {
+      return;
+    }
+    this.sound.tone({ freq: 240, freqEnd: 90, dur: 0.05, vol: 0.07 });
+    this.sound.noise({ dur: 0.03, vol: 0.09, filter: { type: "bandpass", freq: 1200 } });
+  }
+
   // A pinball bumper kick: a short pop rising an octave over a click of noise,
   // so a rally of them reads as a rhythm rather than as one held tone.
   bumperKick(): void {
