@@ -7,6 +7,7 @@ import { BRICK_COLORS, canvasPalette, DARK_LETTER_DROP_KINDS, DROP_COLORS } from
 import type { Ball } from "@entities/ball/Ball";
 import type { Critter } from "@entities/effects/Critter";
 import type { Detonation } from "@entities/effects/Detonation";
+import type { Meteor } from "@entities/effects/MeteorField";
 import type { Particle } from "@entities/effects/ParticleField";
 import type { Quake } from "@entities/effects/Quake";
 import type { Singularity } from "@entities/effects/Singularity";
@@ -223,6 +224,7 @@ export interface RenderView {
   stasisRings: readonly StasisRing[];
   bolts: readonly ChainBolt[];
   particles: readonly Particle[];
+  meteors: readonly Meteor[];
   detonation: Detonation;
   singularity: Singularity;
   quake: Quake;
@@ -301,6 +303,12 @@ export class CanvasRenderer {
       const color = [colors.flat, colors.light, colors.dark][index % 3];
       this.spritePixel(particle.x, particle.y, particle.size, particle.size, color);
     });
+    // Over their own trail, which is what the particles above just painted.
+    for (const meteor of view.meteors) {
+      if (meteor.active) {
+        this.drawMeteor(meteor);
+      }
+    }
     for (const bolt of view.bolts) {
       this.drawChainBolt(bolt);
     }
@@ -620,6 +628,15 @@ export class CanvasRenderer {
     for (const foot of [1, 4, 7]) {
       this.spritePixel(x + foot + stride, y + 7, 1, 1, canvasPalette.critterUnder);
     }
+  }
+
+  // One METEOR rock: a 4 px white-hot core with a 2 px ember cap behind it. The
+  // cap sits on the trailing edge, so the sprite points the way it is falling
+  // even in a screenshot, and `spritePixel` keeps it on the backing grid — a
+  // rock steps 3.23 px a tick and would judder rounded to whole game pixels.
+  private drawMeteor(meteor: Meteor): void {
+    this.spritePixel(meteor.x - 2, meteor.y - 2, 4, 4, canvasPalette.meteorCore);
+    this.spritePixel(meteor.x - 1, meteor.y - 3, 2, 2, canvasPalette.meteorFlame);
   }
 
   // A CHAIN arc: the mint stroke laid down first, a thinner white core over it,

@@ -102,4 +102,8 @@ export const canvasPalette = {
   critterUnder: "#8a5a2a",
   critterJaw: "#e8384f",
   critterEye: "#0b0b26",
+  // METEOR: a white-hot core under the capsule's own ember, the flame drawn on
+  // the trailing side so a rock reads as falling even in a still frame.
+  meteorCore: "#ffe8b0",
+  meteorFlame: "#c84b19",
 } as const;

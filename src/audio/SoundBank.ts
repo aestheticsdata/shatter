@@ -243,6 +243,18 @@ export class SoundBank {
     this.sound.noise({ dur: 0.03, vol: 0.09, filter: { type: "bandpass", freq: 1200 } });
   }
 
+  // The volley coming in: noise sliding out of the top of the band down to a
+  // rumble, over a sawtooth falling the same way. One sound for all three rocks
+  // — they fall together, and three of these would be a landslide. The bricks
+  // they drill keep their own beeps.
+  meteorFall(): void {
+    if (!this.allow("meteor")) {
+      return;
+    }
+    this.sound.noise({ dur: 0.9, vol: 0.12, filter: { type: "bandpass", freq: 3000, freqEnd: 300 } });
+    this.sound.tone({ freq: 300, freqEnd: 60, dur: 0.9, vol: 0.08, type: "sawtooth" });
+  }
+
   // A pinball bumper kick: a short pop rising an octave over a click of noise,
   // so a rally of them reads as a rhythm rather than as one held tone.
   bumperKick(): void {

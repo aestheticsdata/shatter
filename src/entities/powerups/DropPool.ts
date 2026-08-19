@@ -6,7 +6,10 @@ import type { PowerUpKind, RectangleBounds } from "@interfaces/types";
 const DROP_WIDTH = 20;
 const DROP_HEIGHT = 8;
 const NO_EXCLUSIONS: readonly PowerUpKind[] = [];
-const RAIN_EXCLUDES: readonly PowerUpKind[] = ["R"];
+// RAIN bars itself so one shower cannot chain into the next, and METEOR because
+// four rained capsules would be twelve rocks — twice what the volley pool holds,
+// and a shower that dropped nothing else.
+const RAIN_EXCLUDES: readonly PowerUpKind[] = ["R", "MT"];
 
 // `exclude` is a list because capsules that spawn other capsules keep growing:
 // RAIN already bars itself, and this is the shape the ones after it use rather
@@ -105,7 +108,7 @@ export class DropPool {
   }
 
   // RAIN: scatter capsules across the top of the field. Kinds are re-rolled
-  // without R itself, so one rain can never chain into the next.
+  // against `RAIN_EXCLUDES`, so a shower can never chain into another one.
   rainSpawn(count: number): number {
     const { left, right, top } = gameConfig.field;
     let spawned = 0;

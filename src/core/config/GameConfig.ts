@@ -259,6 +259,29 @@ export const gameConfig = {
       stepSpeed: 1.667,
       emptyRowSpeed: 3.33,
     },
+    // METEOR's volley. One rock per third of the 12 columns, so `count` is meant
+    // to divide them evenly. `fallSpeed` 3 crosses the deepest grid in 44 ticks
+    // and the shallowest in 36 — long enough to watch a lane being carved, and
+    // 3 px against 12 px rows means no row is ever skipped between samples.
+    // `driftSpeed` leans each rock toward the middle: over a full fall that is
+    // under two columns, which converges the three lanes without crossing them.
+    meteor: {
+      count: 3,
+      fallSpeed: 3,
+      driftSpeed: 1.2,
+      // The burning trail: a puff every other tick, so ~48 chunks are alive
+      // across a volley — a fifth of the pool, with a full-field NUKE's 720
+      // still able to land on top of it.
+      trailBurst: {
+        chunkCount: 2,
+        minChunkSize: 1,
+        maxChunkSize: 2,
+        minSpeed: 0.2,
+        maxSpeed: 0.8,
+        minLifeTicks: 12,
+        maxLifeTicks: 20,
+      } satisfies BurstSpec,
+    },
     // BOMB. The fuse is how long the run holds still while the paddle burns:
     // long enough to read as an explosion, short enough not to play the
     // punishment twice. No chunk outlives it, so the reset never snatches

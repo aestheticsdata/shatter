@@ -8,6 +8,7 @@ import { BrickGrid } from "@entities/bricks/BrickGrid";
 import { BumperField } from "@entities/effects/BumperField";
 import { Critter } from "@entities/effects/Critter";
 import { Detonation } from "@entities/effects/Detonation";
+import { MeteorField } from "@entities/effects/MeteorField";
 import { ParticleField } from "@entities/effects/ParticleField";
 import { Quake } from "@entities/effects/Quake";
 import { Singularity } from "@entities/effects/Singularity";
@@ -101,6 +102,7 @@ export class ShatterGame {
   private readonly bumpers = new BumperField();
   private readonly quake = new Quake();
   private readonly critter = new Critter();
+  private readonly meteors = new MeteorField();
   // Ticks each ball has spent inside the core's reach. Indexed by ball slot,
   // which is a stable identity: `balls` is a fixed array built once at
   // construction and never reordered. If that ever changes, this moves onto Ball.
@@ -232,6 +234,7 @@ export class ShatterGame {
       stasisRings: this.stasisRings,
       bolts: this.bolts,
       particles: this.particles.particles,
+      meteors: this.meteors.meteors,
       detonation: this.detonation,
       singularity: this.singularity,
       quake: this.quake,
@@ -358,6 +361,7 @@ export class ShatterGame {
     }
     this.shotPool.step(this.grid, this.timers.isActive("GH"), (hit) => this.damageBrick(hit, "laser"));
     this.stepCritter();
+    this.stepMeteors();
 
     for (let index = 0; index < this.balls.length; index++) {
       const ball = this.balls[index];
@@ -1080,6 +1084,55 @@ export class ShatterGame {
     this.critter.reset();
   }
 
+  /**
+   * METEOR: one tick of the volley, and the bricks the rocks drill through.
+   *
+   * Kills are of the nuke's class rather than the ball's: full points (PAYDAY
+   * doubles them) and silver and gold go in one pass, but no capsule drops and
+   * neither BLAST nor CHAIN spreads off them. Three lanes carved out of the
+   * wall is the whole of the capsule — a volley that also spilled capsules and
+   * set off the player's combos would be playing the level for them.
+   *
+   * Nothing collides with a rock and nothing bends one: balls, shots and
+   * capsules pass through, and SINGULARITY does not reach them. They fall the
+   * line they were launched on until the grid runs out beneath them.
+   */
+  private stepMeteors(): void {
+    if (!this.meteors.active) {
+      return;
+    }
+    const { top, brickHeight } = gameConfig.grid;
+    this.meteors.step(top + this.grid.rows.length * brickHeight);
+
+    let drilled = false;
+    for (const meteor of this.meteors.meteors) {
+      if (!meteor.active) {
+        continue;
+      }
+      // Every other tick: one puff per rock per two ticks is a trail, and one
+      // per tick is a smoke screen over the wall it is drilling.
+      if ((meteor.age & 1) === 0) {
+        this.particles.burst(meteor.x, meteor.y, "2", gameConfig.effects.meteor.trailBurst);
+      }
+      const hit = this.grid.cellAt(meteor.x, meteor.y);
+      if (!hit) {
+        continue;
+      }
+      this.grid.destroy(hit);
+      this.score += hit.cell.points * this.scoreMultiplier();
+      this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
+      // The 30 ms guard folds rocks landing on the same tick into one beep,
+      // which is what keeps a volley from sounding like a drum roll.
+      this.deps.sfx.brickDestroyed(hit.row);
+      drilled = true;
+    }
+
+    // Same idempotent clear trigger as damageBrick: a rock can take the last brick.
+    if (drilled && this.grid.remaining <= 0) {
+      this.clearCountdown = gameConfig.effects.clearDelayTicks;
+    }
+  }
+
   private scoreMultiplier(): number {
     return this.timers.isActive("X") ? gameConfig.scoring.paydayMultiplier : 1;
   }
@@ -1128,6 +1181,7 @@ export class ShatterGame {
     this.bumpers.reset();
     this.quake.reset();
     this.critter.reset();
+    this.meteors.reset();
     this.ghostBlend = 0;
     this.particles.reset();
     const bonus = awardBonus ? (this.level + 1) * gameConfig.scoring.clearBonusPerLevel * this.scoreMultiplier() : 0;
@@ -1273,6 +1327,12 @@ export class ShatterGame {
     if (kind === "XR") {
       this.timers.activate("XR", durations.XR);
     }
+    if (kind === "MT") {
+      // A volley already in the air keeps flying and a second one joins it; a
+      // third catch inside the same fall finds the pool full and is the sound
+      // alone, exactly as a BUMPERS catch over live discs only buys time.
+      this.meteors.launch();
+    }
 
     if (kind === "N") {
       // One detonation instead of a pickup jingle — and instead of ~70 per-brick beeps.
@@ -1298,6 +1358,10 @@ export class ShatterGame {
       this.deps.sfx.blastExplosion();
     } else if (kind === "Q") {
       this.deps.sfx.quakeRumble();
+    } else if (kind === "MT") {
+      // One incoming howl for the volley instead of a pickup chime; the bricks
+      // it drills speak for themselves as it goes.
+      this.deps.sfx.meteorFall();
     } else {
       this.deps.sfx.capsulePickup();
     }
@@ -1518,6 +1582,7 @@ export class ShatterGame {
     this.bumpers.reset();
     this.quake.reset();
     this.critter.reset();
+    this.meteors.reset();
     this.ghostBlend = 0;
     this.particles.reset();
     this.detonation.reset();
@@ -1556,6 +1621,7 @@ export class ShatterGame {
     this.bumpers.reset();
     this.quake.reset();
     this.critter.reset();
+    this.meteors.reset();
     this.ghostBlend = 0;
     this.particles.reset();
     this.dropPool.reset();
@@ -1761,6 +1827,9 @@ export class ShatterGame {
     }
     if (this.critter.alive) {
       live.add("CR");
+    }
+    if (this.meteors.active) {
+      live.add("MT");
     }
     return POWER_UP_IDS.filter((kind) => live.has(kind));
   }
