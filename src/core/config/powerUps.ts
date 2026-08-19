@@ -112,7 +112,7 @@ export const POWER_UPS = [
   { id: "Y", glyph: "Y", name: "MIRROR", color: "#a878b4", dark: false, ticks: 600, tier: "common", timed: true },
   { id: "C", glyph: "C", name: "CHAIN", color: "#3dff8e", dark: true, ticks: 600, tier: "uncommon", timed: true },
   { id: "K", glyph: "K", name: "MAGNET", color: "#6fd0b4", dark: true, ticks: 720, tier: "common", timed: true },
-  { id: "V", glyph: "V", name: "SINGULARITY", color: "#c9a7ff", dark: true, ticks: 360, tier: "uncommon", timed: true },
+  { id: "V", glyph: "V", name: "SINGULARITY", color: "#c9a7ff", dark: true, ticks: 720, tier: "uncommon", timed: true },
   { id: "PO", glyph: "PO", name: "PORTAL", color: "#00b3fa", dark: true, ticks: 1800, tier: "uncommon", timed: true },
   { id: "O", glyph: "O", name: "BUMPERS", color: "#ff00aa", dark: false, ticks: 720, tier: "uncommon", timed: true },
   { id: "Q", glyph: "Q", name: "QUAKE", color: "#ffab6b", dark: true, ticks: 0, tier: "uncommon", timed: false },
