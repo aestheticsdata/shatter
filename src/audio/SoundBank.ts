@@ -243,6 +243,18 @@ export class SoundBank {
     this.sound.noise({ dur: 0.03, vol: 0.09, filter: { type: "bandpass", freq: 1200 } });
   }
 
+  // SPLIT: the deck cracking in two. Two short square drops a beat apart over a
+  // click of noise — the second is the far half letting go, which is what makes
+  // it a break rather than a thud.
+  splitPickup(): void {
+    if (!this.allow("split")) {
+      return;
+    }
+    this.sound.tone({ freq: 300, freqEnd: 120, dur: 0.09, vol: 0.07 });
+    this.sound.tone({ freq: 240, freqEnd: 90, dur: 0.09, vol: 0.06, delayS: 0.06 });
+    this.sound.noise({ dur: 0.04, vol: 0.1, filter: { type: "bandpass", freq: 900 } });
+  }
+
   // The volley coming in: noise sliding out of the top of the band down to a
   // rumble, over a sawtooth falling the same way. One sound for all three rocks
   // — they fall together, and three of these would be a landslide. The bricks

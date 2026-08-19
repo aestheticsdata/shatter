@@ -151,6 +151,10 @@ export interface PaddleRenderState {
   x: number;
   width: number;
   laserActive: boolean;
+  // SPLIT's hole, in game pixels, or 0 while the deck is whole. `width` stays
+  // the span end to end either way, so the cannons and MIRROR's ghost need no
+  // second number.
+  splitGap: number;
 }
 
 // The four tones a paddle is banded from. The ghost is the same sprite in a
@@ -483,7 +487,7 @@ export class CanvasRenderer {
 
   private drawPaddle(paddle: PaddleRenderState): void {
     const y = gameConfig.paddle.y;
-    this.drawPaddleBands(paddle.x, y, paddle.width, PADDLE_BANDS);
+    this.drawDeck(paddle, paddle.x, y, PADDLE_BANDS);
 
     if (paddle.laserActive) {
       this.spritePixel(paddle.x + 5, y - 3, 2, 3, canvasPalette.laserCannon);
@@ -495,7 +499,20 @@ export class CanvasRenderer {
   // any cannons, since the ghost is a surface and not a second paddle.
   private drawMirror(paddle: PaddleRenderState): void {
     const bounds = mirrorBounds(paddle.x, paddle.width);
-    this.drawPaddleBands(bounds.left, bounds.top, paddle.width, MIRROR_BANDS);
+    this.drawDeck(paddle, bounds.left, bounds.top, MIRROR_BANDS);
+  }
+
+  // One pill, or two with SPLIT's hole between them — each half a full pill with
+  // its own caps and bevels, so a broken deck reads as two pieces of the same
+  // paddle rather than as one paddle with a bite taken out of it.
+  private drawDeck(paddle: PaddleRenderState, x: number, y: number, colors: PaddleBandColors): void {
+    if (paddle.splitGap === 0) {
+      this.drawPaddleBands(x, y, paddle.width, colors);
+      return;
+    }
+    const half = (paddle.width - paddle.splitGap) / 2;
+    this.drawPaddleBands(x, y, half, colors);
+    this.drawPaddleBands(x + paddle.width - half, y, half, colors);
   }
 
   private drawPaddleBands(x: number, y: number, width: number, colors: PaddleBandColors): void {

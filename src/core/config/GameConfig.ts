@@ -37,6 +37,23 @@ export const gameConfig = {
     // against both walls at once.
     extraWideWidth: 144,
     narrowWidth: 30,
+    // SPLIT: the deck breaks into two 20 px halves either side of the hole.
+    // Wider than `baseWidth` end to end, but only 40 px of it catches anything.
+    //
+    // The gap is the whole trap, and it has to be measured rather than guessed:
+    // the band of positions a ball is actually lost from is roughly the gap less
+    // the ball's 8 px, and a *diagonal* ball loses another 5 on top, because it
+    // crosses the deck's 10 px catch band over several sub-steps and clips a
+    // half's edge on one of them. At the 18 the ticket drafted, a ball arriving
+    // at 0.5 rad drops through a 7.5 px window — too fine to aim the paddle's
+    // hole at while steering it, and playtest could not hit it at all. 26 puts
+    // that at 15.5 px, which is a hole the player can steer onto or away from.
+    //
+    // Past 20 a 20 px capsule fits through as well, from a band of `gap - 20`.
+    // Taken deliberately: a trap that never costs anything is not a trap, and
+    // losing the odd bonus down the same hole reads as the same accident.
+    splitWidth: 66,
+    splitGap: 26,
     initialX: 163,
   },
   ball: {

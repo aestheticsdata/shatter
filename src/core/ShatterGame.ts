@@ -29,6 +29,7 @@ import type {
   ChainBolt,
   PanelView,
   PowerUpKind,
+  RectangleBounds,
   ScreenName,
   StasisRing,
 } from "@interfaces/types";
@@ -63,7 +64,7 @@ const CHAIN_BOLT_JITTER = 3;
 // group because only one of these widths can hold at a time: catching any of
 // them cancels the other two, and the deck goes back to `baseWidth` only once
 // the last of them has run out.
-const PADDLE_WIDTH_KINDS = ["E", "XW", "J"] as const satisfies readonly PowerUpKind[];
+const PADDLE_WIDTH_KINDS = ["E", "XW", "J", "SP"] as const satisfies readonly PowerUpKind[];
 
 type PaddleWidthKind = (typeof PADDLE_WIDTH_KINDS)[number];
 
@@ -71,6 +72,10 @@ const PADDLE_WIDTHS: Record<PaddleWidthKind, number> = {
   E: gameConfig.paddle.wideWidth,
   XW: gameConfig.paddle.extraWideWidth,
   J: gameConfig.paddle.narrowWidth,
+  // SPLIT is in the group for the same reason the others are: it owns the deck
+  // while it lasts. Its width is the span end to end, hole included — what
+  // actually catches is the two 20 px halves `splitSegments` cuts out of it.
+  SP: gameConfig.paddle.splitWidth,
 };
 
 function isPaddleWidthKind(kind: PowerUpKind): kind is PaddleWidthKind {
@@ -214,7 +219,12 @@ export class ShatterGame {
       background: levelAt(this.level).background,
       backgroundVariant: levelIndexOf(this.level),
       grid: this.grid.rows,
-      paddle: { x: this.paddle.x, width: this.paddle.width, laserActive: this.timers.isActive("L") },
+      paddle: {
+        x: this.paddle.x,
+        width: this.paddle.width,
+        laserActive: this.timers.isActive("L"),
+        splitGap: this.splitGap(),
+      },
       mirrorActive: this.timers.isActive("Y"),
       magnetActive: this.timers.isActive("K"),
       portalActive: this.timers.isActive("PO"),
@@ -370,8 +380,9 @@ export class ShatterGame {
       }
       if (ball.stuckOffsetX !== null) {
         // Glued balls ride the paddle; the offset re-clamps in case a WIDE or
-        // JAMMER catch changed the width underneath them.
-        ball.x = this.paddle.x + Math.min(ball.stuckOffsetX, this.paddle.width - gameConfig.ball.size);
+        // JAMMER catch changed the width underneath them — or a SPLIT opened a
+        // hole where one was parked.
+        ball.x = this.paddle.x + this.clampStuckOffset(ball.stuckOffsetX);
         ball.y = gameConfig.paddle.y - gameConfig.ball.size;
         continue;
       }
@@ -406,7 +417,7 @@ export class ShatterGame {
           this.particles.burst(x, y, "S", gameConfig.effects.brickDeathBurst);
         },
       };
-      this.dropPool.step([this.paddle.bounds], field, (kind) => {
+      this.dropPool.step(this.paddleSegments(), field, (kind) => {
         // Two capsules can reach the paddle on one tick; nothing applies once a
         // NUKE detonation has started — the refused drop stays live and freezes.
         if (this.detonation.active) {
@@ -663,9 +674,14 @@ export class ShatterGame {
     const size = gameConfig.ball.size;
     const pierce = () => this.timers.isActive("P");
     const phasing = this.ghosted(ball, this.timers.isActive("GH"));
-    // The ghost cannot move between sub-steps — the paddle only moves on input —
-    // so its bounds are read once per tick rather than per sub-step.
-    const mirror = this.timers.isActive("Y") ? mirrorBounds(this.paddle.x, this.paddle.width) : null;
+    // Neither deck can move between sub-steps — the paddle only moves on input —
+    // so both are cut once per tick rather than per sub-step. The ghost is split
+    // wherever the paddle is: it is the paddle's reflection, and a solid ghost
+    // over a broken deck would be a surface the player cannot read.
+    const mirror = this.timers.isActive("Y")
+      ? this.splitSegments(mirrorBounds(this.paddle.x, this.paddle.width))
+      : null;
+    const deck = this.paddleSegments();
     const { portalTop, portalHeight, portalInset } = gameConfig.powerUps;
     const portalsOpen = this.timers.isActive("PO");
     if (ball.portalCooldown > 0) {
@@ -715,19 +731,16 @@ export class ShatterGame {
       // misses the ghost sideways falls through to the ceiling clamp below and
       // ricochets flat, exactly as it always has.
       const mirrorCatch =
-        mirror !== null &&
-        ball.velocity.y < 0 &&
-        ball.y >= top &&
-        ball.y <= mirror.bottom &&
-        ball.x + size > mirror.left &&
-        ball.x < mirror.right;
+        mirror !== null && ball.velocity.y < 0 && ball.y >= top
+          ? (mirror.find((half) => ball.y <= half.bottom && ball.x + size > half.left && ball.x < half.right) ?? null)
+          : null;
       if (mirrorCatch) {
-        const relativeHit = relativePaddleHit(ball.centerX, mirror);
+        const relativeHit = relativePaddleHit(ball.centerX, mirrorCatch);
         const bounced = computePaddleBounceVelocity(relativeHit, this.speed(), gameConfig.bounce.maxAngleRad);
         ball.velocity.x = bounced.x;
         // Downward: the ghost returns balls into the field, not out of it.
         ball.velocity.y = Math.abs(bounced.y);
-        ball.y = mirror.bottom;
+        ball.y = mirrorCatch.bottom;
         this.bumpers.streak = 0;
         this.deps.sfx.mirrorBounce(relativeHit);
       }
@@ -768,23 +781,28 @@ export class ShatterGame {
       }
 
       const paddleTop = gameConfig.paddle.y;
+      // Which half of the deck took it, or null. Solid, that list is one box and
+      // this is the test it has always been; split, a ball down the middle finds
+      // neither half and carries on into the drain — which is the whole capsule.
       const paddleCatch =
-        ball.velocity.y > 0 &&
-        ball.y + size >= paddleTop &&
-        ball.y + size <= paddleTop + gameConfig.paddle.height + 3 &&
-        ball.x + size > this.paddle.x &&
-        ball.x < this.paddle.x + this.paddle.width;
+        ball.velocity.y > 0 && ball.y + size >= paddleTop && ball.y + size <= paddleTop + gameConfig.paddle.height + 3
+          ? (deck.find((half) => ball.x + size > half.left && ball.x < half.right) ?? null)
+          : null;
       if (paddleCatch) {
         this.bumpers.streak = 0;
         if (this.timers.isActive("G")) {
           // GLUE: the ball parks on the paddle; a click (or Space) releases it.
           ball.velocity = { x: 0, y: 0 };
-          ball.stuckOffsetX = ball.x - this.paddle.x;
+          ball.stuckOffsetX = this.clampStuckOffset(ball.x - this.paddle.x);
+          ball.x = this.paddle.x + ball.stuckOffsetX;
           ball.y = paddleTop - size;
           this.deps.sfx.wallBounce();
           return;
         }
-        const relativeHit = relativePaddleHit(ball.centerX, this.paddle.bounds);
+        // Measured against the half that caught it, so each one throws its own
+        // full fan: the inner edges fire hard across the hole, the outer edges
+        // hard toward the walls.
+        const relativeHit = relativePaddleHit(ball.centerX, paddleCatch);
         ball.velocity = computePaddleBounceVelocity(relativeHit, this.speed(), gameConfig.bounce.maxAngleRad);
         ball.y = paddleTop - size;
         this.deps.sfx.paddleBounce(relativeHit);
@@ -802,6 +820,57 @@ export class ShatterGame {
         return;
       }
     }
+  }
+
+  // The width of SPLIT's hole, or 0 while the deck is whole. One reading of the
+  // timer, shared by the catch tests and the renderer, so the gap a ball falls
+  // through is the gap the player is looking at.
+  private splitGap(): number {
+    return this.timers.isActive("SP") ? gameConfig.paddle.splitGap : 0;
+  }
+
+  // A deck, as the pieces that actually catch things: one box whole, two while
+  // SPLIT holds. Applied to the paddle and to MIRROR's ghost alike.
+  private splitSegments(bounds: RectangleBounds): RectangleBounds[] {
+    const gap = this.splitGap();
+    if (gap === 0) {
+      return [bounds];
+    }
+    const half = (bounds.right - bounds.left - gap) / 2;
+    return [
+      { ...bounds, right: bounds.left + half },
+      { ...bounds, left: bounds.right - half },
+    ];
+  }
+
+  private paddleSegments(): RectangleBounds[] {
+    return this.splitSegments(this.paddle.bounds);
+  }
+
+  /**
+   * Where a glued ball may sit on the deck, as an offset from its left edge.
+   *
+   * Whole, that is the length that keeps the ball on the wood. Split, it is the
+   * two halves, and a ball caught over the hole — or standing where a hole has
+   * just opened under it — slides to the inner edge of the nearer one. A ball
+   * hovering in mid-air over the gap would be GLUE contradicting SPLIT.
+   */
+  private clampStuckOffset(offset: number): number {
+    const size = gameConfig.ball.size;
+    const rightmost = this.paddle.width - size;
+    const gap = this.splitGap();
+    if (gap === 0) {
+      return Math.max(0, Math.min(offset, rightmost));
+    }
+    const leftEdge = (this.paddle.width - gap) / 2 - size;
+    const rightEdge = this.paddle.width - (this.paddle.width - gap) / 2;
+    if (offset <= leftEdge) {
+      return Math.max(0, offset);
+    }
+    if (offset >= rightEdge) {
+      return Math.min(offset, rightmost);
+    }
+    return offset - leftEdge < rightEdge - offset ? leftEdge : rightEdge;
   }
 
   private damageBrick(hit: BrickHit, source: BrickDamageSource = "ball"): void {
@@ -1341,6 +1410,10 @@ export class ShatterGame {
       this.deps.sfx.swarmPickup();
     } else if (kind === "GH") {
       this.deps.sfx.ghostFade();
+    } else if (kind === "SP") {
+      // Its own snap ahead of the shared womp, the way GHOST's fade is: the trap
+      // is heard as the thing that happened — a deck coming apart.
+      this.deps.sfx.splitPickup();
     } else if (kind === "BM") {
       // Its own boom instead of the shared womp: this trap is not a setback.
       this.deps.sfx.paddleExplode();
@@ -1627,6 +1700,10 @@ export class ShatterGame {
     this.dropPool.reset();
     this.detonation.reset();
     this.timers.reset();
+    // The deck too: it is run state like the rest, and the panel keeps drawing it
+    // behind the overlay — a run ended under a JAMMER or a SPLIT used to leave a
+    // stunted or broken paddle sitting on the GAME OVER screen.
+    this.paddle.setWidth(gameConfig.paddle.baseWidth);
     this.wallArmed = false;
     this.clearCountdown = 0;
     this.deathCountdown = 0;

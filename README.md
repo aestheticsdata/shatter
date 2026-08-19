@@ -41,6 +41,7 @@ The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372�
   | `XR` | XRAY        | every brick shows the capsule it is holding                 | 5 s      | rare     |
   | `MT` | METEOR      | three meteors drill three lanes through the wall            | instant  | rare     |
   | `GH` | GHOST       | **trap** — the wall goes intangible; the ball flies through | 5 s      | trap     |
+  | `SP` | SPLIT       | **trap** — the deck breaks in two, hole down the middle     | 6 s      | trap     |
   | `RU` | RUSH        | **trap** — every ball at ×1.8                               | 5 s      | trap     |
   | `BM` | BOMB        | catching it blows the paddle up: you lose a life            | instant  | trap     |
   | `J`  | JAMMER      | **trap** — shrinks the paddle                               | 6 s      | trap     |
