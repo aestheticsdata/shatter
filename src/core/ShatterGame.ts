@@ -187,6 +187,11 @@ export class ShatterGame {
   // the timer: the renderer sweeps a wave across the wall as this moves, while
   // the collision stays binary on the capsule itself.
   private ghostBlend = 0;
+  // DEMAKE's dissolve, 0 in colour to 1 fully demade. The capsule's timer is
+  // still the truth about whether the machine is broken; this is only how far
+  // along the picture and the panel are, and it is what the sound chip follows
+  // too — see `stepSimulation`.
+  private demakeBlend = 0;
   // Armed by a MAGNET catch, spent by the next brick a ball or a laser kills.
   // A magnet with nothing falling is a magnet nobody can see working.
   private guaranteedDrop = false;
@@ -272,7 +277,7 @@ export class ShatterGame {
       magnetActive: this.timers.isActive("K"),
       portalActive: this.timers.isActive("PO"),
       xrayActive: this.timers.isActive("XR"),
-      demakeActive: this.timers.isActive("D"),
+      demakeBlend: this.demakeBlend,
       ghostBlend: this.ghostBlend,
       paddleHidden: this.deathCountdown > 0,
       bumpers: this.bumpers.discs,
@@ -338,6 +343,16 @@ export class ShatterGame {
     this.ghostBlend = this.timers.isActive("GH")
       ? Math.min(1, this.ghostBlend + ghostStep)
       : Math.max(0, this.ghostBlend - ghostStep);
+    // Above the freeze gates for the same reason the fade above it is: a NUKE
+    // caught mid-dissolve must not hold the machine half-broken on screen.
+    const demakeStep = 1 / gameConfig.effects.demakeFadeTicks;
+    this.demakeBlend = this.timers.isActive("D")
+      ? Math.min(1, this.demakeBlend + demakeStep)
+      : Math.max(0, this.demakeBlend - demakeStep);
+    // The chip cannot dissolve — a square is a square — so it gives out as the
+    // picture passes halfway, which reads as one machine failing rather than
+    // as a sound effect fired alongside a visual one.
+    this.deps.sfx.setDemake(this.demakeBlend >= 0.5);
 
     // A pending level clear freezes the rest of the simulation so the final
     // brick's shatter can play out — no ball can be lost, no capsule caught,
@@ -413,11 +428,6 @@ export class ShatterGame {
     // dropping back to true speed has to be heard by someone whose eyes are on it.
     if (expired.includes("RU")) {
       this.deps.sfx.rushRelease();
-    }
-    // The machine coming back. Nothing else to undo: the field reads the timer
-    // straight, and only the sound chain holds a flag of its own.
-    if (expired.includes("D")) {
-      this.deps.sfx.setDemake(false);
     }
 
     if (this.timers.isActive("L") && --this.laserCountdown <= 0) {
@@ -1386,11 +1396,13 @@ export class ShatterGame {
     this.critter.reset();
     this.meteors.reset();
     this.ghostBlend = 0;
+    this.demakeBlend = 0;
     this.particles.reset();
     this.resetSkid();
     // First, and ahead of `timers.reset()` below: the CLEARED jingle plays out
     // of this method, and a squared-off fanfare would be the reward sounding
-    // like the punishment.
+    // like the punishment. The blend above would get there on its own, but not
+    // for another 15 ticks, and the jingle is already playing by then.
     this.deps.sfx.setDemake(false);
     const bonus = awardBonus ? (this.level + 1) * gameConfig.scoring.clearBonusPerLevel * this.scoreMultiplier() : 0;
     this.score += bonus;
@@ -1543,10 +1555,11 @@ export class ShatterGame {
       this.dropPeel();
     }
     if (kind === "D") {
-      // Above the sound chain, so the womp this catch is about to fire is
-      // already the downgraded one — the machine has to break *as* it is caught.
+      // The timer and nothing else: the machine sags into the tube over the
+      // next half second rather than at this instant, so the womp this catch
+      // is about to fire is still the working machine's — the last sound it
+      // makes before it goes.
       this.timers.activate("D", durations.D);
-      this.deps.sfx.setDemake(true);
     }
     if (kind === "GH") {
       this.timers.activate("GH", durations.GH);
@@ -1964,6 +1977,7 @@ export class ShatterGame {
     this.critter.reset();
     this.meteors.reset();
     this.ghostBlend = 0;
+    this.demakeBlend = 0;
     this.particles.reset();
     this.detonation.reset();
     this.clearCountdown = 0;
@@ -2003,6 +2017,7 @@ export class ShatterGame {
     this.critter.reset();
     this.meteors.reset();
     this.ghostBlend = 0;
+    this.demakeBlend = 0;
     this.particles.reset();
     this.dropPool.reset();
     this.detonation.reset();

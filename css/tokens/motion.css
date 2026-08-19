@@ -1,4 +1,7 @@
 :root {
   --blink-duration: 1s;
   --copper-duration: 1.467s;
+  /* DEMAKE's dissolve. Must match `gameConfig.effects.demakeFadeTicks`
+     (30 ticks at 60 Hz), or the panel and the field come apart mid-fade. */
+  --demake-fade: 0.5s;
 }

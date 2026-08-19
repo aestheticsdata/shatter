@@ -311,6 +311,15 @@ export const gameConfig = {
       maxLinks: 6,
       boltTicks: 9,
     },
+    // DEMAKE's dissolve, each way. The machine sags into the tube and back out
+    // rather than flipping: an instant swap read as a dropped frame, not as
+    // hardware giving up. 30 ticks is half a second — long enough to be seen
+    // happening, short enough that a third of the capsule is not spent on it.
+    //
+    // `--demake-fade` in `css/tokens/motion.css` is this same half second, and
+    // has to move with it: the side panel is DOM and dissolves on a CSS
+    // transition while the field dissolves on this counter.
+    demakeFadeTicks: 30,
     // GHOST's fade: how long the wave takes to roll across the wall, each
     // brick flipping as the front passes it. Cosmetic — the collision follows
     // the timer alone, so the wall is already intangible while it still fades.

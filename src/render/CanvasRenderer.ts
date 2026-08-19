@@ -266,9 +266,11 @@ export interface RenderView {
   portalActive: boolean;
   // XRAY: show every brick the capsule it is holding, for as long as it lasts.
   xrayActive: boolean;
-  // DEMAKE: paint the whole field as a 1-bit green tube. Purely presentational —
-  // the simulation behind it is not told, and nothing here changes what it does.
-  demakeActive: boolean;
+  // DEMAKE's dissolve, 0 in colour to 1 fully demade. A number rather than a
+  // flag because the machine sags into the tube and back out over half a second
+  // at each end. Purely presentational — the simulation behind it is not told,
+  // and nothing here changes what it does.
+  demakeBlend: number;
   // GHOST's fade, 0 solid to 1 fully ghosted. Between the two the renderer
   // runs its plasma mask over the grid, each brick melting to its outline as
   // the field rises past it.
@@ -300,7 +302,13 @@ export interface RenderView {
 }
 
 export class CanvasRenderer {
-  private readonly ctx: CanvasRenderingContext2D;
+  // The canvas on screen, and the context every draw method actually writes to.
+  // They are the same thing except mid-dissolve, when `ctx` is pointed at the
+  // offscreen layer for one pass — which is the whole reason the two are not
+  // one field.
+  private readonly mainCtx: CanvasRenderingContext2D;
+  private ctx: CanvasRenderingContext2D;
+  private fadeCtx: CanvasRenderingContext2D | null = null;
   private readonly background: BackgroundLayer;
   private frameCount = 0;
   // Set once per frame from the view, and read by every colour this class
@@ -317,14 +325,70 @@ export class CanvasRenderer {
     if (!ctx) {
       throw new Error("2D canvas context unavailable");
     }
+    this.mainCtx = ctx;
     this.ctx = ctx;
     this.ctx.imageSmoothingEnabled = false;
     this.background = new BackgroundLayer(width, height);
   }
 
+  /**
+   * One frame, and DEMAKE's dissolve across it.
+   *
+   * At either end of the fade there is one machine to paint and this is a
+   * single pass. In between, both are painted in full and the demade one is
+   * laid over the colour one at the blend: a true crossfade of the whole
+   * picture — field art, sprites, the letters on the pills and the scanlines —
+   * for one `globalAlpha`. The alternative, lerping every tone toward its tube
+   * equivalent, would have to be invented separately for the palette, the
+   * thresholded background and the ribbing, and the three would drift apart.
+   *
+   * The doubled pass costs two renders for the 30 frames at each end, and the
+   * offscreen layer is allocated the first time one is needed — a player who
+   * never catches the capsule never pays for either.
+   */
   draw(view: RenderView): void {
     this.frameCount++;
-    this.demade = view.demakeActive;
+    const blend = view.demakeBlend;
+
+    if (blend <= 0 || blend >= 1) {
+      this.demade = blend >= 1;
+      this.paint(view);
+      return;
+    }
+
+    this.demade = false;
+    this.paint(view);
+
+    this.demade = true;
+    const fade = this.fadeContext();
+    this.ctx = fade;
+    this.paint(view);
+    this.ctx = this.mainCtx;
+
+    this.mainCtx.globalAlpha = blend;
+    this.mainCtx.drawImage(fade.canvas, 0, 0);
+    this.mainCtx.globalAlpha = 1;
+  }
+
+  // The offscreen twin the dissolve needs, made on first use. Never cleared:
+  // `paint` opens by blitting the field layer over every pixel of it.
+  private fadeContext(): CanvasRenderingContext2D {
+    if (this.fadeCtx === null) {
+      const canvas = document.createElement("canvas");
+      canvas.width = this.mainCtx.canvas.width;
+      canvas.height = this.mainCtx.canvas.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        throw new Error("2D fade context unavailable");
+      }
+      ctx.imageSmoothingEnabled = false;
+      this.fadeCtx = ctx;
+    }
+    return this.fadeCtx;
+  }
+
+  // One machine's worth of frame, into whatever `this.ctx` currently is.
+  private paint(view: RenderView): void {
     const { width, height } = gameConfig.field;
     // The level's field art, painted at 1× on a theme change and blitted here
     // with smoothing off — an exact 3× nearest-neighbour upscale, so the

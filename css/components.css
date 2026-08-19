@@ -36,6 +36,26 @@
   --color-title-divider: #6cf08a;
 }
 
+/* The panel dissolves with the field instead of snapping to it: the tokens
+   above flip in a single frame, and this is what turns that flip into the same
+   half-second sag the canvas is painting.
+
+   Only the properties those tokens resolve into, and deliberately not
+   `opacity` or `background-position`: PAYDAY's blink and the title coppers
+   animate those, and a transition on either would fight an animation already
+   running. Nothing else in the stage changes a colour, so this can stand
+   declared rather than being switched on for the fade. */
+#stage,
+#stage *,
+#panel::before,
+#panel::after {
+  transition:
+    color var(--demake-fade) linear,
+    background-color var(--demake-fade) linear,
+    border-color var(--demake-fade) linear,
+    text-shadow var(--demake-fade) linear;
+}
+
 /* ---------- side panel ---------- */
 
 #panel::before,
