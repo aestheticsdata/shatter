@@ -116,6 +116,10 @@ export class ShatterGame {
   private swarmLive = false;
   private clearCountdown = 0;
   private deathCountdown = 0;
+  // GHOST's fade, 0 solid to 1 ghosted. It chases the timer rather than being
+  // the timer: the renderer sweeps a wave across the wall as this moves, while
+  // the collision stays binary on the capsule itself.
+  private ghostBlend = 0;
   // Armed by a MAGNET catch, spent by the next brick a ball or a laser kills.
   // A magnet with nothing falling is a magnet nobody can see working.
   private guaranteedDrop = false;
@@ -188,7 +192,7 @@ export class ShatterGame {
       mirrorActive: this.timers.isActive("Y"),
       magnetActive: this.timers.isActive("K"),
       portalActive: this.timers.isActive("PO"),
-      bricksGhosted: this.timers.isActive("GH"),
+      ghostBlend: this.ghostBlend,
       paddleHidden: this.deathCountdown > 0,
       bumpers: this.bumpers.discs,
       balls: this.balls,
@@ -240,6 +244,12 @@ export class ShatterGame {
     this.catchPops = this.catchPops.filter((pop) => --pop.ticksLeft > 0);
     this.particles.step(this.singularity.active ? this.singularity : undefined);
     this.quake.step();
+    // Above the freeze gates like the shake: a NUKE caught mid-fade must not
+    // hold the wall half-dissolved on screen.
+    const ghostStep = 1 / gameConfig.effects.ghostFadeTicks;
+    this.ghostBlend = this.timers.isActive("GH")
+      ? Math.min(1, this.ghostBlend + ghostStep)
+      : Math.max(0, this.ghostBlend - ghostStep);
 
     // A pending level clear freezes the rest of the simulation so the final
     // brick's shatter can play out — no ball can be lost, no capsule caught,
@@ -994,9 +1004,14 @@ export class ShatterGame {
     this.closeSingularity();
     this.bumpers.reset();
     this.quake.reset();
+    this.ghostBlend = 0;
     this.particles.reset();
     const bonus = awardBonus ? (this.level + 1) * gameConfig.scoring.clearBonusPerLevel * this.scoreMultiplier() : 0;
     this.score += bonus;
+    // The board is won: every running effect dies with it, so no portal mouths,
+    // ghost paddle or tethers stay painted behind the CLEARED overlay. After
+    // the bonus on purpose — PAYDAY was earned on this level and still doubles it.
+    this.timers.reset();
     this.deps.screens.updateClear(levelAt(this.level).name, zeroPad(bonus, 5));
     this.setScreen("clear");
     this.deps.sfx.levelClear();
@@ -1370,6 +1385,7 @@ export class ShatterGame {
     this.closeSingularity();
     this.bumpers.reset();
     this.quake.reset();
+    this.ghostBlend = 0;
     this.particles.reset();
     this.detonation.reset();
     this.clearCountdown = 0;
@@ -1406,6 +1422,7 @@ export class ShatterGame {
     this.closeSingularity();
     this.bumpers.reset();
     this.quake.reset();
+    this.ghostBlend = 0;
     this.particles.reset();
     this.dropPool.reset();
     this.detonation.reset();

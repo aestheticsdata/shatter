@@ -26,7 +26,7 @@ The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372�
   | `K`  | MAGNET      | the paddle vacuums falling capsules in, traps too           | 12 s     | common   |
   | `V`  | SINGULARITY | a black hole bends every ball and eats capsules             | 6 s      | uncommon |
   | `PO` | PORTAL      | a ball leaving one side wall arrives out of the other       | 30 s     | uncommon |
-  | `O`  | BUMPERS     | three pinball discs under the grid, 100 points a kick       | 12 s     | uncommon |
+  | `O`  | BUMPERS     | five pinball discs under the grid, 100 points a kick        | 12 s     | uncommon |
   | `P`  | PIERCE      | ball goes through bricks                                    | 8 s      | uncommon |
   | `W`  | WALL        | safety barrier along the bottom                             | one save | uncommon |
   | `X`  | PAYDAY      | points ×2                                                   | 10 s     | uncommon |

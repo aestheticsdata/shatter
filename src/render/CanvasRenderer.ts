@@ -78,6 +78,30 @@ const BUMPER_FILL_ROWS: ReadonlyArray<readonly [number, number]> = [
   [5, 6],
 ];
 
+// How far one brick is through GHOST's fade, 0 solid to 1 outline. The
+// dissolve mask is a little plasma — four sines over the cell grid, drifting
+// slowly on the frame clock — so the wall melts in boiling blobs that spread
+// and merge rather than in a directional sweep; the return drains back through
+// the same field. Each brick spends `GHOST_SOFTNESS` of the blend cross-fading
+// once its threshold is passed, which is what keeps the blobs soft-edged.
+const GHOST_SOFTNESS = 0.45;
+
+function ghostProgress(blend: number, row: number, column: number, frame: number): number {
+  if (blend <= 0) {
+    return 0;
+  }
+  // The drift is far slower than the blend (0.001 vs 0.033 of threshold per
+  // tick), so a brick mid-fade boils without ever running backwards.
+  const t = frame * 0.02;
+  const plasma =
+    Math.sin(column * 0.9 + t) +
+    Math.sin(row * 1.3 - t * 0.7) +
+    Math.sin((column + row) * 0.7 + t * 0.45) +
+    Math.sin(Math.hypot(column - 5.5, row - 2.5) * 1.1 - t * 0.6);
+  const threshold = ((plasma + 4) / 8) * (1 - GHOST_SOFTNESS);
+  return Math.min(1, Math.max(0, (blend - threshold) / GHOST_SOFTNESS));
+}
+
 // The backing store is SCALE× the 372×300 game grid. Static art snaps to whole
 // game pixels (each drawn as a SCALE×SCALE block, so stills are unchanged);
 // moving sprites snap to the finer backing grid, stepping in thirds of a game
@@ -160,8 +184,10 @@ export interface RenderView {
   mirrorActive: boolean;
   magnetActive: boolean;
   portalActive: boolean;
-  // GHOST: the wall is intangible, so it is drawn as outlines only.
-  bricksGhosted: boolean;
+  // GHOST's fade, 0 solid to 1 fully ghosted. Between the two the renderer
+  // runs its plasma mask over the grid, each brick melting to its outline as
+  // the field rises past it.
+  ghostBlend: number;
   // BOMB blew it up: the debris in flight is the paddle, so neither it nor
   // MIRROR's reflection of it may be on screen.
   paddleHidden: boolean;
@@ -221,7 +247,8 @@ export class CanvasRenderer {
     view.grid.forEach((row, rowIndex) => {
       row.forEach((cell, columnIndex) => {
         if (cell) {
-          this.drawBrick(left + columnIndex * brickWidth, top + rowIndex * brickHeight, cell, view.bricksGhosted);
+          const fade = ghostProgress(view.ghostBlend, rowIndex, columnIndex, this.frameCount);
+          this.drawBrick(left + columnIndex * brickWidth, top + rowIndex * brickHeight, cell, fade);
         }
       });
     });
@@ -385,16 +412,23 @@ export class CanvasRenderer {
     this.ctx.fillRect(Math.round(x * SCALE), Math.round(y * SCALE), width * SCALE, height * SCALE);
   }
 
-  private drawBrick(x: number, y: number, cell: BrickCell, ghosted: boolean): void {
-    // GHOST: the body and both bevels go, leaving the cell's outline over the
-    // playfield theme. Damage is not shown while it lasts — there is no lit face
-    // to darken — and comes back with the brick.
-    if (ghosted) {
+  // `fade` is GHOST's per-brick progress: at 1 the body and both bevels are
+  // gone, leaving the cell's outline over the playfield theme; between 0 and 1
+  // the body is drawn translucent under an outline still gaining strength, so a
+  // brick de-materialises instead of flipping. Damage has no lit face to show
+  // while ghosted, and comes back with the brick.
+  private drawBrick(x: number, y: number, cell: BrickCell, fade = 0): void {
+    if (fade > 0) {
+      this.ctx.globalAlpha = fade;
       this.pixel(x + 1, y + 1, 28, 1, canvasPalette.ghostBrick);
       this.pixel(x + 1, y + 10, 28, 1, canvasPalette.ghostBrick);
       this.pixel(x + 1, y + 2, 1, 8, canvasPalette.ghostBrick);
       this.pixel(x + 28, y + 2, 1, 8, canvasPalette.ghostBrick);
-      return;
+      this.ctx.globalAlpha = 1;
+      if (fade >= 1) {
+        return;
+      }
+      this.ctx.globalAlpha = 1 - fade;
     }
 
     const colors = BRICK_COLORS[cell.kind];
@@ -406,6 +440,7 @@ export class CanvasRenderer {
     this.pixel(x + 1, y + 2, 1, 8, sheen);
     this.pixel(x + 2, y + 10, 26, 1, colors.dark);
     this.pixel(x + 28, y + 2, 1, 8, colors.dark);
+    this.ctx.globalAlpha = 1;
   }
 
   private drawPaddle(paddle: PaddleRenderState): void {

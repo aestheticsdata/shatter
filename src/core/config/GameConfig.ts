@@ -98,11 +98,11 @@ export const gameConfig = {
     // MIRROR's ghost paddle: 3 px of clear field above it, so the ceiling bounce
     // still has somewhere to happen when a ball goes past its end.
     mirrorY: 6,
-    // PORTAL's mouths, sitting mid-field: high enough that a ball on its way up
-    // meets one, rather than only a ball already falling toward the deck. 150
-    // is 16 px under the deepest grid (the 8-row levels bottom out at 134), and
-    // the strip still ends far above the paddle at 276 and WALL's line at 294.
-    portalTop: 150,
+    // PORTAL's mouths, hung just under the wall: 6 px below the deepest grid
+    // (the 8-row levels bottom out at 134), so on most layouts they sit high in
+    // the open field and a climbing ball meets one, not only a falling one. The
+    // strip still ends far above the paddle at 276 and WALL's line at 294.
+    portalTop: 140,
     // A 48 px mouth — about the paddle's own width, stood on end — so a ball on
     // an ordinary diagonal meets one instead of threading past it. The band
     // still ends at 198, far above the paddle at 276 and WALL's line at 294.
@@ -156,7 +156,7 @@ export const gameConfig = {
       debrisDamping: 0.97,
       debrisEatRadius: 6,
     },
-    // BUMPERS. Three discs of radius 9 in the empty band under the grid, so a
+    // BUMPERS. Five discs of radius 9 in the empty band under the grid, so a
     // ball centre inside 9 + 4 px of one is touching it: at <= 2 px per
     // sub-step, a 26 px target cannot be tunnelled through.
     bumpers: {
@@ -226,6 +226,10 @@ export const gameConfig = {
       maxLinks: 6,
       boltTicks: 9,
     },
+    // GHOST's fade: how long the wave takes to roll across the wall, each
+    // brick flipping as the front passes it. Cosmetic — the collision follows
+    // the timer alone, so the wall is already intangible while it still fades.
+    ghostFadeTicks: 30,
     // QUAKE's shake. 24 ticks is 0.4 s, and the amplitude decays linearly over
     // them so the field settles rather than stopping dead. Whole game pixels:
     // the art is drawn at 3x, and a fractional offset would blur every block.

@@ -2,15 +2,20 @@ import { gameConfig } from "@core/config/GameConfig";
 
 import type { Bumper } from "@interfaces/types";
 
-// Where the discs go when the band has no room for a random layout: a wide
-// triangle in the middle of it, which clears the deepest grid the game ships.
-// Its length is also how many discs a set has — one number instead of two that
-// have to agree.
+// Where the discs go when the band has no room for a random layout: a
+// quincunx in the middle of it — three across the bottom, two riding above the
+// gaps — which clears the deepest grid the game ships. Its length is also how
+// many discs a set has — one number instead of two that have to agree.
 const FALLBACK_LAYOUT: readonly (readonly [number, number])[] = [
-  [96, 170],
-  [276, 170],
+  [66, 216],
   [186, 216],
+  [306, 216],
+  [126, 165],
+  [246, 165],
 ];
+
+// How many of them sit in the band's lower half; the rest go above.
+const LOWER_DISC_COUNT = 3;
 
 // The pinball discs BUMPERS puts on the field: where they are, and what is left
 // of each one's kick flash. It bounces nothing itself — ShatterGame owns the
@@ -43,10 +48,16 @@ export class BumperField {
     this.streak = 0;
 
     if (top <= bottom) {
+      const midpoint = (top + bottom) / 2;
       for (let placed = 0; placed < FALLBACK_LAYOUT.length; placed++) {
+        // Three discs in the lower half, then two sitting a little above them:
+        // a rack with backstops rather than one loose cloud of five.
+        const upper = placed >= LOWER_DISC_COUNT;
+        const bandTop = upper ? top : midpoint;
+        const bandBottom = upper ? Math.max(top, midpoint - 12) : bottom;
         for (let attempt = 0; attempt < placementTries; attempt++) {
           const x = Math.round(left + Math.random() * (right - left));
-          const y = Math.round(top + Math.random() * (bottom - top));
+          const y = Math.round(bandTop + Math.random() * (bandBottom - bandTop));
           if (Math.hypot(x - core.x, y - core.y) < coreKeepOut) {
             continue;
           }
