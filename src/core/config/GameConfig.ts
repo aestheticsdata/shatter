@@ -98,11 +98,14 @@ export const gameConfig = {
     // MIRROR's ghost paddle: 3 px of clear field above it, so the ceiling bounce
     // still has somewhere to happen when a ball goes past its end.
     mirrorY: 6,
-    // PORTAL's mouths, hung just under the wall: 6 px below the deepest grid
-    // (the 8-row levels bottom out at 134), so on most layouts they sit high in
-    // the open field and a climbing ball meets one, not only a falling one. The
-    // strip still ends far above the paddle at 276 and WALL's line at 294.
-    portalTop: 140,
+    // PORTAL's mouths, high on the walls: the centre sits at 144, upper third
+    // of the field. On the two 8-row levels (grid bottom 134) the strip
+    // overlaps the last brick rows vertically — harmless, the mouths live on
+    // the wall columns where no brick reaches, and a ball arriving beside a
+    // brick just hits it. Raised three times in playtest; measure any future
+    // move by where the CENTRE lands, not the top — the height-doubling grew
+    // the mouth downward and made a 10 px raise invisible.
+    portalTop: 120,
     // A 48 px mouth — about the paddle's own width, stood on end — so a ball on
     // an ordinary diagonal meets one instead of threading past it. The band
     // still ends at 198, far above the paddle at 276 and WALL's line at 294.
