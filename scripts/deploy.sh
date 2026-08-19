@@ -33,6 +33,11 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # report naming an app the registry has never heard of; an unregistered *role* it records with a
 # warning instead, because that means the registry is behind ks-b and dropping it would hide
 # exactly that.
+#
+# This report is the only record of what a deploy shipped, and deliberately so. The build used to
+# also carry a `release.json` naming the release, commit and branch — the same facts, written into
+# `dist/` and therefore into the public web root, where the vhost then had to 404 it by hand.
+# Zeus owns this; do not put it back.
 ZEUS_APP_NAME="${ZEUS_APP_NAME:-shatter}"
 ZEUS_ROLE="front"
 
@@ -330,22 +335,6 @@ prepare_local_build() {
 
 }
 
-write_release_metadata() {
-  local release_name="$1"
-  local git_hash="$2"
-  local git_branch="$3"
-  local timestamp="$4"
-
-  cat > "$PROJECT_DIR/dist/release.json" <<__META__
-{
-  "release": "$release_name",
-  "gitHash": "$git_hash",
-  "gitBranch": "$git_branch",
-  "builtAt": "$timestamp"
-}
-__META__
-}
-
 remote_prepare_staging() {
   local staging_dir="$1"
 
@@ -577,7 +566,6 @@ deploy() {
   trap 'on_error $LINENO' ERR
 
   prepare_local_build
-  write_release_metadata "$release_name" "$git_hash" "$git_branch" "$timestamp"
 
   log "➡️  Preparing remote staging directory: $staging_dir"
   remote_prepare_staging "$staging_dir"
