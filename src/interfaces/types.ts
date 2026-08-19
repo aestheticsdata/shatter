@@ -59,7 +59,8 @@ export interface StasisRing {
 }
 
 // One BUMPERS disc: its centre, and what is left of the flash from its last
-// kick. The radius is the same for all three and lives in the config.
+// kick. All five share one radius, which lives in the config; the count itself
+// is `FALLBACK_LAYOUT`'s length in `BumperField`, so it moves in one place.
 export interface Bumper {
   x: number;
   y: number;
