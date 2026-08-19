@@ -120,6 +120,7 @@ export const POWER_UPS = [
   { id: "GH", glyph: "GH", name: "GHOST", color: "#e1f0b4", dark: true, ticks: 300, tier: "trap", timed: true },
   { id: "CR", glyph: "CR", name: "CRITTER", color: "#a3e04a", dark: true, ticks: 0, tier: "uncommon", timed: false },
   { id: "RU", glyph: "RU", name: "RUSH", color: "#e1001b", dark: false, ticks: 300, tier: "trap", timed: true },
+  { id: "XW", glyph: "XW", name: "XWIDE", color: "#0082a0", dark: false, ticks: 720, tier: "rare", timed: true },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];

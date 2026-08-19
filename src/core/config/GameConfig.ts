@@ -32,6 +32,10 @@ export const gameConfig = {
     height: 7,
     baseWidth: 46,
     wideWidth: 72,
+    // XWIDE: twice the WIDE deck. 144 is 39 % of the 366 px field and still
+    // leaves 222 px of travel, so the deck is enormous without being parked
+    // against both walls at once.
+    extraWideWidth: 144,
     narrowWidth: 30,
     initialX: 163,
   },

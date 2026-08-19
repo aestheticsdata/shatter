@@ -58,6 +58,24 @@ const POWER_LABEL_MAX_CHARS = 13;
 // Sideways kick on a bolt's three middle points, in game pixels.
 const CHAIN_BOLT_JITTER = 3;
 
+// The capsules that resize the deck, and the width each one sets. They are a
+// group because only one of these widths can hold at a time: catching any of
+// them cancels the other two, and the deck goes back to `baseWidth` only once
+// the last of them has run out.
+const PADDLE_WIDTH_KINDS = ["E", "XW", "J"] as const satisfies readonly PowerUpKind[];
+
+type PaddleWidthKind = (typeof PADDLE_WIDTH_KINDS)[number];
+
+const PADDLE_WIDTHS: Record<PaddleWidthKind, number> = {
+  E: gameConfig.paddle.wideWidth,
+  XW: gameConfig.paddle.extraWideWidth,
+  J: gameConfig.paddle.narrowWidth,
+};
+
+function isPaddleWidthKind(kind: PowerUpKind): kind is PaddleWidthKind {
+  return Object.hasOwn(PADDLE_WIDTHS, kind);
+}
+
 // What dealt the damage. Only the first two are things the player did: the rest
 // are consequences of one, and the game stays quiet about them so a single kill
 // is acknowledged once however far it spreads.
@@ -289,10 +307,9 @@ export class ShatterGame {
       this.singularity.step();
     }
     this.bumpers.step();
-    if (expired.includes("E") && !this.timers.isActive("J")) {
-      this.paddle.setWidth(gameConfig.paddle.baseWidth);
-    }
-    if (expired.includes("J") && !this.timers.isActive("E")) {
+    // The deck goes back to base only when the last width capsule has run out:
+    // a WIDE expiring under the JAMMER caught over it must not widen it again.
+    if (expired.some(isPaddleWidthKind) && !PADDLE_WIDTH_KINDS.some((kind) => this.timers.isActive(kind))) {
       this.paddle.setWidth(gameConfig.paddle.baseWidth);
     }
     // Expired glue may not strand balls on the paddle with no way to launch.
@@ -1123,10 +1140,14 @@ export class ShatterGame {
       ticksLeft: gameConfig.powerUps.catchPopLifeTicks,
     });
 
-    if (kind === "E") {
-      this.timers.deactivate("J");
-      this.paddle.setWidth(gameConfig.paddle.wideWidth);
-      this.timers.activate("E", durations.E);
+    if (isPaddleWidthKind(kind)) {
+      // The newest catch owns the deck: a WIDE taken under an XWIDE genuinely
+      // shrinks it, exactly as a JAMMER has always undone a WIDE.
+      for (const other of PADDLE_WIDTH_KINDS) {
+        this.timers.deactivate(other);
+      }
+      this.paddle.setWidth(PADDLE_WIDTHS[kind]);
+      this.timers.activate(kind, durations[kind]);
     }
     if (kind === "L") {
       this.timers.activate("L", durations.L);
@@ -1162,11 +1183,6 @@ export class ShatterGame {
     }
     if (kind === "X") {
       this.timers.activate("X", durations.X);
-    }
-    if (kind === "J") {
-      this.timers.deactivate("E");
-      this.paddle.setWidth(gameConfig.paddle.narrowWidth);
-      this.timers.activate("J", durations.J);
     }
     if (kind === "N") {
       // The shockwave ring starts where the capsule was caught: the paddle centre.
