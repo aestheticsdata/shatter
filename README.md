@@ -13,40 +13,40 @@ The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372�
 
   |      | Capsule     | Effect                                                      | Duration | Rarity   |
   | ---- | ----------- | ----------------------------------------------------------- | -------- | -------- |
-  | `E`  | WIDE        | wider paddle                                                | 12 s     | common   |
-  | `M`  | MULTI       | more balls, stacking 3 → 6 → 9                              | instant  | common   |
-  | `L`  | LASER       | paddle cannons                                              | 12 s     | common   |
-  | `B`  | BLAST       | ball kills damage the 8 neighbours                          | 12 s     | common   |
-  | `T`  | TEMPO       | bullet-time, balls at ×0.6                                  | 8 s      | common   |
-  | `G`  | GLUE        | balls stick to the paddle; click or Space releases          | 12 s     | common   |
-  | `I`  | STASIS      | every ball stops in mid-air; the paddle keeps going         | 1.5 s    | common   |
-  | `H`  | HOMING      | balls curve toward the nearest live brick                   | 8 s      | common   |
-  | `Y`  | MIRROR      | a ghost paddle rides the top of the field                   | 10 s     | common   |
-  | `C`  | CHAIN       | ball kills arc lightning to bricks they don't touch         | 10 s     | uncommon |
-  | `K`  | MAGNET      | the paddle vacuums falling capsules in, traps too           | 12 s     | common   |
-  | `V`  | SINGULARITY | a black hole bends every ball and eats capsules             | 6 s      | uncommon |
+  | `WI` | WIDE        | wider paddle                                                | 12 s     | common   |
+  | `MU` | MULTI       | more balls, stacking 3 → 6 → 9                              | instant  | common   |
+  | `LA` | LASER       | paddle cannons                                              | 12 s     | common   |
+  | `BL` | BLAST       | ball kills damage the 8 neighbours                          | 12 s     | common   |
+  | `TE` | TEMPO       | bullet-time, balls at ×0.6                                  | 8 s      | common   |
+  | `GL` | GLUE        | balls stick to the paddle; click or Space releases          | 12 s     | common   |
+  | `ST` | STASIS      | every ball stops in mid-air; the paddle keeps going         | 1.5 s    | common   |
+  | `HO` | HOMING      | balls curve toward the nearest live brick                   | 8 s      | common   |
+  | `MI` | MIRROR      | a ghost paddle rides the top of the field                   | 10 s     | common   |
+  | `CH` | CHAIN       | ball kills arc lightning to bricks they don't touch         | 10 s     | uncommon |
+  | `MA` | MAGNET      | the paddle vacuums falling capsules in, traps too           | 12 s     | common   |
+  | `SI` | SINGULARITY | a black hole bends every ball and eats capsules             | 6 s      | uncommon |
   | `PO` | PORTAL      | a ball leaving one side wall arrives out of the other       | 30 s     | uncommon |
-  | `O`  | BUMPERS     | five pinball discs under the grid, 100 points a kick        | 12 s     | uncommon |
-  | `P`  | PIERCE      | ball goes through bricks                                    | 8 s      | uncommon |
-  | `W`  | WALL        | safety barrier along the bottom                             | one save | uncommon |
-  | `X`  | PAYDAY      | points ×2                                                   | 10 s     | uncommon |
-  | `Z`  | ZAP         | vaporizes the bottom-most brick row                         | instant  | uncommon |
-  | `Q`  | QUAKE       | the bottom row dies, the rest slide down, field shakes      | instant  | uncommon |
-  | `R`  | RAIN        | a shower of 4 fresh capsules from the top                   | instant  | uncommon |
+  | `BU` | BUMPERS     | five pinball discs under the grid, 100 points a kick        | 12 s     | uncommon |
+  | `PI` | PIERCE      | ball goes through bricks                                    | 8 s      | uncommon |
+  | `WA` | WALL        | safety barrier along the bottom                             | one save | uncommon |
+  | `PA` | PAYDAY      | points ×2                                                   | 10 s     | uncommon |
+  | `ZA` | ZAP         | vaporizes the bottom-most brick row                         | instant  | uncommon |
+  | `QU` | QUAKE       | the bottom row dies, the rest slide down, field shakes      | instant  | uncommon |
+  | `RA` | RAIN        | a shower of 4 fresh capsules from the top                   | instant  | uncommon |
   | `CR` | CRITTER     | a grub walks the grid eating a brick every 0.3 s            | 15 s     | uncommon |
-  | `N`  | NUKE        | a shockwave destroys every brick, full points               | instant  | rare     |
-  | `S`  | SWARM       | 12 balls at once                                            | instant  | rare     |
-  | `U`  | 1UP         | extra life, max 6                                           | instant  | rare     |
+  | `NU` | NUKE        | a shockwave destroys every brick, full points               | instant  | rare     |
+  | `SW` | SWARM       | 12 balls at once                                            | instant  | rare     |
+  | `1U` | 1UP         | extra life, max 6                                           | instant  | rare     |
   | `XW` | XWIDE       | twice the WIDE deck, 144 px of paddle                       | 12 s     | rare     |
   | `XR` | XRAY        | every brick shows the capsule it is holding                 | 5 s      | rare     |
-  | `MT` | METEOR      | three meteors drill three lanes through the wall            | instant  | rare     |
+  | `ME` | METEOR      | three meteors drill three lanes through the wall            | instant  | rare     |
   | `GH` | GHOST       | **trap** — the wall goes intangible; the ball flies through | 5 s      | trap     |
   | `SP` | SPLIT       | **trap** — the deck breaks in two, hole down the middle     | 6 s      | trap     |
   | `RU` | RUSH        | **trap** — every ball at ×1.8                               | 5 s      | trap     |
-  | `BM` | BOMB        | catching it blows the paddle up: you lose a life            | instant  | trap     |
-  | `J`  | JAMMER      | **trap** — shrinks the paddle                               | 6 s      | trap     |
+  | `BO` | BOMB        | catching it blows the paddle up: you lose a life            | instant  | trap     |
+  | `JA` | JAMMER      | **trap** — shrinks the paddle                               | 6 s      | trap     |
 
-  **A trap says so before you catch it**: its letter blinks as it falls, and the catch pop is pink with a detuning womp instead of the usual chime. That tell is the `trap` tier itself, so it costs a new trap capsule nothing to get all three.
+  **A trap says so before you catch it**: its glyph blinks as it falls, and the catch pop is pink with a detuning womp instead of the usual chime. That tell is the `trap` tier itself, so it costs a new trap capsule nothing to get all three.
 
   The side panel's **POWER** inset names the live effects while they fit its 13 characters (`WIDE MULTI x3`) and packs them into a still glyph row when they do not (`E M3 L P B +5`) — a row that holds still can be read mid-rally, which a label cycling one name per second could not.
 
@@ -102,9 +102,9 @@ pnpm run fmt
 pnpm run lint:fix
 ```
 
-Test gameplay quickly with the **dev test console** — `Ctrl`+`Option`+`Command`+`K` (⌃⌥⌘K) during serve, play or pause, the same screens WARP allows. It opens a modal over the field, in the pause screen's own style, and freezes the run behind it. The modal lists its own commands and every capsule, and `Enter` applies the line and closes. **Every command is a word followed by its arguments** — `POWER M`, not `M`. A line it cannot use keeps what you typed and says why, so a mistake is one `Backspace` from fixed: a bare capsule or number answers `TYPE: POWER M` / `TYPE: LEVEL 3` / `TYPE: BONUS 0.5`, a known command with a bad argument answers for itself (`LEVELS START AT 1`, `BONUS IS 0 TO 1`, `NO SUCH CAPSULE: ZZ`, `POWER NEEDS A CAPSULE`), and only an unrecognised word falls back to `UNKNOWN COMMAND`:
+Test gameplay quickly with the **dev test console** — `Ctrl`+`Option`+`Command`+`K` (⌃⌥⌘K) during serve, play or pause, the same screens WARP allows. It opens a modal over the field, in the pause screen's own style, and freezes the run behind it. The modal lists its own commands and every capsule, and `Enter` applies the line and closes. **Every command is a word followed by its arguments** — `POWER MU`, not `MU`. A line it cannot use keeps what you typed and says why, so a mistake is one `Backspace` from fixed: a bare capsule or number answers `TYPE: POWER MU` / `TYPE: LEVEL 3` / `TYPE: BONUS 0.5`, a known command with a bad argument answers for itself (`LEVELS START AT 1`, `BONUS IS 0 TO 1`, `NO SUCH CAPSULE: ZZ`, `POWER NEEDS A CAPSULE`), and only an unrecognised word falls back to `UNKNOWN COMMAND`:
 
-- `power nuke` · `power N` · `power E M L` — apply capsules on the spot, exactly as if they had been caught. **Name or letter, whichever you remember** — and the modal prints the whole roster (`E WIDE`, `M MULTI`, …) underneath, generated from the capsule registry, so a new capsule appears there by itself. Repeat one to stack (`power M M M`); one unrecognised capsule refuses the whole line rather than granting half of it.
+- `power nuke` · `power NU` · `power WI MU LA` — apply capsules on the spot, exactly as if they had been caught. **Name or glyph, whichever you remember** (and the internal id still answers too) — and the modal prints the whole roster (`WI WIDE`, `MU MULTI`, …) underneath, generated from the capsule registry, so a new capsule appears there by itself. Repeat one to stack (`power MU MU MU`); one unrecognised capsule refuses the whole line rather than granting half of it.
 - `level 12` — jump to a level (1-based, unbounded: runs loop past level 28, so `level 30` is level 2 at its wrapped ball speed)
 - `bonus 1` — set `bonusSpreadAmount` for this run: the chance a destroyed brick drops a capsule at all, not how fast one falls (0..1; kept until changed or reloaded)
 
@@ -187,7 +187,7 @@ scripts/
 - **Paddle bounce**: `relativeHit ∈ [-1, 1]` → angle `relativeHit × 1.05 rad`; speed is preserved, so center hits go up and edge hits go wide.
 - **Ball speed**: `min(4.6, 3.1 + level × 0.25)` px/tick, times the `ballSpeedMultiplier` config.
 - **Canvas palette** lives in `src/render/palette.ts` (canvas cannot read CSS custom properties); the same colors are exposed to the DOM as CSS tokens in `css/tokens/colors.css`.
-- **Capsules are a registry**: `src/core/config/powerUps.ts` holds one row per power-up — id, glyph, name, body color, letter tone, duration, rarity tier, timed-ness — and everything else derives from it: the `PowerUpKind` union, the name/glyph/duration/weight lookups, `MALUS_KINDS`, `DROP_COLORS` and `DARK_LETTER_DROP_KINDS` in the palette, the timers' countdown list, and the console's roster. **Rarity is a tier, not a number per row**: four weights (`common` 1, `uncommon` 0.6, `trap` 0.7, `rare` 0.35) shared by the whole roster, because weights authored one capsule at a time flatten out — 9 of the first 15 sat at exactly 1. The `trap` tier doubles as the malus flag, driving the blinking letter, the pink catch pop and the womp. **Adding a capsule is adding one row**, and forgetting to is a type error rather than a silent gap. The **glyph is separate from the id** because the roster outgrew the alphabet: a two-character id like `MT` draws its glyph one font size down so it still fits the pill. In dev, a pass after `document.fonts.ready` measures every glyph against the pill and checks every letter clears 3:1 on its body.
+- **Capsules are a registry**: `src/core/config/powerUps.ts` holds one row per power-up — id, glyph, name, body color, letter tone, duration, rarity tier, timed-ness — and everything else derives from it: the `PowerUpKind` union, the name/glyph/duration/weight lookups, `MALUS_KINDS`, `DROP_COLORS` and `DARK_LETTER_DROP_KINDS` in the palette, the timers' countdown list, and the console's roster. **Rarity is a tier, not a number per row**: four weights (`common` 1, `uncommon` 0.6, `trap` 0.7, `rare` 0.35) shared by the whole roster, because weights authored one capsule at a time flatten out — 9 of the first 15 sat at exactly 1. The `trap` tier doubles as the malus flag, driving the blinking letter, the pink catch pop and the womp. **Adding a capsule is adding one row**, and forgetting to is a type error rather than a silent gap. The **glyph is separate from the id** because one letter stopped meaning anything around the fifteenth capsule — three names open on B and three on P, and a lone `B` said nothing about which. A pill shows **the first two letters of the name**, and more only where two names collide (MIRROR and MIMIC would both be `MI`, so they become `MIR`/`MIM`; BLAST and BLACKOUT still tie at three, so they become `BLAS`/`BLAC`). That is derived from the names, not authored per row, because it is a property of the whole roster: adding a capsule can lengthen an old one's glyph in the same breath. Ids stay as they are — they are internal, and thirty-odd `kind === "..."` branches are written in them. The pill's font is picked by measuring the glyph against the sheen span rather than by counting characters (7 → 5 → 4px), so a longer name costs a font rung and never overflows — Silkscreen is proportional, and two letters turn out to keep the 7px the roster drew single letters at. In dev, a pass after `document.fonts.ready` measures every glyph against the pill, checks no two capsules ended up with the same one, and checks every letter clears 3:1 on its body.
 - **Backgrounds are pre-rendered**: each level names a theme (`background` in its definition) painted once into an offscreen 1× layer and blitted per frame with smoothing off (an exact 3× upscale), so theme detail is free in the loop — measured slightly cheaper than the old flat fill + 58 star rects. Layouts come from a seeded generator keyed by theme and level, so a level's field art never changes between visits. Theme tones are split into `area` (large regions, kept as dark as the classic field) and `speck` (1–3px sparkle); `pnpm run check:backgrounds` fails the build on a tone that is too bright, too close to a brick/capsule color, or on two adjacent levels sharing a theme.
 - **Panel updates are diffed**: DOM text is only written when a value changes, never per frame.
 - **Stage scaling**: `transform: scale(min(0.99·vw/480, 0.99·vh/300))`, with the stage rect cached and invalidated on resize/scroll; pointer coordinates are mapped through the scale.

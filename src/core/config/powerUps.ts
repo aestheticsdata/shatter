@@ -27,14 +27,13 @@ export const TIER_WEIGHTS: Record<PowerUpTier, number> = {
 
 export interface PowerUpDefinition {
   // `string`, not the union — the union is inferred *from* these ids, and typing
-  // it as itself would be circular. One or two characters; see `glyph`.
+  // it as itself would be circular. One or two characters, and internal: the
+  // player never sees an id, they read the glyph. Short because it is what the
+  // thirty-odd `kind === "..."` branches across the game are written in.
   id: string;
-  // What `drawDrop` paints on the pill. Decoupled from the id because only
-  // A D F are still free and the roster outgrew the alphabet: a two-character
-  // glyph drops to a 5px font so it stays inside the sheen.
-  glyph: string;
   // The POWER inset label and the catch pop, and what the console accepts
-  // alongside the id (`power multi` === `power M`).
+  // alongside the id (`power multi` === `power M`). The glyph painted on the
+  // pill is its opening letters — see `POWER_UP_GLYPHS`.
   name: string;
   // Capsule body. Every one of these is checked against the playfield themes by
   // `pnpm run check:backgrounds`, and each new one re-opens all 8 of them.
@@ -92,41 +91,43 @@ export interface PowerUpDefinition {
 // One row per capsule, and it must stay one row: the field names are short so a
 // two-character id and a name as long as BLACKOUT still fit inside 120 columns.
 export const POWER_UPS = [
-  { id: "E", glyph: "E", name: "WIDE", color: "#2d7fe0", dark: false, ticks: 720, tier: "common", timed: true },
-  { id: "M", glyph: "M", name: "MULTI", color: "#3fbf4f", dark: true, ticks: 180, tier: "common", timed: true },
-  { id: "L", glyph: "L", name: "LASER", color: "#e8384f", dark: false, ticks: 720, tier: "common", timed: true },
-  { id: "P", glyph: "P", name: "PIERCE", color: "#ffcf1c", dark: true, ticks: 480, tier: "uncommon", timed: true },
-  { id: "B", glyph: "B", name: "BLAST", color: "#f07d10", dark: true, ticks: 720, tier: "common", timed: true },
-  { id: "W", glyph: "W", name: "WALL", color: "#8fd0ff", dark: true, ticks: 0, tier: "uncommon", timed: false },
-  { id: "T", glyph: "T", name: "TEMPO", color: "#f2f4ff", dark: true, ticks: 480, tier: "common", timed: true },
-  { id: "X", glyph: "X", name: "PAYDAY", color: "#dfae2c", dark: true, ticks: 600, tier: "uncommon", timed: true },
-  { id: "J", glyph: "J", name: "JAMMER", color: "#d13be8", dark: false, ticks: 360, tier: "trap", timed: true },
-  { id: "N", glyph: "N", name: "NUKE", color: "#b6ff00", dark: true, ticks: 0, tier: "rare", timed: false },
-  { id: "S", glyph: "S", name: "SWARM", color: "#1fd8c4", dark: true, ticks: 180, tier: "rare", timed: true },
-  { id: "U", glyph: "U", name: "1UP", color: "#ff70b8", dark: true, ticks: 0, tier: "rare", timed: false },
-  { id: "Z", glyph: "Z", name: "ZAP", color: "#4ae0ff", dark: true, ticks: 0, tier: "uncommon", timed: false },
-  { id: "R", glyph: "R", name: "RAIN", color: "#8a5cf5", dark: false, ticks: 0, tier: "uncommon", timed: false },
-  { id: "G", glyph: "G", name: "GLUE", color: "#b07840", dark: false, ticks: 720, tier: "common", timed: true },
-  { id: "I", glyph: "I", name: "STASIS", color: "#9effd6", dark: true, ticks: 90, tier: "common", timed: true },
-  { id: "H", glyph: "H", name: "HOMING", color: "#00e05a", dark: true, ticks: 480, tier: "common", timed: true },
-  { id: "Y", glyph: "Y", name: "MIRROR", color: "#a878b4", dark: false, ticks: 600, tier: "common", timed: true },
-  { id: "C", glyph: "C", name: "CHAIN", color: "#3dff8e", dark: true, ticks: 600, tier: "uncommon", timed: true },
-  { id: "K", glyph: "K", name: "MAGNET", color: "#6fd0b4", dark: true, ticks: 720, tier: "common", timed: true },
-  { id: "V", glyph: "V", name: "SINGULARITY", color: "#c9a7ff", dark: true, ticks: 720, tier: "uncommon", timed: true },
-  { id: "PO", glyph: "PO", name: "PORTAL", color: "#00b3fa", dark: true, ticks: 1800, tier: "uncommon", timed: true },
-  { id: "O", glyph: "O", name: "BUMPERS", color: "#ff00aa", dark: false, ticks: 720, tier: "uncommon", timed: true },
-  { id: "Q", glyph: "Q", name: "QUAKE", color: "#ffab6b", dark: true, ticks: 0, tier: "uncommon", timed: false },
-  { id: "BM", glyph: "BM", name: "BOMB", color: "#ff3b00", dark: false, ticks: 0, tier: "trap", timed: false },
-  { id: "GH", glyph: "GH", name: "GHOST", color: "#e1f0b4", dark: true, ticks: 300, tier: "trap", timed: true },
-  { id: "CR", glyph: "CR", name: "CRITTER", color: "#a3e04a", dark: true, ticks: 0, tier: "uncommon", timed: false },
-  { id: "RU", glyph: "RU", name: "RUSH", color: "#e1001b", dark: false, ticks: 300, tier: "trap", timed: true },
-  { id: "XW", glyph: "XW", name: "XWIDE", color: "#0082a0", dark: false, ticks: 720, tier: "rare", timed: true },
-  { id: "XR", glyph: "XR", name: "XRAY", color: "#2aff00", dark: true, ticks: 300, tier: "rare", timed: true },
-  { id: "MT", glyph: "MT", name: "METEOR", color: "#c84b19", dark: false, ticks: 0, tier: "rare", timed: false },
-  { id: "SP", glyph: "SP", name: "SPLIT", color: "#e0607a", dark: false, ticks: 360, tier: "trap", timed: true },
+  { id: "E", name: "WIDE", color: "#2d7fe0", dark: false, ticks: 720, tier: "common", timed: true },
+  { id: "M", name: "MULTI", color: "#3fbf4f", dark: true, ticks: 180, tier: "common", timed: true },
+  { id: "L", name: "LASER", color: "#e8384f", dark: false, ticks: 720, tier: "common", timed: true },
+  { id: "P", name: "PIERCE", color: "#ffcf1c", dark: true, ticks: 480, tier: "uncommon", timed: true },
+  { id: "B", name: "BLAST", color: "#f07d10", dark: true, ticks: 720, tier: "common", timed: true },
+  { id: "W", name: "WALL", color: "#8fd0ff", dark: true, ticks: 0, tier: "uncommon", timed: false },
+  { id: "T", name: "TEMPO", color: "#f2f4ff", dark: true, ticks: 480, tier: "common", timed: true },
+  { id: "X", name: "PAYDAY", color: "#dfae2c", dark: true, ticks: 600, tier: "uncommon", timed: true },
+  { id: "J", name: "JAMMER", color: "#d13be8", dark: false, ticks: 360, tier: "trap", timed: true },
+  { id: "N", name: "NUKE", color: "#b6ff00", dark: true, ticks: 0, tier: "rare", timed: false },
+  { id: "S", name: "SWARM", color: "#1fd8c4", dark: true, ticks: 180, tier: "rare", timed: true },
+  { id: "U", name: "1UP", color: "#ff70b8", dark: true, ticks: 0, tier: "rare", timed: false },
+  { id: "Z", name: "ZAP", color: "#4ae0ff", dark: true, ticks: 0, tier: "uncommon", timed: false },
+  { id: "R", name: "RAIN", color: "#8a5cf5", dark: false, ticks: 0, tier: "uncommon", timed: false },
+  { id: "G", name: "GLUE", color: "#b07840", dark: false, ticks: 720, tier: "common", timed: true },
+  { id: "I", name: "STASIS", color: "#9effd6", dark: true, ticks: 90, tier: "common", timed: true },
+  { id: "H", name: "HOMING", color: "#00e05a", dark: true, ticks: 480, tier: "common", timed: true },
+  { id: "Y", name: "MIRROR", color: "#a878b4", dark: false, ticks: 600, tier: "common", timed: true },
+  { id: "C", name: "CHAIN", color: "#3dff8e", dark: true, ticks: 600, tier: "uncommon", timed: true },
+  { id: "K", name: "MAGNET", color: "#6fd0b4", dark: true, ticks: 720, tier: "common", timed: true },
+  { id: "V", name: "SINGULARITY", color: "#c9a7ff", dark: true, ticks: 720, tier: "uncommon", timed: true },
+  { id: "PO", name: "PORTAL", color: "#00b3fa", dark: true, ticks: 1800, tier: "uncommon", timed: true },
+  { id: "O", name: "BUMPERS", color: "#ff00aa", dark: false, ticks: 720, tier: "uncommon", timed: true },
+  { id: "Q", name: "QUAKE", color: "#ffab6b", dark: true, ticks: 0, tier: "uncommon", timed: false },
+  { id: "BM", name: "BOMB", color: "#ff3b00", dark: false, ticks: 0, tier: "trap", timed: false },
+  { id: "GH", name: "GHOST", color: "#e1f0b4", dark: true, ticks: 300, tier: "trap", timed: true },
+  { id: "CR", name: "CRITTER", color: "#a3e04a", dark: true, ticks: 0, tier: "uncommon", timed: false },
+  { id: "RU", name: "RUSH", color: "#e1001b", dark: false, ticks: 300, tier: "trap", timed: true },
+  { id: "XW", name: "XWIDE", color: "#0082a0", dark: false, ticks: 720, tier: "rare", timed: true },
+  { id: "XR", name: "XRAY", color: "#2aff00", dark: true, ticks: 300, tier: "rare", timed: true },
+  { id: "MT", name: "METEOR", color: "#c84b19", dark: false, ticks: 0, tier: "rare", timed: false },
+  { id: "SP", name: "SPLIT", color: "#e0607a", dark: false, ticks: 360, tier: "trap", timed: true },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];
+
+const ALL_NAMES: readonly string[] = POWER_UPS.map((definition) => definition.name);
 
 /**
  * Builds a `Record` keyed by capsule id from one field of each definition —
@@ -143,7 +144,24 @@ export function byId<T>(pick: (definition: PowerUpDefinition) => T): Record<Powe
 
 export const POWER_UP_BY_ID: Record<PowerUpKind, PowerUpDefinition> = byId((definition) => definition);
 export const POWER_UP_NAMES: Record<PowerUpKind, string> = byId((definition) => definition.name);
-export const POWER_UP_GLYPHS: Record<PowerUpKind, string> = byId((definition) => definition.glyph);
+/**
+ * What `drawCapsule` paints on the pill: **the first two letters of the name**,
+ * and more only where two names would collide — MIRROR and MIMIC both open on
+ * `MI`, so both go to three; BLAST and BLACKOUT still collide at three, so both
+ * go to four. Only the colliding group lengthens.
+ *
+ * One letter stopped meaning anything around the fifteenth capsule: three names
+ * open on B and three on P, and a lone `B` said nothing about which. The glyph
+ * is separate from the id because ids are load-bearing in the game's
+ * `kind === "..."` branches and renaming them buys the player nothing.
+ *
+ * Derived rather than authored because the rule is a property of the whole
+ * roster, not of one row: adding MIMIC has to lengthen MIRROR in the same
+ * breath, and a hand-typed column would be wrong the day that lands. Longer
+ * glyphs cost a font tier, not a broken sprite — `dropGlyphFont` picks a size
+ * that fits the pill by measuring it.
+ */
+export const POWER_UP_GLYPHS: Record<PowerUpKind, string> = byId((definition) => glyphFor(definition.name));
 export const POWER_UP_DURATIONS: Record<PowerUpKind, number> = byId((definition) => definition.ticks);
 export const POWER_UP_DROP_WEIGHTS: Record<PowerUpKind, number> = byId((definition) => TIER_WEIGHTS[definition.tier]);
 
@@ -161,3 +179,15 @@ export const TIMED_KINDS: readonly PowerUpKind[] = POWER_UPS.filter((definition)
 export const MALUS_KINDS: ReadonlySet<PowerUpKind> = new Set(
   POWER_UPS.filter((definition) => definition.tier === "trap").map((definition) => definition.id),
 );
+
+// The shortest opening of `name` that no other capsule shares, never under two.
+// Bottoms out at the whole name, which two names can only tie on if one is a
+// prefix of the other — the DEV legibility pass says so out loud if that ever
+// happens, since there is no length that would separate them.
+function glyphFor(name: string): string {
+  let length = 2;
+  while (length < name.length && ALL_NAMES.filter((other) => other.startsWith(name.slice(0, length))).length > 1) {
+    length++;
+  }
+  return name.slice(0, length);
+}

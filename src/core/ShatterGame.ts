@@ -54,8 +54,12 @@ const ENTRY_COMMIT_DELAY_MS = 260;
 // The pool is exactly the SWARM size; MULTI tier 3's 9 balls fit inside it.
 const MAX_BALLS = 12;
 
-// Longest label that fits the POWER inset at 7px Silkscreen.
-const POWER_LABEL_MAX_CHARS = 13;
+// Longest label that fits the POWER inset, counted in characters — a proxy for
+// a width, since Silkscreen is proportional. Measured against the widest label
+// each candidate allows in the 92px inset at 7px and 1px letter-spacing: 14 tops
+// out at 87.5px ("PAYDAY BUMPERS") and 15 lands exactly on 92 with no margin at
+// all. At 14, five two-letter glyphs are a 14-character row and fit.
+const POWER_LABEL_MAX_CHARS = 14;
 
 // Sideways kick on a bolt's three middle points, in game pixels.
 const CHAIN_BOLT_JITTER = 3;

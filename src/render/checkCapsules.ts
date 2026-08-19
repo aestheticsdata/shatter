@@ -1,4 +1,4 @@
-import { POWER_UPS } from "@core/config/powerUps";
+import { POWER_UP_GLYPHS, POWER_UPS } from "@core/config/powerUps";
 import { dropGlyphFont, DROP_GLYPH_SPAN, SCALE } from "@render/CanvasRenderer";
 import { canvasPalette } from "@render/palette";
 
@@ -11,17 +11,17 @@ const DARK_LETTER_LUMINANCE = 0.28;
 const MIN_LETTER_CONTRAST = 3;
 
 /**
- * DEV-only legibility guard for the capsule roster: every glyph must fit the
- * pill and every letter must be readable on its body.
+ * DEV-only legibility guard for the capsule roster: every glyph must be the
+ * player's alone, fit the pill, and be readable on its body.
  *
  * Run once from `main.ts`, never from `drawDrop` — and only after
  * `document.fonts.ready`, because an unloaded Silkscreen falls back to a wider
  * `monospace` and would fail a glyph that fits perfectly well in the real font.
  *
- * The 19 capsules coming after this registry all pick their own body colour and
- * a two-character glyph; this is what tells their author, at load, that the pill
- * cannot hold what they wrote. Dropped from production bundles by the
- * `import.meta.env.DEV` branch that calls it.
+ * Glyphs are derived from the names rather than authored, so this is the pass
+ * that tells a new capsule's author, at load, that the name they picked reads
+ * as somebody else's pill or no longer fits it. Dropped from production bundles
+ * by the `import.meta.env.DEV` branch that calls it.
  */
 export function checkCapsuleLegibility(): void {
   const context = document.createElement("canvas").getContext("2d");
@@ -30,8 +30,19 @@ export function checkCapsuleLegibility(): void {
     return;
   }
 
+  const seen = new Map<string, string>();
   for (const definition of POWER_UPS) {
-    const { id, glyph, color, dark } = definition;
+    const { id, color, dark } = definition;
+    const glyph = POWER_UP_GLYPHS[id];
+
+    // The one way the derivation can fail: a name that is a whole other name's
+    // opening has no length that separates them, so both bottom out on the
+    // shorter one and the player reads the same pill for two capsules.
+    const twin = seen.get(glyph);
+    if (twin !== undefined) {
+      console.error(`[capsules] ${id}: glyph "${glyph}" is also ${twin}'s — one name is the opening of the other`);
+    }
+    seen.set(glyph, id);
 
     context.font = dropGlyphFont(glyph);
     const width = context.measureText(glyph).width;

@@ -1,4 +1,4 @@
-import { POWER_UP_BY_ID, POWER_UP_IDS, POWER_UP_NAMES, POWER_UPS } from "@core/config/powerUps";
+import { POWER_UP_BY_ID, POWER_UP_GLYPHS, POWER_UP_IDS, POWER_UP_NAMES, POWER_UPS } from "@core/config/powerUps";
 import { getElementByIdOrThrow } from "@shared/dom";
 
 import type { PowerUpKind } from "@interfaces/types";
@@ -19,15 +19,19 @@ const TYPABLE = /^[a-z0-9 .]$/i;
 // Every command is a word and its arguments. Shown as worked examples with what
 // they do, because a bare list of names reads as decoration, not as a grammar.
 const EXAMPLES: readonly (readonly [string, string])[] = [
-  ["POWER MULTI", "CATCH A CAPSULE NOW · NAME OR LETTER"],
+  ["POWER MULTI", "CATCH A CAPSULE NOW · NAME OR GLYPH"],
   ["LEVEL 12", "JUMP TO A LEVEL"],
   ["BONUS 1", "CHANCE A BRICK DROPS A CAPSULE · 1 = ALL"],
 ];
 const EXAMPLE_WIDTH = 12;
-// The roster is printed in full underneath: fifteen ids is already more than
-// anyone keeps in their head, and it grows with the registry it is built from.
-const ROSTER_COLUMNS = 5;
-const ROSTER_CELL_WIDTH = 9;
+// The roster is printed in full underneath: fifteen capsules is already more
+// than anyone keeps in their head, and it grows with the registry it is built
+// from. How many fit a row is derived rather than fixed, because the cell is as
+// wide as the longest name and the next capsule may be longer still.
+//
+// The budget is the 366px field at this font: 8px Silkscreen plus its 1px
+// letter-spacing measures ~6.3px a character, so 58 is what a row holds.
+const ROSTER_ROW_CHARS = 58;
 const CLOSE_HINT = "ENTER APPLIES · ESC OR CLICK CLOSES";
 const UNKNOWN_HINT = "UNKNOWN COMMAND";
 
@@ -48,7 +52,7 @@ const ERROR = "font: 400 8px var(--font-pixel); color: var(--color-red); letter-
  * Dev-only test console (Ctrl+Option+Command+K), the replacement for the
  * `?level=` / `?droprate=` / `?power=` URL params: it takes a command mid-run
  * instead of costing a reload, and its operands are separated by spaces, so a
- * two-character capsule id reads as one capsule instead of two.
+ * two-letter capsule glyph reads as one capsule instead of two.
  *
  * It is a modal over the field and the game freezes behind it, so it must never
  * be the only thing holding a run hostage: Escape, the chord again and a click
@@ -143,9 +147,9 @@ export class DevConsole {
     }
   }
 
-  // `power N`, `power NUKE`, `power E M L`, and `power MT` for a two-character
-  // id. Every capsule resolves before any of them is granted: half a line would
-  // leave the run in a state nobody asked for.
+  // `power NU`, `power NUKE`, `power N`, `power WI MU LA`. Every capsule
+  // resolves before any of them is granted: half a line would leave the run in a
+  // state nobody asked for.
   private grantPowerUps(operands: string[]): string | null {
     if (operands.length === 0) {
       return "POWER NEEDS A CAPSULE";
@@ -206,7 +210,11 @@ interface ConsoleView {
 function buildView(): ConsoleView {
   const root = styled("div", "");
   root.className = "field-overlay";
-  root.style.gap = "13px";
+  // 10px, not the pause screen's roomier spacing: the roster is as tall as the
+  // registry is long, and the whole modal has to stay inside the 297px overlay
+  // or its heading and its last row hang off the field. At today's 32 capsules
+  // this leaves 4px in hand — the next wave of them is what spends it.
+  root.style.gap = "10px";
 
   const commandLine = styled("div", COMMAND);
   const command = document.createElement("span");
@@ -222,7 +230,10 @@ function buildView(): ConsoleView {
     examples.append(row);
   }
 
-  const roster = styled("div", "display: flex; flex-direction: column; gap: 4px; align-items: center;");
+  // `flex-start`, so the columns line up: the rows are ragged (each ends where
+  // its last cell does), and centring them one by one would stagger the grid.
+  // The roster as a block is still centred, by the overlay itself.
+  const roster = styled("div", "display: flex; flex-direction: column; gap: 4px; align-items: flex-start;");
   for (const row of rosterRows()) {
     roster.append(styled("div", EXAMPLE, row));
   }
@@ -270,14 +281,21 @@ function suggestionFor(line: string): string {
   return UNKNOWN_HINT;
 }
 
-// A capsule answers to its letter or to its label — `power m` and `power multi`
-// are the same grant. Nobody should have to remember fifteen letters to use this.
+// A capsule answers to its name, to what its pill says, or to its id — `power
+// multi`, `power mu` and `power m` are one grant. The glyph is the one of the
+// three a player has actually seen, and the id only still resolves because it is
+// what the code calls it. Ids are tried first, so on the day a glyph reads as
+// another capsule's id the shorter, older meaning is the one that wins.
 function resolveCapsule(word: string): PowerUpKind | null {
   const wanted = word.toUpperCase();
   if (isPowerUpKind(wanted)) {
     return wanted;
   }
-  return POWER_UP_IDS.find((id) => POWER_UP_NAMES[id] === wanted) ?? null;
+  return (
+    POWER_UP_IDS.find((id) => POWER_UP_NAMES[id] === wanted) ??
+    POWER_UP_IDS.find((id) => POWER_UP_GLYPHS[id] === wanted) ??
+    null
+  );
 }
 
 // hasOwn, not `in`: `power constructor` would otherwise pass as a capsule id.
@@ -285,15 +303,34 @@ function isPowerUpKind(id: string): id is PowerUpKind {
   return Object.hasOwn(POWER_UP_BY_ID, id);
 }
 
-// "E WIDE   M MULTI  L LASER  ..." — the whole roster, laid out in a grid the
-//366px field can hold, built from the registry so a new capsule appears by itself.
+// "WI WIDE  MU MULTI  LA LASER  ..." — the whole roster, laid out in a grid the
+// 366px field can hold, built from the registry so a new capsule appears by
+// itself. The glyph, not the id: what is printed here is what a pill says, and
+// an id is an internal name the player has never seen.
 function rosterRows(): string[] {
-  const cells = POWER_UPS.map((definition) => `${definition.id} ${definition.name}`.padEnd(ROSTER_CELL_WIDTH));
+  const cells = POWER_UPS.map((definition) => `${POWER_UP_GLYPHS[definition.id]} ${definition.name}`);
+  for (let columns = cells.length; columns > 1; columns--) {
+    const rows = rosterGrid(cells, columns);
+    if (Math.max(...rows.map((row) => row.length)) <= ROSTER_ROW_CHARS) {
+      return rows;
+    }
+  }
+  return rosterGrid(cells, 1);
+}
+
+// Row-major, each column only as wide as its own longest cell: padding all of
+// them to SINGULARITY's length costs a whole column, and the roster is already
+// the tallest thing on the modal.
+function rosterGrid(cells: readonly string[], columns: number): string[] {
+  const widths = Array.from({ length: columns }, (_, column) =>
+    Math.max(...cells.filter((cell, index) => index % columns === column).map((cell) => cell.length)),
+  );
   const rows: string[] = [];
-  for (let index = 0; index < cells.length; index += ROSTER_COLUMNS) {
+  for (let index = 0; index < cells.length; index += columns) {
     rows.push(
       cells
-        .slice(index, index + ROSTER_COLUMNS)
+        .slice(index, index + columns)
+        .map((cell, column) => cell.padEnd(widths[column]))
         .join(" ")
         .trimEnd(),
     );

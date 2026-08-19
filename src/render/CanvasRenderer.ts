@@ -129,17 +129,62 @@ export const DROP_GLYPH_SPAN = 16;
 // wall. 0.75 is the lowest value where all six stay legible.
 const XRAY_REVEAL_ALPHA = 0.75;
 
-const DROP_GLYPH_FONTS = {
-  // One character keeps the 7px the roster has always drawn at.
-  single: `${7 * SCALE}px Silkscreen, monospace`,
-  // Two drop to 5px: ~8.6 game px at Silkscreen's advance, well inside the span.
-  double: `${5 * SCALE}px Silkscreen, monospace`,
-} as const;
+// The sizes a capsule letter may draw at, largest first. Walked by measuring the
+// glyph, not by counting it: Silkscreen is proportional, so a length is not a
+// width and a name nobody has written yet cannot quietly overflow the pill.
+//
+// Against the 16px span, that puts more on the top rung than character-counting
+// ever did: today's two-letter glyphs measure 8.8-12.3px and all keep the 7px the
+// roster has drawn at since it was single letters, three letters (`MIR`) reach 14
+// and still do, and only four (`BLAS`, 20px) drop a rung, to 14.4px at 5px. The
+// 4px rung is the floor — a glyph too long even for that overflows, and the DEV
+// legibility pass says whose it is.
+const DROP_GLYPH_SIZES = [7, 5, 4] as const;
 
-// Exported for the DEV legibility pass, which must measure exactly what
-// `drawCapsule` paints — see `@render/checkCapsules`.
+// One canvas for every measurement this module ever takes, made on first use so
+// the module stays importable outside a document.
+let glyphMeasurer: CanvasRenderingContext2D | null = null;
+// Silkscreen's advance never changes, so a glyph is measured once and its font
+// kept — capsule sprites are drawn every frame.
+const glyphFonts = new Map<string, string>();
+
+/**
+ * The largest font a glyph fits the pill's sheen span in.
+ *
+ * Exported for the DEV legibility pass, which must measure exactly what
+ * `drawCapsule` paints — see `@render/checkCapsules`.
+ */
 export function dropGlyphFont(glyph: string): string {
-  return glyph.length > 1 ? DROP_GLYPH_FONTS.double : DROP_GLYPH_FONTS.single;
+  const cached = glyphFonts.get(glyph);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const font = widestFontThatFits(glyph);
+  // Before Silkscreen is in, the fallback `monospace` measures wider and would
+  // pin the glyph a rung too low. Such an answer is used for that frame and
+  // dropped, not remembered.
+  if (document.fonts.check(font)) {
+    glyphFonts.set(glyph, font);
+  }
+  return font;
+}
+
+function widestFontThatFits(glyph: string): string {
+  glyphMeasurer ??= document.createElement("canvas").getContext("2d");
+  let font = "";
+  for (const size of DROP_GLYPH_SIZES) {
+    font = `${size * SCALE}px Silkscreen, monospace`;
+    // Nothing to measure with: fall through the ladder to the size that fits
+    // whatever anyone writes.
+    if (glyphMeasurer === null) {
+      continue;
+    }
+    glyphMeasurer.font = font;
+    if (glyphMeasurer.measureText(glyph).width <= DROP_GLYPH_SPAN * SCALE) {
+      break;
+    }
+  }
+  return font;
 }
 
 const FLASH_COLORS: Record<BrickFlashKind, string> = {
@@ -598,7 +643,8 @@ export class CanvasRenderer {
       return;
     }
 
-    // The glyph, not the id: two-character ids exist and draw one size down.
+    // The glyph, not the id: the player reads the name's opening letters, and
+    // a long one draws a size down rather than over the sheen.
     const glyph = POWER_UP_GLYPHS[kind];
     this.ctx.fillStyle = DARK_LETTER_DROP_KINDS.has(kind)
       ? canvasPalette.dropLetterDark
