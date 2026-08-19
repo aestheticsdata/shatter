@@ -418,6 +418,16 @@
   background: var(--color-screen-deep);
 }
 
+/* The canvas paints the arena's near-white wall on the stage's own top and left
+   edge, and the stage lands on a fractional device pixel at most window sizes.
+   Chrome fills that boundary row solid for the canvas but antialiases it for
+   the screen stacked above, so the wall leaks through as a bright hairline
+   along the top and down the left. These screens are opaque and cover the whole
+   stage, so there is nothing under them to keep. */
+#stage:has(.stage-screen:not([hidden])) #playfield {
+  visibility: hidden;
+}
+
 #titleCopper {
   position: absolute;
   left: 0;
