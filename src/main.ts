@@ -5,6 +5,7 @@ import { checkCapsuleLegibility } from "@render/checkCapsules";
 import { getElementByIdOrThrow } from "@shared/dom";
 import { HiScores } from "@state/HiScores";
 import { ScoreApi } from "@state/ScoreApi";
+import { LevelGallery } from "@ui/LevelGallery";
 import { Panel } from "@ui/Panel";
 import { Screens } from "@ui/Screens";
 import { StageScaler } from "@ui/StageScaler";
@@ -45,6 +46,11 @@ document.addEventListener("DOMContentLoaded", () => {
       entryLine: getElementByIdOrThrow("entryLine"),
       entryText: getElementByIdOrThrow("entryText"),
       returnHint: getElementByIdOrThrow("returnHint"),
+      levels: getElementByIdOrThrow("screenLevels"),
+    }),
+    levels: new LevelGallery({
+      tiles: getElementByIdOrThrow("levelTiles"),
+      footer: getElementByIdOrThrow("levelsFooter"),
     }),
     sfx,
     hiScores: new HiScores(new ScoreApi()),

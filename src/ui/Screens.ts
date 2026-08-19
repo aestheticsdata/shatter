@@ -15,6 +15,7 @@ export interface ScreensElements {
   entryLine: HTMLElement;
   entryText: HTMLElement;
   returnHint: HTMLElement;
+  levels: HTMLElement;
 }
 
 export class Screens {
@@ -32,6 +33,7 @@ export class Screens {
     elements.scores.hidden = !scoresVisible;
     elements.entryLine.hidden = screen !== "entry";
     elements.returnHint.hidden = screen !== "scores";
+    elements.levels.hidden = screen !== "levels";
   }
 
   updateTitle(topScoreText: string, topScoreName: string): void {

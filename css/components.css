@@ -517,6 +517,22 @@
   color: var(--color-green);
 }
 
+/* One row of menu keys under the play hint, laid out as a row rather than as a
+   line of text: the capsule catalogue joins it as a second span, and neither
+   entry has to know the other is there. */
+#titleMenuHints {
+  position: absolute;
+  left: 0;
+  top: 248px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  font: 400 8px var(--font-pixel);
+  color: var(--color-sky);
+  letter-spacing: 1px;
+}
+
 #titleFooter {
   position: absolute;
   left: 0;
@@ -588,4 +604,73 @@
   text-align: center;
   font: 400 11px var(--font-pixel);
   color: var(--color-sky);
+}
+
+/* ---------- levels gallery ---------- */
+
+#levelsHeading {
+  position: absolute;
+  left: 0;
+  top: 12px;
+  width: 100%;
+  text-align: center;
+  font: 400 20px var(--font-display);
+  color: var(--color-yellow);
+  text-shadow: 3px 3px 0 var(--color-orange-shadow);
+}
+
+.levels-divider {
+  position: absolute;
+  left: 140px;
+  top: 40px;
+  width: 200px;
+  height: 1px;
+  background: var(--color-title-divider);
+}
+
+/* Three columns of 124px with 12px gutters, which leaves 42px margins on the
+   480px stage. Rows are laid by the grid rather than positioned one by one: the
+   last page holds whatever is left of the roster — one tile is a legal page —
+   and it has to paint like a full one instead of stretching to fill. */
+#levelTiles {
+  position: absolute;
+  left: 42px;
+  top: 52px;
+  width: 396px;
+  display: grid;
+  grid-template-columns: repeat(3, 124px);
+  grid-auto-rows: min-content;
+  column-gap: 12px;
+  row-gap: 7px;
+}
+
+.level-tile {
+  display: block;
+  width: 124px;
+  height: 100px;
+  /* The tile is already a smoothed third of the field. The stage's own fit
+     transform must not soften it a second time. */
+  image-rendering: pixelated;
+}
+
+.level-caption {
+  margin-top: 6px;
+  text-align: center;
+  font: 400 7px var(--font-pixel);
+  /* Pinned, so a row is exactly tile + gap + caption and the second row lands
+     where the geometry says it does rather than where the font's leading puts it. */
+  line-height: 7px;
+  color: var(--color-grey-text);
+  letter-spacing: 1px;
+}
+
+#levelsFooter {
+  position: absolute;
+  left: 0;
+  top: 288px;
+  width: 100%;
+  text-align: center;
+  font: 400 7px var(--font-pixel);
+  color: var(--color-sky);
+  letter-spacing: 1px;
 }

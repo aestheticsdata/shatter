@@ -36,6 +36,7 @@ import type {
 } from "@interfaces/types";
 import type { CanvasRenderer } from "@render/CanvasRenderer";
 import type { HiScores } from "@state/HiScores";
+import type { LevelGallery } from "@ui/LevelGallery";
 import type { Panel } from "@ui/Panel";
 import type { Screens } from "@ui/Screens";
 import type { StageScaler } from "@ui/StageScaler";
@@ -44,6 +45,7 @@ export interface ShatterGameDeps {
   renderer: CanvasRenderer;
   panel: Panel;
   screens: Screens;
+  levels: LevelGallery;
   sfx: SoundBank;
   hiScores: HiScores;
   scaler: StageScaler;
@@ -1924,6 +1926,7 @@ export class ShatterGame {
         this.afterOver();
         break;
       case "scores":
+      case "levels":
         this.showTitle();
         break;
       default:
@@ -2127,8 +2130,28 @@ export class ShatterGame {
     if (key === "m") {
       this.deps.sfx.toggleMuted();
     }
+    // The level gallery, from the title only — it is a menu, and there is no
+    // point in a still of a level while one is being played.
+    if (key === "l" && this.screen === "title") {
+      this.deps.levels.open();
+      this.setScreen("levels");
+      return;
+    }
+    if (this.screen === "levels" && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+      // Only a page that moved clicks: on a roster small enough to fit one page
+      // the arrows land back where they were, and a click would say otherwise.
+      if (this.deps.levels.turn(event.key === "ArrowLeft" ? -1 : 1)) {
+        this.deps.sfx.uiKeyClick();
+      }
+      return;
+    }
     if (event.key === "Escape" && (this.screen === "play" || this.screen === "pause" || this.screen === "serve")) {
       this.gameOver();
+    }
+    // Escape backs out of a menu screen, the way its click and its Space do. A
+    // separate branch from the quit above: a menu has no run to end.
+    if (event.key === "Escape" && this.screen === "levels") {
+      this.showTitle();
     }
   }
 

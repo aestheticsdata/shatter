@@ -12,7 +12,7 @@ export interface RectangleBounds {
   bottom: number;
 }
 
-export type ScreenName = "title" | "serve" | "play" | "pause" | "clear" | "over" | "scores" | "entry";
+export type ScreenName = "title" | "serve" | "play" | "pause" | "clear" | "over" | "scores" | "entry" | "levels";
 
 export type BrickKind = "1" | "2" | "3" | "4" | "5" | "S" | "G";
 

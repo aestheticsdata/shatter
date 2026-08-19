@@ -301,6 +301,71 @@ export interface RenderView {
   energyWallArmed: boolean;
 }
 
+// A palette filter: what a colour becomes on the machine it is being painted on.
+// `CanvasRenderer.ink` is the one that matters — DEMAKE's — and it stays the only
+// implementation of that rule: a sprite lifted out of the class takes the filter
+// as an argument rather than growing a second copy of it.
+export type InkFilter = (color: string) => string;
+
+// The identity, for a caller painting on nothing but a colour screen — the level
+// gallery's stills, which are never demade.
+const litInk: InkFilter = (color) => color;
+
+/**
+ * One brick, at whatever scale it is asked for.
+ *
+ * Module-level and scale-taking because two things paint this sprite: the
+ * renderer at SCALE into the arena, and the level gallery at 1 into a
+ * field-sized still (`@render/levelStill`). A second copy of the bevel would
+ * drift the first time a brick is retouched — GHOST already changed it once.
+ *
+ * `fade` is GHOST's per-brick progress: at 1 the body and both bevels are gone,
+ * leaving the cell's outline over the playfield theme; between 0 and 1 the body
+ * is drawn translucent under an outline still gaining strength, so a brick
+ * de-materialises instead of flipping. Damage has no lit face to show while
+ * ghosted, and comes back with the brick.
+ */
+export function drawBrick(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  cell: BrickCell,
+  scale: number,
+  fade = 0,
+  ink: InkFilter = litInk,
+): void {
+  // `CanvasRenderer.pixel`, at the scale asked for: whole game pixels, each one
+  // a scale×scale block.
+  const pixel = (left: number, top: number, width: number, height: number, color: string): void => {
+    ctx.fillStyle = ink(color);
+    ctx.fillRect(Math.round(left) * scale, Math.round(top) * scale, width * scale, height * scale);
+  };
+
+  if (fade > 0) {
+    ctx.globalAlpha = fade;
+    pixel(x + 1, y + 1, 28, 1, canvasPalette.ghostBrick);
+    pixel(x + 1, y + 10, 28, 1, canvasPalette.ghostBrick);
+    pixel(x + 1, y + 2, 1, 8, canvasPalette.ghostBrick);
+    pixel(x + 28, y + 2, 1, 8, canvasPalette.ghostBrick);
+    ctx.globalAlpha = 1;
+    if (fade >= 1) {
+      return;
+    }
+    ctx.globalAlpha = 1 - fade;
+  }
+
+  const colors = BRICK_COLORS[cell.kind];
+  const flat = cell.hurt ? colors.dark : colors.flat;
+  const sheen = cell.hurt ? colors.flat : colors.light;
+
+  pixel(x + 1, y + 1, 28, 10, flat);
+  pixel(x + 2, y + 1, 26, 1, sheen);
+  pixel(x + 1, y + 2, 1, 8, sheen);
+  pixel(x + 2, y + 10, 26, 1, colors.dark);
+  pixel(x + 28, y + 2, 1, 8, colors.dark);
+  ctx.globalAlpha = 1;
+}
+
 export class CanvasRenderer {
   // The canvas on screen, and the context every draw method actually writes to.
   // They are the same thing except mid-dissolve, when `ctx` is pointed at the
@@ -316,6 +381,9 @@ export class CanvasRenderer {
   // threading it through twenty private draw methods would be the same fact
   // written twenty times.
   private demade = false;
+  // The same filter as `ink`, as a value: what the module-level sprites are
+  // handed so they paint on this machine rather than on a colour screen.
+  private readonly inkFilter: InkFilter = (color) => this.ink(color);
 
   constructor(canvas: HTMLCanvasElement) {
     const { width, height } = gameConfig.field;
@@ -417,7 +485,7 @@ export class CanvasRenderer {
           const x = left + columnIndex * brickWidth;
           const y = top + rowIndex * brickHeight;
           const fade = ghostProgress(view.ghostBlend, rowIndex, columnIndex, this.frameCount);
-          this.drawBrick(x, y, cell, fade);
+          drawBrick(this.ctx, x, y, cell, SCALE, fade, this.inkFilter);
           if (view.xrayActive && cell.capsule) {
             this.drawRevealedCapsule(x, y, cell.capsule);
           }
@@ -627,37 +695,6 @@ export class CanvasRenderer {
   private spritePixel(x: number, y: number, width: number, height: number, color: string): void {
     this.ctx.fillStyle = this.ink(color);
     this.ctx.fillRect(Math.round(x * SCALE), Math.round(y * SCALE), width * SCALE, height * SCALE);
-  }
-
-  // `fade` is GHOST's per-brick progress: at 1 the body and both bevels are
-  // gone, leaving the cell's outline over the playfield theme; between 0 and 1
-  // the body is drawn translucent under an outline still gaining strength, so a
-  // brick de-materialises instead of flipping. Damage has no lit face to show
-  // while ghosted, and comes back with the brick.
-  private drawBrick(x: number, y: number, cell: BrickCell, fade = 0): void {
-    if (fade > 0) {
-      this.ctx.globalAlpha = fade;
-      this.pixel(x + 1, y + 1, 28, 1, canvasPalette.ghostBrick);
-      this.pixel(x + 1, y + 10, 28, 1, canvasPalette.ghostBrick);
-      this.pixel(x + 1, y + 2, 1, 8, canvasPalette.ghostBrick);
-      this.pixel(x + 28, y + 2, 1, 8, canvasPalette.ghostBrick);
-      this.ctx.globalAlpha = 1;
-      if (fade >= 1) {
-        return;
-      }
-      this.ctx.globalAlpha = 1 - fade;
-    }
-
-    const colors = BRICK_COLORS[cell.kind];
-    const flat = cell.hurt ? colors.dark : colors.flat;
-    const sheen = cell.hurt ? colors.flat : colors.light;
-
-    this.pixel(x + 1, y + 1, 28, 10, flat);
-    this.pixel(x + 2, y + 1, 26, 1, sheen);
-    this.pixel(x + 1, y + 2, 1, 8, sheen);
-    this.pixel(x + 2, y + 10, 26, 1, colors.dark);
-    this.pixel(x + 28, y + 2, 1, 8, colors.dark);
-    this.ctx.globalAlpha = 1;
   }
 
   // BANANA's peel, lying flush on the rail. It blinks out its last second the
