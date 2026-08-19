@@ -66,6 +66,14 @@ export interface StasisRing {
   ticksLeft: number;
 }
 
+// One BANANA peel, lying on the rail the paddle slides along. It has no height
+// to speak of and nothing else on the field collides with it: the deck sweeping
+// over its span is the whole interaction.
+export interface Peel {
+  x: number;
+  ticksLeft: number;
+}
+
 // One BUMPERS disc: its centre, and what is left of the flash from its last
 // kick. All five share one radius, which lives in the config; the count itself
 // is `FALLBACK_LAYOUT`'s length in `BumperField`, so it moves in one place.
@@ -123,5 +131,8 @@ export interface PanelView {
   reserveLives: number;
   powerLabel: string;
   paydayActive: boolean;
+  // DEMAKE: the downgrade is the whole machine, so the panel goes with the
+  // field. The Panel owns the class; what it means lives in `components.css`.
+  demakeActive: boolean;
   muted: boolean;
 }

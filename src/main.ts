@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const stage = getElementByIdOrThrow<HTMLDivElement>("stage");
 
   const panel = new Panel({
+    stage,
     score: getElementByIdOrThrow("panelScore"),
     hiScore: getElementByIdOrThrow("panelHiScore"),
     levelNumber: getElementByIdOrThrow("panelLevelNumber"),

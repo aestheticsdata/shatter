@@ -28,6 +28,7 @@ import type {
   CatchPop,
   ChainBolt,
   PanelView,
+  Peel,
   PowerUpKind,
   RectangleBounds,
   ScreenName,
@@ -86,6 +87,13 @@ function isPaddleWidthKind(kind: PowerUpKind): kind is PaddleWidthKind {
   return Object.hasOwn(PADDLE_WIDTHS, kind);
 }
 
+// DEMAKE is barred from a run's first level: the gag only reads as the machine
+// breaking down if the player has seen the machine working first. Enforced at
+// the roll rather than at the catch, so the dev console still grants it
+// anywhere. A module constant because it is the same list every roll.
+const FIRST_LEVEL_EXCLUDES: readonly PowerUpKind[] = ["D"];
+const NO_EXCLUDES: readonly PowerUpKind[] = [];
+
 // What dealt the damage. Only the first two are things the player did: the rest
 // are consequences of one, and the game stays quiet about them so a single kill
 // is acknowledged once however far it spreads.
@@ -114,6 +122,20 @@ export class ShatterGame {
   // loop over them is written for the array rather than the pair, so a third
   // hole is a row here and nothing else.
   private readonly cores: readonly Singularity[] = [this.singularity, this.vortex];
+  // BANANA's peels on the paddle rail, oldest first, and the skid one causes.
+  // `lastPaddleX` is the deck's position at the end of the previous tick, which
+  // is what makes the slide the player's own last movement rather than a
+  // constant: it is sampled at the end of `stepPeels`, so a skid already under
+  // way never feeds itself.
+  private peels: Peel[] = [];
+  private skidTicksLeft = 0;
+  private skidVx = 0;
+  private skidCooldown = 0;
+  private lastPaddleX: number = gameConfig.paddle.initialX;
+  // Absolute-tracking only: where the pointer went while the deck was not
+  // following it, or `null` when the two are in step. See `pointToStage`.
+  private pointerTargetX: number | null = null;
+  private resyncTicksLeft = 0;
   private readonly bumpers = new BumperField();
   private readonly quake = new Quake();
   private readonly critter = new Critter();
@@ -178,8 +200,15 @@ export class ShatterGame {
 
   constructor(private readonly deps: ShatterGameDeps) {
     this.input = new InputController(deps.lockTarget, deps.scaler, {
-      onPointerMoveTo: (stageX) => this.paddle.moveCenterTo(stageX),
-      onPointerMoveBy: (deltaX) => this.paddle.moveByDelta(deltaX),
+      onPointerMoveTo: (stageX) => this.pointToStage(stageX),
+      // Under pointer lock the mouse names a movement, not a place: a skid drops
+      // the deltas it arrives with and nothing is owed afterwards — there is no
+      // absolute position for the deck to be out of step with.
+      onPointerMoveBy: (deltaX) => {
+        if (this.skidTicksLeft === 0) {
+          this.paddle.moveByDelta(deltaX);
+        }
+      },
       onAdvance: () => this.advanceGated(),
       onKeyDown: (event) => this.onKeyDown(event),
       onInputLost: () => this.onInputLost(),
@@ -243,9 +272,11 @@ export class ShatterGame {
       magnetActive: this.timers.isActive("K"),
       portalActive: this.timers.isActive("PO"),
       xrayActive: this.timers.isActive("XR"),
+      demakeActive: this.timers.isActive("D"),
       ghostBlend: this.ghostBlend,
       paddleHidden: this.deathCountdown > 0,
       bumpers: this.bumpers.discs,
+      peels: this.peels,
       balls: this.balls,
       // The streak draws the ground a ball actually covers, so it is the live
       // product and not the RUSH scale alone — a TEMPO in hand shortens it. Zero
@@ -335,6 +366,7 @@ export class ShatterGame {
     }
 
     const expired = this.timers.tick();
+    this.stepPeels();
     for (const core of this.cores) {
       if (core.active) {
         core.step();
@@ -381,6 +413,11 @@ export class ShatterGame {
     // dropping back to true speed has to be heard by someone whose eyes are on it.
     if (expired.includes("RU")) {
       this.deps.sfx.rushRelease();
+    }
+    // The machine coming back. Nothing else to undo: the field reads the timer
+    // straight, and only the sound chain holds a flag of its own.
+    if (expired.includes("D")) {
+      this.deps.sfx.setDemake(false);
     }
 
     if (this.timers.isActive("L") && --this.laserCountdown <= 0) {
@@ -1309,7 +1346,14 @@ export class ShatterGame {
   // used to roll — moving them here is what lets XRAY show the truth instead of
   // a guess.
   private rollBrickCapsule(): PowerUpKind | null {
-    return Math.random() < this.bonusSpreadAmount() ? rollDropKind() : null;
+    return Math.random() < this.bonusSpreadAmount() ? rollDropKind(this.dropExcludes()) : null;
+  }
+
+  // What may not come out of a roll on this level. Every roll goes through it,
+  // the wall's and RAIN's alike — a shower is as much a drop as a brick's is,
+  // and a first-level rule that one of them ignored would not be a rule.
+  private dropExcludes(): readonly PowerUpKind[] {
+    return this.level === 0 ? FIRST_LEVEL_EXCLUDES : NO_EXCLUDES;
   }
 
   // WARP (the Ctrl+Option+Command+N easter egg): finish the level on the spot. The
@@ -1343,6 +1387,11 @@ export class ShatterGame {
     this.meteors.reset();
     this.ghostBlend = 0;
     this.particles.reset();
+    this.resetSkid();
+    // First, and ahead of `timers.reset()` below: the CLEARED jingle plays out
+    // of this method, and a squared-off fanfare would be the reward sounding
+    // like the punishment.
+    this.deps.sfx.setDemake(false);
     const bonus = awardBonus ? (this.level + 1) * gameConfig.scoring.clearBonusPerLevel * this.scoreMultiplier() : 0;
     this.score += bonus;
     // The board is won: every running effect dies with it, so no portal mouths,
@@ -1454,7 +1503,7 @@ export class ShatterGame {
       this.destroyBottomRow();
     }
     if (kind === "R") {
-      this.dropPool.rainSpawn(gameConfig.powerUps.rainSpawnCount);
+      this.dropPool.rainSpawn(gameConfig.powerUps.rainSpawnCount, this.dropExcludes());
     }
     if (kind === "G") {
       this.timers.activate("G", durations.G);
@@ -1489,6 +1538,15 @@ export class ShatterGame {
     }
     if (kind === "BM") {
       this.blowUpPaddle();
+    }
+    if (kind === "BN") {
+      this.dropPeel();
+    }
+    if (kind === "D") {
+      // Above the sound chain, so the womp this catch is about to fire is
+      // already the downgraded one — the machine has to break *as* it is caught.
+      this.timers.activate("D", durations.D);
+      this.deps.sfx.setDemake(true);
     }
     if (kind === "GH") {
       this.timers.activate("GH", durations.GH);
@@ -1570,6 +1628,125 @@ export class ShatterGame {
   // applies), silver and gold die in one hit, but like a nuke it drops no
   // capsules and never chains BLAST. ZAP is this and nothing else; QUAKE runs
   // it and then slides what is left down a row.
+  /**
+   * Absolute mouse tracking, and BANANA's one complication.
+   *
+   * Without pointer lock the mouse names a position rather than a movement, so
+   * a skid cannot simply drop the input the way the locked path does: the next
+   * event would put the deck wherever the pointer is and undo the slide, and
+   * ignoring the pointer outright would snap the deck across the field the tick
+   * the skid ended. So the position is remembered and `stepPeels` glides onto
+   * it once the deck is the player's again.
+   */
+  private pointToStage(stageX: number): void {
+    if (this.skidTicksLeft > 0 || this.resyncTicksLeft > 0) {
+      this.pointerTargetX = stageX;
+      return;
+    }
+    this.paddle.moveCenterTo(stageX);
+  }
+
+  // BANANA: one peel onto the rail, never under the deck standing on it. The
+  // two spans either side of the keep-out are sampled as a single range, so a
+  // paddle against a wall simply leaves one span to land in and no roll is ever
+  // rejected and retried. The field is 366 px wide against an 80 px keep-out,
+  // so the two spans can never both be empty.
+  private dropPeel(): void {
+    const { peelWidth, maxPeels, peelLifeTicks, peelClearX } = gameConfig.powerUps.banana;
+    const min = gameConfig.field.left;
+    const max = gameConfig.field.right - peelWidth;
+    const center = this.paddle.centerX;
+    const leftSpan = Math.max(0, center - peelClearX - min);
+    const rightSpan = Math.max(0, max - (center + peelClearX));
+    const roll = Math.random() * (leftSpan + rightSpan);
+
+    this.peels.push({
+      x: roll < leftSpan ? min + roll : center + peelClearX + (roll - leftSpan),
+      ticksLeft: peelLifeTicks,
+    });
+    if (this.peels.length > maxPeels) {
+      this.peels.shift();
+    }
+  }
+
+  /**
+   * BANANA's peels and the skid one causes, a tick at a time.
+   *
+   * Contact is horizontal overlap and nothing else: a peel lies on the rail the
+   * deck slides along, so there is no height to test and nothing else on the
+   * field can touch one. Sweeping it hands the paddle to its own momentum —
+   * the deck keeps being moved, the player's steering simply stops reaching it.
+   *
+   * Called from `stepSimulation` under the detonation, clear and fuse gates, so
+   * a peel neither ages nor catches while the field is frozen behind an effect.
+   */
+  private stepPeels(): void {
+    const { skidTicks, skidMaxVx, skidMinVx, skidDecay, skidCooldownTicks, resyncTicks, resyncRate, peelWidth } =
+      gameConfig.powerUps.banana;
+
+    this.peels = this.peels.filter((peel) => --peel.ticksLeft > 0);
+
+    if (this.skidTicksLeft > 0) {
+      // TEMPO slows the slide as it slows the balls: bullet-time that left the
+      // deck skating at full speed would read as two clocks running at once.
+      const scale = this.timers.isActive("T") ? gameConfig.powerUps.tempoTimeScale : 1;
+      this.paddle.moveByDelta(this.skidVx * scale);
+      // The paddle's own clamp swallowed the move: a skid into a wall stops
+      // dead there rather than banking speed to spend on the way back out.
+      if (this.paddle.x <= gameConfig.field.left || this.paddle.x >= gameConfig.field.right - this.paddle.width) {
+        this.skidVx = 0;
+      }
+      this.skidVx *= skidDecay;
+      if (--this.skidTicksLeft === 0) {
+        this.skidCooldown = skidCooldownTicks;
+        this.resyncTicksLeft = this.pointerTargetX === null ? 0 : resyncTicks;
+      }
+    } else if (this.skidCooldown > 0) {
+      this.skidCooldown--;
+    }
+
+    if (this.resyncTicksLeft > 0 && this.pointerTargetX !== null) {
+      this.paddle.moveByDelta((this.pointerTargetX - this.paddle.centerX) * resyncRate);
+      if (--this.resyncTicksLeft === 0) {
+        this.pointerTargetX = null;
+      }
+    }
+
+    // Not while one is running, and not for a moment afterwards: peels come
+    // three at a time, and a chained skid is a deck the player never gets back.
+    if (this.skidTicksLeft === 0 && this.skidCooldown === 0) {
+      const { left, right } = this.paddle.bounds;
+      const index = this.peels.findIndex((peel) => peel.x + peelWidth > left && peel.x < right);
+      if (index >= 0) {
+        const [peel] = this.peels.splice(index, 1);
+        // Whatever the deck was doing, held and decayed. A paddle standing
+        // still slides toward the peel it stepped on, so a skid is never a
+        // no-op — being motionless is not a way to be immune to one.
+        const delta = Math.max(-skidMaxVx, Math.min(skidMaxVx, this.paddle.x - this.lastPaddleX));
+        const toward = Math.sign(peel.x + peelWidth / 2 - this.paddle.centerX) || 1;
+        this.skidVx = (Math.sign(delta) || toward) * Math.max(skidMinVx, Math.abs(delta));
+        this.skidTicksLeft = skidTicks;
+        this.deps.sfx.bananaSlip();
+      }
+    }
+
+    this.lastPaddleX = this.paddle.x;
+  }
+
+  // Peels, the slide, its cooldown and the pointer the deck owes a resync to:
+  // all of it is run state, and all of it dies with a serve, a cleared level or
+  // a run. A peel left on the rail across a reset would be a hazard nobody put
+  // there, and a live `skidTicksLeft` would eat the next screen's input.
+  private resetSkid(): void {
+    this.peels = [];
+    this.skidTicksLeft = 0;
+    this.skidVx = 0;
+    this.skidCooldown = 0;
+    this.resyncTicksLeft = 0;
+    this.pointerTargetX = null;
+    this.lastPaddleX = this.paddle.x;
+  }
+
   /**
    * BOMB: the paddle detonates, and the life goes with it.
    *
@@ -1766,7 +1943,11 @@ export class ShatterGame {
     });
     this.balls[0].followPaddle(this.paddle);
     this.paddle.setWidth(gameConfig.paddle.baseWidth);
+    this.resetSkid();
     this.timers.reset();
+    // Beside the timer that owns it. `ballLost()` has already fired by here, so
+    // the drain drone is still heard on the broken machine that caused it.
+    this.deps.sfx.setDemake(false);
     this.dropPool.reset();
     this.shotPool.reset();
     this.laserCountdown = 0;
@@ -1826,10 +2007,12 @@ export class ShatterGame {
     this.dropPool.reset();
     this.detonation.reset();
     this.timers.reset();
+    this.deps.sfx.setDemake(false);
     // The deck too: it is run state like the rest, and the panel keeps drawing it
     // behind the overlay — a run ended under a JAMMER or a SPLIT used to leave a
     // stunted or broken paddle sitting on the GAME OVER screen.
     this.paddle.setWidth(gameConfig.paddle.baseWidth);
+    this.resetSkid();
     this.wallArmed = false;
     this.clearCountdown = 0;
     this.deathCountdown = 0;
@@ -2011,6 +2194,7 @@ export class ShatterGame {
       reserveLives: Math.max(0, this.lives - 1),
       powerLabel: this.powerLabel(),
       paydayActive: this.timers.isActive("X"),
+      demakeActive: this.timers.isActive("D"),
       muted: this.deps.sfx.muted,
     };
   }
@@ -2033,6 +2217,11 @@ export class ShatterGame {
     }
     if (this.meteors.active) {
       live.add("MT");
+    }
+    // No timer holds BANANA either: what is live is a peel on the rail or the
+    // slide itself, and both are things the player is owed a warning about.
+    if (this.peels.length > 0 || this.skidTicksLeft > 0) {
+      live.add("BN");
     }
     return POWER_UP_IDS.filter((kind) => live.has(kind));
   }

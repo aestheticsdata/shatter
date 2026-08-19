@@ -3,6 +3,10 @@ import { zeroPad } from "@shared/format";
 import type { PanelView } from "@interfaces/types";
 
 export interface PanelElements {
+  // The stage, not the panel: DEMAKE greens everything standing on it — the
+  // panel, and the overlays that share it — and one class on the common
+  // ancestor is what a theme swap is. Nothing else here reaches outside #panel.
+  stage: HTMLElement;
   score: HTMLElement;
   hiScore: HTMLElement;
   levelNumber: HTMLElement;
@@ -55,6 +59,9 @@ export class Panel {
     }
     if (last?.powerLabel !== view.powerLabel) {
       this.elements.power.textContent = view.powerLabel;
+    }
+    if (last?.demakeActive !== view.demakeActive) {
+      this.elements.stage.classList.toggle("demake", view.demakeActive);
     }
     if (last?.paydayActive !== view.paydayActive) {
       this.elements.score.classList.toggle("blink", view.paydayActive);

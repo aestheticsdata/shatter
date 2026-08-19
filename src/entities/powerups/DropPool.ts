@@ -120,16 +120,21 @@ export class DropPool {
   }
 
   // RAIN: scatter capsules across the top of the field. Kinds are re-rolled
-  // against `RAIN_EXCLUDES`, so a shower can never chain into another one.
-  rainSpawn(count: number): number {
+  // against `RAIN_EXCLUDES` plus whatever the level bars, so a shower can never
+  // chain into another one and never smuggles in a capsule the wall could not
+  // have dropped here itself.
+  rainSpawn(count: number, exclude: readonly PowerUpKind[] = NO_EXCLUSIONS): number {
     const { left, right, top } = gameConfig.field;
+    // Rolled once for the whole shower: the caller's exclusions are a property
+    // of the level, not of the individual capsule.
+    const barred = exclude.length === 0 ? RAIN_EXCLUDES : [...RAIN_EXCLUDES, ...exclude];
     let spawned = 0;
     for (let i = 0; i < count; i++) {
       const drop = this.drops.find((candidate) => !candidate.active);
       if (!drop) {
         break;
       }
-      drop.kind = rollDropKind(RAIN_EXCLUDES);
+      drop.kind = rollDropKind(barred);
       drop.x = left + ((i + 0.5) * (right - left)) / count - DROP_WIDTH / 2 + (Math.random() - 0.5) * 16;
       drop.y = top + 8;
       drop.active = true;

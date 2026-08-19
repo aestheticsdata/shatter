@@ -236,6 +236,34 @@ export const gameConfig = {
       // between two discs never comes down on its own, so the set lets go.
       streakLimit: 10,
     },
+    // BANANA. The peel lies on the paddle rail and hands the deck to its own
+    // momentum for a second when it is swept over.
+    banana: {
+      peelWidth: 12,
+      // A fourth peel pushes the oldest off the rail rather than being refused:
+      // the newest is the one the player just earned and has to see land.
+      maxPeels: 3,
+      peelLifeTicks: 600,
+      peelBlinkTicks: 60,
+      // Rail kept clear either side of the deck, so a peel is never dropped
+      // under the paddle already standing on it.
+      peelClearX: 40,
+      skidTicks: 60,
+      // The slide is the paddle's own last movement, held and decayed. At the
+      // 6 px ceiling `skidDecay` covers ~98 px over the 60 ticks and is at rest
+      // by the end of them; a deck standing still still slides, at `skidMinVx`.
+      // `skidDecay` is the first knob to reach for if the slide reads long.
+      skidMaxVx: 6,
+      skidMinVx: 1.5,
+      skidDecay: 0.94,
+      // No chained skid: a peel is ignored for this long after one ends.
+      skidCooldownTicks: 30,
+      // Absolute tracking only (see `pointToStage`): how long the deck takes to
+      // glide back under a pointer that never stopped moving, and how much of
+      // the gap it closes a tick. 0.18 over 20 ticks closes 98 % of it.
+      resyncTicks: 20,
+      resyncRate: 0.18,
+    },
     rainSpawnCount: 4,
   },
   scoring: {

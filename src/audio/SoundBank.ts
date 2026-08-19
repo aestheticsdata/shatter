@@ -1,5 +1,7 @@
 import { Sound } from "@audio/Sound";
 
+import type { ArpVoice, NoiseSpec, ToneSpec } from "@audio/Sound";
+
 // One event may fire several times in a single 16.7 ms tick (three balls, one wall):
 // identical voices stack into doubled volume and phasing. ~2 ticks of guard is
 // inaudible as a gap but kills the pile-up. Screen jingles can't retrigger anyway.
@@ -54,6 +56,7 @@ function readStoredVolume(): number {
 export class SoundBank {
   private readonly sound: Sound;
   private readonly lastPlayedMs = new Map<string, number>();
+  private demade = false;
 
   constructor(sound: Sound = new Sound()) {
     this.sound = sound;
@@ -81,8 +84,44 @@ export class SoundBank {
     }
     // A blip at the new level is the only honest volume preview.
     if (this.allow("volumeTick", VOLUME_TICK_WINDOW_MS)) {
-      this.sound.tone({ freq: 520, dur: 0.05, vol: 0.06 });
+      this.tone({ freq: 520, dur: 0.05, vol: 0.06 });
     }
+  }
+
+  /**
+   * DEMAKE: the machine downgrades its own sound chip along with its screen.
+   *
+   * Every voice in this bank goes out through the three wrappers below, so the
+   * downgrade is one flag rather than 34 branches — and a sound written after
+   * this is demade by construction. What it does is what a worse chip could
+   * not do: pitch glides, detuning and noise all go, leaving flat squares.
+   */
+  setDemake(active: boolean): void {
+    this.demade = active;
+  }
+
+  // A square with no glide and no detune — one channel, one pitch, which is the
+  // whole of what the downgrade leaves.
+  private tone(spec: ToneSpec): void {
+    if (!this.demade) {
+      this.sound.tone(spec);
+      return;
+    }
+    const { freq, dur, vol, delayS } = spec;
+    this.sound.tone({ freq, dur, vol, delayS, type: "square" });
+  }
+
+  // No noise channel at all. Silent rather than substituted: a square standing
+  // in for an explosion is a beep where the player expects a bang, and the
+  // pitched layer of every one of these sounds is still playing.
+  private noise(spec: NoiseSpec): void {
+    if (!this.demade) {
+      this.sound.noise(spec);
+    }
+  }
+
+  private arp(notes: readonly number[], stepMs: number, voice: ArpVoice = {}): void {
+    this.sound.arp(notes, stepMs, this.demade ? { ...voice, type: "square", detunePair: false } : voice);
   }
 
   private allow(event: string, windowMs = RETRIGGER_WINDOW_MS): boolean {
@@ -99,7 +138,7 @@ export class SoundBank {
     if (!this.allow("wall")) {
       return;
     }
-    this.sound.tone({ freq: 300, freqEnd: 240, dur: 0.04, vol: 0.05 });
+    this.tone({ freq: 300, freqEnd: 240, dur: 0.04, vol: 0.05 });
   }
 
   // Hit position still maps to pitch, as the old 420 + rel·90 beep did.
@@ -108,8 +147,8 @@ export class SoundBank {
       return;
     }
     const base = 330 + relativeHit * 80;
-    this.sound.tone({ freq: base, freqEnd: base * 1.58, dur: 0.07, vol: 0.07 });
-    this.sound.tone({ freq: base, freqEnd: base * 1.58, dur: 0.07, vol: 0.05, detuneCents: 15 });
+    this.tone({ freq: base, freqEnd: base * 1.58, dur: 0.07, vol: 0.07 });
+    this.tone({ freq: base, freqEnd: base * 1.58, dur: 0.07, vol: 0.05, detuneCents: 15 });
   }
 
   // Dull metallic clank: the brick survived.
@@ -117,8 +156,8 @@ export class SoundBank {
     if (!this.allow("brickArmored")) {
       return;
     }
-    this.sound.tone({ freq: 210, freqEnd: 180, dur: 0.05, vol: 0.08 });
-    this.sound.noise({ dur: 0.03, vol: 0.08, filter: { type: "highpass", freq: 3000 } });
+    this.tone({ freq: 210, freqEnd: 180, dur: 0.05, vol: 0.08 });
+    this.noise({ dur: 0.03, vol: 0.08, filter: { type: "highpass", freq: 3000 } });
   }
 
   // Row still maps to pitch, as the old 560 + (5-row)·45 beep did.
@@ -127,16 +166,16 @@ export class SoundBank {
       return;
     }
     const base = 560 + (5 - row) * 45;
-    this.sound.tone({ freq: base * 1.15, freqEnd: base * 0.55, dur: 0.09, vol: 0.08 });
-    this.sound.noise({ dur: 0.05, vol: 0.12, filter: { type: "highpass", freq: 2500 } });
+    this.tone({ freq: base * 1.15, freqEnd: base * 0.55, dur: 0.09, vol: 0.08 });
+    this.noise({ dur: 0.05, vol: 0.12, filter: { type: "highpass", freq: 2500 } });
   }
 
   laserFire(): void {
     if (!this.allow("laser")) {
       return;
     }
-    this.sound.tone({ freq: 1700, freqEnd: 320, dur: 0.09, vol: 0.06 });
-    this.sound.tone({ freq: 2500, freqEnd: 480, dur: 0.07, vol: 0.03 });
+    this.tone({ freq: 1700, freqEnd: 320, dur: 0.09, vol: 0.06 });
+    this.tone({ freq: 2500, freqEnd: 480, dur: 0.07, vol: 0.03 });
   }
 
   // Springy up-twang — clearly not an ordinary wall.
@@ -144,8 +183,8 @@ export class SoundBank {
     if (!this.allow("energyWall")) {
       return;
     }
-    this.sound.tone({ freq: 140, freqEnd: 320, dur: 0.12, vol: 0.06 });
-    this.sound.tone({ freq: 140, freqEnd: 320, dur: 0.12, vol: 0.03, type: "sawtooth" });
+    this.tone({ freq: 140, freqEnd: 320, dur: 0.12, vol: 0.06 });
+    this.tone({ freq: 140, freqEnd: 320, dur: 0.12, vol: 0.03, type: "sawtooth" });
   }
 
   // Subtle by design: with ?droprate=1 every brick fires it.
@@ -153,7 +192,7 @@ export class SoundBank {
     if (!this.allow("capsuleSpawn")) {
       return;
     }
-    this.sound.tone({ freq: 220, dur: 0.03, vol: 0.03 });
+    this.tone({ freq: 220, dur: 0.03, vol: 0.03 });
   }
 
   capsulePickup(): void {
@@ -161,7 +200,7 @@ export class SoundBank {
       return;
     }
     [523, 659, 784].forEach((freq, index) => {
-      this.sound.tone({ freq, dur: 0.07, vol: 0.06, delayS: index * 0.04 });
+      this.tone({ freq, dur: 0.07, vol: 0.06, delayS: index * 0.04 });
     });
   }
 
@@ -172,8 +211,8 @@ export class SoundBank {
       return;
     }
     [392, 523, 659, 784, 1046].forEach((freq, index) => {
-      this.sound.tone({ freq, dur: 0.08, vol: 0.09, delayS: index * 0.035 });
-      this.sound.tone({ freq, dur: 0.08, vol: 0.05, delayS: index * 0.035, detuneCents: 12 });
+      this.tone({ freq, dur: 0.08, vol: 0.09, delayS: index * 0.035 });
+      this.tone({ freq, dur: 0.08, vol: 0.05, delayS: index * 0.035, detuneCents: 12 });
     });
   }
 
@@ -183,8 +222,8 @@ export class SoundBank {
     if (!this.allow("portal")) {
       return;
     }
-    this.sound.tone({ freq: 1200, freqEnd: 300, dur: 0.09, vol: 0.05, type: "sawtooth" });
-    this.sound.tone({ freq: 300, freqEnd: 1200, dur: 0.09, vol: 0.05, type: "sawtooth", delayS: 0.04 });
+    this.tone({ freq: 1200, freqEnd: 300, dur: 0.09, vol: 0.05, type: "sawtooth" });
+    this.tone({ freq: 300, freqEnd: 1200, dur: 0.09, vol: 0.05, type: "sawtooth", delayS: 0.04 });
   }
 
   // The wall going out of phase, and coming back. Two halves of one gesture:
@@ -195,16 +234,16 @@ export class SoundBank {
     if (!this.allow("ghostFade")) {
       return;
     }
-    this.sound.noise({ dur: 0.45, vol: 0.13, filter: { type: "bandpass", freq: 300, freqEnd: 3600, q: 1.2 } });
-    this.sound.noise({ dur: 0.3, vol: 0.07, filter: { type: "highpass", freq: 2200 } });
+    this.noise({ dur: 0.45, vol: 0.13, filter: { type: "bandpass", freq: 300, freqEnd: 3600, q: 1.2 } });
+    this.noise({ dur: 0.3, vol: 0.07, filter: { type: "highpass", freq: 2200 } });
   }
 
   ghostSolidify(): void {
     if (!this.allow("ghostSolidify")) {
       return;
     }
-    this.sound.noise({ dur: 0.35, vol: 0.15, filter: { type: "bandpass", freq: 3600, freqEnd: 260, q: 1.2 } });
-    this.sound.noise({ dur: 0.08, vol: 0.12, filter: { type: "lowpass", freq: 700 } });
+    this.noise({ dur: 0.35, vol: 0.15, filter: { type: "bandpass", freq: 3600, freqEnd: 260, q: 1.2 } });
+    this.noise({ dur: 0.08, vol: 0.12, filter: { type: "lowpass", freq: 700 } });
   }
 
   // BOMB: the paddle going up. Heavier and longer than BLAST's crater — a low
@@ -214,10 +253,10 @@ export class SoundBank {
     if (!this.allow("paddleBlast")) {
       return;
     }
-    this.sound.tone({ freq: 150, freqEnd: 28, dur: 0.8, vol: 0.13, type: "sawtooth" });
-    this.sound.tone({ freq: 150, freqEnd: 28, dur: 0.8, vol: 0.09, type: "sawtooth", detuneCents: 15 });
-    this.sound.noise({ dur: 0.09, vol: 0.34, filter: { type: "highpass", freq: 900 } });
-    this.sound.noise({ dur: 0.7, vol: 0.26, filter: { type: "lowpass", freq: 900, freqEnd: 50 } });
+    this.tone({ freq: 150, freqEnd: 28, dur: 0.8, vol: 0.13, type: "sawtooth" });
+    this.tone({ freq: 150, freqEnd: 28, dur: 0.8, vol: 0.09, type: "sawtooth", detuneCents: 15 });
+    this.noise({ dur: 0.09, vol: 0.34, filter: { type: "highpass", freq: 900 } });
+    this.noise({ dur: 0.7, vol: 0.26, filter: { type: "lowpass", freq: 900, freqEnd: 50 } });
   }
 
   // The ground moving: a sawtooth sagging an octave under lowpassed noise, both
@@ -227,9 +266,9 @@ export class SoundBank {
     if (!this.allow("quake")) {
       return;
     }
-    this.sound.tone({ freq: 90, freqEnd: 40, dur: 0.6, vol: 0.11, type: "sawtooth" });
-    this.sound.tone({ freq: 90, freqEnd: 40, dur: 0.6, vol: 0.08, type: "sawtooth", detuneCents: 15 });
-    this.sound.noise({ dur: 0.5, vol: 0.09, filter: { type: "lowpass", freq: 300, freqEnd: 50 } });
+    this.tone({ freq: 90, freqEnd: 40, dur: 0.6, vol: 0.11, type: "sawtooth" });
+    this.tone({ freq: 90, freqEnd: 40, dur: 0.6, vol: 0.08, type: "sawtooth", detuneCents: 15 });
+    this.noise({ dur: 0.5, vol: 0.09, filter: { type: "lowpass", freq: 300, freqEnd: 50 } });
   }
 
   // One bite of the grub: a short chirp falling away under a click of noise,
@@ -239,8 +278,8 @@ export class SoundBank {
     if (!this.allow("critterBite")) {
       return;
     }
-    this.sound.tone({ freq: 240, freqEnd: 90, dur: 0.05, vol: 0.07 });
-    this.sound.noise({ dur: 0.03, vol: 0.09, filter: { type: "bandpass", freq: 1200 } });
+    this.tone({ freq: 240, freqEnd: 90, dur: 0.05, vol: 0.07 });
+    this.noise({ dur: 0.03, vol: 0.09, filter: { type: "bandpass", freq: 1200 } });
   }
 
   // SPLIT: the deck cracking in two. Two short square drops a beat apart over a
@@ -250,9 +289,9 @@ export class SoundBank {
     if (!this.allow("split")) {
       return;
     }
-    this.sound.tone({ freq: 300, freqEnd: 120, dur: 0.09, vol: 0.07 });
-    this.sound.tone({ freq: 240, freqEnd: 90, dur: 0.09, vol: 0.06, delayS: 0.06 });
-    this.sound.noise({ dur: 0.04, vol: 0.1, filter: { type: "bandpass", freq: 900 } });
+    this.tone({ freq: 300, freqEnd: 120, dur: 0.09, vol: 0.07 });
+    this.tone({ freq: 240, freqEnd: 90, dur: 0.09, vol: 0.06, delayS: 0.06 });
+    this.noise({ dur: 0.04, vol: 0.1, filter: { type: "bandpass", freq: 900 } });
   }
 
   // The volley coming in: noise sliding out of the top of the band down to a
@@ -263,8 +302,8 @@ export class SoundBank {
     if (!this.allow("meteor")) {
       return;
     }
-    this.sound.noise({ dur: 0.9, vol: 0.12, filter: { type: "bandpass", freq: 3000, freqEnd: 300 } });
-    this.sound.tone({ freq: 300, freqEnd: 60, dur: 0.9, vol: 0.08, type: "sawtooth" });
+    this.noise({ dur: 0.9, vol: 0.12, filter: { type: "bandpass", freq: 3000, freqEnd: 300 } });
+    this.tone({ freq: 300, freqEnd: 60, dur: 0.9, vol: 0.08, type: "sawtooth" });
   }
 
   // A pinball bumper kick: a short pop rising an octave over a click of noise,
@@ -273,8 +312,8 @@ export class SoundBank {
     if (!this.allow("bumper")) {
       return;
     }
-    this.sound.tone({ freq: 660, freqEnd: 1320, dur: 0.06, vol: 0.07 });
-    this.sound.noise({ dur: 0.03, vol: 0.06, filter: { type: "bandpass", freq: 1800 } });
+    this.tone({ freq: 660, freqEnd: 1320, dur: 0.06, vol: 0.07 });
+    this.noise({ dur: 0.03, vol: 0.06, filter: { type: "bandpass", freq: 1800 } });
   }
 
   // A hole opening: a slow sawtooth climb under noise widening out of nothing.
@@ -293,9 +332,9 @@ export class SoundBank {
     }
     const freq = 60 / size;
     const freqEnd = 220 / size;
-    this.sound.tone({ freq, freqEnd, dur: 0.6, vol: 0.09, type: "sawtooth" });
-    this.sound.tone({ freq, freqEnd, dur: 0.6, vol: 0.06, type: "sawtooth", detuneCents: 15 });
-    this.sound.noise({ dur: 0.5, vol: 0.07, filter: { type: "bandpass", freq: 200 / size, freqEnd: 1800 / size } });
+    this.tone({ freq, freqEnd, dur: 0.6, vol: 0.09, type: "sawtooth" });
+    this.tone({ freq, freqEnd, dur: 0.6, vol: 0.06, type: "sawtooth", detuneCents: 15 });
+    this.noise({ dur: 0.5, vol: 0.07, filter: { type: "bandpass", freq: 200 / size, freqEnd: 1800 / size } });
   }
 
   // One arc per kill that arced, however many bricks the web reached.
@@ -313,22 +352,22 @@ export class SoundBank {
       return;
     }
     const lead = CHAIN_ARC_LEAD_S;
-    this.sound.noise({ dur: 0.006, vol: 0.32, delayS: lead, filter: { type: "highpass", freq: 5500 } });
-    this.sound.noise({ dur: 0.03, vol: 0.34, delayS: lead, filter: { type: "highpass", freq: 300 } });
-    this.sound.noise({
+    this.noise({ dur: 0.006, vol: 0.32, delayS: lead, filter: { type: "highpass", freq: 5500 } });
+    this.noise({ dur: 0.03, vol: 0.34, delayS: lead, filter: { type: "highpass", freq: 300 } });
+    this.noise({
       dur: 0.07,
       vol: 0.18,
       delayS: lead,
       filter: { type: "bandpass", freq: 1900, freqEnd: 380, q: 1.4 },
     });
-    this.sound.noise({
+    this.noise({
       dur: 0.19,
       vol: 0.14,
       delayS: lead,
       filter: { type: "bandpass", freq: 5600, freqEnd: 900, q: 3 },
     });
     for (const [delayS, freq, vol] of CHAIN_ARC_SPUTTER) {
-      this.sound.noise({ dur: 0.013, vol, delayS: lead + delayS, filter: { type: "bandpass", freq, q: 11 } });
+      this.noise({ dur: 0.013, vol, delayS: lead + delayS, filter: { type: "bandpass", freq, q: 11 } });
     }
   }
 
@@ -340,8 +379,8 @@ export class SoundBank {
       return;
     }
     const base = 620 + relativeHit * 80;
-    this.sound.tone({ freq: base, freqEnd: base / 1.58, dur: 0.07, vol: 0.06 });
-    this.sound.tone({ freq: base, freqEnd: base / 1.58, dur: 0.07, vol: 0.04, detuneCents: 15 });
+    this.tone({ freq: base, freqEnd: base / 1.58, dur: 0.07, vol: 0.06 });
+    this.tone({ freq: base, freqEnd: base / 1.58, dur: 0.07, vol: 0.04, detuneCents: 15 });
   }
 
   // Time stopping: a long sawtooth fall with a detuned shadow beating against
@@ -350,9 +389,9 @@ export class SoundBank {
     if (!this.allow("stasisFreeze")) {
       return;
     }
-    this.sound.tone({ freq: 900, freqEnd: 90, dur: 0.35, vol: 0.08, type: "sawtooth" });
-    this.sound.tone({ freq: 900, freqEnd: 90, dur: 0.35, vol: 0.05, type: "sawtooth", detuneCents: 12 });
-    this.sound.noise({ dur: 0.35, vol: 0.1, filter: { type: "lowpass", freq: 1200, freqEnd: 200 } });
+    this.tone({ freq: 900, freqEnd: 90, dur: 0.35, vol: 0.08, type: "sawtooth" });
+    this.tone({ freq: 900, freqEnd: 90, dur: 0.35, vol: 0.05, type: "sawtooth", detuneCents: 12 });
+    this.noise({ dur: 0.35, vol: 0.1, filter: { type: "lowpass", freq: 1200, freqEnd: 200 } });
   }
 
   // The freeze run backwards, then a blip on the beat the balls move again.
@@ -360,8 +399,8 @@ export class SoundBank {
     if (!this.allow("stasisRelease")) {
       return;
     }
-    this.sound.tone({ freq: 90, freqEnd: 900, dur: 0.2, vol: 0.07, type: "sawtooth" });
-    this.sound.tone({ freq: 660, dur: 0.08, vol: 0.07, delayS: 0.18 });
+    this.tone({ freq: 90, freqEnd: 900, dur: 0.2, vol: 0.07, type: "sawtooth" });
+    this.tone({ freq: 660, dur: 0.08, vol: 0.07, delayS: 0.18 });
   }
 
   // RUSH letting go: stasisRelease run the other way up, because the event is the
@@ -371,8 +410,19 @@ export class SoundBank {
     if (!this.allow("rushRelease")) {
       return;
     }
-    this.sound.tone({ freq: 880, freqEnd: 220, dur: 0.22, vol: 0.07, type: "sawtooth" });
-    this.sound.tone({ freq: 330, dur: 0.08, vol: 0.06, delayS: 0.2 });
+    this.tone({ freq: 880, freqEnd: 220, dur: 0.22, vol: 0.07, type: "sawtooth" });
+    this.tone({ freq: 330, dur: 0.08, vol: 0.06, delayS: 0.2 });
+  }
+
+  // BANANA: the slip itself, not the catch — the womp already covered the pill.
+  // A sawtooth slide-whistle up under a noise sweep opening the same way, which
+  // is the cartoon the trap is, and short enough to be over before the deck is.
+  bananaSlip(): void {
+    if (!this.allow("banana")) {
+      return;
+    }
+    this.tone({ freq: 180, freqEnd: 900, dur: 0.22, vol: 0.08, type: "sawtooth" });
+    this.noise({ dur: 0.22, vol: 0.09, filter: { type: "bandpass", freq: 400, freqEnd: 3200, q: 2 } });
   }
 
   // Detune-beat "womp": the two layers drift apart as they fall. Every trap
@@ -381,8 +431,8 @@ export class SoundBank {
     if (!this.allow("malus")) {
       return;
     }
-    this.sound.tone({ freq: 392, freqEnd: 196, dur: 0.15, vol: 0.06, type: "sawtooth" });
-    this.sound.tone({ freq: 388, freqEnd: 194, dur: 0.15, vol: 0.05 });
+    this.tone({ freq: 392, freqEnd: 196, dur: 0.15, vol: 0.06, type: "sawtooth" });
+    this.tone({ freq: 388, freqEnd: 194, dur: 0.15, vol: 0.05 });
   }
 
   // One boom for the whole chain; splash kills are individually silent.
@@ -390,8 +440,8 @@ export class SoundBank {
     if (!this.allow("blast")) {
       return;
     }
-    this.sound.noise({ dur: 0.25, vol: 0.3, filter: { type: "lowpass", freq: 800, freqEnd: 150 } });
-    this.sound.tone({ freq: 120, freqEnd: 60, dur: 0.15, vol: 0.1 });
+    this.noise({ dur: 0.25, vol: 0.3, filter: { type: "lowpass", freq: 800, freqEnd: 150 } });
+    this.tone({ freq: 120, freqEnd: 60, dur: 0.15, vol: 0.1 });
   }
 
   // Bigger and longer than BLAST; replaces both the pickup jingle and the
@@ -400,9 +450,9 @@ export class SoundBank {
     if (!this.allow("nuke")) {
       return;
     }
-    this.sound.tone({ freq: 120, freqEnd: 30, dur: 0.7, vol: 0.12, type: "sawtooth" });
-    this.sound.tone({ freq: 120, freqEnd: 30, dur: 0.7, vol: 0.08, type: "sawtooth", detuneCents: 15 });
-    this.sound.noise({ dur: 0.6, vol: 0.25, filter: { type: "lowpass", freq: 400, freqEnd: 60 } });
+    this.tone({ freq: 120, freqEnd: 30, dur: 0.7, vol: 0.12, type: "sawtooth" });
+    this.tone({ freq: 120, freqEnd: 30, dur: 0.7, vol: 0.08, type: "sawtooth", detuneCents: 15 });
+    this.noise({ dur: 0.6, vol: 0.25, filter: { type: "lowpass", freq: 400, freqEnd: 60 } });
   }
 
   // Rising 1UP fanfare — brighter than the capsule chime, shorter than a jingle.
@@ -410,44 +460,44 @@ export class SoundBank {
     if (!this.allow("extraLife")) {
       return;
     }
-    this.sound.arp([659, 784, 988, 1319], 45, { detunePair: true });
+    this.arp([659, 784, 988, 1319], 45, { detunePair: true });
   }
 
   ballLost(): void {
     if (!this.allow("ballLost")) {
       return;
     }
-    this.sound.tone({ freq: 290, freqEnd: 52, dur: 0.6, vol: 0.09, type: "sawtooth" });
-    this.sound.tone({ freq: 296, freqEnd: 55, dur: 0.6, vol: 0.06, type: "sawtooth" });
+    this.tone({ freq: 290, freqEnd: 52, dur: 0.6, vol: 0.09, type: "sawtooth" });
+    this.tone({ freq: 296, freqEnd: 55, dur: 0.6, vol: 0.06, type: "sawtooth" });
   }
 
   launch(): void {
     if (!this.allow("launch")) {
       return;
     }
-    this.sound.noise({ dur: 0.15, vol: 0.08, filter: { type: "bandpass", freq: 400, freqEnd: 2000 } });
-    this.sound.tone({ freq: 520, dur: 0.05, vol: 0.04 });
+    this.noise({ dur: 0.15, vol: 0.08, filter: { type: "bandpass", freq: 400, freqEnd: 2000 } });
+    this.tone({ freq: 520, dur: 0.05, vol: 0.04 });
   }
 
   gameStart(): void {
-    this.sound.arp([392, 523, 659], 60, { detunePair: true });
+    this.arp([392, 523, 659], 60, { detunePair: true });
   }
 
   levelClear(): void {
-    this.sound.arp([523, 659, 784, 1046], 60, { detunePair: true });
+    this.arp([523, 659, 784, 1046], 60, { detunePair: true });
   }
 
   // Square melody with a quiet sawtooth shadow — more somber than the other jingles.
   gameOver(): void {
-    this.sound.arp([392, 330, 262, 196], 130, { detunePair: true });
-    this.sound.arp([392, 330, 262, 196], 130, { type: "sawtooth", vol: 0.03, noteDurS: 0.12 });
+    this.arp([392, 330, 262, 196], 130, { detunePair: true });
+    this.arp([392, 330, 262, 196], 130, { type: "sawtooth", vol: 0.03, noteDurS: 0.12 });
   }
 
   pauseToggle(): void {
-    this.sound.tone({ freq: 300, dur: 0.05, vol: 0.04 });
+    this.tone({ freq: 300, dur: 0.05, vol: 0.04 });
   }
 
   uiKeyClick(): void {
-    this.sound.tone({ freq: 700, dur: 0.035, vol: 0.03 });
+    this.tone({ freq: 700, dur: 0.035, vol: 0.03 });
   }
 }

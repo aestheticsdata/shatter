@@ -124,6 +124,8 @@ export const POWER_UPS = [
   { id: "MT", name: "METEOR", color: "#c84b19", dark: false, ticks: 0, tier: "rare", timed: false },
   { id: "SP", name: "SPLIT", color: "#e0607a", dark: false, ticks: 360, tier: "trap", timed: true },
   { id: "VX", name: "VORTEX", color: "#b000fc", dark: false, ticks: 720, tier: "rare", timed: true },
+  { id: "BN", name: "BANANA", color: "#e2fe74", dark: true, ticks: 0, tier: "trap", timed: false },
+  { id: "D", name: "DEMAKE", color: "#00d200", dark: true, ticks: 480, tier: "trap", timed: true },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];

@@ -1,3 +1,41 @@
+/* ---------- DEMAKE ---------- */
+
+/* The machine downgrades itself for 8 seconds and the panel goes with the
+   field: a green phosphor tube has one ink and one ground, so every colour
+   token in this scope collapses onto those two. Tokens rather than rules, so
+   nothing has to be restated per element and a panel widget written later is
+   demade for free.
+
+   Scoped to #stage and not #panel because the overlays live there too — a
+   coloured PAUSE card over a green field would read as a bug. CLEARED and
+   GAME OVER are safe by ordering: the game clears the timer before it shows
+   either, so those two are always back in colour. */
+#stage.demake {
+  --color-page: #07160c;
+  --color-screen-deep: #07160c;
+  --color-field: #07160c;
+  --color-panel: #07160c;
+  --color-panel-edge-dark: #07160c;
+  --color-panel-edge-light: #6cf08a;
+  --color-panel-divider: #6cf08a;
+  --color-panel-label: #6cf08a;
+  --color-inset: #07160c;
+  --color-logo-tile: #07160c;
+  --color-white: #6cf08a;
+  --color-red: #6cf08a;
+  --color-red-shadow: #07160c;
+  --color-orange: #6cf08a;
+  --color-orange-shadow: #07160c;
+  --color-yellow: #6cf08a;
+  --color-green: #6cf08a;
+  --color-green-shadow: #07160c;
+  --color-blue: #6cf08a;
+  --color-sky: #6cf08a;
+  --color-grey-text: #6cf08a;
+  --color-dim-text: #6cf08a;
+  --color-title-divider: #6cf08a;
+}
+
 /* ---------- side panel ---------- */
 
 #panel::before,

@@ -2,7 +2,7 @@ import { gameConfig } from "@core/config/GameConfig";
 import { MALUS_KINDS, POWER_UP_GLYPHS } from "@core/config/powerUps";
 import { mirrorBounds } from "@entities/paddle/MirrorPaddle";
 import { BackgroundLayer } from "@render/backgrounds";
-import { BRICK_COLORS, canvasPalette, DARK_LETTER_DROP_KINDS, DROP_COLORS } from "@render/palette";
+import { BRICK_COLORS, canvasPalette, DARK_LETTER_DROP_KINDS, DEMAKE_GROUND_TONES, DROP_COLORS } from "@render/palette";
 
 import type { Ball } from "@entities/ball/Ball";
 import type { Critter } from "@entities/effects/Critter";
@@ -21,6 +21,7 @@ import type {
   Bumper,
   CatchPop,
   ChainBolt,
+  Peel,
   PowerUpKind,
   StasisRing,
 } from "@interfaces/types";
@@ -214,6 +215,18 @@ interface PaddleBandColors {
 // Game pixels between the dots of a magnet tether.
 const TETHER_DASH_SPACING = 4;
 
+// DEMAKE's scanlines: one dark backing-store row every `DEMAKE_SCANLINE_STEP`,
+// in *device* pixels rather than game ones — the ribbing is a property of the
+// tube, not of the art, and at SCALE it would be a third of the field. Painted
+// last of all, over the wall frame, because a real tube ribs the glass and not
+// the picture behind it.
+const DEMAKE_SCANLINE_STEP = 3;
+
+// A BANANA peel, in game pixels. The width is shared with the simulation (the
+// deck's overlap test is against the same span) and lives in the config; the
+// height is the sprite's alone, and only decides how far up the rail it sits.
+const PEEL_HEIGHT = 5;
+
 // One entry per pixel row of a portal mouth, repeating: three bands of three.
 const PORTAL_STRIPES: readonly string[] = [
   canvasPalette.portalBright,
@@ -253,6 +266,9 @@ export interface RenderView {
   portalActive: boolean;
   // XRAY: show every brick the capsule it is holding, for as long as it lasts.
   xrayActive: boolean;
+  // DEMAKE: paint the whole field as a 1-bit green tube. Purely presentational —
+  // the simulation behind it is not told, and nothing here changes what it does.
+  demakeActive: boolean;
   // GHOST's fade, 0 solid to 1 fully ghosted. Between the two the renderer
   // runs its plasma mask over the grid, each brick melting to its outline as
   // the field rises past it.
@@ -261,6 +277,8 @@ export interface RenderView {
   // MIRROR's reflection of it may be on screen.
   paddleHidden: boolean;
   bumpers: readonly Bumper[];
+  // BANANA's peels on the paddle rail, oldest first.
+  peels: readonly Peel[];
   balls: readonly Ball[];
   // RUSH: the scale the simulation is stepping balls at, or 0 when nothing is
   // speeding them up. It is a distance rather than a flag because the streak has
@@ -285,6 +303,11 @@ export class CanvasRenderer {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly background: BackgroundLayer;
   private frameCount = 0;
+  // Set once per frame from the view, and read by every colour this class
+  // paints. A field rather than a parameter because it applies to all of them:
+  // threading it through twenty private draw methods would be the same fact
+  // written twenty times.
+  private demade = false;
 
   constructor(canvas: HTMLCanvasElement) {
     const { width, height } = gameConfig.field;
@@ -301,11 +324,14 @@ export class CanvasRenderer {
 
   draw(view: RenderView): void {
     this.frameCount++;
+    this.demade = view.demakeActive;
     const { width, height } = gameConfig.field;
     // The level's field art, painted at 1× on a theme change and blitted here
     // with smoothing off — an exact 3× nearest-neighbour upscale, so the
     // background keeps the same chunky game pixels as the sprites.
-    const layer = this.background.imageFor(view.background, view.backgroundVariant);
+    const layer = this.demade
+      ? this.background.monoImageFor(view.background, view.backgroundVariant)
+      : this.background.imageFor(view.background, view.backgroundVariant);
     this.ctx.drawImage(layer, 0, 0, width * SCALE, height * SCALE);
 
     // QUAKE displaces everything that stands on the field, and nothing else: the
@@ -382,6 +408,11 @@ export class CanvasRenderer {
         this.spritePixel(shot.x, shot.y, 2, 9, canvasPalette.laserShot);
       }
     }
+    // Under the deck: a peel is on the rail the paddle slides along, and the
+    // paddle sliding over one has to be seen covering it.
+    for (const peel of view.peels) {
+      this.drawPeel(peel);
+    }
     if (view.mirrorActive && !view.paddleHidden) {
       this.drawMirror(view.paddle);
     }
@@ -409,6 +440,21 @@ export class CanvasRenderer {
     if (view.portalActive) {
       this.drawPortals();
     }
+    if (this.demade) {
+      this.drawScanlines();
+    }
+  }
+
+  // The tube's ribbing: one ground row every third device pixel, over
+  // everything. Static and unblinking — a scanline that crawls reads as a
+  // rendering fault, and this one has to read as the hardware.
+  private drawScanlines(): void {
+    const width = gameConfig.field.width * SCALE;
+    const height = gameConfig.field.height * SCALE;
+    this.ctx.fillStyle = canvasPalette.demakeGround;
+    for (let y = 0; y < height; y += DEMAKE_SCANLINE_STEP) {
+      this.ctx.fillRect(0, y, width, 1);
+    }
   }
 
   // A hole in the field: a disc darker than any theme, a halo that breathes on
@@ -422,14 +468,14 @@ export class CanvasRenderer {
     const x = singularity.x * SCALE;
     const y = singularity.y * SCALE;
     const ring = (radius: number, color: string, width: number): void => {
-      this.ctx.strokeStyle = color;
+      this.ctx.strokeStyle = this.ink(color);
       this.ctx.lineWidth = width * SCALE;
       this.ctx.beginPath();
       this.ctx.arc(x, y, radius * SCALE, 0, Math.PI * 2);
       this.ctx.stroke();
     };
 
-    this.ctx.fillStyle = canvasPalette.singularityCore;
+    this.ctx.fillStyle = this.ink(canvasPalette.singularityCore);
     this.ctx.beginPath();
     this.ctx.arc(x, y, singularity.radius * SCALE, 0, Math.PI * 2);
     this.ctx.fill();
@@ -463,7 +509,7 @@ export class CanvasRenderer {
     });
 
     if (flashing) {
-      this.ctx.strokeStyle = canvasPalette.bumperRim;
+      this.ctx.strokeStyle = this.ink(canvasPalette.bumperRim);
       this.ctx.lineWidth = 1 * SCALE;
       this.ctx.globalAlpha = bumper.flashTicksLeft / flashTicks;
       this.ctx.beginPath();
@@ -484,7 +530,7 @@ export class CanvasRenderer {
       this.pixel(0, 0, gameConfig.field.width, gameConfig.field.height, canvasPalette.nukeFlash);
     }
     if (detonation.radius > 0) {
-      this.ctx.strokeStyle = canvasPalette.nukeRing;
+      this.ctx.strokeStyle = this.ink(canvasPalette.nukeRing);
       this.ctx.lineWidth = 3 * SCALE;
       this.ctx.beginPath();
       this.ctx.arc(detonation.x * SCALE, detonation.y * SCALE, detonation.radius * SCALE, 0, Math.PI * 2);
@@ -492,15 +538,30 @@ export class CanvasRenderer {
     }
   }
 
+  /**
+   * Every colour this class paints, resolved for the machine it is painting on.
+   *
+   * Off, this is the identity. On, the sprite palette collapses to the tube's
+   * two tones: the shadow role goes to ground, everything else to ink — see
+   * `DEMAKE_GROUND_TONES`. One choke point, so a capsule added later is demade
+   * by construction rather than by remembering to.
+   */
+  private ink(color: string): string {
+    if (!this.demade) {
+      return color;
+    }
+    return DEMAKE_GROUND_TONES.has(color) ? canvasPalette.demakeGround : canvasPalette.demakeInk;
+  }
+
   private pixel(x: number, y: number, width: number, height: number, color: string): void {
-    this.ctx.fillStyle = color;
+    this.ctx.fillStyle = this.ink(color);
     this.ctx.fillRect(Math.round(x) * SCALE, Math.round(y) * SCALE, width * SCALE, height * SCALE);
   }
 
   // Same chunky block art as pixel(), but the position snaps to the backing
   // grid instead of the game grid — sub-game-pixel placement for anything that moves.
   private spritePixel(x: number, y: number, width: number, height: number, color: string): void {
-    this.ctx.fillStyle = color;
+    this.ctx.fillStyle = this.ink(color);
     this.ctx.fillRect(Math.round(x * SCALE), Math.round(y * SCALE), width * SCALE, height * SCALE);
   }
 
@@ -533,6 +594,21 @@ export class CanvasRenderer {
     this.pixel(x + 2, y + 10, 26, 1, colors.dark);
     this.pixel(x + 28, y + 2, 1, 8, colors.dark);
     this.ctx.globalAlpha = 1;
+  }
+
+  // BANANA's peel, lying flush on the rail. It blinks out its last second the
+  // way a trap capsule's glyph blinks as it falls: a hazard about to stop being
+  // one has to say so, or the player steers around nothing for the rest of the
+  // level. Whole game pixels — it never moves.
+  private drawPeel(peel: Peel): void {
+    const { peelWidth, peelBlinkTicks } = gameConfig.powerUps.banana;
+    if (peel.ticksLeft < peelBlinkTicks && (peel.ticksLeft & 4) === 0) {
+      return;
+    }
+    const y = gameConfig.paddle.y - PEEL_HEIGHT;
+    this.pixel(peel.x + 1, y, peelWidth - 2, 1, canvasPalette.peelBody);
+    this.pixel(peel.x, y + 1, peelWidth, 3, canvasPalette.peelBody);
+    this.pixel(peel.x + 1, y + PEEL_HEIGHT - 1, peelWidth - 2, 1, canvasPalette.peelShade);
   }
 
   private drawPaddle(paddle: PaddleRenderState): void {
@@ -651,9 +727,15 @@ export class CanvasRenderer {
     // The glyph, not the id: the player reads the name's opening letters, and
     // a long one draws a size down rather than over the sheen.
     const glyph = POWER_UP_GLYPHS[kind];
-    this.ctx.fillStyle = DARK_LETTER_DROP_KINDS.has(kind)
-      ? canvasPalette.dropLetterDark
-      : canvasPalette.dropLetterLight;
+    // Demade, the pill is one flat ink slab, so the glyph is punched out of it
+    // in ground. It cannot go through `ink()`: `dropLetterLight` is not a shadow
+    // tone, so it would resolve to ink on ink and every light-lettered capsule
+    // would lose the one thing that says which capsule it is.
+    this.ctx.fillStyle = this.demade
+      ? canvasPalette.demakeGround
+      : DARK_LETTER_DROP_KINDS.has(kind)
+        ? canvasPalette.dropLetterDark
+        : canvasPalette.dropLetterLight;
     this.ctx.font = dropGlyphFont(glyph);
     this.ctx.textAlign = "center";
     this.ctx.textBaseline = "middle";
@@ -720,10 +802,10 @@ export class CanvasRenderer {
     for (let index = 1; index < bolt.points.length; index++) {
       this.ctx.lineTo(bolt.points[index].x * SCALE, bolt.points[index].y * SCALE);
     }
-    this.ctx.strokeStyle = canvasPalette.chainBolt;
+    this.ctx.strokeStyle = this.ink(canvasPalette.chainBolt);
     this.ctx.lineWidth = 2 * SCALE;
     this.ctx.stroke();
-    this.ctx.strokeStyle = canvasPalette.chainCore;
+    this.ctx.strokeStyle = this.ink(canvasPalette.chainCore);
     this.ctx.lineWidth = 1 * SCALE;
     this.ctx.stroke();
   }
@@ -749,7 +831,7 @@ export class CanvasRenderer {
   // and not as something on the field.
   private drawStasisRing(ring: StasisRing): void {
     const age = gameConfig.powerUps.stasisRingLifeTicks - ring.ticksLeft;
-    this.ctx.strokeStyle = canvasPalette.stasisRing;
+    this.ctx.strokeStyle = this.ink(canvasPalette.stasisRing);
     this.ctx.lineWidth = 1 * SCALE;
     this.ctx.beginPath();
     this.ctx.arc(ring.x * SCALE, ring.y * SCALE, (2 + age * 1.5) * SCALE, 0, Math.PI * 2);
@@ -768,9 +850,16 @@ export class CanvasRenderer {
     this.ctx.font = `${7 * SCALE}px Silkscreen, monospace`;
     this.ctx.textAlign = "center";
     this.ctx.textBaseline = "middle";
-    this.ctx.fillStyle = canvasPalette.popShadow;
+    // A trap's pink and a bonus's mint both go ink, so the one thing the pop
+    // exists to say would be lost. Demade, a malus label is inverted instead —
+    // ground letters on an ink shadow — which is the 1-bit way to say the same
+    // thing, and the blink and the womp still say it twice over.
+    const inverted = this.demade && pop.malus;
+    this.ctx.fillStyle = this.ink(inverted ? canvasPalette.popMalus : canvasPalette.popShadow);
     this.ctx.fillText(pop.label, x + SCALE, y + SCALE);
-    this.ctx.fillStyle = pop.malus ? canvasPalette.popMalus : canvasPalette.popBonus;
+    this.ctx.fillStyle = this.ink(
+      inverted ? canvasPalette.popShadow : pop.malus ? canvasPalette.popMalus : canvasPalette.popBonus,
+    );
     this.ctx.fillText(pop.label, x, y);
   }
 

@@ -1,3 +1,5 @@
+import { canvasPalette } from "@render/palette";
+
 import type { BackgroundId } from "@interfaces/types";
 
 // Per-level playfield backgrounds. Each theme is painted once into an offscreen
@@ -353,13 +355,38 @@ export function paintBackground(
   PAINTERS[id](brush);
 }
 
+/**
+ * The luma at or above which a theme pixel is ink under DEMAKE, out of 255.
+ *
+ * Set against the two themes that would lose the most: vault's `stoneLight`
+ * sits at 19.4 and its `mortar` at 23.6, so 22 is the one place between them
+ * that keeps the stones dark and the joints lit — the wall stays a wall. The
+ * threshold is deliberately low because these tones were authored dark by the
+ * `check:backgrounds` rules in the first place; the field is meant to come out
+ * sparse, the way a real 1-bit port's would.
+ */
+const MONO_LUMA_THRESHOLD = 22;
+
+function toRgb(hex: string): readonly [number, number, number] {
+  const value = Number.parseInt(hex.slice(1), 16);
+  return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff];
+}
+
 // Holds the painted field for the level on screen. Levels change rarely, so one
 // canvas repainted on change beats caching every theme (each layer is a full
 // field bitmap).
+//
+// DEMAKE gets a second canvas beside it rather than a re-threshold per frame:
+// the reduction is a full 372x300 `getImageData` pass, and the capsule lasts
+// 480 ticks. Its own painted key, so the two layers can be on different levels
+// without either being repainted for the other's sake.
 export class BackgroundLayer {
   private readonly canvas = document.createElement("canvas");
   private readonly ctx: CanvasRenderingContext2D;
   private painted: string | null = null;
+  private readonly monoCanvas = document.createElement("canvas");
+  private readonly monoCtx: CanvasRenderingContext2D;
+  private monoPainted: string | null = null;
 
   constructor(
     private readonly width: number,
@@ -367,11 +394,15 @@ export class BackgroundLayer {
   ) {
     this.canvas.width = width;
     this.canvas.height = height;
+    this.monoCanvas.width = width;
+    this.monoCanvas.height = height;
     const ctx = this.canvas.getContext("2d");
-    if (!ctx) {
+    const monoCtx = this.monoCanvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx || !monoCtx) {
       throw new Error("2D background context unavailable");
     }
     this.ctx = ctx;
+    this.monoCtx = monoCtx;
   }
 
   imageFor(id: BackgroundId, variant: number): HTMLCanvasElement {
@@ -381,5 +412,30 @@ export class BackgroundLayer {
       this.painted = key;
     }
     return this.canvas;
+  }
+
+  // The same field, thresholded to the tube's two tones. Reduced from the
+  // colour layer rather than repainted through a 1-bit brush, so a theme is
+  // authored once and its demade twin can never drift from it.
+  monoImageFor(id: BackgroundId, variant: number): HTMLCanvasElement {
+    const key = `${id}:${variant}`;
+    if (this.monoPainted === key) {
+      return this.monoCanvas;
+    }
+    this.monoCtx.drawImage(this.imageFor(id, variant), 0, 0);
+    const image = this.monoCtx.getImageData(0, 0, this.width, this.height);
+    const { data } = image;
+    const ink = toRgb(canvasPalette.demakeInk);
+    const ground = toRgb(canvasPalette.demakeGround);
+    for (let index = 0; index < data.length; index += 4) {
+      const luma = 0.2126 * data[index] + 0.7152 * data[index + 1] + 0.0722 * data[index + 2];
+      const tone = luma >= MONO_LUMA_THRESHOLD ? ink : ground;
+      data[index] = tone[0];
+      data[index + 1] = tone[1];
+      data[index + 2] = tone[2];
+    }
+    this.monoCtx.putImageData(image, 0, 0);
+    this.monoPainted = key;
+    return this.monoCanvas;
   }
 }

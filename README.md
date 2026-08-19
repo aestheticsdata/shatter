@@ -11,47 +11,51 @@ The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372�
 - **Per-level backgrounds**: eight playfield themes (starfield, nebula haze, blueprint grid, sunrise horizon, gas giant, circuit board, CRT cathode, stone vault), assigned so no two consecutive levels look alike, each seeded per level so the levels sharing a theme still differ. Every theme is static and stays darker than the sprite palette — a `check:backgrounds` script enforces it.
 - **Power-ups** dropped by destroyed bricks, each catch acknowledged by a floating label at the paddle. How often a brick drops anything at all is `bonusSpreadAmount`; _which_ capsule it drops is the rarity tier below, and the two are independent.
 
-  |      | Capsule     | Effect                                                      | Duration | Rarity   |
-  | ---- | ----------- | ----------------------------------------------------------- | -------- | -------- |
-  | `WI` | WIDE        | wider paddle                                                | 12 s     | common   |
-  | `MU` | MULTI       | more balls, stacking 3 → 6 → 9                              | instant  | common   |
-  | `LA` | LASER       | paddle cannons                                              | 12 s     | common   |
-  | `BL` | BLAST       | ball kills damage the 8 neighbours                          | 12 s     | common   |
-  | `TE` | TEMPO       | bullet-time, balls at ×0.6                                  | 8 s      | common   |
-  | `GL` | GLUE        | balls stick to the paddle; click or Space releases          | 12 s     | common   |
-  | `ST` | STASIS      | every ball stops in mid-air; the paddle keeps going         | 1.5 s    | common   |
-  | `HO` | HOMING      | balls curve toward the nearest live brick                   | 8 s      | common   |
-  | `MI` | MIRROR      | a ghost paddle rides the top of the field                   | 10 s     | common   |
-  | `CH` | CHAIN       | ball kills arc lightning to bricks they don't touch         | 10 s     | uncommon |
-  | `MA` | MAGNET      | the paddle vacuums falling capsules in, traps too           | 12 s     | common   |
-  | `SI` | SINGULARITY | a black hole bends every ball and eats capsules             | 6 s      | uncommon |
-  | `PO` | PORTAL      | a ball leaving one side wall arrives out of the other       | 30 s     | uncommon |
-  | `BU` | BUMPERS     | five pinball discs under the grid, 100 points a kick        | 12 s     | uncommon |
-  | `PI` | PIERCE      | ball goes through bricks                                    | 8 s      | uncommon |
-  | `WA` | WALL        | safety barrier along the bottom                             | one save | uncommon |
-  | `PA` | PAYDAY      | points ×2                                                   | 10 s     | uncommon |
-  | `ZA` | ZAP         | vaporizes the bottom-most brick row                         | instant  | uncommon |
-  | `QU` | QUAKE       | the bottom row dies, the rest slide down, field shakes      | instant  | uncommon |
-  | `RA` | RAIN        | a shower of 4 fresh capsules from the top                   | instant  | uncommon |
-  | `CR` | CRITTER     | a grub walks the grid eating a brick every 0.3 s            | 15 s     | uncommon |
-  | `NU` | NUKE        | a shockwave destroys every brick, full points               | instant  | rare     |
-  | `SW` | SWARM       | 12 balls at once                                            | instant  | rare     |
-  | `1U` | 1UP         | extra life, max 6                                           | instant  | rare     |
-  | `XW` | XWIDE       | twice the WIDE deck, 144 px of paddle                       | 12 s     | rare     |
-  | `XR` | XRAY        | every brick shows the capsule it is holding                 | 5 s      | rare     |
-  | `ME` | METEOR      | three meteors drill three lanes through the wall            | instant  | rare     |
-  | `GH` | GHOST       | **trap** — the wall goes intangible; the ball flies through | 5 s      | trap     |
-  | `SP` | SPLIT       | **trap** — the deck breaks in two, hole down the middle     | 6 s      | trap     |
-  | `RU` | RUSH        | **trap** — every ball at ×1.8                               | 5 s      | trap     |
-  | `BO` | BOMB        | catching it blows the paddle up: you lose a life            | instant  | trap     |
-  | `JA` | JAMMER      | **trap** — shrinks the paddle                               | 6 s      | trap     |
+  |      | Capsule     | Effect                                                                                    | Duration  | Rarity   |
+  | ---- | ----------- | ----------------------------------------------------------------------------------------- | --------- | -------- |
+  | `WI` | WIDE        | wider paddle                                                                              | 12 s      | common   |
+  | `MU` | MULTI       | more balls, stacking 3 → 6 → 9                                                            | instant   | common   |
+  | `LA` | LASER       | paddle cannons                                                                            | 12 s      | common   |
+  | `BL` | BLAST       | ball kills damage the 8 neighbours                                                        | 12 s      | common   |
+  | `TE` | TEMPO       | bullet-time, balls at ×0.6                                                                | 8 s       | common   |
+  | `GL` | GLUE        | balls stick to the paddle; click or Space releases                                        | 12 s      | common   |
+  | `ST` | STASIS      | every ball stops in mid-air; the paddle keeps going                                       | 1.5 s     | common   |
+  | `HO` | HOMING      | balls curve toward the nearest live brick                                                 | 8 s       | common   |
+  | `MI` | MIRROR      | a ghost paddle rides the top of the field                                                 | 10 s      | common   |
+  | `CH` | CHAIN       | ball kills arc lightning to bricks they don't touch                                       | 10 s      | uncommon |
+  | `MA` | MAGNET      | the paddle vacuums falling capsules in, traps too                                         | 12 s      | common   |
+  | `SI` | SINGULARITY | a black hole bends every ball and eats capsules                                           | 6 s       | uncommon |
+  | `PO` | PORTAL      | a ball leaving one side wall arrives out of the other                                     | 30 s      | uncommon |
+  | `BU` | BUMPERS     | five pinball discs under the grid, 100 points a kick                                      | 12 s      | uncommon |
+  | `PI` | PIERCE      | ball goes through bricks                                                                  | 8 s       | uncommon |
+  | `WA` | WALL        | safety barrier along the bottom                                                           | one save  | uncommon |
+  | `PA` | PAYDAY      | points ×2                                                                                 | 10 s      | uncommon |
+  | `ZA` | ZAP         | vaporizes the bottom-most brick row                                                       | instant   | uncommon |
+  | `QU` | QUAKE       | the bottom row dies, the rest slide down, field shakes                                    | instant   | uncommon |
+  | `RA` | RAIN        | a shower of 4 fresh capsules from the top                                                 | instant   | uncommon |
+  | `CR` | CRITTER     | a grub walks the grid eating a brick every 0.3 s                                          | 15 s      | uncommon |
+  | `NU` | NUKE        | a shockwave destroys every brick, full points                                             | instant   | rare     |
+  | `SW` | SWARM       | 12 balls at once                                                                          | instant   | rare     |
+  | `1U` | 1UP         | extra life, max 6                                                                         | instant   | rare     |
+  | `XW` | XWIDE       | twice the WIDE deck, 144 px of paddle                                                     | 12 s      | rare     |
+  | `XR` | XRAY        | every brick shows the capsule it is holding                                               | 5 s       | rare     |
+  | `ME` | METEOR      | three meteors drill three lanes through the wall                                          | instant   | rare     |
+  | `GH` | GHOST       | **trap** — the wall goes intangible; the ball flies through                               | 5 s       | trap     |
+  | `SP` | SPLIT       | **trap** — the deck breaks in two, hole down the middle                                   | 6 s       | trap     |
+  | `RU` | RUSH        | **trap** — every ball at ×1.8                                                             | 5 s       | trap     |
+  | `BO` | BOMB        | catching it blows the paddle up: you lose a life                                          | instant   | trap     |
+  | `JA` | JAMMER      | **trap** — shrinks the paddle                                                             | 6 s       | trap     |
+  | `BA` | BANANA      | **trap** — leaves a peel on the rail; sweeping it hands the deck to momentum for a second | 10 s peel | trap     |
+  | `DE` | DEMAKE      | **trap** — the machine downgrades itself to a 1-bit green phosphor tube                   | 8 s       | trap     |
 
   **A trap says so before you catch it**: its glyph blinks as it falls, and the catch pop is pink with a detuning womp instead of the usual chime. That tell is the `trap` tier itself, so it costs a new trap capsule nothing to get all three.
+
+  **DEMAKE is the one trap that costs nothing but nerve.** For 8 seconds the whole machine downgrades itself — playfield, side panel and sound chip drop to a 1-bit green phosphor tube with scanlines, flat squares and no noise channel — while the simulation underneath is untouched: same ball, same paddle, same score. It is the only capsule that touches presentation at all, which is why it is barred from a run's first level: the gag only reads as the machine breaking down once you have seen the machine working. The reduction runs off two tones and one rule — the sprite palette's _shadow_ role becomes the tube's ground and everything else its ink, so the 1px bevels the art is banded with survive and the wall stays a wall; the field theme is thresholded by luma into the same two tones and cached beside its colour twin.
 
   The side panel's **POWER** inset names the live effects while they fit its 13 characters (`WIDE MULTI x3`) and packs them into a still glyph row when they do not (`E M3 L P B +5`) — a row that holds still can be read mid-rally, which a label cycling one name per second could not.
 
 - **Scoring**: 60–200 points per brick by kind, level-clear bonus `(level+1) × 500`. The top-5 hall of fame is **shared across all players**: scores live in a server-side SQLite table behind the `shatter-api` service, with `localStorage` (`shatter.hiscores.v1`) as instant-boot cache and offline fallback — the game never waits on the network.
-- **Audio**: WebAudio chiptune SFX, 100% synthesized (no assets): a per-event sound bank (square pitch-bends, detuned pairs, filtered noise bursts) on a master gain → compressor chain, with a 30 ms retrigger guard against same-tick pile-ups. An SFX volume fader lives in the side panel (persisted in `localStorage` `shatter.volume.v1`, scaling the master gain ahead of the compressor). An inaudible 30 Hz keep-warm tone stops browser/HDMI/Bluetooth silence detection from swallowing short impact blips.
+- **Audio**: WebAudio chiptune SFX, 100% synthesized (no assets): a per-event sound bank (square pitch-bends, detuned pairs, filtered noise bursts) on a master gain → compressor chain, with a 30 ms retrigger guard against same-tick pile-ups. An SFX volume fader lives in the side panel (persisted in `localStorage` `shatter.volume.v1`, scaling the master gain ahead of the compressor). An inaudible 30 Hz keep-warm tone stops browser/HDMI/Bluetooth silence detection from swallowing short impact blips. Every voice in the bank goes out through three private wrappers, which is what lets DEMAKE downgrade the chip along with the screen in one flag rather than one branch per sound: glides, detuning and the noise channel all go, leaving flat squares.
 
 ### Controls
 

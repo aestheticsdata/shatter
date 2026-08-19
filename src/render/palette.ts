@@ -102,8 +102,44 @@ export const canvasPalette = {
   critterUnder: "#8a5a2a",
   critterJaw: "#e8384f",
   critterEye: "#0b0b26",
+  // BANANA: the peel on the rail, in the capsule's own body over the gold
+  // brick's shade — what is lying there reads as what was caught, which is the
+  // only warning the player gets before stepping on it.
+  peelBody: "#e2fe74",
+  peelShade: "#8a6a00",
   // METEOR: a white-hot core under the capsule's own ember, the flame drawn on
   // the trailing side so a rock reads as falling even in a still frame.
   meteorCore: "#ffe8b0",
   meteorFlame: "#c84b19",
+  // DEMAKE: the two tones the whole machine collapses onto for 8 seconds. Ink
+  // is a P1 phosphor at the brightness a sprite has to hold against the ground,
+  // which is the tube's black with just enough green in it to read as glass
+  // rather than as a hole in the screen.
+  demakeInk: "#6cf08a",
+  demakeGround: "#07160c",
 } as const;
+
+/**
+ * The sprite tones DEMAKE paints as ground; everything else becomes ink.
+ *
+ * The rule is the **shadow role**, not a brightness: 1-bit art is edges, and
+ * the game's edges are the 1px bevels every sprite is banded with. Flattening
+ * those to one tone would turn the field into green slabs — the bricks would
+ * lose their grid, the paddle its ends, the wall its depth.
+ *
+ * Which is also why the list is longer than the bevels: a hole that goes ink is
+ * a disc, and three portal bands that all go ink stop scrolling. A tone earns a
+ * place here when going ink would cost a *shape*, not merely a shade.
+ *
+ * Deduplicated by value, so `paddleBottomShade` (the blue brick's own dark),
+ * `peelShade` (the gold brick's), and `popShadow`/`bumperCore`/`critterEye`
+ * (all `dropShade`) are already covered by the entries below.
+ */
+export const DEMAKE_GROUND_TONES: ReadonlySet<string> = new Set([
+  ...Object.values(BRICK_COLORS).map((set) => set.dark),
+  canvasPalette.wallShade,
+  canvasPalette.ballShade,
+  canvasPalette.dropShade,
+  canvasPalette.singularityCore,
+  canvasPalette.portalDark,
+]);
