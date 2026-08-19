@@ -79,6 +79,11 @@ export const gameConfig = {
     // otherwise spawn balls on identical trajectories that never diverge.
     ballFanJitterRad: 0.12,
     tempoTimeScale: 0.6,
+    // RUSH, the same knob pulled the other way. 1.8 puts the level-15 ceiling of
+    // 4.6 px/tick at 8.28 — a field crossing in ~36 ticks, which reads as much
+    // too fast from the first frame without being unplayable. Both scales are one
+    // product in `moveBall`, so a TEMPO caught during a RUSH lands at 1.08.
+    rushTimeScale: 1.8,
     wallY: 294,
     splashFlashTicks: 3,
     catchPopLifeTicks: 48,

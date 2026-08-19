@@ -65,6 +65,11 @@ export const canvasPalette = {
   mirrorBody: "#1e5796",
   mirrorCap: "#93273a",
   mirrorSheen: "#5f8fc4",
+  // RUSH's streak: the ball smeared along the path it covered this tick. Amber
+  // into the capsule's own crimson, so the trail says both "moving" and "this
+  // is the red thing you caught" — a plain grey blur said neither.
+  rushTrailNear: "#ff8a1c",
+  rushTrailFar: "#e1001b",
   // CHAIN's arc: the capsule's mint under a white core, so a bolt reads as hot
   // on every field the game paints.
   chainBolt: "#3dff8e",

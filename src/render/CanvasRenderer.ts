@@ -23,6 +23,14 @@ import type {
   StasisRing,
 } from "@interfaces/types";
 
+// RUSH's streak, as [how far back along this tick's displacement, tone]. Far
+// first, so the near copy paints over it and the smear darkens away from the
+// ball. Two is the whole trail: three read as a snake, one as a rendering fault.
+const BALL_TRAIL_STEPS: ReadonlyArray<readonly [number, string]> = [
+  [0.8, canvasPalette.rushTrailFar],
+  [0.4, canvasPalette.rushTrailNear],
+];
+
 const BALL_PIXEL_ROWS: ReadonlyArray<readonly [number, number]> = [
   [2, 4],
   [1, 6],
@@ -194,6 +202,10 @@ export interface RenderView {
   paddleHidden: boolean;
   bumpers: readonly Bumper[];
   balls: readonly Ball[];
+  // RUSH: the scale the simulation is stepping balls at, or 0 when nothing is
+  // speeding them up. It is a distance rather than a flag because the streak has
+  // to be the ground actually covered — see the note where the view is built.
+  ballTrail: number;
   drops: readonly Drop[];
   shots: readonly Shot[];
   flashes: readonly BrickFlash[];
@@ -304,7 +316,7 @@ export class CanvasRenderer {
     }
     for (const ball of view.balls) {
       if (ball.active) {
-        this.drawBall(ball);
+        this.drawBall(ball, view.ballTrail);
       }
     }
 
@@ -478,8 +490,23 @@ export class CanvasRenderer {
     this.spritePixel(x + 9, y + height - 1, width - 18, 1, colors.shade);
   }
 
-  private drawBall(ball: Ball): void {
+  // A ball at 8 px a tick is genuinely hard to follow, which is the trap — but it
+  // has to stay trackable enough to be fair, so RUSH smears it. The copies are
+  // computed off the velocity already in hand: no per-ball history, nothing to
+  // clear on a reset. A ball glued to the paddle keeps its stored velocity and is
+  // going nowhere, so it gets no streak.
+  private drawBall(ball: Ball, trail: number): void {
     const { x, y } = ball;
+
+    if (trail > 0 && ball.stuckOffsetX === null) {
+      for (const [step, color] of BALL_TRAIL_STEPS) {
+        const trailX = x - ball.velocity.x * trail * step;
+        const trailY = y - ball.velocity.y * trail * step;
+        BALL_PIXEL_ROWS.forEach(([offset, span], rowIndex) => {
+          this.spritePixel(trailX + offset, trailY + rowIndex, span, 1, color);
+        });
+      }
+    }
 
     BALL_PIXEL_ROWS.forEach(([offset, span], rowIndex) => {
       this.spritePixel(x + offset, y + rowIndex, span, 1, canvasPalette.ballBody);

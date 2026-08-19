@@ -38,6 +38,7 @@ The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372�
   | `S`  | SWARM       | 12 balls at once                                            | instant  | rare     |
   | `U`  | 1UP         | extra life, max 6                                           | instant  | rare     |
   | `GH` | GHOST       | **trap** — the wall goes intangible; the ball flies through | 5 s      | trap     |
+  | `RU` | RUSH        | **trap** — every ball at ×1.8                               | 5 s      | trap     |
   | `BM` | BOMB        | catching it blows the paddle up: you lose a life            | instant  | trap     |
   | `J`  | JAMMER      | **trap** — shrinks the paddle                               | 6 s      | trap     |
 

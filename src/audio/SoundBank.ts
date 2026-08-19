@@ -331,6 +331,17 @@ export class SoundBank {
     this.sound.tone({ freq: 660, dur: 0.08, vol: 0.07, delayS: 0.18 });
   }
 
+  // RUSH letting go: stasisRelease run the other way up, because the event is the
+  // other way round — the ball is coming back down to its own speed, not being
+  // handed back its motion. The blip lands on the beat it is true again.
+  rushRelease(): void {
+    if (!this.allow("rushRelease")) {
+      return;
+    }
+    this.sound.tone({ freq: 880, freqEnd: 220, dur: 0.22, vol: 0.07, type: "sawtooth" });
+    this.sound.tone({ freq: 330, dur: 0.08, vol: 0.06, delayS: 0.2 });
+  }
+
   // Detune-beat "womp": the two layers drift apart as they fall. Every trap
   // catch gets it — one sound for the tier, not one per capsule.
   malusPickup(): void {

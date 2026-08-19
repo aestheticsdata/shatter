@@ -198,6 +198,10 @@ export class ShatterGame {
       paddleHidden: this.deathCountdown > 0,
       bumpers: this.bumpers.discs,
       balls: this.balls,
+      // The streak draws the ground a ball actually covers, so it is the live
+      // product and not the RUSH scale alone — a TEMPO in hand shortens it. Zero
+      // while STASIS holds the field: frozen balls cover nothing.
+      ballTrail: this.timers.isActive("RU") && !this.timers.isActive("I") ? this.ballTimeScale() : 0,
       drops: this.dropPool.drops,
       shots: this.shotPool.shots,
       flashes: this.brickFlashes,
@@ -318,6 +322,11 @@ export class ShatterGame {
     // are out — `ghosted` owns that — so this is only the announcement.
     if (expired.includes("GH")) {
       this.deps.sfx.ghostSolidify();
+    }
+    // Nothing to undo — the scale is gone the moment the timer is — but the ball
+    // dropping back to true speed has to be heard by someone whose eyes are on it.
+    if (expired.includes("RU")) {
+      this.deps.sfx.rushRelease();
     }
 
     if (this.timers.isActive("L") && --this.laserCountdown <= 0) {
@@ -597,6 +606,16 @@ export class ShatterGame {
     return ball.phasing;
   }
 
+  // Both time scales in one product: TEMPO slows, RUSH speeds, and a field
+  // holding both lands at 1.08 — near-normal, which is the counter-play TEMPO is
+  // meant to be and wants no special case. Displacement only, so stored
+  // velocities are untouched and either capsule expiring restores the true speed
+  // with nothing to unwind.
+  private ballTimeScale(): number {
+    const { tempoTimeScale, rushTimeScale } = gameConfig.powerUps;
+    return (this.timers.isActive("T") ? tempoTimeScale : 1) * (this.timers.isActive("RU") ? rushTimeScale : 1);
+  }
+
   private moveBall(ball: Ball, index: number): void {
     // Guidance, then physics. Anything that bends a ball without touching its
     // speed belongs here, once per tick — never inside the sub-step loop, where
@@ -608,8 +627,7 @@ export class ShatterGame {
     if (this.timers.isActive("H") && !insideCore) {
       this.steerBall(ball);
     }
-    // TEMPO scales displacement only, so stored velocities resume full speed on expiry.
-    const timeScale = this.timers.isActive("T") ? gameConfig.powerUps.tempoTimeScale : 1;
+    const timeScale = this.ballTimeScale();
     const stepVx = ball.velocity.x * timeScale;
     const stepVy = ball.velocity.y * timeScale;
     const subSteps = Math.max(1, Math.ceil(Math.max(Math.abs(stepVx), Math.abs(stepVy)) / 2));
@@ -1215,6 +1233,9 @@ export class ShatterGame {
     }
     if (kind === "CR") {
       this.spawnCritter();
+    }
+    if (kind === "RU") {
+      this.timers.activate("RU", durations.RU);
     }
 
     if (kind === "N") {
