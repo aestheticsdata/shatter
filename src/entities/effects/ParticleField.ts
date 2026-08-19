@@ -1,5 +1,7 @@
 import { gameConfig } from "@core/config/GameConfig";
+import { nearestCore } from "@entities/effects/Singularity";
 
+import type { Core } from "@entities/effects/Singularity";
 import type { BrickKind, BurstSpec } from "@interfaces/types";
 
 function randomBetween(min: number, max: number): number {
@@ -47,10 +49,13 @@ export class ParticleField {
     }
   }
 
-  // With an attractor open, debris forgets gravity and falls toward it instead.
-  // The damping is what makes that a spiral rather than a straight dive, and a
-  // chunk that reaches the middle is gone — nothing accumulates in the core.
-  step(attractor?: { x: number; y: number }): void {
+  // With a hole open, debris forgets gravity and falls toward it instead. The
+  // damping is what makes that a spiral rather than a straight dive, and a chunk
+  // that reaches the middle is gone — nothing accumulates in a core.
+  //
+  // With both holes open a chunk answers to the nearer one rather than to the
+  // sum of the two — see `nearestCore`.
+  step(cores: readonly Core[]): void {
     const { debrisConstant, debrisDamping, debrisEatRadius, minDistance } = gameConfig.powerUps.singularity;
 
     for (const particle of this.particles) {
@@ -59,15 +64,16 @@ export class ParticleField {
       }
       particle.ticksLeft--;
 
+      const attractor = nearestCore(cores, particle.x, particle.y);
       if (attractor) {
         const toCoreX = attractor.x - particle.x;
         const toCoreY = attractor.y - particle.y;
         const distance = Math.hypot(toCoreX, toCoreY);
-        if (distance <= debrisEatRadius) {
+        if (distance <= attractor.reach(debrisEatRadius)) {
           particle.ticksLeft = 0;
           continue;
         }
-        const pull = debrisConstant / Math.max(distance, minDistance) ** 2;
+        const pull = attractor.pull(debrisConstant) / Math.max(distance, attractor.reach(minDistance)) ** 2;
         particle.vx = (particle.vx + (toCoreX / distance) * pull) * debrisDamping;
         particle.vy = (particle.vy + (toCoreY / distance) * pull) * debrisDamping;
       } else {

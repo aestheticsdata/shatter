@@ -108,14 +108,24 @@ export class ShatterGame {
   private stasisRings: StasisRing[] = [];
   private bolts: ChainBolt[] = [];
   private readonly singularity = new Singularity();
+  private readonly vortex = new Singularity();
+  // Both black holes, in the order everything that walks them uses: SINGULARITY's
+  // fixed core first, VORTEX's drifting one second. Two entries today, and every
+  // loop over them is written for the array rather than the pair, so a third
+  // hole is a row here and nothing else.
+  private readonly cores: readonly Singularity[] = [this.singularity, this.vortex];
   private readonly bumpers = new BumperField();
   private readonly quake = new Quake();
   private readonly critter = new Critter();
   private readonly meteors = new MeteorField();
-  // Ticks each ball has spent inside the core's reach. Indexed by ball slot,
-  // which is a stable identity: `balls` is a fixed array built once at
+  // Ticks each ball has spent inside each core's reach, indexed `[core][ball]`.
+  // Ball slot is a stable identity: `balls` is a fixed array built once at
   // construction and never reordered. If that ever changes, this moves onto Ball.
-  private readonly singularityHold: number[] = Array.from({ length: MAX_BALLS }, () => 0);
+  //
+  // Per core and not per ball: the two holes hold a ball independently, and one
+  // counter would let a ball that merely crossed VORTEX come out of SINGULARITY
+  // already released.
+  private readonly coreHold: number[][] = this.cores.map(() => Array.from({ length: MAX_BALLS }, () => 0));
   // `null` until a `bonus` command sets it; see bonusSpreadAmount().
   private bonusSpreadOverride: number | null = null;
 
@@ -250,7 +260,7 @@ export class ShatterGame {
       particles: this.particles.particles,
       meteors: this.meteors.meteors,
       detonation: this.detonation,
-      singularity: this.singularity,
+      cores: this.cores,
       quake: this.quake,
       critter: this.critter,
       energyWallArmed: this.wallArmed,
@@ -289,7 +299,7 @@ export class ShatterGame {
       pop.y -= gameConfig.powerUps.catchPopRiseSpeed;
     }
     this.catchPops = this.catchPops.filter((pop) => --pop.ticksLeft > 0);
-    this.particles.step(this.singularity.active ? this.singularity : undefined);
+    this.particles.step(this.cores);
     this.quake.step();
     // Above the freeze gates like the shake: a NUKE caught mid-fade must not
     // hold the wall half-dissolved on screen.
@@ -325,8 +335,10 @@ export class ShatterGame {
     }
 
     const expired = this.timers.tick();
-    if (this.singularity.active) {
-      this.singularity.step();
+    for (const core of this.cores) {
+      if (core.active) {
+        core.step();
+      }
     }
     this.bumpers.step();
     // The deck goes back to base only when the last width capsule has run out:
@@ -352,7 +364,10 @@ export class ShatterGame {
       }
     }
     if (expired.includes("V")) {
-      this.closeSingularity();
+      this.closeCore(this.singularity);
+    }
+    if (expired.includes("VX")) {
+      this.closeCore(this.vortex);
     }
     if (expired.includes("O")) {
       this.bumpers.reset();
@@ -416,7 +431,7 @@ export class ShatterGame {
     if (this.clearCountdown === 0) {
       const field = {
         magnetActive: this.timers.isActive("K"),
-        core: this.singularity.active ? this.singularity : null,
+        cores: this.cores,
         onSwallowed: (x: number, y: number) => {
           this.particles.burst(x, y, "S", gameConfig.effects.brickDeathBurst);
         },
@@ -434,40 +449,45 @@ export class ShatterGame {
   }
 
   /**
-   * SINGULARITY: bend one ball toward the core, at unchanged speed.
+   * SINGULARITY and VORTEX: bend one ball toward every open hole, at unchanged
+   * speed.
    *
-   * Returns whether the ball is inside the core's reach, which is where HOMING
-   * stands aside. A ball is never eaten and never accelerated: the impulse goes
-   * on and the speed comes straight back off, so what the core changes is
-   * heading alone — and a ball dragged in from low on the field is dragged
-   * *away* from the loss line, never into it.
+   * Returns whether the ball is inside any core's reach, which is where HOMING
+   * stands aside. A ball is never eaten and never accelerated: the impulses go
+   * on and the speed comes straight back off, so what a core changes is heading
+   * alone — and a ball dragged in from low on the field is dragged *away* from
+   * the loss line, never into it.
+   *
+   * Both holes are summed before the one renormalise at the end. Normalising
+   * per core would make the pair order-dependent — the second hole's bend
+   * applied to a heading the first had already stretched to full speed — and a
+   * ball between them would drift toward whichever came last in the array.
    */
-  private pullIntoSingularity(ball: Ball, index: number): boolean {
-    const { pullConstant, minDistance, homingCutoff, holdDecay, holdRelease, holdFree } =
-      gameConfig.powerUps.singularity;
-    const toCoreX = this.singularity.x - ball.centerX;
-    const toCoreY = this.singularity.y - (ball.y + gameConfig.ball.size / 2);
-    const distance = Math.hypot(toCoreX, toCoreY);
-    const inside = distance <= homingCutoff;
+  private pullIntoCores(ball: Ball, index: number): boolean {
+    const { holdDecay, holdRelease, holdFree } = gameConfig.powerUps.singularity;
+    let inside = false;
+    let bent = false;
 
-    // Held time climbs while the ball is close and drains twice as fast once it
-    // is out, so passing through costs nothing and circling ends itself.
-    this.singularityHold[index] = inside
-      ? this.singularityHold[index] + 1
-      : Math.max(0, this.singularityHold[index] - holdDecay);
-    const held = this.singularityHold[index];
-    const pullScale = Math.max(0, Math.min(1, 1 - (held - holdRelease) / (holdFree - holdRelease)));
-    if (pullScale === 0 || distance === 0) {
+    for (const [slot, core] of this.cores.entries()) {
+      if (!core.active) {
+        continue;
+      }
+      const hold = this.coreHold[slot];
+      const held = this.heldBy(core, ball);
+      inside = held || inside;
+      // Held time climbs while the ball is close and drains twice as fast once it
+      // is out, so passing through costs nothing and circling ends itself.
+      hold[index] = held ? hold[index] + 1 : Math.max(0, hold[index] - holdDecay);
+      const pullScale = Math.max(0, Math.min(1, 1 - (hold[index] - holdRelease) / (holdFree - holdRelease)));
+      bent = this.bendTowardCore(ball, core, pullScale) || bent;
+    }
+    if (!bent) {
       return inside;
     }
 
-    const acceleration = (pullConstant / Math.max(distance, minDistance) ** 2) * pullScale;
-    ball.velocity.x += (toCoreX / distance) * acceleration;
-    ball.velocity.y += (toCoreY / distance) * acceleration;
-
-    // One renormalise for the whole guidance step: the core bends a ball, it
-    // never speeds one up. HOMING preserves speed on its own, so running after
-    // this cannot undo it.
+    // One renormalise for the whole guidance step: a core bends a ball, it never
+    // speeds one up. HOMING preserves speed on its own, so running after this
+    // cannot undo it.
     const speed = Math.hypot(ball.velocity.x, ball.velocity.y);
     const wanted = this.speed();
     ball.velocity.x = (ball.velocity.x / speed) * wanted;
@@ -475,9 +495,75 @@ export class ShatterGame {
     return inside;
   }
 
-  private closeSingularity(): void {
-    this.singularity.reset();
-    this.singularityHold.fill(0);
+  // Whether this ball is close enough to `core` for it to own the guidance.
+  // The cutoff is the core's own, so the bigger hole waves HOMING off from
+  // proportionally further out.
+  private heldBy(core: Singularity, ball: Ball): boolean {
+    const { homingCutoff } = gameConfig.powerUps.singularity;
+    const toCoreX = core.x - ball.centerX;
+    const toCoreY = core.y - (ball.y + gameConfig.ball.size / 2);
+    return Math.hypot(toCoreX, toCoreY) <= core.reach(homingCutoff);
+  }
+
+  // One core's impulse, added raw. Reports whether it added anything, which is
+  // what tells the caller there is a heading to renormalise.
+  //
+  // The constant and the floor are the core's own: the inverse-square law is the
+  // same curve at both sizes, read 1.5x further out at VORTEX.
+  private bendTowardCore(ball: Ball, core: Singularity, pullScale: number): boolean {
+    const { pullConstant, minDistance } = gameConfig.powerUps.singularity;
+    const toCoreX = core.x - ball.centerX;
+    const toCoreY = core.y - (ball.y + gameConfig.ball.size / 2);
+    const distance = Math.hypot(toCoreX, toCoreY);
+    if (pullScale === 0 || distance === 0) {
+      return false;
+    }
+
+    const acceleration = (core.pull(pullConstant) / Math.max(distance, core.reach(minDistance)) ** 2) * pullScale;
+    ball.velocity.x += (toCoreX / distance) * acceleration;
+    ball.velocity.y += (toCoreY / distance) * acceleration;
+    return true;
+  }
+
+  /**
+   * VORTEX: open the drifting hole somewhere new, heading somewhere new.
+   *
+   * A fixed spawn would make the second hole a second landmark, and the whole
+   * point of it is that it is never where it was last time. The heading is drawn
+   * near horizontal because the roam box is 260 px wide and 34 tall: a steep one
+   * is a hole that bounces top to bottom and never crosses the field.
+   *
+   * A second catch over an open vortex buys time instead of moving it — see
+   * `Singularity.renew`.
+   */
+  private openVortex(lifeTicks: number): void {
+    if (this.vortex.active) {
+      this.vortex.renew(lifeTicks);
+      return;
+    }
+    const { scale, driftSpeed, driftMaxAngle, left, right, top, bottom } = gameConfig.powerUps.vortex;
+    const heading = (Math.random() * 2 - 1) * driftMaxAngle + (Math.random() < 0.5 ? 0 : Math.PI);
+    this.vortex.open({
+      x: left + Math.random() * (right - left),
+      y: top + Math.random() * (bottom - top),
+      lifeTicks,
+      scale,
+      drift: { speed: driftSpeed, angle: heading, left, right, top, bottom },
+    });
+  }
+
+  private closeCore(core: Singularity): void {
+    core.reset();
+    this.coreHold[this.cores.indexOf(core)].fill(0);
+  }
+
+  private closeCores(): void {
+    for (const core of this.cores) {
+      core.reset();
+    }
+    for (const hold of this.coreHold) {
+      hold.fill(0);
+    }
   }
 
   /**
@@ -664,7 +750,7 @@ export class ShatterGame {
     //
     // The core goes first because it is physics; HOMING is aim, and it gives way
     // wherever the core has real hold of the ball.
-    const insideCore = this.singularity.active && this.pullIntoSingularity(ball, index);
+    const insideCore = this.pullIntoCores(ball, index);
     if (this.timers.isActive("H") && !insideCore) {
       this.steerBall(ball);
     }
@@ -1250,7 +1336,7 @@ export class ShatterGame {
     this.catchPops = [];
     this.stasisRings = [];
     this.bolts = [];
-    this.closeSingularity();
+    this.closeCores();
     this.bumpers.reset();
     this.quake.reset();
     this.critter.reset();
@@ -1364,8 +1450,13 @@ export class ShatterGame {
       this.guaranteedDrop = true;
     }
     if (kind === "V") {
+      const { x, y } = gameConfig.powerUps.singularity;
       this.timers.activate("V", durations.V);
-      this.singularity.open(durations.V);
+      this.singularity.open({ x, y, lifeTicks: durations.V, scale: 1 });
+    }
+    if (kind === "VX") {
+      this.timers.activate("VX", durations.VX);
+      this.openVortex(durations.VX);
     }
     if (kind === "BM") {
       this.blowUpPaddle();
@@ -1426,6 +1517,8 @@ export class ShatterGame {
       this.deps.sfx.malusPickup();
     } else if (kind === "V") {
       this.deps.sfx.singularityOpen();
+    } else if (kind === "VX") {
+      this.deps.sfx.singularityOpen(gameConfig.powerUps.vortex.scale);
     } else if (kind === "I") {
       this.deps.sfx.stasisFreeze();
     } else if (kind === "U") {
@@ -1655,7 +1748,7 @@ export class ShatterGame {
     this.catchPops = [];
     this.stasisRings = [];
     this.bolts = [];
-    this.closeSingularity();
+    this.closeCores();
     this.bumpers.reset();
     this.quake.reset();
     this.critter.reset();
@@ -1694,7 +1787,7 @@ export class ShatterGame {
     this.catchPops = [];
     this.stasisRings = [];
     this.bolts = [];
-    this.closeSingularity();
+    this.closeCores();
     this.bumpers.reset();
     this.quake.reset();
     this.critter.reset();

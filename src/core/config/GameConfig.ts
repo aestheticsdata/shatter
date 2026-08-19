@@ -185,6 +185,28 @@ export const gameConfig = {
       debrisDamping: 0.97,
       debrisEatRadius: 6,
     },
+    // VORTEX. The same hole and every number above it, one and a half times
+    // across and adrift: only what differs lives here, and `Singularity.reach`
+    // derives the rest, so the two can never fall out of step.
+    vortex: {
+      scale: 1.5,
+      // 21 px/s — about two thirds of the field over the 12 s it stays open. A
+      // hole the player has to keep re-reading, not one that outruns the rally.
+      driftSpeed: 0.35,
+      // The box the centre stays inside. `top` clears the deepest grid, which
+      // bottoms out at y 134, and `bottom` leaves 104 px to the paddle: that is
+      // the property the fixed core's y was chosen for, that a hole above the
+      // balls bends them off the loss line rather than into it. x is inset by
+      // the 18 px disc and a margin, so a full-size disc clears both walls.
+      left: 56,
+      right: 316,
+      top: 138,
+      bottom: 172,
+      // How far off horizontal it may set out, in radians. The box is 260 px
+      // wide and 34 tall, so a steep heading is a hole that bounces top to
+      // bottom and never crosses; 0.5 rad is a 29° drift that zigzags gently.
+      driftMaxAngle: 0.5,
+    },
     // BUMPERS. Five discs of radius 9 in the empty band under the grid, so a
     // ball centre inside 9 + 4 px of one is touching it: at <= 2 px per
     // sub-step, a 26 px target cannot be tunnelled through.

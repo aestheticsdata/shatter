@@ -280,13 +280,22 @@ export class SoundBank {
   // A hole opening: a slow sawtooth climb under noise widening out of nothing.
   // Only the opening is heard — `Sound` has no loop, so a 6-second hum would
   // have to be re-triggered every tick, and the closing is silent by design.
-  singularityOpen(): void {
-    if (!this.allow("singularity")) {
+  //
+  // `size` is the hole's scale and it divides every frequency, so VORTEX at 1.5
+  // opens a fifth under SINGULARITY. That interval is the only thing telling the
+  // two apart by ear, and it is the right one: a bigger hole sounds lower.
+  //
+  // The throttle key carries the size, or a VORTEX caught in the same breath as
+  // a SINGULARITY would be swallowed by the retrigger window and open silently.
+  singularityOpen(size = 1): void {
+    if (!this.allow(`singularity${size}`)) {
       return;
     }
-    this.sound.tone({ freq: 60, freqEnd: 220, dur: 0.6, vol: 0.09, type: "sawtooth" });
-    this.sound.tone({ freq: 60, freqEnd: 220, dur: 0.6, vol: 0.06, type: "sawtooth", detuneCents: 15 });
-    this.sound.noise({ dur: 0.5, vol: 0.07, filter: { type: "bandpass", freq: 200, freqEnd: 1800 } });
+    const freq = 60 / size;
+    const freqEnd = 220 / size;
+    this.sound.tone({ freq, freqEnd, dur: 0.6, vol: 0.09, type: "sawtooth" });
+    this.sound.tone({ freq, freqEnd, dur: 0.6, vol: 0.06, type: "sawtooth", detuneCents: 15 });
+    this.sound.noise({ dur: 0.5, vol: 0.07, filter: { type: "bandpass", freq: 200 / size, freqEnd: 1800 / size } });
   }
 
   // One arc per kill that arced, however many bricks the web reached.

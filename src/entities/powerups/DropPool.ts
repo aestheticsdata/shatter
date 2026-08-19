@@ -1,6 +1,8 @@
 import { gameConfig } from "@core/config/GameConfig";
 import { POWER_UP_DROP_WEIGHTS, POWER_UP_IDS } from "@core/config/powerUps";
+import { nearestCore } from "@entities/effects/Singularity";
 
+import type { Core } from "@entities/effects/Singularity";
 import type { PowerUpKind, RectangleBounds } from "@interfaces/types";
 
 const DROP_WIDTH = 20;
@@ -37,8 +39,10 @@ export function rollDropKind(exclude: readonly PowerUpKind[] = NO_EXCLUSIONS): P
 // parameter to `step`, which is why this is a bag and not three arguments.
 export interface DropField {
   magnetActive: boolean;
-  // The open singularity, or null. Only where it is matters here.
-  core: { x: number; y: number } | null;
+  // Both holes, open or not — SINGULARITY's and VORTEX's. Where each one is and
+  // how far it reaches is all that matters here, and a capsule between two open
+  // holes answers to the nearer one alone.
+  cores: readonly Core[];
   // A swallowed capsule grants nothing; the game turns this into its debris.
   onSwallowed: (x: number, y: number) => void;
 }
@@ -67,16 +71,24 @@ function pullTowardDeck(drop: Drop, deckCenterX: number): void {
   drop.x += Math.sign(offset) * Math.min(Math.max(pullMax * (1 - gap / rangeX), pullMin), gap);
 }
 
-// SINGULARITY: drag one capsule toward the core, and report whether it reached
-// it. The drag is deliberately weaker than the fall, so the core is a funnel and
-// not a trap: capsules falling near it are pulled in and eaten, while ones
-// passing wide are bent aside and sink past it anyway.
-function pullIntoCore(drop: Drop, core: { x: number; y: number }): boolean {
+// SINGULARITY and VORTEX: drag one capsule toward a core, and report whether it
+// reached it. The drag is deliberately weaker than the fall, so a core is a
+// funnel and not a trap: capsules falling near it are pulled in and eaten, while
+// ones passing wide are bent aside and sink past it anyway.
+//
+// The mouth comes off `core.reach`, so the bigger hole is a wider funnel. The
+// drag deliberately does *not*: it is a speed and not a length, and it is only a
+// funnel because it loses to `dropFallSpeed`. Scaled to VORTEX's 1.5 it would be
+// 1.35 against a 1.3 fall — a capsule anywhere below the hole would climb into
+// it, which is a vacuum reaching down the field rather than a wider funnel. Two
+// holes dragging at once add up the same way, which is why only the nearer one
+// ever gets to.
+function pullIntoCore(drop: Drop, core: Core): boolean {
   const { dropPull, dropEatRadius } = gameConfig.powerUps.singularity;
   const toCoreX = core.x - (drop.x + DROP_WIDTH / 2);
   const toCoreY = core.y - (drop.y + DROP_HEIGHT / 2);
   const distance = Math.hypot(toCoreX, toCoreY);
-  if (distance <= dropEatRadius) {
+  if (distance <= core.reach(dropEatRadius)) {
     return true;
   }
   drop.x += (toCoreX / distance) * dropPull;
@@ -156,7 +168,8 @@ export class DropPool {
       if (field.magnetActive) {
         pullTowardDeck(drop, deckCenterX);
       }
-      if (field.core && pullIntoCore(drop, field.core)) {
+      const core = nearestCore(field.cores, drop.x + DROP_WIDTH / 2, drop.y + DROP_HEIGHT / 2);
+      if (core && pullIntoCore(drop, core)) {
         drop.active = false;
         field.onSwallowed(drop.x + DROP_WIDTH / 2, drop.y + DROP_HEIGHT / 2);
         continue;

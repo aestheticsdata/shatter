@@ -275,7 +275,7 @@ export interface RenderView {
   particles: readonly Particle[];
   meteors: readonly Meteor[];
   detonation: Detonation;
-  singularity: Singularity;
+  cores: readonly Singularity[];
   quake: Quake;
   critter: Critter;
   energyWallArmed: boolean;
@@ -316,7 +316,9 @@ export class CanvasRenderer {
     // renderer is already under.
     this.ctx.save();
     this.ctx.translate(view.quake.offsetX * SCALE, view.quake.offsetY * SCALE);
-    this.drawSingularity(view.singularity);
+    for (const core of view.cores) {
+      this.drawSingularity(core);
+    }
 
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
     view.grid.forEach((row, rowIndex) => {
@@ -431,8 +433,11 @@ export class CanvasRenderer {
     this.ctx.beginPath();
     this.ctx.arc(x, y, singularity.radius * SCALE, 0, Math.PI * 2);
     this.ctx.fill();
-    ring(singularity.radius + 3 + Math.sin(this.frameCount * 0.2), canvasPalette.singularityHalo, 2);
-    ring(singularity.radius + 7, canvasPalette.singularityRim, 1);
+    // Both offsets go through `reach`, so VORTEX wears its halo a proportional
+    // way out rather than the small hole's 3 px collar on a disc half again as
+    // wide — the two read as one object at two sizes.
+    ring(singularity.radius + singularity.reach(3 + Math.sin(this.frameCount * 0.2)), canvasPalette.singularityHalo, 2);
+    ring(singularity.radius + singularity.reach(7), canvasPalette.singularityRim, 1);
   }
 
   // A pinball disc: a rose body with a white outline and a dark eye. It never
