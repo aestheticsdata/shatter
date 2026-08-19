@@ -377,6 +377,11 @@
     #1d47a8 12px 14px,
     #12276a 14px 16px
   );
+  /* The tile must be exactly one 16px period. Left at `auto` it becomes the
+     element box (66px), which is not a multiple of 16, so every tile boundary
+     restarts the pattern 2px out of phase — a doubled dark gap that rides down
+     the banner with background-position and resets each cycle. */
+  background-size: 100% 16px;
   animation: shatterCopper var(--copper-duration) linear infinite;
 }
 
