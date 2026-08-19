@@ -1354,6 +1354,35 @@ export class ShatterGame {
     this.deps.sfx.levelClear();
   }
 
+  /**
+   * Where a fresh catch label starts: the lane just above the paddle, or the
+   * first one clear of the pops already rising.
+   *
+   * Two capsules can be caught on the same tick — `DropPool.step` walks every
+   * drop in one pass — and pops all rise at `catchPopRiseSpeed`, so a second
+   * label spawned on the first never drifts off it: the pair overprints for its
+   * whole life (SINGULARITY under VORTEX rendered as "SINVORTEXTY"). Stacking
+   * separates them once, permanently, because the lockstep that caused the bug
+   * also preserves the gap.
+   *
+   * The test is vertical only. Widths belong to the renderer's font, and a pop
+   * far off to the side gets nudged up a lane it did not need — 10 px of extra
+   * air, against a guessed label width that would sometimes be wrong.
+   */
+  private freeCatchPopY(): number {
+    const { catchPopStackGap } = gameConfig.powerUps;
+    const base = gameConfig.paddle.y - 6;
+    // Five lanes, which tops out at y 230 — still well below the deepest grid.
+    // Past that the stack would climb into the bricks, and an overprint that
+    // needs five catches inside 22 ticks is the lesser evil.
+    const ceiling = base - catchPopStackGap * 4;
+    let y = base;
+    while (y > ceiling && this.catchPops.some((pop) => Math.abs(pop.y - y) < catchPopStackGap)) {
+      y -= catchPopStackGap;
+    }
+    return y;
+  }
+
   private applyPowerUp(kind: PowerUpKind): void {
     const durations = POWER_UP_DURATIONS;
 
@@ -1364,7 +1393,7 @@ export class ShatterGame {
       // hang off the frame — SINGULARITY is 11 characters and today's shortest
       // already graze it.
       x: Math.max(40, Math.min(332, this.paddle.centerX)),
-      y: gameConfig.paddle.y - 6,
+      y: this.freeCatchPopY(),
       label: POWER_UP_NAMES[kind],
       malus: MALUS_KINDS.has(kind),
       ticksLeft: gameConfig.powerUps.catchPopLifeTicks,

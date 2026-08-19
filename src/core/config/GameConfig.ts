@@ -109,6 +109,12 @@ export const gameConfig = {
     splashFlashTicks: 3,
     catchPopLifeTicks: 48,
     catchPopRiseSpeed: 0.45,
+    // Every pop rises at the same speed, so two spawned on the same spot never
+    // separate — a same-tick pair (`DropPool.step` catches every drop in one
+    // pass) prints over itself into a smear: SINGULARITY under VORTEX read
+    // "SINVORTEXTY". A fresh label climbs in steps of this until it clears the
+    // live ones. 10 is the 7 px label plus its 1 px shadow plus two of air.
+    catchPopStackGap: 10,
     // A fifth of a second: the ring has to read as a release, not as an effect
     // the player is meant to watch — the balls are already moving again.
     stasisRingLifeTicks: 12,
