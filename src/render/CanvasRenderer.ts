@@ -1,14 +1,26 @@
 import { gameConfig } from "@core/config/GameConfig";
-import { POWER_UP_GLYPHS } from "@core/config/powerUps";
+import { MALUS_KINDS, POWER_UP_GLYPHS } from "@core/config/powerUps";
+import { mirrorBounds } from "@entities/paddle/MirrorPaddle";
 import { BackgroundLayer } from "@render/backgrounds";
 import { BRICK_COLORS, canvasPalette, DARK_LETTER_DROP_KINDS, DROP_COLORS } from "@render/palette";
 
 import type { Ball } from "@entities/ball/Ball";
 import type { Detonation } from "@entities/effects/Detonation";
 import type { Particle } from "@entities/effects/ParticleField";
+import type { Quake } from "@entities/effects/Quake";
+import type { Singularity } from "@entities/effects/Singularity";
 import type { Shot } from "@entities/laser/ShotPool";
 import type { Drop } from "@entities/powerups/DropPool";
-import type { BackgroundId, BrickCell, BrickFlash, BrickFlashKind, CatchPop } from "@interfaces/types";
+import type {
+  BackgroundId,
+  BrickCell,
+  BrickFlash,
+  BrickFlashKind,
+  Bumper,
+  CatchPop,
+  ChainBolt,
+  StasisRing,
+} from "@interfaces/types";
 
 const BALL_PIXEL_ROWS: ReadonlyArray<readonly [number, number]> = [
   [2, 4],
@@ -19,6 +31,51 @@ const BALL_PIXEL_ROWS: ReadonlyArray<readonly [number, number]> = [
   [0, 8],
   [1, 6],
   [2, 4],
+];
+
+// A bumper disc, as two circles: the radius-9 outline, and a radius-8 fill laid
+// one pixel inside it, which is what leaves a clean 1 px ring all the way round
+// rather than only down the sides. One [x offset, span] per pixel row, drawn
+// from tables for the same reason the ball is — the game's circles are pixel
+// art, and a stroked arc lands on a different set of pixels at every position.
+const BUMPER_PIXEL_ROWS: ReadonlyArray<readonly [number, number]> = [
+  [6, 6],
+  [4, 10],
+  [3, 12],
+  [2, 14],
+  [1, 16],
+  [1, 16],
+  [0, 18],
+  [0, 18],
+  [0, 18],
+  [0, 18],
+  [0, 18],
+  [0, 18],
+  [1, 16],
+  [1, 16],
+  [2, 14],
+  [3, 12],
+  [4, 10],
+  [6, 6],
+];
+
+const BUMPER_FILL_ROWS: ReadonlyArray<readonly [number, number]> = [
+  [5, 6],
+  [3, 10],
+  [2, 12],
+  [1, 14],
+  [1, 14],
+  [0, 16],
+  [0, 16],
+  [0, 16],
+  [0, 16],
+  [0, 16],
+  [0, 16],
+  [1, 14],
+  [1, 14],
+  [2, 12],
+  [3, 10],
+  [5, 6],
 ];
 
 // The backing store is SCALE× the 372×300 game grid. Static art snaps to whole
@@ -54,6 +111,45 @@ export interface PaddleRenderState {
   laserActive: boolean;
 }
 
+// The four tones a paddle is banded from. The ghost is the same sprite in a
+// dimmer set, which is what makes it read as the paddle's reflection.
+interface PaddleBandColors {
+  body: string;
+  cap: string;
+  sheen: string;
+  shade: string;
+}
+
+// Game pixels between the dots of a magnet tether.
+const TETHER_DASH_SPACING = 4;
+
+// One entry per pixel row of a portal mouth, repeating: three bands of three.
+const PORTAL_STRIPES: readonly string[] = [
+  canvasPalette.portalBright,
+  canvasPalette.portalBright,
+  canvasPalette.portalBright,
+  canvasPalette.portalMid,
+  canvasPalette.portalMid,
+  canvasPalette.portalMid,
+  canvasPalette.portalDark,
+  canvasPalette.portalDark,
+  canvasPalette.portalDark,
+];
+
+const PADDLE_BANDS: PaddleBandColors = {
+  body: canvasPalette.paddleBody,
+  cap: canvasPalette.paddleCap,
+  sheen: canvasPalette.paddleTopSheen,
+  shade: canvasPalette.paddleBottomShade,
+};
+
+const MIRROR_BANDS: PaddleBandColors = {
+  body: canvasPalette.mirrorBody,
+  cap: canvasPalette.mirrorCap,
+  sheen: canvasPalette.mirrorSheen,
+  shade: canvasPalette.paddleBottomShade,
+};
+
 export interface RenderView {
   background: BackgroundId;
   // Levels sharing a theme get their own layout from this seed (the wrapped
@@ -61,13 +157,26 @@ export interface RenderView {
   backgroundVariant: number;
   grid: ReadonlyArray<ReadonlyArray<BrickCell | null>>;
   paddle: PaddleRenderState;
+  mirrorActive: boolean;
+  magnetActive: boolean;
+  portalActive: boolean;
+  // GHOST: the wall is intangible, so it is drawn as outlines only.
+  bricksGhosted: boolean;
+  // BOMB blew it up: the debris in flight is the paddle, so neither it nor
+  // MIRROR's reflection of it may be on screen.
+  paddleHidden: boolean;
+  bumpers: readonly Bumper[];
   balls: readonly Ball[];
   drops: readonly Drop[];
   shots: readonly Shot[];
   flashes: readonly BrickFlash[];
   pops: readonly CatchPop[];
+  stasisRings: readonly StasisRing[];
+  bolts: readonly ChainBolt[];
   particles: readonly Particle[];
   detonation: Detonation;
+  singularity: Singularity;
+  quake: Quake;
   energyWallArmed: boolean;
 }
 
@@ -98,17 +207,32 @@ export class CanvasRenderer {
     const layer = this.background.imageFor(view.background, view.backgroundVariant);
     this.ctx.drawImage(layer, 0, 0, width * SCALE, height * SCALE);
 
+    // QUAKE displaces everything that stands on the field, and nothing else: the
+    // background stays put so the shake reads as the wall rattling rather than
+    // as the camera drifting, and the frame is painted after the restore, which
+    // is what hides the overhang a 4 px lurch would otherwise show at the edges.
+    // `translate`, never `setTransform` — this has to compose with whatever the
+    // renderer is already under.
+    this.ctx.save();
+    this.ctx.translate(view.quake.offsetX * SCALE, view.quake.offsetY * SCALE);
+    this.drawSingularity(view.singularity);
+
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
     view.grid.forEach((row, rowIndex) => {
       row.forEach((cell, columnIndex) => {
         if (cell) {
-          this.drawBrick(left + columnIndex * brickWidth, top + rowIndex * brickHeight, cell);
+          this.drawBrick(left + columnIndex * brickWidth, top + rowIndex * brickHeight, cell, view.bricksGhosted);
         }
       });
     });
 
     for (const flash of view.flashes) {
       this.pixel(flash.x + 1, flash.y + 1, 28, 10, FLASH_COLORS[flash.kind]);
+    }
+    for (const ball of view.balls) {
+      if (ball.active && ball.homingRow >= 0) {
+        this.drawHomingMark(ball.homingRow, ball.homingColumn);
+      }
     }
     // Slot index cycles the brick's three palette colors — sequential ring-buffer
     // slots give each burst a flat/light/dark mix without storing a color per particle.
@@ -120,8 +244,17 @@ export class CanvasRenderer {
       const color = [colors.flat, colors.light, colors.dark][index % 3];
       this.spritePixel(particle.x, particle.y, particle.size, particle.size, color);
     });
+    for (const bolt of view.bolts) {
+      this.drawChainBolt(bolt);
+    }
     if (view.energyWallArmed) {
       this.pixel(gameConfig.field.left, gameConfig.powerUps.wallY, 366, 2, canvasPalette.energyWall);
+    }
+    for (const bumper of view.bumpers) {
+      this.drawBumper(bumper);
+    }
+    if (view.magnetActive) {
+      this.drawMagnetTethers(view.paddle, view.drops);
     }
     for (const drop of view.drops) {
       if (drop.active) {
@@ -133,11 +266,20 @@ export class CanvasRenderer {
         this.spritePixel(shot.x, shot.y, 2, 9, canvasPalette.laserShot);
       }
     }
-    this.drawPaddle(view.paddle);
+    if (view.mirrorActive && !view.paddleHidden) {
+      this.drawMirror(view.paddle);
+    }
+    if (!view.paddleHidden) {
+      this.drawPaddle(view.paddle);
+    }
     for (const ball of view.balls) {
       if (ball.active) {
         this.drawBall(ball);
       }
+    }
+
+    for (const ring of view.stasisRings) {
+      this.drawStasisRing(ring);
     }
 
     for (const pop of view.pops) {
@@ -145,8 +287,71 @@ export class CanvasRenderer {
     }
 
     this.drawDetonation(view.detonation);
+    this.ctx.restore();
 
     this.drawWalls();
+    if (view.portalActive) {
+      this.drawPortals();
+    }
+  }
+
+  // A hole in the field: a disc darker than any theme, a halo that breathes on
+  // the frame clock, and a still outer rim marking how far it really reaches.
+  // Painted over the background and under the bricks, so it reads as depth
+  // rather than as a sprite laid on the playfield.
+  private drawSingularity(singularity: Singularity): void {
+    if (!singularity.active) {
+      return;
+    }
+    const x = singularity.x * SCALE;
+    const y = singularity.y * SCALE;
+    const ring = (radius: number, color: string, width: number): void => {
+      this.ctx.strokeStyle = color;
+      this.ctx.lineWidth = width * SCALE;
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, radius * SCALE, 0, Math.PI * 2);
+      this.ctx.stroke();
+    };
+
+    this.ctx.fillStyle = canvasPalette.singularityCore;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, singularity.radius * SCALE, 0, Math.PI * 2);
+    this.ctx.fill();
+    ring(singularity.radius + 3 + Math.sin(this.frameCount * 0.2), canvasPalette.singularityHalo, 2);
+    ring(singularity.radius + 7, canvasPalette.singularityRim, 1);
+  }
+
+  // A pinball disc: a rose body with a white outline and a dark eye. It never
+  // moves, so it snaps to whole game pixels like the bricks do. A kick turns the
+  // eye white and throws a ring out past the body, which is the whole tell that
+  // this disc — not one of the others — is the one that just paid.
+  private drawBumper(bumper: Bumper): void {
+    const { radius, flashTicks } = gameConfig.powerUps.bumpers;
+    const left = bumper.x - radius;
+    const top = bumper.y - radius;
+    const flashing = bumper.flashTicksLeft > 0;
+
+    BUMPER_PIXEL_ROWS.forEach(([offset, span], rowIndex) => {
+      this.pixel(left + offset, top + rowIndex, span, 1, canvasPalette.bumperRim);
+    });
+    BUMPER_FILL_ROWS.forEach(([offset, span], rowIndex) => {
+      this.pixel(left + 1 + offset, top + 1 + rowIndex, span, 1, canvasPalette.bumperBody);
+    });
+    // The eye is the ball's own sprite table: same 8 px circle, centred.
+    const eye = flashing ? canvasPalette.bumperRim : canvasPalette.bumperCore;
+    BALL_PIXEL_ROWS.forEach(([offset, span], rowIndex) => {
+      this.pixel(left + radius - 4 + offset, top + radius - 4 + rowIndex, span, 1, eye);
+    });
+
+    if (flashing) {
+      this.ctx.strokeStyle = canvasPalette.bumperRim;
+      this.ctx.lineWidth = 1 * SCALE;
+      this.ctx.globalAlpha = bumper.flashTicksLeft / flashTicks;
+      this.ctx.beginPath();
+      this.ctx.arc(bumper.x * SCALE, bumper.y * SCALE, (radius + 3) * SCALE, 0, Math.PI * 2);
+      this.ctx.stroke();
+      this.ctx.globalAlpha = 1;
+    }
   }
 
   // Full-field impact flash for the first ticks, then the expanding shockwave
@@ -180,7 +385,18 @@ export class CanvasRenderer {
     this.ctx.fillRect(Math.round(x * SCALE), Math.round(y * SCALE), width * SCALE, height * SCALE);
   }
 
-  private drawBrick(x: number, y: number, cell: BrickCell): void {
+  private drawBrick(x: number, y: number, cell: BrickCell, ghosted: boolean): void {
+    // GHOST: the body and both bevels go, leaving the cell's outline over the
+    // playfield theme. Damage is not shown while it lasts — there is no lit face
+    // to darken — and comes back with the brick.
+    if (ghosted) {
+      this.pixel(x + 1, y + 1, 28, 1, canvasPalette.ghostBrick);
+      this.pixel(x + 1, y + 10, 28, 1, canvasPalette.ghostBrick);
+      this.pixel(x + 1, y + 2, 1, 8, canvasPalette.ghostBrick);
+      this.pixel(x + 28, y + 2, 1, 8, canvasPalette.ghostBrick);
+      return;
+    }
+
     const colors = BRICK_COLORS[cell.kind];
     const flat = cell.hurt ? colors.dark : colors.flat;
     const sheen = cell.hurt ? colors.flat : colors.light;
@@ -193,26 +409,35 @@ export class CanvasRenderer {
   }
 
   private drawPaddle(paddle: PaddleRenderState): void {
-    const x = paddle.x;
     const y = gameConfig.paddle.y;
-    const width = paddle.width;
-    const height = gameConfig.paddle.height;
-
-    this.spritePixel(x + 1, y, width - 2, height, canvasPalette.paddleBody);
-    this.spritePixel(x, y + 1, width, height - 2, canvasPalette.paddleBody);
-    this.spritePixel(x + 1, y, 7, 1, canvasPalette.paddleCap);
-    this.spritePixel(x, y + 1, 8, height - 2, canvasPalette.paddleCap);
-    this.spritePixel(x + 1, y + height - 1, 7, 1, canvasPalette.paddleCap);
-    this.spritePixel(x + width - 8, y, 7, 1, canvasPalette.paddleCap);
-    this.spritePixel(x + width - 8, y + 1, 8, height - 2, canvasPalette.paddleCap);
-    this.spritePixel(x + width - 8, y + height - 1, 7, 1, canvasPalette.paddleCap);
-    this.spritePixel(x + 9, y + 1, width - 18, 1, canvasPalette.paddleTopSheen);
-    this.spritePixel(x + 9, y + height - 1, width - 18, 1, canvasPalette.paddleBottomShade);
+    this.drawPaddleBands(paddle.x, y, paddle.width, PADDLE_BANDS);
 
     if (paddle.laserActive) {
-      this.spritePixel(x + 5, y - 3, 2, 3, canvasPalette.laserCannon);
-      this.spritePixel(x + width - 7, y - 3, 2, 3, canvasPalette.laserCannon);
+      this.spritePixel(paddle.x + 5, y - 3, 2, 3, canvasPalette.laserCannon);
+      this.spritePixel(paddle.x + paddle.width - 7, y - 3, 2, 3, canvasPalette.laserCannon);
     }
+  }
+
+  // MIRROR's ghost: the paddle's sprite, dimmed, at the mirrored x — and never
+  // any cannons, since the ghost is a surface and not a second paddle.
+  private drawMirror(paddle: PaddleRenderState): void {
+    const bounds = mirrorBounds(paddle.x, paddle.width);
+    this.drawPaddleBands(bounds.left, bounds.top, paddle.width, MIRROR_BANDS);
+  }
+
+  private drawPaddleBands(x: number, y: number, width: number, colors: PaddleBandColors): void {
+    const height = gameConfig.paddle.height;
+
+    this.spritePixel(x + 1, y, width - 2, height, colors.body);
+    this.spritePixel(x, y + 1, width, height - 2, colors.body);
+    this.spritePixel(x + 1, y, 7, 1, colors.cap);
+    this.spritePixel(x, y + 1, 8, height - 2, colors.cap);
+    this.spritePixel(x + 1, y + height - 1, 7, 1, colors.cap);
+    this.spritePixel(x + width - 8, y, 7, 1, colors.cap);
+    this.spritePixel(x + width - 8, y + 1, 8, height - 2, colors.cap);
+    this.spritePixel(x + width - 8, y + height - 1, 7, 1, colors.cap);
+    this.spritePixel(x + 9, y + 1, width - 18, 1, colors.sheen);
+    this.spritePixel(x + 9, y + height - 1, width - 18, 1, colors.shade);
   }
 
   private drawBall(ball: Ball): void {
@@ -227,6 +452,30 @@ export class CanvasRenderer {
     this.spritePixel(x + 6, y + 4, 1, 2, canvasPalette.ballShade);
   }
 
+  // MAGNET's pull is silent and gentle enough to miss, so every capsule it has
+  // hold of is tied to the paddle by a dashed line. The dashes step one place
+  // every four frames, which reads as a crawl toward the paddle.
+  private drawMagnetTethers(paddle: PaddleRenderState, drops: readonly Drop[]): void {
+    const toX = paddle.x + paddle.width / 2;
+    const toY = gameConfig.paddle.y;
+    const phase = (this.frameCount >> 2) % TETHER_DASH_SPACING;
+
+    for (const drop of drops) {
+      const fromX = drop.x + 10;
+      const fromY = drop.y + 8;
+      if (!drop.active || Math.abs(toX - fromX) > gameConfig.powerUps.magnet.rangeX) {
+        continue;
+      }
+      const spanX = toX - fromX;
+      const spanY = toY - fromY;
+      const length = Math.hypot(spanX, spanY);
+      for (let along = phase; along < length; along += TETHER_DASH_SPACING) {
+        const step = along / length;
+        this.spritePixel(fromX + spanX * step, fromY + spanY * step, 1, 1, canvasPalette.magnetTether);
+      }
+    }
+  }
+
   private drawDrop(drop: Drop): void {
     const { x, y } = drop;
     const color = DROP_COLORS[drop.kind];
@@ -236,8 +485,9 @@ export class CanvasRenderer {
     this.spritePixel(x + 2, y + 1, 16, 1, canvasPalette.dropSheen);
     this.spritePixel(x + 2, y + 7, 16, 1, canvasPalette.dropShade);
 
-    // The JAMMER trap telegraphs itself with a blinking letter.
-    if (drop.kind === "J" && (this.frameCount & 8) !== 0) {
+    // A trap telegraphs itself with a blinking letter, so it can be read as one
+    // while there is still time to dodge it.
+    if (MALUS_KINDS.has(drop.kind) && (this.frameCount & 8) !== 0) {
       return;
     }
 
@@ -250,6 +500,55 @@ export class CanvasRenderer {
     this.ctx.textAlign = "center";
     this.ctx.textBaseline = "middle";
     this.ctx.fillText(glyph, Math.round((x + 10) * SCALE), Math.round((y + 4.5) * SCALE));
+  }
+
+  // A CHAIN arc: the mint stroke laid down first, a thinner white core over it,
+  // so the bolt reads as hot rather than as a coloured line.
+  private drawChainBolt(bolt: ChainBolt): void {
+    // Two-tick blocks, as the catch pop fades: `draw()` runs per frame, so
+    // blinking on tick parity would alias against the frame rate.
+    if (bolt.ticksLeft <= 4 && (bolt.ticksLeft & 2) === 0) {
+      return;
+    }
+    this.ctx.beginPath();
+    this.ctx.moveTo(bolt.points[0].x * SCALE, bolt.points[0].y * SCALE);
+    for (let index = 1; index < bolt.points.length; index++) {
+      this.ctx.lineTo(bolt.points[index].x * SCALE, bolt.points[index].y * SCALE);
+    }
+    this.ctx.strokeStyle = canvasPalette.chainBolt;
+    this.ctx.lineWidth = 2 * SCALE;
+    this.ctx.stroke();
+    this.ctx.strokeStyle = canvasPalette.chainCore;
+    this.ctx.lineWidth = 1 * SCALE;
+    this.ctx.stroke();
+  }
+
+  // The brick a homing ball has locked, cornered rather than outlined: four
+  // 2x2 ticks leave the brick's own colour and bevel readable underneath.
+  private drawHomingMark(row: number, column: number): void {
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    const x = left + column * brickWidth;
+    const y = top + row * brickHeight;
+    for (const [cornerX, cornerY] of [
+      [x, y],
+      [x + brickWidth - 2, y],
+      [x, y + brickHeight - 2],
+      [x + brickWidth - 2, y + brickHeight - 2],
+    ]) {
+      this.pixel(cornerX, cornerY, 2, 2, canvasPalette.homingMark);
+    }
+  }
+
+  // Where a ball stood when STASIS let go: a thin ring expanding out of the
+  // ball and thinning to nothing, over the sprites so it is read as a release
+  // and not as something on the field.
+  private drawStasisRing(ring: StasisRing): void {
+    const age = gameConfig.powerUps.stasisRingLifeTicks - ring.ticksLeft;
+    this.ctx.strokeStyle = canvasPalette.stasisRing;
+    this.ctx.lineWidth = 1 * SCALE;
+    this.ctx.beginPath();
+    this.ctx.arc(ring.x * SCALE, ring.y * SCALE, (2 + age * 1.5) * SCALE, 0, Math.PI * 2);
+    this.ctx.stroke();
   }
 
   // Rising catch label; blinks through its last third so the fade-out reads as
@@ -268,6 +567,18 @@ export class CanvasRenderer {
     this.ctx.fillText(pop.label, x + SCALE, y + SCALE);
     this.ctx.fillStyle = pop.malus ? canvasPalette.popMalus : canvasPalette.popBonus;
     this.ctx.fillText(pop.label, x, y);
+  }
+
+  // The two mouths, painted over the wall frame they replace: three bands
+  // scrolling upward, so an opening reads as moving even with no ball near it.
+  private drawPortals(): void {
+    const { portalTop, portalHeight } = gameConfig.powerUps;
+    const offset = (this.frameCount >> 1) % PORTAL_STRIPES.length;
+    for (let row = 0; row < portalHeight; row++) {
+      const color = PORTAL_STRIPES[(row + offset) % PORTAL_STRIPES.length];
+      this.pixel(0, portalTop + row, 3, 1, color);
+      this.pixel(gameConfig.field.width - 3, portalTop + row, 3, 1, color);
+    }
   }
 
   private drawWalls(): void {

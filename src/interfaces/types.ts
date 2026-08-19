@@ -43,6 +43,29 @@ export interface CatchPop {
   ticksLeft: number;
 }
 
+// One arc of CHAIN lightning between two brick centres. Render-only, and it
+// outlives the damage it announced: the bricks are already gone.
+export interface ChainBolt {
+  points: Vector2D[];
+  ticksLeft: number;
+}
+
+// Expanding ring left where a ball stood when STASIS let go of it. Render-only:
+// it marks the release, nothing collides with it.
+export interface StasisRing {
+  x: number;
+  y: number;
+  ticksLeft: number;
+}
+
+// One BUMPERS disc: its centre, and what is left of the flash from its last
+// kick. The radius is the same for all three and lives in the config.
+export interface Bumper {
+  x: number;
+  y: number;
+  flashTicksLeft: number;
+}
+
 export interface BrickFlash {
   x: number;
   y: number;

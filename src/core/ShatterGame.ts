@@ -1,13 +1,17 @@
 import { ballSpeedForLevel, gameConfig } from "@core/config/GameConfig";
-import { POWER_UP_DURATIONS, POWER_UP_NAMES } from "@core/config/powerUps";
+import { MALUS_KINDS, POWER_UP_DURATIONS, POWER_UP_GLYPHS, POWER_UP_IDS, POWER_UP_NAMES } from "@core/config/powerUps";
 import { DevConsole } from "@core/DevConsole";
 import { levelAt, levelIndexOf } from "@core/levels/levels";
 import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/PaddleBounce";
 import { Ball } from "@entities/ball/Ball";
 import { BrickGrid } from "@entities/bricks/BrickGrid";
+import { BumperField } from "@entities/effects/BumperField";
 import { Detonation } from "@entities/effects/Detonation";
 import { ParticleField } from "@entities/effects/ParticleField";
+import { Quake } from "@entities/effects/Quake";
+import { Singularity } from "@entities/effects/Singularity";
 import { ShotPool } from "@entities/laser/ShotPool";
+import { mirrorBounds } from "@entities/paddle/MirrorPaddle";
 import { Paddle } from "@entities/paddle/Paddle";
 import { DropPool } from "@entities/powerups/DropPool";
 import { PowerUpTimers } from "@entities/powerups/PowerUpTimers";
@@ -15,7 +19,17 @@ import { InputController } from "@input/InputController";
 import { zeroPad } from "@shared/format";
 
 import type { SoundBank } from "@audio/SoundBank";
-import type { BrickFlash, BrickHit, BurstSpec, CatchPop, PanelView, PowerUpKind, ScreenName } from "@interfaces/types";
+import type {
+  BrickFlash,
+  BrickHit,
+  BurstSpec,
+  CatchPop,
+  ChainBolt,
+  PanelView,
+  PowerUpKind,
+  ScreenName,
+  StasisRing,
+} from "@interfaces/types";
 import type { CanvasRenderer } from "@render/CanvasRenderer";
 import type { HiScores } from "@state/HiScores";
 import type { Panel } from "@ui/Panel";
@@ -39,7 +53,18 @@ const MAX_BALLS = 12;
 
 // Longest label that fits the POWER inset at 7px Silkscreen.
 const POWER_LABEL_MAX_CHARS = 13;
-const POWER_LABEL_CYCLE_TICKS = 60;
+
+// Sideways kick on a bolt's three middle points, in game pixels.
+const CHAIN_BOLT_JITTER = 3;
+
+// What dealt the damage. Only the first two are things the player did: the rest
+// are consequences of one, and the game stays quiet about them so a single kill
+// is acknowledged once however far it spreads.
+type BrickDamageSource = "ball" | "laser" | "splash" | "chain";
+
+function isDirectHit(source: BrickDamageSource): boolean {
+  return source === "ball" || source === "laser";
+}
 
 export class ShatterGame {
   private screen: ScreenName = "title";
@@ -51,8 +76,16 @@ export class ShatterGame {
   private wallArmed = false;
   private brickFlashes: BrickFlash[] = [];
   private catchPops: CatchPop[] = [];
-  private tickCount = 0;
-  // `null` until a `drop` command sets it; see bonusSpreadAmount().
+  private stasisRings: StasisRing[] = [];
+  private bolts: ChainBolt[] = [];
+  private readonly singularity = new Singularity();
+  private readonly bumpers = new BumperField();
+  private readonly quake = new Quake();
+  // Ticks each ball has spent inside the core's reach. Indexed by ball slot,
+  // which is a stable identity: `balls` is a fixed array built once at
+  // construction and never reordered. If that ever changes, this moves onto Ball.
+  private readonly singularityHold: number[] = Array.from({ length: MAX_BALLS }, () => 0);
+  // `null` until a `bonus` command sets it; see bonusSpreadAmount().
   private bonusSpreadOverride: number | null = null;
 
   // Dev-only test console (see DevConsole). Production builds get `null`, and
@@ -82,6 +115,10 @@ export class ShatterGame {
   private multiTier = 0;
   private swarmLive = false;
   private clearCountdown = 0;
+  private deathCountdown = 0;
+  // Armed by a MAGNET catch, spent by the next brick a ball or a laser kills.
+  // A magnet with nothing falling is a magnet nobody can see working.
+  private guaranteedDrop = false;
   private laserCountdown = 0;
 
   private readonly input: InputController;
@@ -148,13 +185,23 @@ export class ShatterGame {
       backgroundVariant: levelIndexOf(this.level),
       grid: this.grid.rows,
       paddle: { x: this.paddle.x, width: this.paddle.width, laserActive: this.timers.isActive("L") },
+      mirrorActive: this.timers.isActive("Y"),
+      magnetActive: this.timers.isActive("K"),
+      portalActive: this.timers.isActive("PO"),
+      bricksGhosted: this.timers.isActive("GH"),
+      paddleHidden: this.deathCountdown > 0,
+      bumpers: this.bumpers.discs,
       balls: this.balls,
       drops: this.dropPool.drops,
       shots: this.shotPool.shots,
       flashes: this.brickFlashes,
       pops: this.catchPops,
+      stasisRings: this.stasisRings,
+      bolts: this.bolts,
       particles: this.particles.particles,
       detonation: this.detonation,
+      singularity: this.singularity,
+      quake: this.quake,
       energyWallArmed: this.wallArmed,
     });
     this.deps.panel.update(this.panelView());
@@ -182,15 +229,17 @@ export class ShatterGame {
       return;
     }
 
-    this.tickCount++;
     this.brickFlashes = this.brickFlashes.filter((flash) => --flash.ticksLeft > 0);
+    this.stasisRings = this.stasisRings.filter((ring) => --ring.ticksLeft > 0);
+    this.bolts = this.bolts.filter((bolt) => --bolt.ticksLeft > 0);
     // Pops animate above the freeze returns below, so the catch that started a
     // NUKE (or ended the level) still gets its acknowledgment on screen.
     for (const pop of this.catchPops) {
       pop.y -= gameConfig.powerUps.catchPopRiseSpeed;
     }
     this.catchPops = this.catchPops.filter((pop) => --pop.ticksLeft > 0);
-    this.particles.step();
+    this.particles.step(this.singularity.active ? this.singularity : undefined);
+    this.quake.step();
 
     // A pending level clear freezes the rest of the simulation so the final
     // brick's shatter can play out — no ball can be lost, no capsule caught,
@@ -207,8 +256,22 @@ export class ShatterGame {
       }
       return;
     }
+    // BOMB's fuse, and the same freeze: the paddle is in pieces, so nothing may
+    // be bounced, caught or drained while they are still in the air. Below the
+    // clear gate on purpose — a pending clear already refuses catches, so a
+    // bomb can never be taken after the last brick has gone.
+    if (this.deathCountdown > 0) {
+      if (--this.deathCountdown === 0) {
+        this.die();
+      }
+      return;
+    }
 
     const expired = this.timers.tick();
+    if (this.singularity.active) {
+      this.singularity.step();
+    }
+    this.bumpers.step();
     if (expired.includes("E") && !this.timers.isActive("J")) {
       this.paddle.setWidth(gameConfig.paddle.baseWidth);
     }
@@ -219,15 +282,40 @@ export class ShatterGame {
     if (expired.includes("G")) {
       this.releaseStuckBalls();
     }
+    // Time restarting: a ring where each ball stood. This runs above the ball
+    // loop, so the rings mark the frozen positions rather than the first step
+    // out of them.
+    if (expired.includes("I")) {
+      this.popStasisRings();
+    }
+    // The marks are drawn straight off the ball's lock, so the lock is what has
+    // to go when the capsule runs out.
+    if (expired.includes("H")) {
+      for (const ball of this.balls) {
+        ball.clearHoming();
+      }
+    }
+    if (expired.includes("V")) {
+      this.closeSingularity();
+    }
+    if (expired.includes("O")) {
+      this.bumpers.reset();
+    }
+    // The wall setting again. Balls still inside it stay intangible until they
+    // are out — `ghosted` owns that — so this is only the announcement.
+    if (expired.includes("GH")) {
+      this.deps.sfx.ghostSolidify();
+    }
 
     if (this.timers.isActive("L") && --this.laserCountdown <= 0) {
       this.laserCountdown = gameConfig.powerUps.laserCadenceTicks;
       this.shotPool.fireFromPaddle(this.paddle);
       this.deps.sfx.laserFire();
     }
-    this.shotPool.step(this.grid, (hit) => this.damageBrick(hit, "laser"));
+    this.shotPool.step(this.grid, this.timers.isActive("GH"), (hit) => this.damageBrick(hit, "laser"));
 
-    for (const ball of this.balls) {
+    for (let index = 0; index < this.balls.length; index++) {
+      const ball = this.balls[index];
       if (!ball.active) {
         continue;
       }
@@ -238,7 +326,14 @@ export class ShatterGame {
         ball.y = gameConfig.paddle.y - gameConfig.ball.size;
         continue;
       }
-      this.moveBall(ball);
+      // STASIS stops the balls and nothing else — capsules keep falling, shots
+      // keep flying, the paddle keeps moving, and this is the whole of it.
+      // Skipping the body writes no position or velocity, so the ball resumes
+      // on exactly the trajectory it was frozen on.
+      if (this.timers.isActive("I")) {
+        continue;
+      }
+      this.moveBall(ball, index);
     }
     // The MULTI ladder and the swarm end as soon as a single ball is left —
     // checked before capsule catches so a fresh pickup is not instantly reset.
@@ -255,7 +350,14 @@ export class ShatterGame {
     }
 
     if (this.clearCountdown === 0) {
-      this.dropPool.step(this.paddle.bounds, (kind) => {
+      const field = {
+        magnetActive: this.timers.isActive("K"),
+        core: this.singularity.active ? this.singularity : null,
+        onSwallowed: (x: number, y: number) => {
+          this.particles.burst(x, y, "S", gameConfig.effects.brickDeathBurst);
+        },
+      };
+      this.dropPool.step([this.paddle.bounds], field, (kind) => {
         // Two capsules can reach the paddle on one tick; nothing applies once a
         // NUKE detonation has started — the refused drop stays live and freezes.
         if (this.detonation.active) {
@@ -267,7 +369,231 @@ export class ShatterGame {
     }
   }
 
-  private moveBall(ball: Ball): void {
+  /**
+   * SINGULARITY: bend one ball toward the core, at unchanged speed.
+   *
+   * Returns whether the ball is inside the core's reach, which is where HOMING
+   * stands aside. A ball is never eaten and never accelerated: the impulse goes
+   * on and the speed comes straight back off, so what the core changes is
+   * heading alone — and a ball dragged in from low on the field is dragged
+   * *away* from the loss line, never into it.
+   */
+  private pullIntoSingularity(ball: Ball, index: number): boolean {
+    const { pullConstant, minDistance, homingCutoff, holdDecay, holdRelease, holdFree } =
+      gameConfig.powerUps.singularity;
+    const toCoreX = this.singularity.x - ball.centerX;
+    const toCoreY = this.singularity.y - (ball.y + gameConfig.ball.size / 2);
+    const distance = Math.hypot(toCoreX, toCoreY);
+    const inside = distance <= homingCutoff;
+
+    // Held time climbs while the ball is close and drains twice as fast once it
+    // is out, so passing through costs nothing and circling ends itself.
+    this.singularityHold[index] = inside
+      ? this.singularityHold[index] + 1
+      : Math.max(0, this.singularityHold[index] - holdDecay);
+    const held = this.singularityHold[index];
+    const pullScale = Math.max(0, Math.min(1, 1 - (held - holdRelease) / (holdFree - holdRelease)));
+    if (pullScale === 0 || distance === 0) {
+      return inside;
+    }
+
+    const acceleration = (pullConstant / Math.max(distance, minDistance) ** 2) * pullScale;
+    ball.velocity.x += (toCoreX / distance) * acceleration;
+    ball.velocity.y += (toCoreY / distance) * acceleration;
+
+    // One renormalise for the whole guidance step: the core bends a ball, it
+    // never speeds one up. HOMING preserves speed on its own, so running after
+    // this cannot undo it.
+    const speed = Math.hypot(ball.velocity.x, ball.velocity.y);
+    const wanted = this.speed();
+    ball.velocity.x = (ball.velocity.x / speed) * wanted;
+    ball.velocity.y = (ball.velocity.y / speed) * wanted;
+    return inside;
+  }
+
+  private closeSingularity(): void {
+    this.singularity.reset();
+    this.singularityHold.fill(0);
+  }
+
+  /**
+   * HOMING: bend this ball one step toward the brick it has locked, at constant
+   * speed. The turn is capped per tick, so the ball arcs onto its target over
+   * about ninety ticks rather than snapping to it — a curve the player can read
+   * and still bounce off, not a magnet.
+   */
+  private steerBall(ball: Ball): void {
+    const { homingTurnRad, homingMinVerticalFraction } = gameConfig.powerUps;
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    const size = gameConfig.ball.size;
+
+    // Below the grid on the way down there is nothing ahead to steer toward,
+    // and a mark under the bricks would point at a brick this ball is leaving.
+    if (ball.velocity.y > 0 && ball.y > top + this.grid.rows.length * brickHeight) {
+      ball.clearHoming();
+      return;
+    }
+
+    // Re-pick on the clock, and the instant the locked brick stops existing.
+    if (--ball.homingRetargetIn <= 0 || this.grid.hitAtCell(ball.homingRow, ball.homingColumn) === null) {
+      this.lockNearestBrick(ball);
+    }
+    // An empty grid: the tick the last brick died, before the clear delay engages.
+    if (ball.homingRow < 0) {
+      return;
+    }
+
+    const speed = Math.hypot(ball.velocity.x, ball.velocity.y);
+    if (speed === 0) {
+      return;
+    }
+    const heading = Math.atan2(ball.velocity.y, ball.velocity.x);
+    const wanted = Math.atan2(
+      top + (ball.homingRow + 0.5) * brickHeight - (ball.y + size / 2),
+      left + (ball.homingColumn + 0.5) * brickWidth - (ball.x + size / 2),
+    );
+    // Wrapped into (-pi, pi] so the ball always turns the short way round.
+    let difference = (wanted - heading) % (Math.PI * 2);
+    if (difference > Math.PI) {
+      difference -= Math.PI * 2;
+    } else if (difference <= -Math.PI) {
+      difference += Math.PI * 2;
+    }
+    const steered = heading + Math.max(-homingTurnRad, Math.min(homingTurnRad, difference));
+
+    // A ball steered flat never comes back down. Skip the turn, keep the lock:
+    // the next bounce changes the heading and the arc resumes on its own.
+    if (Math.abs(Math.sin(steered)) < homingMinVerticalFraction) {
+      return;
+    }
+    // Rebuilt in place from the unchanged speed: exact, and no allocation on a
+    // path that runs for every ball on every tick.
+    ball.velocity.x = Math.cos(steered) * speed;
+    ball.velocity.y = Math.sin(steered) * speed;
+  }
+
+  // Nearest live brick by centre distance, compared squared and scanned over
+  // indices — this runs per ball whenever a lock expires, and allocates nothing.
+  private lockNearestBrick(ball: Ball): void {
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    const size = gameConfig.ball.size;
+    const ballX = ball.x + size / 2;
+    const ballY = ball.y + size / 2;
+    const rows = this.grid.rows;
+    let bestRow = -1;
+    let bestColumn = -1;
+    let bestDistance = Infinity;
+
+    for (let row = 0; row < rows.length; row++) {
+      for (let column = 0; column < rows[row].length; column++) {
+        if (!rows[row][column]) {
+          continue;
+        }
+        const dx = left + (column + 0.5) * brickWidth - ballX;
+        const dy = top + (row + 0.5) * brickHeight - ballY;
+        const distance = dx * dx + dy * dy;
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestRow = row;
+          bestColumn = column;
+        }
+      }
+    }
+
+    ball.homingRow = bestRow;
+    ball.homingColumn = bestColumn;
+    ball.homingRetargetIn = gameConfig.powerUps.homingRetargetTicks;
+  }
+
+  /**
+   * BUMPERS: kick this ball off the first disc it is touching.
+   *
+   * The ball reflects off the disc's surface normal, is pushed clear of it and
+   * put back to the level's speed — a kick changes heading and pays, never
+   * pace. Only an approaching ball is kicked: one already travelling outward
+   * was kicked on an earlier sub-step, and reflecting it again would drag it
+   * back into the disc it is leaving.
+   *
+   * Returns whether a kick happened, which is what the streak counts.
+   */
+  private kickOffBumpers(ball: Ball): boolean {
+    const size = gameConfig.ball.size;
+    const contact = gameConfig.powerUps.bumpers.radius + size / 2;
+    const centerY = ball.y + size / 2;
+
+    for (const disc of this.bumpers.discs) {
+      const toBallX = ball.centerX - disc.x;
+      const toBallY = centerY - disc.y;
+      const distance = Math.hypot(toBallX, toBallY);
+      if (distance >= contact) {
+        continue;
+      }
+      // A ball dead on the centre has no normal to work with; up is the one
+      // direction that cannot answer it by shoving it at the deck.
+      const normalX = distance === 0 ? 0 : toBallX / distance;
+      const normalY = distance === 0 ? -1 : toBallY / distance;
+      const approach = ball.velocity.x * normalX + ball.velocity.y * normalY;
+      if (approach >= 0) {
+        continue;
+      }
+
+      ball.velocity.x -= 2 * approach * normalX;
+      ball.velocity.y -= 2 * approach * normalY;
+      // Half a pixel past the surface, so the next sub-step reads as clear of
+      // the disc rather than as a second contact at exactly the contact radius.
+      const push = contact - distance + 0.5;
+      ball.x += push * normalX;
+      ball.y += push * normalY;
+      // A reflection preserves speed on paper; this is what keeps it true after
+      // a few hundred of them.
+      const speed = Math.hypot(ball.velocity.x, ball.velocity.y);
+      if (speed > 0) {
+        const scale = this.speed() / speed;
+        ball.velocity.x *= scale;
+        ball.velocity.y *= scale;
+      }
+
+      disc.flashTicksLeft = gameConfig.powerUps.bumpers.flashTicks;
+      this.score += gameConfig.scoring.bumperPoints * this.scoreMultiplier();
+      this.deps.sfx.bumperKick();
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * GHOST: whether this ball is passing through the wall on this tick.
+   *
+   * The capsule's timer arms the pass; the per-ball flag is what ends it. A ball
+   * still overlapping a brick when the timer runs out keeps going until it is
+   * clear — turning solid inside the grid would bounce it out of the middle of
+   * the wall, or wedge it between two cells with nowhere to go.
+   *
+   * Called once per tick rather than per sub-step, so a ball that leaves and
+   * re-enters the wall inside one tick finishes that tick intangible.
+   */
+  private ghosted(ball: Ball, capsuleLive: boolean): boolean {
+    if (capsuleLive) {
+      ball.phasing = true;
+      return true;
+    }
+    if (ball.phasing && this.grid.findBallOverlap(ball.x, ball.y) === null) {
+      ball.phasing = false;
+    }
+    return ball.phasing;
+  }
+
+  private moveBall(ball: Ball, index: number): void {
+    // Guidance, then physics. Anything that bends a ball without touching its
+    // speed belongs here, once per tick — never inside the sub-step loop, where
+    // a fast ball would be steered four times and a slow one once.
+    //
+    // The core goes first because it is physics; HOMING is aim, and it gives way
+    // wherever the core has real hold of the ball.
+    const insideCore = this.singularity.active && this.pullIntoSingularity(ball, index);
+    if (this.timers.isActive("H") && !insideCore) {
+      this.steerBall(ball);
+    }
     // TEMPO scales displacement only, so stored velocities resume full speed on expiry.
     const timeScale = this.timers.isActive("T") ? gameConfig.powerUps.tempoTimeScale : 1;
     const stepVx = ball.velocity.x * timeScale;
@@ -278,10 +604,27 @@ export class ShatterGame {
     const { left, right, top, height } = gameConfig.field;
     const size = gameConfig.ball.size;
     const pierce = () => this.timers.isActive("P");
+    const phasing = this.ghosted(ball, this.timers.isActive("GH"));
+    // The ghost cannot move between sub-steps — the paddle only moves on input —
+    // so its bounds are read once per tick rather than per sub-step.
+    const mirror = this.timers.isActive("Y") ? mirrorBounds(this.paddle.x, this.paddle.width) : null;
+    const { portalTop, portalHeight, portalInset } = gameConfig.powerUps;
+    const portalsOpen = this.timers.isActive("PO");
+    if (ball.portalCooldown > 0) {
+      ball.portalCooldown--;
+    }
+
+    // The order every sub-step runs in, and the one the rest of the wave writes
+    // into: bricks -> bumpers -> mirror ceiling -> portal transit -> wall clamp
+    // -> paddle. Anything that moves a ball without bouncing it goes above the
+    // clamps; anything that bounces it goes below whatever it bounces off.
+    //
+    // The frame and the paddle also zero the bumper streak wherever they touch
+    // the ball: a ball that reached either of them is not wedged between discs.
 
     for (let i = 0; i < subSteps; i++) {
       ball.x += dx;
-      let hit = this.grid.findBallOverlap(ball.x, ball.y);
+      let hit = phasing ? null : this.grid.findBallOverlap(ball.x, ball.y);
       if (hit) {
         if (!pierce()) {
           ball.x -= dx;
@@ -291,7 +634,7 @@ export class ShatterGame {
       }
 
       ball.y += dy;
-      hit = this.grid.findBallOverlap(ball.x, ball.y);
+      hit = phasing ? null : this.grid.findBallOverlap(ball.x, ball.y);
       if (hit) {
         if (!pierce()) {
           ball.y -= dy;
@@ -300,19 +643,69 @@ export class ShatterGame {
         this.damageBrick(hit);
       }
 
+      // A disc is a free-standing thing to bounce off, so it sits with the
+      // bricks rather than with the frame.
+      if (this.bumpers.active && this.kickOffBumpers(ball)) {
+        this.bumpers.streak++;
+        if (this.bumpers.streak >= gameConfig.powerUps.bumpers.streakLimit) {
+          this.timers.deactivate("O");
+          this.bumpers.reset();
+        }
+      }
+
+      // The paddle test upside down, over the same 10 px window. A ball that
+      // misses the ghost sideways falls through to the ceiling clamp below and
+      // ricochets flat, exactly as it always has.
+      const mirrorCatch =
+        mirror !== null &&
+        ball.velocity.y < 0 &&
+        ball.y >= top &&
+        ball.y <= mirror.bottom &&
+        ball.x + size > mirror.left &&
+        ball.x < mirror.right;
+      if (mirrorCatch) {
+        const relativeHit = relativePaddleHit(ball.centerX, mirror);
+        const bounced = computePaddleBounceVelocity(relativeHit, this.speed(), gameConfig.bounce.maxAngleRad);
+        ball.velocity.x = bounced.x;
+        // Downward: the ghost returns balls into the field, not out of it.
+        ball.velocity.y = Math.abs(bounced.y);
+        ball.y = mirror.bottom;
+        this.bumpers.streak = 0;
+        this.deps.sfx.mirrorBounce(relativeHit);
+      }
+
+      // A transit replaces the bounce the ball would otherwise have taken, which
+      // is why it sits above the clamps. Neither `y` nor `velocity` is touched,
+      // so the ball arrives at the same height on the same heading.
+      if (portalsOpen && ball.portalCooldown === 0) {
+        const center = ball.y + size / 2;
+        const inMouth = center >= portalTop && center <= portalTop + portalHeight;
+        const leftward = ball.x <= left && ball.velocity.x < 0 ? right - size - portalInset : null;
+        const rightward = ball.x >= right - size && ball.velocity.x > 0 ? left + portalInset : null;
+        const landing = leftward ?? rightward;
+        if (inMouth && landing !== null) {
+          ball.x = landing;
+          ball.portalCooldown = gameConfig.powerUps.portalCooldownTicks;
+          this.deps.sfx.portalWarp();
+        }
+      }
+
       if (ball.x <= left) {
         ball.x = left;
         ball.velocity.x = Math.abs(ball.velocity.x);
+        this.bumpers.streak = 0;
         this.deps.sfx.wallBounce();
       }
       if (ball.x >= right - size) {
         ball.x = right - size;
         ball.velocity.x = -Math.abs(ball.velocity.x);
+        this.bumpers.streak = 0;
         this.deps.sfx.wallBounce();
       }
       if (ball.y <= top) {
         ball.y = top;
         ball.velocity.y = Math.abs(ball.velocity.y);
+        this.bumpers.streak = 0;
         this.deps.sfx.wallBounce();
       }
 
@@ -324,6 +717,7 @@ export class ShatterGame {
         ball.x + size > this.paddle.x &&
         ball.x < this.paddle.x + this.paddle.width;
       if (paddleCatch) {
+        this.bumpers.streak = 0;
         if (this.timers.isActive("G")) {
           // GLUE: the ball parks on the paddle; a click (or Space) releases it.
           ball.velocity = { x: 0, y: 0 };
@@ -352,31 +746,41 @@ export class ShatterGame {
     }
   }
 
-  private damageBrick(hit: BrickHit, source: "ball" | "laser" | "splash" = "ball"): void {
+  private damageBrick(hit: BrickHit, source: BrickDamageSource = "ball"): void {
     const destroyed = this.grid.damage(hit);
     if (!destroyed) {
-      // Splash damage is covered by the single BLAST boom; only direct hits clank.
-      if (source !== "splash") {
+      // A BLAST splash is covered by its one boom and a CHAIN link by its one
+      // crack; only what the player aimed clanks.
+      if (isDirectHit(source)) {
         this.deps.sfx.brickArmored();
       }
       return;
     }
 
     this.score += hit.cell.points * this.scoreMultiplier();
-    if (source !== "splash") {
+    if (isDirectHit(source)) {
       this.deps.sfx.brickDestroyed(hit.row);
     }
     this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
 
-    if (source !== "splash" && Math.random() < this.bonusSpreadAmount()) {
+    if (isDirectHit(source) && (this.guaranteedDrop || Math.random() < this.bonusSpreadAmount())) {
       const { left, top, brickWidth, brickHeight } = gameConfig.grid;
       if (this.dropPool.trySpawn(left + hit.column * brickWidth, top + hit.row * brickHeight)) {
+        // Spent on a capsule that actually got a slot: a full drop pool would
+        // otherwise swallow MAGNET's one guaranteed demonstration.
+        this.guaranteedDrop = false;
         this.deps.sfx.capsuleSpawn();
       }
     }
 
     if (source === "ball" && this.timers.isActive("B")) {
       this.blastNeighbors(hit);
+    }
+    // After the splash, so a chain starts outside the crater BLAST just made.
+    // `"ball"` and not `isDirectHit`: a laser shot arcs nothing, and a chained
+    // kill may not chain again — the web's reach is `chainFrom`'s to decide.
+    if (source === "ball" && this.timers.isActive("C")) {
+      this.chainFrom(hit);
     }
 
     // Idempotent on purpose: a BLAST chain reaches here recursively when the
@@ -385,6 +789,80 @@ export class ShatterGame {
     if (this.grid.remaining <= 0) {
       this.clearCountdown = gameConfig.effects.clearDelayTicks;
     }
+  }
+
+  /**
+   * CHAIN: walk lightning out from a brick a ball just killed, two jumps per
+   * node, until the link budget runs out.
+   *
+   * Breadth-first in cell space and self-contained — it damages through
+   * `damageBrick(_, "chain")`, which cannot start another chain, so this walk is
+   * the only thing deciding how far the web reaches.
+   */
+  private chainFrom(seed: BrickHit): void {
+    const { maxDepth, maxLinks, boltTicks } = gameConfig.effects.chain;
+    const { columns } = gameConfig.grid;
+    const key = (row: number, column: number): number => row * columns + column;
+    // The seed is already dead, but it still has to be unreachable: an arc back
+    // onto it would spend a link on nothing.
+    const visited = new Set<number>([key(seed.row, seed.column)]);
+    const queue = [{ row: seed.row, column: seed.column, depth: 0 }];
+    let links = 0;
+
+    for (let head = 0; head < queue.length && links < maxLinks; head++) {
+      const node = queue[head];
+      if (node.depth >= maxDepth) {
+        continue;
+      }
+      for (const target of this.chainTargets(node.row, node.column, visited)) {
+        if (links >= maxLinks) {
+          break;
+        }
+        links++;
+        // Marked before the damage: the cell may survive as a chipped silver,
+        // and either way no later node may spend a second link on it.
+        visited.add(key(target.row, target.column));
+        this.bolts.push(chainBolt(node.row, node.column, target.row, target.column, boltTicks));
+        queue.push({ row: target.row, column: target.column, depth: node.depth + 1 });
+        this.damageBrick(target, "chain");
+      }
+    }
+
+    if (links > 0) {
+      this.deps.sfx.chainArc();
+    }
+  }
+
+  // The nearest live cells a bolt may jump to from one node. The 8 touching
+  // cells are excluded on purpose — reaching them is BLAST's job, and skipping
+  // them is what makes a chain read as a jump rather than a wider crater.
+  private chainTargets(row: number, column: number, visited: ReadonlySet<number>): BrickHit[] {
+    const { cellRadius, linksPerNode } = gameConfig.effects.chain;
+    const { columns } = gameConfig.grid;
+    const reach = Math.floor(cellRadius);
+    const found: Array<{ hit: BrickHit; distance: number }> = [];
+
+    for (let deltaRow = -reach; deltaRow <= reach; deltaRow++) {
+      for (let deltaColumn = -reach; deltaColumn <= reach; deltaColumn++) {
+        if (Math.max(Math.abs(deltaRow), Math.abs(deltaColumn)) < 2) {
+          continue;
+        }
+        const distance = Math.hypot(deltaRow, deltaColumn);
+        if (distance > cellRadius) {
+          continue;
+        }
+        const target = this.grid.hitAtCell(row + deltaRow, column + deltaColumn);
+        if (!target || visited.has(target.row * columns + target.column)) {
+          continue;
+        }
+        found.push({ hit: target, distance });
+      }
+    }
+
+    // Nearest first, then row before column: the same board always arcs the
+    // same way, so a chain can be read as a rule rather than as noise.
+    found.sort((a, b) => a.distance - b.distance || a.hit.row - b.hit.row || a.hit.column - b.hit.column);
+    return found.slice(0, linksPerNode).map((entry) => entry.hit);
   }
 
   // Splash kills never chain and never drop capsules — one explosion per ball hit.
@@ -500,6 +978,8 @@ export class ShatterGame {
     this.grid.wipe();
     this.detonation.reset();
     this.clearCountdown = 0;
+    this.deathCountdown = 0;
+    this.guaranteedDrop = false;
     this.onLevelCleared(false);
   }
 
@@ -509,6 +989,11 @@ export class ShatterGame {
     // by construction (15-tick chunks vs a 20-tick delay).
     this.brickFlashes = [];
     this.catchPops = [];
+    this.stasisRings = [];
+    this.bolts = [];
+    this.closeSingularity();
+    this.bumpers.reset();
+    this.quake.reset();
     this.particles.reset();
     const bonus = awardBonus ? (this.level + 1) * gameConfig.scoring.clearBonusPerLevel * this.scoreMultiplier() : 0;
     this.score += bonus;
@@ -523,10 +1008,13 @@ export class ShatterGame {
     // Every catch gets an unmistakable on-field acknowledgment: passive effects
     // (PAYDAY, BLAST, PIERCE) and refresh catches are otherwise invisible.
     this.catchPops.push({
-      x: this.paddle.centerX,
+      // The label is centred on the paddle, so a long name at the wall would
+      // hang off the frame — SINGULARITY is 11 characters and today's shortest
+      // already graze it.
+      x: Math.max(40, Math.min(332, this.paddle.centerX)),
       y: gameConfig.paddle.y - 6,
       label: POWER_UP_NAMES[kind],
-      malus: kind === "J",
+      malus: MALUS_KINDS.has(kind),
       ticksLeft: gameConfig.powerUps.catchPopLifeTicks,
     });
 
@@ -583,7 +1071,7 @@ export class ShatterGame {
       this.lives = Math.min(gameConfig.rules.maxLives, this.lives + 1);
     }
     if (kind === "Z") {
-      this.zapBottomRow();
+      this.destroyBottomRow();
     }
     if (kind === "R") {
       this.dropPool.rainSpawn(gameConfig.powerUps.rainSpawnCount);
@@ -591,28 +1079,129 @@ export class ShatterGame {
     if (kind === "G") {
       this.timers.activate("G", durations.G);
     }
+    if (kind === "I") {
+      this.timers.activate("I", durations.I);
+    }
+    if (kind === "H") {
+      this.timers.activate("H", durations.H);
+    }
+    if (kind === "Y") {
+      this.timers.activate("Y", durations.Y);
+    }
+    if (kind === "C") {
+      this.timers.activate("C", durations.C);
+    }
+    if (kind === "K") {
+      this.timers.activate("K", durations.K);
+      // The pull is silent and the tethers only appear once something is
+      // falling, so the next kill is made to drop one. Without it a magnet
+      // caught over a dry stretch looks like a capsule that did nothing.
+      this.guaranteedDrop = true;
+    }
+    if (kind === "V") {
+      this.timers.activate("V", durations.V);
+      this.singularity.open(durations.V);
+    }
+    if (kind === "BM") {
+      this.blowUpPaddle();
+    }
+    if (kind === "GH") {
+      this.timers.activate("GH", durations.GH);
+    }
+    if (kind === "Q") {
+      // The kill first: it is the bottom-most live row that goes, so the slide
+      // below can never push a brick off the end of the grid.
+      this.destroyBottomRow();
+      this.grid.shiftDown();
+      this.quake.start();
+    }
+    if (kind === "PO") {
+      this.timers.activate("PO", durations.PO);
+    }
+    if (kind === "O") {
+      // A second catch buys time on the set already out there: moving the discs
+      // out from under a ball mid-rally would be the game changing its mind.
+      if (!this.bumpers.active) {
+        this.bumpers.spawn(gameConfig.grid.top + this.grid.rows.length * gameConfig.grid.brickHeight);
+      }
+      this.timers.activate("O", durations.O);
+    }
 
     if (kind === "N") {
       // One detonation instead of a pickup jingle — and instead of ~70 per-brick beeps.
       this.deps.sfx.nukeDetonation();
     } else if (kind === "S") {
       this.deps.sfx.swarmPickup();
-    } else if (kind === "J") {
-      this.deps.sfx.jammerPickup();
+    } else if (kind === "GH") {
+      this.deps.sfx.ghostFade();
+    } else if (kind === "BM") {
+      // Its own boom instead of the shared womp: this trap is not a setback.
+      this.deps.sfx.paddleExplode();
+    } else if (MALUS_KINDS.has(kind)) {
+      // One womp for every trap: the blink and the pink pop already say which.
+      this.deps.sfx.malusPickup();
+    } else if (kind === "V") {
+      this.deps.sfx.singularityOpen();
+    } else if (kind === "I") {
+      this.deps.sfx.stasisFreeze();
     } else if (kind === "U") {
       this.deps.sfx.extraLife();
     } else if (kind === "Z") {
       // The row vaporizes silently brick-by-brick; one boom covers the sweep.
       this.deps.sfx.blastExplosion();
+    } else if (kind === "Q") {
+      this.deps.sfx.quakeRumble();
     } else {
       this.deps.sfx.capsulePickup();
     }
   }
 
-  // ZAP vaporizes the bottom-most occupied row outright: full points (PAYDAY
+  // The bottom-most occupied row, vaporized outright: full points (PAYDAY
   // applies), silver and gold die in one hit, but like a nuke it drops no
-  // capsules and never chains BLAST.
-  private zapBottomRow(): void {
+  // capsules and never chains BLAST. ZAP is this and nothing else; QUAKE runs
+  // it and then slides what is left down a row.
+  /**
+   * BOMB: the paddle detonates, and the life goes with it.
+   *
+   * Three bursts across its width rather than one at the middle, so the whole
+   * deck comes apart instead of a spark appearing at its centre. The life is
+   * not taken here — the fuse gate in `stepSimulation` calls `die()` when the
+   * debris has flown, which is what buys the player the beat to see what hit
+   * them.
+   */
+  private blowUpPaddle(): void {
+    const { fuseTicks, burst } = gameConfig.effects.paddleBlast;
+    const y = gameConfig.paddle.y + gameConfig.paddle.height / 2;
+    for (const at of [0.15, 0.5, 0.85]) {
+      this.particles.burst(this.paddle.x + this.paddle.width * at, y, "1", burst);
+    }
+    this.brickFlashes.push({
+      x: this.paddle.centerX - 15,
+      y: gameConfig.paddle.y - 2,
+      ticksLeft: gameConfig.effects.deathFlashTicks,
+      kind: "death",
+    });
+    this.deathCountdown = fuseTicks;
+  }
+
+  // One ring per ball on screen, centred where it hung. Glued balls get one
+  // too: they were held by the paddle rather than by the freeze, but the ring
+  // is the field saying it is moving again, not a per-ball claim.
+  private popStasisRings(): void {
+    const half = gameConfig.ball.size / 2;
+    for (const ball of this.balls) {
+      if (ball.active) {
+        this.stasisRings.push({
+          x: ball.x + half,
+          y: ball.y + half,
+          ticksLeft: gameConfig.powerUps.stasisRingLifeTicks,
+        });
+      }
+    }
+    this.deps.sfx.stasisRelease();
+  }
+
+  private destroyBottomRow(): void {
     for (let row = this.grid.rows.length - 1; row >= 0; row--) {
       const hits: BrickHit[] = [];
       for (let column = 0; column < gameConfig.grid.columns; column++) {
@@ -631,7 +1220,8 @@ export class ShatterGame {
       }
       break;
     }
-    // Same idempotent clear trigger as damageBrick: ZAP can take the last row.
+    // Same idempotent clear trigger as damageBrick: either capsule can take the
+    // last row.
     if (this.grid.remaining <= 0) {
       this.clearCountdown = gameConfig.effects.clearDelayTicks;
     }
@@ -760,6 +1350,9 @@ export class ShatterGame {
       ball.active = index === 0;
       ball.velocity = { x: 0, y: 0 };
       ball.stuckOffsetX = null;
+      ball.clearHoming();
+      ball.portalCooldown = 0;
+      ball.phasing = false;
     });
     this.balls[0].followPaddle(this.paddle);
     this.paddle.setWidth(gameConfig.paddle.baseWidth);
@@ -772,9 +1365,16 @@ export class ShatterGame {
     this.swarmLive = false;
     this.brickFlashes = [];
     this.catchPops = [];
+    this.stasisRings = [];
+    this.bolts = [];
+    this.closeSingularity();
+    this.bumpers.reset();
+    this.quake.reset();
     this.particles.reset();
     this.detonation.reset();
     this.clearCountdown = 0;
+    this.deathCountdown = 0;
+    this.guaranteedDrop = false;
 
     if (this.booted) {
       this.setScreen("serve");
@@ -801,12 +1401,19 @@ export class ShatterGame {
     // the PAYDAY score blink) would keep showing through the overlay.
     this.brickFlashes = [];
     this.catchPops = [];
+    this.stasisRings = [];
+    this.bolts = [];
+    this.closeSingularity();
+    this.bumpers.reset();
+    this.quake.reset();
     this.particles.reset();
     this.dropPool.reset();
     this.detonation.reset();
     this.timers.reset();
     this.wallArmed = false;
     this.clearCountdown = 0;
+    this.deathCountdown = 0;
+    this.guaranteedDrop = false;
     this.deps.screens.updateOver(zeroPad(this.score, 6));
     this.setScreen("over");
     this.deps.sfx.gameOver();
@@ -988,26 +1595,89 @@ export class ShatterGame {
     };
   }
 
-  private powerLabel(): string {
-    // "MULTI x2" / "MULTI x3" while the ladder is stacked (fits the 13-char inset).
-    const names = this.timers
-      .activeNames()
-      .map((name) => (name === POWER_UP_NAMES.M && this.multiTier >= 2 ? `${name} x${this.multiTier}` : name));
+  // Every live effect, in roster order. WALL and NUKE are named here by hand
+  // because no timer holds them — an armed charge and a running detonation —
+  // and any later effect carrying its own state is added the same way. Order
+  // comes from the roster, not from insertion, so the inset never reshuffles
+  // itself under the player mid-rally.
+  private activeEffects(): PowerUpKind[] {
+    const live = new Set<PowerUpKind>(this.timers.activeKinds());
     if (this.wallArmed) {
-      names.push(POWER_UP_NAMES.W);
+      live.add("W");
     }
     if (this.detonation.active) {
-      names.push(POWER_UP_NAMES.N);
+      live.add("N");
     }
-    if (names.length === 0) {
+    return POWER_UP_IDS.filter((kind) => live.has(kind));
+  }
+
+  /**
+   * The POWER inset, 13 characters wide at 7px Silkscreen.
+   *
+   * One or two effects read as their names, the way the inset always has. Past
+   * that the names give way to a still glyph row: the old label cycled one name
+   * per second, so five live effects took five seconds to read and never showed
+   * the same thing twice in a rally. A row that holds still is read at a glance,
+   * and glyphs fall off the end for a `+n` count rather than wrap or truncate.
+   */
+  private powerLabel(): string {
+    const kinds = this.activeEffects();
+    if (kinds.length === 0) {
       return "- - -";
     }
 
-    const joined = names.join(" ");
-    if (joined.length <= POWER_LABEL_MAX_CHARS) {
-      return joined;
+    const names = kinds.map((kind) => this.effectName(kind)).join(" ");
+    if (names.length <= POWER_LABEL_MAX_CHARS) {
+      return names;
     }
-    // Too many active effects for the inset: cycle through them one per second.
-    return names[Math.floor(this.tickCount / POWER_LABEL_CYCLE_TICKS) % names.length];
+
+    const glyphs = kinds.map((kind) => this.effectGlyph(kind));
+    if (glyphs.join(" ").length <= POWER_LABEL_MAX_CHARS) {
+      return glyphs.join(" ");
+    }
+    let shown = glyphs.length - 1;
+    while (shown > 1 && countedGlyphRow(glyphs, shown).length > POWER_LABEL_MAX_CHARS) {
+      shown--;
+    }
+    return countedGlyphRow(glyphs, shown);
   }
+
+  // MULTI carries its tier into the inset either way it is written:
+  // "MULTI x3" spelled out, "M3" in the glyph row.
+  private effectName(kind: PowerUpKind): string {
+    const name = POWER_UP_NAMES[kind];
+    return kind === "M" && this.multiTier >= 2 ? `${name} x${this.multiTier}` : name;
+  }
+
+  private effectGlyph(kind: PowerUpKind): string {
+    const glyph = POWER_UP_GLYPHS[kind];
+    return kind === "M" && this.multiTier >= 2 ? `${glyph}${this.multiTier}` : glyph;
+  }
+}
+
+// A bolt from one cell centre to the other as five points, the middle three
+// kicked sideways so it reads as lightning and not as a ruler line.
+function chainBolt(fromRow: number, fromColumn: number, toRow: number, toColumn: number, ticks: number): ChainBolt {
+  const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+  const fromX = left + (fromColumn + 0.5) * brickWidth;
+  const fromY = top + (fromRow + 0.5) * brickHeight;
+  const spanX = left + (toColumn + 0.5) * brickWidth - fromX;
+  const spanY = top + (toRow + 0.5) * brickHeight - fromY;
+  const length = Math.hypot(spanX, spanY) || 1;
+
+  const points = [];
+  for (let step = 0; step <= 4; step++) {
+    const along = step / 4;
+    const kick = step === 0 || step === 4 ? 0 : (Math.random() * 2 - 1) * CHAIN_BOLT_JITTER;
+    points.push({
+      x: fromX + spanX * along - (spanY / length) * kick,
+      y: fromY + spanY * along + (spanX / length) * kick,
+    });
+  }
+  return { points, ticksLeft: ticks };
+}
+
+// "E L P X J +2" — the glyphs that fit, then how many did not.
+function countedGlyphRow(glyphs: readonly string[], shown: number): string {
+  return `${glyphs.slice(0, shown).join(" ")} +${glyphs.length - shown}`;
 }

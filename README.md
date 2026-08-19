@@ -9,7 +9,41 @@ The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372�
 - **Screens**: title (animated copper bars) → serve → play, with pause, level-clear, game-over, and a hall of fame with 3-letter initials entry.
 - **28 levels**: SUNRISE, SMILEY, PYRAMID, CHOMP, GATEWAY, HEART, VORTEX, BOLT, CHECKER, INVADER, RAMPART, ROCKET, HELIX, TETRA, ORBIT, COOL, HIVE, DNA, SERPENT, SKULL, MIRROR, BUNKER, CASCADE, PLAY, MAZE, OMEGA, 1991, FINALE — looping with increasing ball speed. Silver bricks take 2 hits, gold bricks 3.
 - **Per-level backgrounds**: eight playfield themes (starfield, nebula haze, blueprint grid, sunrise horizon, gas giant, circuit board, CRT cathode, stone vault), assigned so no two consecutive levels look alike, each seeded per level so the levels sharing a theme still differ. Every theme is static and stays darker than the sprite palette — a `check:backgrounds` script enforces it.
-- **Power-ups** dropped by destroyed bricks (15% chance), each catch acknowledged by a floating label at the paddle: **WIDE** paddle, **MULTI** ball (stacks: 3 → 6 → 9 balls), **LASER** (paddle cannons), **PIERCE** (ball goes through bricks), **BLAST** (bricks destroyed by a ball damage their 8 neighbors), **WALL** (one-shot safety barrier at the bottom), **TEMPO** (bullet-time, balls at ×0.6), **PAYDAY** (points ×2), **GLUE** (balls stick to the paddle; click or Space releases them), **ZAP** (vaporizes the bottom-most brick row), **RAIN** (a shower of 4 fresh capsules from the top), **1UP** (rare: extra life, max 6), **NUKE** (rare: a shockwave destroys every brick on the field, full points), **SWARM** (rare: 12 balls at once) — plus **JAMMER**, the only trap capsule (blinking letter, rarer): it shrinks the paddle for 6 s, so dodge it.
+- **Power-ups** dropped by destroyed bricks, each catch acknowledged by a floating label at the paddle. How often a brick drops anything at all is `bonusSpreadAmount`; _which_ capsule it drops is the rarity tier below, and the two are independent.
+
+  |      | Capsule     | Effect                                                      | Duration | Rarity   |
+  | ---- | ----------- | ----------------------------------------------------------- | -------- | -------- |
+  | `E`  | WIDE        | wider paddle                                                | 12 s     | common   |
+  | `M`  | MULTI       | more balls, stacking 3 → 6 → 9                              | instant  | common   |
+  | `L`  | LASER       | paddle cannons                                              | 12 s     | common   |
+  | `B`  | BLAST       | ball kills damage the 8 neighbours                          | 12 s     | common   |
+  | `T`  | TEMPO       | bullet-time, balls at ×0.6                                  | 8 s      | common   |
+  | `G`  | GLUE        | balls stick to the paddle; click or Space releases          | 12 s     | common   |
+  | `I`  | STASIS      | every ball stops in mid-air; the paddle keeps going         | 1.5 s    | common   |
+  | `H`  | HOMING      | balls curve toward the nearest live brick                   | 8 s      | common   |
+  | `Y`  | MIRROR      | a ghost paddle rides the top of the field                   | 10 s     | common   |
+  | `C`  | CHAIN       | ball kills arc lightning to bricks they don't touch         | 10 s     | uncommon |
+  | `K`  | MAGNET      | the paddle vacuums falling capsules in, traps too           | 12 s     | common   |
+  | `V`  | SINGULARITY | a black hole bends every ball and eats capsules             | 6 s      | uncommon |
+  | `PO` | PORTAL      | a ball leaving one side wall arrives out of the other       | 30 s     | uncommon |
+  | `O`  | BUMPERS     | three pinball discs under the grid, 100 points a kick       | 12 s     | uncommon |
+  | `P`  | PIERCE      | ball goes through bricks                                    | 8 s      | uncommon |
+  | `W`  | WALL        | safety barrier along the bottom                             | one save | uncommon |
+  | `X`  | PAYDAY      | points ×2                                                   | 10 s     | uncommon |
+  | `Z`  | ZAP         | vaporizes the bottom-most brick row                         | instant  | uncommon |
+  | `Q`  | QUAKE       | the bottom row dies, the rest slide down, field shakes      | instant  | uncommon |
+  | `R`  | RAIN        | a shower of 4 fresh capsules from the top                   | instant  | uncommon |
+  | `N`  | NUKE        | a shockwave destroys every brick, full points               | instant  | rare     |
+  | `S`  | SWARM       | 12 balls at once                                            | instant  | rare     |
+  | `U`  | 1UP         | extra life, max 6                                           | instant  | rare     |
+  | `GH` | GHOST       | **trap** — the wall goes intangible; the ball flies through | 5 s      | trap     |
+  | `BM` | BOMB        | catching it blows the paddle up: you lose a life            | instant  | trap     |
+  | `J`  | JAMMER      | **trap** — shrinks the paddle                               | 6 s      | trap     |
+
+  **A trap says so before you catch it**: its letter blinks as it falls, and the catch pop is pink with a detuning womp instead of the usual chime. That tell is the `trap` tier itself, so it costs a new trap capsule nothing to get all three.
+
+  The side panel's **POWER** inset names the live effects while they fit its 13 characters (`WIDE MULTI x3`) and packs them into a still glyph row when they do not (`E M3 L P B +5`) — a row that holds still can be read mid-rally, which a label cycling one name per second could not.
+
 - **Scoring**: 60–200 points per brick by kind, level-clear bonus `(level+1) × 500`. The top-5 hall of fame is **shared across all players**: scores live in a server-side SQLite table behind the `shatter-api` service, with `localStorage` (`shatter.hiscores.v1`) as instant-boot cache and offline fallback — the game never waits on the network.
 - **Audio**: WebAudio chiptune SFX, 100% synthesized (no assets): a per-event sound bank (square pitch-bends, detuned pairs, filtered noise bursts) on a master gain → compressor chain, with a 30 ms retrigger guard against same-tick pile-ups. An SFX volume fader lives in the side panel (persisted in `localStorage` `shatter.volume.v1`, scaling the master gain ahead of the compressor). An inaudible 30 Hz keep-warm tone stops browser/HDMI/Bluetooth silence detection from swallowing short impact blips.
 
@@ -142,12 +176,12 @@ scripts/
 
 - **Fixed timestep**: 60 Hz accumulator (frame delta clamped to 50 ms, max 4 catch-up steps per frame); rendering every animation frame.
 - **Sub-stepped ball movement**: each tick is split into `ceil(max(|vx|,|vy|)/2)` micro-steps, X then Y, with a brick-grid collision query per axis — fast balls can't tunnel through bricks.
-- **Brick death effects**: destroyed bricks flash white and burst into debris from a 512-slot particle ring buffer; the NUKE sweep and the level-clear delay freeze the simulation (only effects tick), so the clear screen never cuts an animation short and no ball can be lost behind an explosion.
+- **Brick death effects**: destroyed bricks flash white and burst into debris from a 1024-slot particle ring buffer; the NUKE sweep and the level-clear delay freeze the simulation (only effects tick), so the clear screen never cuts an animation short and no ball can be lost behind an explosion.
 - **Brick collision**: O(1) grid lookup (`cellAt`) + 4-corner overlap test for the 8px ball, instead of scanning all bricks.
 - **Paddle bounce**: `relativeHit ∈ [-1, 1]` → angle `relativeHit × 1.05 rad`; speed is preserved, so center hits go up and edge hits go wide.
 - **Ball speed**: `min(4.6, 3.1 + level × 0.25)` px/tick, times the `ballSpeedMultiplier` config.
 - **Canvas palette** lives in `src/render/palette.ts` (canvas cannot read CSS custom properties); the same colors are exposed to the DOM as CSS tokens in `css/tokens/colors.css`.
-- **Capsules are a registry**: `src/core/config/powerUps.ts` holds one row per power-up — id, glyph, name, body color, letter tone, duration, drop weight, timed-ness — and everything else derives from it: the `PowerUpKind` union, the name/glyph/duration/weight lookups, `DROP_COLORS` and `DARK_LETTER_DROP_KINDS` in the palette, the timers' countdown list, and the console's roster. **Adding a capsule is adding one row**, and forgetting to is a type error rather than a silent gap. The **glyph is separate from the id** because the roster outgrew the alphabet: a two-character id like `MT` draws its glyph one font size down so it still fits the pill. In dev, a pass after `document.fonts.ready` measures every glyph against the pill and checks every letter clears 3:1 on its body.
+- **Capsules are a registry**: `src/core/config/powerUps.ts` holds one row per power-up — id, glyph, name, body color, letter tone, duration, rarity tier, timed-ness — and everything else derives from it: the `PowerUpKind` union, the name/glyph/duration/weight lookups, `MALUS_KINDS`, `DROP_COLORS` and `DARK_LETTER_DROP_KINDS` in the palette, the timers' countdown list, and the console's roster. **Rarity is a tier, not a number per row**: four weights (`common` 1, `uncommon` 0.6, `trap` 0.7, `rare` 0.35) shared by the whole roster, because weights authored one capsule at a time flatten out — 9 of the first 15 sat at exactly 1. The `trap` tier doubles as the malus flag, driving the blinking letter, the pink catch pop and the womp. **Adding a capsule is adding one row**, and forgetting to is a type error rather than a silent gap. The **glyph is separate from the id** because the roster outgrew the alphabet: a two-character id like `MT` draws its glyph one font size down so it still fits the pill. In dev, a pass after `document.fonts.ready` measures every glyph against the pill and checks every letter clears 3:1 on its body.
 - **Backgrounds are pre-rendered**: each level names a theme (`background` in its definition) painted once into an offscreen 1× layer and blitted per frame with smoothing off (an exact 3× upscale), so theme detail is free in the loop — measured slightly cheaper than the old flat fill + 58 star rects. Layouts come from a seeded generator keyed by theme and level, so a level's field art never changes between visits. Theme tones are split into `area` (large regions, kept as dark as the classic field) and `speck` (1–3px sparkle); `pnpm run check:backgrounds` fails the build on a tone that is too bright, too close to a brick/capsule color, or on two adjacent levels sharing a theme.
 - **Panel updates are diffed**: DOM text is only written when a value changes, never per frame.
 - **Stage scaling**: `transform: scale(min(0.99·vw/480, 0.99·vh/300))`, with the stage rect cached and invalidated on resize/scroll; pointer coordinates are mapped through the scale.

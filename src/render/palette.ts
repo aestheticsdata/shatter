@@ -55,4 +55,39 @@ export const canvasPalette = {
   deathFlash: "#ffffff",
   nukeFlash: "#ffffff",
   nukeRing: "#eaf7ff",
+  // STASIS's own frost aqua, so the release ring is read as that capsule's.
+  stasisRing: "#9effd6",
+  // HOMING's signal green, on the four corners of the brick a ball has locked.
+  homingMark: "#00e05a",
+  // MIRROR's ghost: the paddle's own tones taken down far enough to read as a
+  // reflection rather than a second paddle. It reuses `paddleBottomShade` for
+  // its shade, which is already dark enough to pass for one.
+  mirrorBody: "#1e5796",
+  mirrorCap: "#93273a",
+  mirrorSheen: "#5f8fc4",
+  // CHAIN's arc: the capsule's mint under a white core, so a bolt reads as hot
+  // on every field the game paints.
+  chainBolt: "#3dff8e",
+  chainCore: "#ffffff",
+  // MAGNET's tether, the capsule's own seafoam: the pull is silent, so this
+  // dashed line is the only thing telling the player it is happening.
+  magnetTether: "#6fd0b4",
+  // SINGULARITY: a hole darker than any field theme, ringed by a breathing halo
+  // in the capsule's violet and an outer rim that fixes its true reach.
+  singularityCore: "#05030d",
+  singularityHalo: "#c9a7ff",
+  singularityRim: "#6d3bd6",
+  // PORTAL: three bands scrolling up the wall, bright to nearly black, so a
+  // mouth reads as a moving opening rather than a coloured strip.
+  portalBright: "#00b3fa",
+  portalMid: "#0a6ea8",
+  portalDark: "#08324f",
+  // GHOST: all that is left of a brick while the wall is intangible. One white
+  // outline and the playfield theme showing through where the body was.
+  ghostBrick: "#f2f4ff",
+  // BUMPERS: the capsule's hot rose, ringed in white so a disc reads against
+  // every field theme, with a dark eye that goes white for the kick flash.
+  bumperBody: "#ff00aa",
+  bumperRim: "#f2f4ff",
+  bumperCore: "#0b0b26",
 } as const;

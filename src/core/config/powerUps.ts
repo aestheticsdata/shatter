@@ -1,6 +1,6 @@
 // The capsule roster: one entry per power-up, and the single source of truth
 // for every table the game reads about them. Adding a capsule is adding a row
-// here — the union type, the seven lookups below, `DROP_COLORS` and
+// here — the union type, the lookups below, `DROP_COLORS` and
 // `DARK_LETTER_DROP_KINDS` in `@render/palette`, and the dev console's roster
 // all derive from it. Nothing else needs an edit.
 //
@@ -8,19 +8,63 @@
 // `PowerUpKind` from here, and a cycle would put half the game's types behind
 // a partially initialised module.
 
+// How often a capsule drops, and — for `trap` — whether it is a malus at all.
+// The two are one field because they have never disagreed: every trap in the
+// roster is a trap precisely because catching it hurts.
+export type PowerUpTier = "common" | "uncommon" | "rare" | "trap";
+
+// Relative odds per tier. Four numbers instead of one per row: weights authored
+// a capsule at a time flatten out — 9 of the first 15 sat at exactly 1, which is
+// no rarity at all. `trap` deliberately outweighs `uncommon`: a trap has to be
+// met often enough to teach its blink, and traps are meant to be roughly 18 % of
+// what drops once the roster is full.
+export const TIER_WEIGHTS: Record<PowerUpTier, number> = {
+  common: 1,
+  uncommon: 0.6,
+  rare: 0.35,
+  trap: 0.7,
+};
+
 export interface PowerUpDefinition {
   // `string`, not the union — the union is inferred *from* these ids, and typing
   // it as itself would be circular. One or two characters; see `glyph`.
   id: string;
   // What `drawDrop` paints on the pill. Decoupled from the id because only
-  // A C D F H I K O Q V Y are still free and the roster outgrew the alphabet:
-  // a two-character glyph drops to a 5px font so it stays inside the sheen.
+  // A D F are still free and the roster outgrew the alphabet: a two-character
+  // glyph drops to a 5px font so it stays inside the sheen.
   glyph: string;
   // The POWER inset label and the catch pop, and what the console accepts
   // alongside the id (`power multi` === `power M`).
   name: string;
   // Capsule body. Every one of these is checked against the playfield themes by
-  // `pnpm run check:backgrounds`.
+  // `pnpm run check:backgrounds`, and each new one re-opens all 8 of them.
+  //
+  // Hue is a soft cue; the glyph is the discriminator. The families the roster
+  // fell into, measured rather than decreed: offence warm 340-30° (LASER 352°,
+  // BLAST 29°), control cool 170-260° (SWARM 174°, ZAP 190°, WALL 205°, WIDE
+  // 213°, RAIN 258°), ball-count green 75-140° (NUKE 77°, MULTI 128°), economy
+  // gold 40-75° (PAYDAY 44°, PIERCE 47°). No band is reserved and none bans a
+  // capsule — six traps cannot be held apart inside one 35° hazard band, and a
+  // trap tells on itself through the blink and the pink pop, which are
+  // hue-independent. TEMPO (5 % saturation), GLUE (30°, dark enough to read
+  // brown) and 1UP (330°) sit outside every band and stay there.
+  //
+  // The rule for a new body is **>= 58 RGB from every other capsule and from the
+  // ball**, and nothing else is a hard constraint.
+  //
+  // Bricks deliberately are not: six capsules wear a brick's exact colour by the
+  // game's original design — WIDE is the blue brick, MULTI the green, LASER the
+  // red, PIERCE the yellow, BLAST the orange, PAYDAY the gold. A capsule is a
+  // moving pill with a letter and a sheen; it was never going to be mistaken for
+  // a static brick, and matching them is the look.
+  //
+  // Saturation is an aim, not a floor. Reach for something vivid, but a pale body
+  // is fine when the distance holds: TEMPO at 5 % and WALL at 44 % both shipped
+  // long before anyone wrote a number down, and 34 capsules cannot all be vivid
+  // and 58 apart at once.
+  //
+  // One grandfathered exception: PIERCE and PAYDAY sit 49 apart. Every other pair
+  // in the roster clears 58.
   color: string;
   // Dark letter on a light body. Authored, not computed: true iff the body's
   // WCAG luminance is >= 0.28 — today's roster splits cleanly either side of
@@ -31,37 +75,49 @@ export interface PowerUpDefinition {
   // How long the effect lasts, in 60 Hz ticks. 0 for the instantaneous and
   // one-shot capsules (see `timed`).
   ticks: number;
-  // Relative odds within one roll, not a probability: whether a brick drops
-  // anything at all is `gameConfig.rules.bonusSpreadAmount`.
-  weight: number;
+  // Rarity, and for `trap` the malus tell as well — `MALUS_KINDS` below is that
+  // tier, and it drives the blinking glyph, the pink catch pop and the womp, so
+  // a new trap is one word here rather than three more `=== "J"` branches.
+  // Odds are relative within a roll: whether a brick drops anything at all is
+  // `gameConfig.rules.bonusSpreadAmount`.
+  tier: PowerUpTier;
   // Whether `PowerUpTimers` counts it down. W (WALL) is a one-shot charge owned
   // by the game and N (NUKE) is driven by the Detonation, so neither is timed.
   // S (SWARM) is instantaneous like M: its timer only keeps the inset label lit.
-  // U/Z/R are instantaneous with no lingering state at all — the catch pop is
-  // their whole acknowledgment.
+  // U/Z/R/Q are instantaneous with no lingering state at all — the catch pop is
+  // their whole acknowledgment, and BM ends the life it was caught on.
   timed: boolean;
 }
 
 // One row per capsule, and it must stay one row: the field names are short so a
 // two-character id and a name as long as BLACKOUT still fit inside 120 columns.
 export const POWER_UPS = [
-  { id: "E", glyph: "E", name: "WIDE", color: "#2d7fe0", dark: false, ticks: 720, weight: 1, timed: true },
-  { id: "M", glyph: "M", name: "MULTI", color: "#3fbf4f", dark: true, ticks: 180, weight: 1, timed: true },
-  { id: "L", glyph: "L", name: "LASER", color: "#e8384f", dark: false, ticks: 720, weight: 1, timed: true },
-  { id: "P", glyph: "P", name: "PIERCE", color: "#ffcf1c", dark: true, ticks: 480, weight: 1, timed: true },
-  { id: "B", glyph: "B", name: "BLAST", color: "#f07d10", dark: true, ticks: 720, weight: 1, timed: true },
-  { id: "W", glyph: "W", name: "WALL", color: "#8fd0ff", dark: true, ticks: 0, weight: 1, timed: false },
-  { id: "T", glyph: "T", name: "TEMPO", color: "#f2f4ff", dark: true, ticks: 480, weight: 1, timed: true },
-  { id: "X", glyph: "X", name: "PAYDAY", color: "#dfae2c", dark: true, ticks: 600, weight: 1, timed: true },
-  { id: "J", glyph: "J", name: "JAMMER", color: "#d13be8", dark: false, ticks: 360, weight: 0.5, timed: true },
-  // N at 0.3 starved: ~2.3 nukes DROPPED across a full 15-level run — QA never
-  // saw one. 0.65 lands one roughly every 3 levels while staying the rarest.
-  { id: "N", glyph: "N", name: "NUKE", color: "#b6ff00", dark: true, ticks: 0, weight: 0.65, timed: false },
-  { id: "S", glyph: "S", name: "SWARM", color: "#1fd8c4", dark: true, ticks: 180, weight: 0.5, timed: true },
-  { id: "U", glyph: "U", name: "1UP", color: "#ff70b8", dark: true, ticks: 0, weight: 0.25, timed: false },
-  { id: "Z", glyph: "Z", name: "ZAP", color: "#4ae0ff", dark: true, ticks: 0, weight: 0.6, timed: false },
-  { id: "R", glyph: "R", name: "RAIN", color: "#8a5cf5", dark: false, ticks: 0, weight: 0.5, timed: false },
-  { id: "G", glyph: "G", name: "GLUE", color: "#b07840", dark: false, ticks: 720, weight: 1, timed: true },
+  { id: "E", glyph: "E", name: "WIDE", color: "#2d7fe0", dark: false, ticks: 720, tier: "common", timed: true },
+  { id: "M", glyph: "M", name: "MULTI", color: "#3fbf4f", dark: true, ticks: 180, tier: "common", timed: true },
+  { id: "L", glyph: "L", name: "LASER", color: "#e8384f", dark: false, ticks: 720, tier: "common", timed: true },
+  { id: "P", glyph: "P", name: "PIERCE", color: "#ffcf1c", dark: true, ticks: 480, tier: "uncommon", timed: true },
+  { id: "B", glyph: "B", name: "BLAST", color: "#f07d10", dark: true, ticks: 720, tier: "common", timed: true },
+  { id: "W", glyph: "W", name: "WALL", color: "#8fd0ff", dark: true, ticks: 0, tier: "uncommon", timed: false },
+  { id: "T", glyph: "T", name: "TEMPO", color: "#f2f4ff", dark: true, ticks: 480, tier: "common", timed: true },
+  { id: "X", glyph: "X", name: "PAYDAY", color: "#dfae2c", dark: true, ticks: 600, tier: "uncommon", timed: true },
+  { id: "J", glyph: "J", name: "JAMMER", color: "#d13be8", dark: false, ticks: 360, tier: "trap", timed: true },
+  { id: "N", glyph: "N", name: "NUKE", color: "#b6ff00", dark: true, ticks: 0, tier: "rare", timed: false },
+  { id: "S", glyph: "S", name: "SWARM", color: "#1fd8c4", dark: true, ticks: 180, tier: "rare", timed: true },
+  { id: "U", glyph: "U", name: "1UP", color: "#ff70b8", dark: true, ticks: 0, tier: "rare", timed: false },
+  { id: "Z", glyph: "Z", name: "ZAP", color: "#4ae0ff", dark: true, ticks: 0, tier: "uncommon", timed: false },
+  { id: "R", glyph: "R", name: "RAIN", color: "#8a5cf5", dark: false, ticks: 0, tier: "uncommon", timed: false },
+  { id: "G", glyph: "G", name: "GLUE", color: "#b07840", dark: false, ticks: 720, tier: "common", timed: true },
+  { id: "I", glyph: "I", name: "STASIS", color: "#9effd6", dark: true, ticks: 90, tier: "common", timed: true },
+  { id: "H", glyph: "H", name: "HOMING", color: "#00e05a", dark: true, ticks: 480, tier: "common", timed: true },
+  { id: "Y", glyph: "Y", name: "MIRROR", color: "#a878b4", dark: false, ticks: 600, tier: "common", timed: true },
+  { id: "C", glyph: "C", name: "CHAIN", color: "#3dff8e", dark: true, ticks: 600, tier: "uncommon", timed: true },
+  { id: "K", glyph: "K", name: "MAGNET", color: "#6fd0b4", dark: true, ticks: 720, tier: "common", timed: true },
+  { id: "V", glyph: "V", name: "SINGULARITY", color: "#c9a7ff", dark: true, ticks: 360, tier: "uncommon", timed: true },
+  { id: "PO", glyph: "PO", name: "PORTAL", color: "#00b3fa", dark: true, ticks: 1800, tier: "uncommon", timed: true },
+  { id: "O", glyph: "O", name: "BUMPERS", color: "#ff00aa", dark: false, ticks: 720, tier: "uncommon", timed: true },
+  { id: "Q", glyph: "Q", name: "QUAKE", color: "#ffab6b", dark: true, ticks: 0, tier: "uncommon", timed: false },
+  { id: "BM", glyph: "BM", name: "BOMB", color: "#ff3b00", dark: false, ticks: 0, tier: "trap", timed: false },
+  { id: "GH", glyph: "GH", name: "GHOST", color: "#e1f0b4", dark: true, ticks: 300, tier: "trap", timed: true },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];
@@ -83,11 +139,19 @@ export const POWER_UP_BY_ID: Record<PowerUpKind, PowerUpDefinition> = byId((defi
 export const POWER_UP_NAMES: Record<PowerUpKind, string> = byId((definition) => definition.name);
 export const POWER_UP_GLYPHS: Record<PowerUpKind, string> = byId((definition) => definition.glyph);
 export const POWER_UP_DURATIONS: Record<PowerUpKind, number> = byId((definition) => definition.ticks);
-export const POWER_UP_DROP_WEIGHTS: Record<PowerUpKind, number> = byId((definition) => definition.weight);
+export const POWER_UP_DROP_WEIGHTS: Record<PowerUpKind, number> = byId((definition) => TIER_WEIGHTS[definition.tier]);
 
-// Roster order, which is the order the console prints and `rollDropKind` walks.
+// Roster order, which is the order the console prints, `rollDropKind` walks and
+// the POWER inset lists live effects in.
 export const POWER_UP_IDS: readonly PowerUpKind[] = POWER_UPS.map((definition) => definition.id);
 
 export const TIMED_KINDS: readonly PowerUpKind[] = POWER_UPS.filter((definition) => definition.timed).map(
   (definition) => definition.id,
+);
+
+// The capsules that hurt, which is exactly the `trap` tier. Read by the blinking
+// glyph in `drawDrop`, the pink catch pop and the pickup womp — the three things
+// that have to say "trap" before and as the paddle takes it.
+export const MALUS_KINDS: ReadonlySet<PowerUpKind> = new Set(
+  POWER_UPS.filter((definition) => definition.tier === "trap").map((definition) => definition.id),
 );

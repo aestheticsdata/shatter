@@ -1,4 +1,4 @@
-import { byId, POWER_UP_NAMES, TIMED_KINDS } from "@core/config/powerUps";
+import { byId, TIMED_KINDS } from "@core/config/powerUps";
 
 import type { PowerUpKind } from "@interfaces/types";
 
@@ -37,7 +37,10 @@ export class PowerUpTimers {
     }
   }
 
-  activeNames(): string[] {
-    return TIMED_KINDS.filter((kind) => this.isActive(kind)).map((kind) => POWER_UP_NAMES[kind]);
+  // Roster order, which is what the POWER inset lists live effects in. Names
+  // and glyphs are the caller's business: MULTI's label carries a tier the
+  // timers know nothing about.
+  activeKinds(): PowerUpKind[] {
+    return TIMED_KINDS.filter((kind) => this.isActive(kind));
   }
 }

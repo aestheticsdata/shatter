@@ -11,6 +11,29 @@ const VOLUME_TICK_WINDOW_MS = 90;
 
 const VOLUME_STORAGE_KEY = "shatter.volume.v1";
 
+// CHAIN's sputter, as [delay seconds, band centre Hz, gain]. The spacing is
+// uneven on purpose: evenly spaced ticks read as a machine and a single burst
+// reads as a laser, while an arc stutters and dies away unevenly. Front-loaded,
+// because the crackle has to arrive with the strike — ticks that only start
+// after 30 ms read as an echo of it instead of as part of it.
+// The arc waits out the brick's own break before it strikes. Fired on the same
+// tick they are one 50 ms noise burst in one band: the arc is the louder of the
+// two and still went unheard, because the ear takes them for a single crack.
+// Late, it reads as what it is — the kill, then the lightning jumping off it.
+const CHAIN_ARC_LEAD_S = 0.05;
+
+const CHAIN_ARC_SPUTTER: readonly (readonly [number, number, number])[] = [
+  [0.005, 8600, 0.26],
+  [0.013, 5600, 0.24],
+  [0.022, 9800, 0.2],
+  [0.033, 3200, 0.22],
+  [0.046, 7400, 0.19],
+  [0.059, 4800, 0.16],
+  [0.076, 6600, 0.14],
+  [0.101, 3600, 0.11],
+  [0.131, 5200, 0.08],
+];
+
 function readStoredVolume(): number {
   try {
     const raw = localStorage.getItem(VOLUME_STORAGE_KEY);
@@ -154,9 +177,153 @@ export class SoundBank {
     });
   }
 
-  // Detune-beat "womp": the two layers drift apart as they fall.
-  jammerPickup(): void {
-    if (!this.allow("jammer")) {
+  // A whoop through the wall: down, then straight back up out of the other side.
+  // Both halves glide the whole time, so neither settles into a pitch.
+  portalWarp(): void {
+    if (!this.allow("portal")) {
+      return;
+    }
+    this.sound.tone({ freq: 1200, freqEnd: 300, dur: 0.09, vol: 0.05, type: "sawtooth" });
+    this.sound.tone({ freq: 300, freqEnd: 1200, dur: 0.09, vol: 0.05, type: "sawtooth", delayS: 0.04 });
+  }
+
+  // The wall going out of phase, and coming back. Two halves of one gesture:
+  // noise opening upward as the bricks thin out, closing downward as they set.
+  // Noise only — a pitched voice would make an event out of what is a change of
+  // state, and the player has to hear the second one to know it is over.
+  ghostFade(): void {
+    if (!this.allow("ghostFade")) {
+      return;
+    }
+    this.sound.noise({ dur: 0.45, vol: 0.13, filter: { type: "bandpass", freq: 300, freqEnd: 3600, q: 1.2 } });
+    this.sound.noise({ dur: 0.3, vol: 0.07, filter: { type: "highpass", freq: 2200 } });
+  }
+
+  ghostSolidify(): void {
+    if (!this.allow("ghostSolidify")) {
+      return;
+    }
+    this.sound.noise({ dur: 0.35, vol: 0.15, filter: { type: "bandpass", freq: 3600, freqEnd: 260, q: 1.2 } });
+    this.sound.noise({ dur: 0.08, vol: 0.12, filter: { type: "lowpass", freq: 700 } });
+  }
+
+  // BOMB: the paddle going up. Heavier and longer than BLAST's crater — a low
+  // sawtooth falling away under a wide body and a debris tail, so it reads as
+  // the deck itself rather than as one more brick.
+  paddleExplode(): void {
+    if (!this.allow("paddleBlast")) {
+      return;
+    }
+    this.sound.tone({ freq: 150, freqEnd: 28, dur: 0.8, vol: 0.13, type: "sawtooth" });
+    this.sound.tone({ freq: 150, freqEnd: 28, dur: 0.8, vol: 0.09, type: "sawtooth", detuneCents: 15 });
+    this.sound.noise({ dur: 0.09, vol: 0.34, filter: { type: "highpass", freq: 900 } });
+    this.sound.noise({ dur: 0.7, vol: 0.26, filter: { type: "lowpass", freq: 900, freqEnd: 50 } });
+  }
+
+  // The ground moving: a sawtooth sagging an octave under lowpassed noise, both
+  // long enough to outlast the shake they answer. The row dies silently, as
+  // ZAP's does — one rumble covers the whole event.
+  quakeRumble(): void {
+    if (!this.allow("quake")) {
+      return;
+    }
+    this.sound.tone({ freq: 90, freqEnd: 40, dur: 0.6, vol: 0.11, type: "sawtooth" });
+    this.sound.tone({ freq: 90, freqEnd: 40, dur: 0.6, vol: 0.08, type: "sawtooth", detuneCents: 15 });
+    this.sound.noise({ dur: 0.5, vol: 0.09, filter: { type: "lowpass", freq: 300, freqEnd: 50 } });
+  }
+
+  // A pinball bumper kick: a short pop rising an octave over a click of noise,
+  // so a rally of them reads as a rhythm rather than as one held tone.
+  bumperKick(): void {
+    if (!this.allow("bumper")) {
+      return;
+    }
+    this.sound.tone({ freq: 660, freqEnd: 1320, dur: 0.06, vol: 0.07 });
+    this.sound.noise({ dur: 0.03, vol: 0.06, filter: { type: "bandpass", freq: 1800 } });
+  }
+
+  // A hole opening: a slow sawtooth climb under noise widening out of nothing.
+  // Only the opening is heard — `Sound` has no loop, so a 6-second hum would
+  // have to be re-triggered every tick, and the closing is silent by design.
+  singularityOpen(): void {
+    if (!this.allow("singularity")) {
+      return;
+    }
+    this.sound.tone({ freq: 60, freqEnd: 220, dur: 0.6, vol: 0.09, type: "sawtooth" });
+    this.sound.tone({ freq: 60, freqEnd: 220, dur: 0.6, vol: 0.06, type: "sawtooth", detuneCents: 15 });
+    this.sound.noise({ dur: 0.5, vol: 0.07, filter: { type: "bandpass", freq: 200, freqEnd: 1800 } });
+  }
+
+  // One arc per kill that arced, however many bricks the web reached.
+  //
+  // Noise only, and that is the whole design rule: an arc has no note in it, so
+  // any oscillator here reads as a beep however it is voiced. Everything is
+  // shaped by filtering and by length instead.
+  //
+  // What makes it crack rather than hiss is that the loud layers are *short*:
+  // a 6 ms top-end snap and a 30 ms transient reaching down to 300 Hz for thump,
+  // over a body cut short enough not to smear into a whoosh. The sizzle and the
+  // sputter carry the tail; the sputter is what says arc rather than zap.
+  chainArc(): void {
+    if (!this.allow("chain")) {
+      return;
+    }
+    const lead = CHAIN_ARC_LEAD_S;
+    this.sound.noise({ dur: 0.006, vol: 0.32, delayS: lead, filter: { type: "highpass", freq: 5500 } });
+    this.sound.noise({ dur: 0.03, vol: 0.34, delayS: lead, filter: { type: "highpass", freq: 300 } });
+    this.sound.noise({
+      dur: 0.07,
+      vol: 0.18,
+      delayS: lead,
+      filter: { type: "bandpass", freq: 1900, freqEnd: 380, q: 1.4 },
+    });
+    this.sound.noise({
+      dur: 0.19,
+      vol: 0.14,
+      delayS: lead,
+      filter: { type: "bandpass", freq: 5600, freqEnd: 900, q: 3 },
+    });
+    for (const [delayS, freq, vol] of CHAIN_ARC_SPUTTER) {
+      this.sound.noise({ dur: 0.013, vol, delayS: lead + delayS, filter: { type: "bandpass", freq, q: 11 } });
+    }
+  }
+
+  // The paddle's chirp upside down: MIRROR is above you, so where the paddle
+  // bends up, the ghost bends down. Its own guard key, so a swarm hitting the
+  // ceiling collapses into one voice instead of muting the real paddle.
+  mirrorBounce(relativeHit: number): void {
+    if (!this.allow("mirror")) {
+      return;
+    }
+    const base = 620 + relativeHit * 80;
+    this.sound.tone({ freq: base, freqEnd: base / 1.58, dur: 0.07, vol: 0.06 });
+    this.sound.tone({ freq: base, freqEnd: base / 1.58, dur: 0.07, vol: 0.04, detuneCents: 15 });
+  }
+
+  // Time stopping: a long sawtooth fall with a detuned shadow beating against
+  // it, under noise closing from bright to muffled.
+  stasisFreeze(): void {
+    if (!this.allow("stasisFreeze")) {
+      return;
+    }
+    this.sound.tone({ freq: 900, freqEnd: 90, dur: 0.35, vol: 0.08, type: "sawtooth" });
+    this.sound.tone({ freq: 900, freqEnd: 90, dur: 0.35, vol: 0.05, type: "sawtooth", detuneCents: 12 });
+    this.sound.noise({ dur: 0.35, vol: 0.1, filter: { type: "lowpass", freq: 1200, freqEnd: 200 } });
+  }
+
+  // The freeze run backwards, then a blip on the beat the balls move again.
+  stasisRelease(): void {
+    if (!this.allow("stasisRelease")) {
+      return;
+    }
+    this.sound.tone({ freq: 90, freqEnd: 900, dur: 0.2, vol: 0.07, type: "sawtooth" });
+    this.sound.tone({ freq: 660, dur: 0.08, vol: 0.07, delayS: 0.18 });
+  }
+
+  // Detune-beat "womp": the two layers drift apart as they fall. Every trap
+  // catch gets it — one sound for the tier, not one per capsule.
+  malusPickup(): void {
+    if (!this.allow("malus")) {
       return;
     }
     this.sound.tone({ freq: 392, freqEnd: 196, dur: 0.15, vol: 0.06, type: "sawtooth" });

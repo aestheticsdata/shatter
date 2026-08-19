@@ -97,6 +97,32 @@ export class BrickGrid {
     this.remainingCount = 0;
   }
 
+  /**
+   * QUAKE: every row slides down one and a fresh empty row takes the top.
+   *
+   * Cells move by reference, so hit points, damage and the remaining count all
+   * travel down with them. The bottom row of the array is discarded — QUAKE
+   * always vaporises the bottom-most live row first, so in play it is empty by
+   * the time this runs, but anything found there is counted out rather than
+   * silently dropped: a stale `remaining` would leave a level that can never
+   * clear.
+   */
+  shiftDown(): void {
+    const last = this.grid.length - 1;
+    if (last < 0) {
+      return;
+    }
+    for (const cell of this.grid[last]) {
+      if (cell) {
+        this.remainingCount--;
+      }
+    }
+    for (let row = last; row > 0; row--) {
+      this.grid[row] = this.grid[row - 1];
+    }
+    this.grid[0] = Array.from({ length: gameConfig.grid.columns }, () => null);
+  }
+
   // NUKE kills: remove the cell outright, regardless of remaining hit points.
   destroy(hit: BrickHit): void {
     if (this.grid[hit.row][hit.column] !== null) {

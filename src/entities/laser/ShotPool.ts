@@ -27,7 +27,9 @@ export class ShotPool {
     return freeShots.length > 0;
   }
 
-  step(grid: BrickGrid, onBrickHit: (hit: BrickHit) => void): void {
+  // `wallGhosted` is GHOST: the bricks are intangible, so a shot flies through
+  // the whole grid and dies at the ceiling like any shot that missed.
+  step(grid: BrickGrid, wallGhosted: boolean, onBrickHit: (hit: BrickHit) => void): void {
     for (const shot of this.shots) {
       if (!shot.active) {
         continue;
@@ -39,7 +41,7 @@ export class ShotPool {
         continue;
       }
 
-      const hit = grid.cellAt(shot.x + 1, shot.y);
+      const hit = wallGhosted ? null : grid.cellAt(shot.x + 1, shot.y);
       if (hit) {
         onBrickHit(hit);
         shot.active = false;

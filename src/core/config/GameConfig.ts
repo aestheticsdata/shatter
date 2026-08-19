@@ -9,7 +9,7 @@ export const gameConfig = {
     // THE bonus knob: chance (0..1) that a destroyed brick drops a capsule.
     // Crank to 1 while debugging (every brick drops one), set back to what
     // players should get before deploying — deploy.sh prints the value it ships.
-    bonusSpreadAmount: 0.7,
+    bonusSpreadAmount: 0.3,
   },
   loop: {
     tickMs: 1000 / 60,
@@ -83,11 +83,110 @@ export const gameConfig = {
     splashFlashTicks: 3,
     catchPopLifeTicks: 48,
     catchPopRiseSpeed: 0.45,
+    // A fifth of a second: the ring has to read as a release, not as an effect
+    // the player is meant to watch — the balls are already moving again.
+    stasisRingLifeTicks: 12,
+    // HOMING. 0.035 rad/tick is 2 deg, ~90 ticks to reverse against a 37-62
+    // tick trip from paddle to grid: the ball curves, it does not snap.
+    homingTurnRad: 0.035,
+    // Re-pick the target on this clock as well as the moment it dies, so a ball
+    // that has flown past its brick swings onto a nearer one.
+    homingRetargetTicks: 12,
+    // Floor on |vy| as a fraction of speed. Below it the turn is skipped and the
+    // lock kept: a ball may not be steered into a flat rut it cannot climb out of.
+    homingMinVerticalFraction: 0.35,
+    // MIRROR's ghost paddle: 3 px of clear field above it, so the ceiling bounce
+    // still has somewhere to happen when a ball goes past its end.
+    mirrorY: 6,
+    // PORTAL's mouths, sitting mid-field: high enough that a ball on its way up
+    // meets one, rather than only a ball already falling toward the deck. 150
+    // is 16 px under the deepest grid (the 8-row levels bottom out at 134), and
+    // the strip still ends far above the paddle at 276 and WALL's line at 294.
+    portalTop: 150,
+    // A 48 px mouth — about the paddle's own width, stood on end — so a ball on
+    // an ordinary diagonal meets one instead of threading past it. The band
+    // still ends at 198, far above the paddle at 276 and WALL's line at 294.
+    portalHeight: 48,
+    // Where an arriving ball is placed, measured in from the far wall. It has to
+    // clear the bounce test it just came through, or the ball would ricochet
+    // straight back out of the mouth it arrived from.
+    portalInset: 4,
+    // Refuses a second transit inside one tick's sub-steps. A real re-crossing
+    // cannot happen: 358 px wall to wall at the steepest angle is 90+ ticks, and
+    // an arriving ball is already travelling away from the wall behind it.
+    portalCooldownTicks: 20,
+    // MAGNET. Tuned against real fall budgets rather than feel: closing the full
+    // 96 px takes ~127 ticks, and a capsule from the top brick row has 177 ticks
+    // of fall left while one from the 7th row has only 121. So the magnet biases
+    // a capsule toward the paddle without ever promising it. `pullMax` under the
+    // 1.3 px/tick fall keeps the steepest slant at 47 degrees: capsules lean in,
+    // they never dive. If a near miss reads as broken rather than as tension,
+    // raise `pullMin` first — `rangeX` also decides how many tethers are drawn.
+    magnet: { rangeX: 96, pullMax: 1.4, pullMin: 0.6 },
+    // SINGULARITY. It opens mid-field: below the deepest grid, which bottoms out
+    // at y 134, and 126 px clear of the paddle, so it can bend a ball off the
+    // loss line rather than into it.
+    singularity: {
+      x: 186,
+      y: 150,
+      discRadius: 12,
+      easeTicks: 12,
+      // Inverse-square, floored at `minDistance` so the core is not a spike:
+      // 0.36 / 0.09 / 0.02 px per tick squared at 30 / 60 / 120 px out.
+      pullConstant: 320,
+      minDistance: 30,
+      // HOMING stands down inside this radius. Two guidance rules pulling one
+      // ball in different directions reads as neither, and the orbit is the
+      // more legible of the two.
+      homingCutoff: 90,
+      // A ball that will not leave is let go. The counter climbs by one per tick
+      // inside `homingCutoff` and falls twice as fast outside it, so a curve
+      // through the field costs nothing while a trapped orbit ends itself: the
+      // pull fades from 150 ticks of holding and is gone by 180.
+      holdDecay: 2,
+      holdRelease: 150,
+      holdFree: 180,
+      // Capsules are dragged sideways on top of their fall, and swallowed at the
+      // core. A swallowed capsule grants nothing — that is the risk.
+      dropPull: 0.9,
+      dropEatRadius: 10,
+      // Debris ignores gravity near the core and spirals instead; the damping is
+      // what turns the inward pull into a spiral rather than a straight dive.
+      debrisConstant: 900,
+      debrisDamping: 0.97,
+      debrisEatRadius: 6,
+    },
+    // BUMPERS. Three discs of radius 9 in the empty band under the grid, so a
+    // ball centre inside 9 + 4 px of one is touching it: at <= 2 px per
+    // sub-step, a 26 px target cannot be tunnelled through.
+    bumpers: {
+      radius: 9,
+      // The band. `topGap` is measured down from the bottom of whatever grid
+      // the level loaded, and `bottom` leaves the lowest disc 27 px clear of
+      // the paddle, so no ball can ever be pinned against the deck. The x range
+      // keeps every disc off both walls, PORTAL's mouths included.
+      topGap: 24,
+      bottom: 240,
+      left: 40,
+      right: 332,
+      // Rejected placements: this close to a disc already down, or to
+      // SINGULARITY's core, which shares this stretch of field.
+      minGap: 64,
+      coreKeepOut: 40,
+      placementTries: 40,
+      flashTicks: 6,
+      // Consecutive kicks with nothing else touched in between. A ball wedged
+      // between two discs never comes down on its own, so the set lets go.
+      streakLimit: 10,
+    },
     rainSpawnCount: 4,
   },
   scoring: {
     clearBonusPerLevel: 500,
     paydayMultiplier: 2,
+    // One BUMPERS kick, between a brick (60-200) and the clear bonus. PAYDAY
+    // doubles it like everything else.
+    bumperPoints: 100,
   },
   effects: {
     // Must hold a full-field NUKE: FINALE's 72 bricks x 10 chunks with 30-45
@@ -115,6 +214,41 @@ export const gameConfig = {
       minLifeTicks: 30,
       maxLifeTicks: 45,
     } satisfies BurstSpec,
+    // CHAIN's arc. Distances are in grid cells, not pixels, so a jump reaches
+    // three columns sideways but only three rows up — the grid is 30x12, and
+    // measuring in cells is what keeps the web inside the brick layout.
+    chain: {
+      cellRadius: 3.2,
+      // Two per node, so the web branches instead of drawing one line.
+      linksPerNode: 2,
+      maxDepth: 3,
+      // The real limiter: on a solid board this binds long before maxDepth.
+      maxLinks: 6,
+      boltTicks: 9,
+    },
+    // QUAKE's shake. 24 ticks is 0.4 s, and the amplitude decays linearly over
+    // them so the field settles rather than stopping dead. Whole game pixels:
+    // the art is drawn at 3x, and a fractional offset would blur every block.
+    quake: {
+      shakeTicks: 24,
+      amplitude: 4,
+    },
+    // BOMB. The fuse is how long the run holds still while the paddle burns:
+    // long enough to read as an explosion, short enough not to play the
+    // punishment twice. No chunk outlives it, so the reset never snatches
+    // debris out of the air.
+    paddleBlast: {
+      fuseTicks: 45,
+      burst: {
+        chunkCount: 10,
+        minChunkSize: 2,
+        maxChunkSize: 3,
+        minSpeed: 0.8,
+        maxSpeed: 3.2,
+        minLifeTicks: 24,
+        maxLifeTicks: 45,
+      } satisfies BurstSpec,
+    },
     nuke: {
       ringSpeed: 14,
       maxSweepTicks: 48,
