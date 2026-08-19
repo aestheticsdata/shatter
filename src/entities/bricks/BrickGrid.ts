@@ -1,6 +1,6 @@
 import { BRICK_HIT_POINTS, BRICK_POINTS, gameConfig } from "@core/config/GameConfig";
 
-import type { BrickCell, BrickHit, BrickKind, LevelDefinition } from "@interfaces/types";
+import type { BrickCell, BrickHit, BrickKind, LevelDefinition, PowerUpKind } from "@interfaces/types";
 
 function isBrickKind(char: string): char is BrickKind {
   return char in BRICK_POINTS;
@@ -18,7 +18,15 @@ export class BrickGrid {
     return this.grid;
   }
 
-  load(level: LevelDefinition): void {
+  /**
+   * Build the wall, and seed each brick with the capsule it is holding.
+   *
+   * `rollCapsule` is asked once per brick and owns the odds — the grid only
+   * stores what it says. Rolling at build time rather than at the kill is what
+   * lets XRAY show the wall's real contents; the drop rate is untouched, since
+   * a brick that is never killed directly never drops either way.
+   */
+  load(level: LevelDefinition, rollCapsule: () => PowerUpKind | null): void {
     this.grid = [];
     this.remainingCount = 0;
 
@@ -35,10 +43,24 @@ export class BrickGrid {
           hitPoints: BRICK_HIT_POINTS[char],
           points: BRICK_POINTS[char],
           hurt: false,
+          capsule: rollCapsule(),
         });
         this.remainingCount++;
       }
       this.grid.push(line);
+    }
+  }
+
+  // Re-roll every brick still standing. The dev console's `bonus` command changes
+  // the drop rate mid-level, and the wall was seeded at load: without this,
+  // `bonus 1` would only take effect on the next level.
+  reseedCapsules(rollCapsule: () => PowerUpKind | null): void {
+    for (const row of this.grid) {
+      for (const cell of row) {
+        if (cell) {
+          cell.capsule = rollCapsule();
+        }
+      }
     }
   }
 

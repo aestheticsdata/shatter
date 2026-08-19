@@ -11,7 +11,11 @@ const RAIN_EXCLUDES: readonly PowerUpKind[] = ["R"];
 // `exclude` is a list because capsules that spawn other capsules keep growing:
 // RAIN already bars itself, and this is the shape the ones after it use rather
 // than each widening the signature again.
-function rollDropKind(exclude: readonly PowerUpKind[] = NO_EXCLUSIONS): PowerUpKind {
+//
+// Exported for the wall: bricks are seeded with their capsule when the level is
+// built, so this same weighted roll is what fills them — see `rollBrickCapsule`
+// in `ShatterGame`.
+export function rollDropKind(exclude: readonly PowerUpKind[] = NO_EXCLUSIONS): PowerUpKind {
   const kinds = exclude.length === 0 ? POWER_UP_IDS : POWER_UP_IDS.filter((kind) => !exclude.includes(kind));
   const weights = POWER_UP_DROP_WEIGHTS;
   const total = kinds.reduce((sum, kind) => sum + weights[kind], 0);
@@ -85,13 +89,15 @@ export class DropPool {
     active: false,
   }));
 
-  trySpawn(brickLeft: number, brickTop: number): boolean {
+  // The kind comes in rather than being rolled here: it was decided when the
+  // wall was built, and XRAY has been showing it to the player since.
+  trySpawn(kind: PowerUpKind, brickLeft: number, brickTop: number): boolean {
     const drop = this.drops.find((candidate) => !candidate.active);
     if (!drop) {
       return false;
     }
 
-    drop.kind = rollDropKind();
+    drop.kind = kind;
     drop.x = brickLeft + 5;
     drop.y = brickTop;
     drop.active = true;

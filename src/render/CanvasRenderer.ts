@@ -20,6 +20,7 @@ import type {
   Bumper,
   CatchPop,
   ChainBolt,
+  PowerUpKind,
   StasisRing,
 } from "@interfaces/types";
 
@@ -120,6 +121,13 @@ export const SCALE = 3;
 // The capsule letter must stay inside the pill's sheen span (x+2 … x+18).
 export const DROP_GLYPH_SPAN = 16;
 
+// How solid a capsule revealed by XRAY is drawn. Measured against the cases that
+// decide it — the six capsules wearing their own brick's colour, LASER on the red
+// brick worst of all: at 0.65 and below that pill sinks into the brick and the
+// glyph goes with it, and by 0.9 it stops reading as something seen *inside* the
+// wall. 0.75 is the lowest value where all six stay legible.
+const XRAY_REVEAL_ALPHA = 0.75;
+
 const DROP_GLYPH_FONTS = {
   // One character keeps the 7px the roster has always drawn at.
   single: `${7 * SCALE}px Silkscreen, monospace`,
@@ -128,7 +136,7 @@ const DROP_GLYPH_FONTS = {
 } as const;
 
 // Exported for the DEV legibility pass, which must measure exactly what
-// `drawDrop` paints — see `@render/checkCapsules`.
+// `drawCapsule` paints — see `@render/checkCapsules`.
 export function dropGlyphFont(glyph: string): string {
   return glyph.length > 1 ? DROP_GLYPH_FONTS.double : DROP_GLYPH_FONTS.single;
 }
@@ -193,6 +201,8 @@ export interface RenderView {
   mirrorActive: boolean;
   magnetActive: boolean;
   portalActive: boolean;
+  // XRAY: show every brick the capsule it is holding, for as long as it lasts.
+  xrayActive: boolean;
   // GHOST's fade, 0 solid to 1 fully ghosted. Between the two the renderer
   // runs its plasma mask over the grid, each brick melting to its outline as
   // the field rises past it.
@@ -261,8 +271,13 @@ export class CanvasRenderer {
     view.grid.forEach((row, rowIndex) => {
       row.forEach((cell, columnIndex) => {
         if (cell) {
+          const x = left + columnIndex * brickWidth;
+          const y = top + rowIndex * brickHeight;
           const fade = ghostProgress(view.ghostBlend, rowIndex, columnIndex, this.frameCount);
-          this.drawBrick(left + columnIndex * brickWidth, top + rowIndex * brickHeight, cell, fade);
+          this.drawBrick(x, y, cell, fade);
+          if (view.xrayActive && cell.capsule) {
+            this.drawRevealedCapsule(x, y, cell.capsule);
+          }
         }
       });
     });
@@ -300,7 +315,7 @@ export class CanvasRenderer {
     }
     for (const drop of view.drops) {
       if (drop.active) {
-        this.drawDrop(drop);
+        this.drawCapsule(drop.x, drop.y, drop.kind);
       }
     }
     for (const shot of view.shots) {
@@ -541,9 +556,11 @@ export class CanvasRenderer {
     }
   }
 
-  private drawDrop(drop: Drop): void {
-    const { x, y } = drop;
-    const color = DROP_COLORS[drop.kind];
+  // One capsule pill, wherever it is: falling through the field, or showing
+  // through the brick that holds it while XRAY is lit. The same sprite for both
+  // is the point — what the wall shows is what the player will catch.
+  private drawCapsule(x: number, y: number, kind: PowerUpKind): void {
+    const color = DROP_COLORS[kind];
 
     this.spritePixel(x + 1, y, 18, 8, color);
     this.spritePixel(x, y + 1, 20, 6, color);
@@ -551,20 +568,34 @@ export class CanvasRenderer {
     this.spritePixel(x + 2, y + 7, 16, 1, canvasPalette.dropShade);
 
     // A trap telegraphs itself with a blinking letter, so it can be read as one
-    // while there is still time to dodge it.
-    if (MALUS_KINDS.has(drop.kind) && (this.frameCount & 8) !== 0) {
+    // while there is still time to dodge it — in the wall as much as in the air.
+    if (MALUS_KINDS.has(kind) && (this.frameCount & 8) !== 0) {
       return;
     }
 
     // The glyph, not the id: two-character ids exist and draw one size down.
-    const glyph = POWER_UP_GLYPHS[drop.kind];
-    this.ctx.fillStyle = DARK_LETTER_DROP_KINDS.has(drop.kind)
+    const glyph = POWER_UP_GLYPHS[kind];
+    this.ctx.fillStyle = DARK_LETTER_DROP_KINDS.has(kind)
       ? canvasPalette.dropLetterDark
       : canvasPalette.dropLetterLight;
     this.ctx.font = dropGlyphFont(glyph);
     this.ctx.textAlign = "center";
     this.ctx.textBaseline = "middle";
     this.ctx.fillText(glyph, Math.round((x + 10) * SCALE), Math.round((y + 4.5) * SCALE));
+  }
+
+  /**
+   * XRAY: the capsule a brick is holding, shown inside it.
+   *
+   * The pill is 20x8 and a brick 30x12, so it sits centred with the brick's own
+   * colour framing it — the wall still reads as a wall. Drawn as the pill rather
+   * than as a tint because six capsules wear a brick's exact colour by design: a
+   * tint would say something is in there without ever saying what.
+   */
+  private drawRevealedCapsule(brickX: number, brickY: number, kind: PowerUpKind): void {
+    this.ctx.globalAlpha = XRAY_REVEAL_ALPHA;
+    this.drawCapsule(brickX + 5, brickY + 2, kind);
+    this.ctx.globalAlpha = 1;
   }
 
   // CRITTER's grub: a lime body with a brown belly, a red jaw at the leading end

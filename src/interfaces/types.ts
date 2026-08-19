@@ -1,3 +1,5 @@
+import type { PowerUpKind } from "@core/config/powerUps";
+
 export interface Vector2D {
   x: number;
   y: number;
@@ -19,6 +21,12 @@ export interface BrickCell {
   hitPoints: number;
   points: number;
   hurt: boolean;
+  // The capsule this brick drops when a ball or a laser kills it, or `null` —
+  // which is most bricks. Rolled once when the wall was built rather than at the
+  // moment of the kill, which is what gives XRAY something true to show; see
+  // `rollBrickCapsule` in `ShatterGame`. Indirect kills discard it, exactly as
+  // they have always dropped nothing.
+  capsule: PowerUpKind | null;
 }
 
 export interface BrickHit {
@@ -30,7 +38,7 @@ export interface BrickHit {
 // Inferred from the capsule roster in `@core/config/powerUps`, so a new capsule
 // widens this union by itself. Re-exported here because every consumer already
 // reaches for its types through this module.
-export type { PowerUpKind } from "@core/config/powerUps";
+export type { PowerUpKind };
 
 export type BrickFlashKind = "death" | "blast";
 

@@ -14,7 +14,7 @@ import { Singularity } from "@entities/effects/Singularity";
 import { ShotPool } from "@entities/laser/ShotPool";
 import { mirrorBounds } from "@entities/paddle/MirrorPaddle";
 import { Paddle } from "@entities/paddle/Paddle";
-import { DropPool } from "@entities/powerups/DropPool";
+import { DropPool, rollDropKind } from "@entities/powerups/DropPool";
 import { PowerUpTimers } from "@entities/powerups/PowerUpTimers";
 import { InputController } from "@input/InputController";
 import { zeroPad } from "@shared/format";
@@ -120,6 +120,10 @@ export class ShatterGame {
         },
         setBonusSpread: (amount) => {
           this.bonusSpreadOverride = amount;
+          // The wall standing right now was seeded at the old rate, so re-roll
+          // it: `bonus 1` has to mean every brick from the next kill on, not
+          // every brick of the next level.
+          this.grid.reseedCapsules(() => this.rollBrickCapsule());
         },
       })
     : null;
@@ -166,7 +170,7 @@ export class ShatterGame {
     this.input.attach();
     this.deps.hiScores.onChange = () => this.onScoresChanged();
     this.deps.hiScores.sync();
-    this.grid.load(levelAt(0));
+    this.grid.load(levelAt(0), () => this.rollBrickCapsule());
     this.resetServe();
     this.lastTime = performance.now();
     this.animationFrameId = requestAnimationFrame(this.frame);
@@ -212,6 +216,7 @@ export class ShatterGame {
       mirrorActive: this.timers.isActive("Y"),
       magnetActive: this.timers.isActive("K"),
       portalActive: this.timers.isActive("PO"),
+      xrayActive: this.timers.isActive("XR"),
       ghostBlend: this.ghostBlend,
       paddleHidden: this.deathCountdown > 0,
       bumpers: this.bumpers.discs,
@@ -812,9 +817,13 @@ export class ShatterGame {
     }
     this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
 
-    if (isDirectHit(source) && (this.guaranteedDrop || Math.random() < this.bonusSpreadAmount())) {
+    // What falls was rolled into the brick when the wall was built, so a capsule
+    // XRAY showed is the capsule that comes out. MAGNET's guarantee still rolls
+    // live: it promises the next kill drops something, whichever brick that is.
+    const capsule = isDirectHit(source) ? (hit.cell.capsule ?? (this.guaranteedDrop ? rollDropKind() : null)) : null;
+    if (capsule !== null) {
       const { left, top, brickWidth, brickHeight } = gameConfig.grid;
-      if (this.dropPool.trySpawn(left + hit.column * brickWidth, top + hit.row * brickHeight)) {
+      if (this.dropPool.trySpawn(capsule, left + hit.column * brickWidth, top + hit.row * brickHeight)) {
         // Spent on a capsule that actually got a slot: a full drop pool would
         // otherwise swallow MAGNET's one guaranteed demonstration.
         this.guaranteedDrop = false;
@@ -1083,6 +1092,14 @@ export class ShatterGame {
     return Math.min(1, Math.max(0, amount));
   }
 
+  // One brick's worth of luck, asked for once when the wall is built: whether it
+  // holds a capsule at all, and which one. The odds are the same ones the kill
+  // used to roll — moving them here is what lets XRAY show the truth instead of
+  // a guess.
+  private rollBrickCapsule(): PowerUpKind | null {
+    return Math.random() < this.bonusSpreadAmount() ? rollDropKind() : null;
+  }
+
   // WARP (the Ctrl+Option+Command+N easter egg): finish the level on the spot. The
   // bricks are removed without scoring and the clear bonus is skipped — the hall
   // of fame is shared across all players, so a warp must never be worth points.
@@ -1252,6 +1269,9 @@ export class ShatterGame {
     }
     if (kind === "RU") {
       this.timers.activate("RU", durations.RU);
+    }
+    if (kind === "XR") {
+      this.timers.activate("XR", durations.XR);
     }
 
     if (kind === "N") {
@@ -1468,7 +1488,7 @@ export class ShatterGame {
   }
 
   private buildLevel(level: number): void {
-    this.grid.load(levelAt(level));
+    this.grid.load(levelAt(level), () => this.rollBrickCapsule());
     this.resetServe();
   }
 
