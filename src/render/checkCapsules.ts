@@ -1,6 +1,7 @@
 import { POWER_UP_GLYPHS, POWER_UPS } from "@core/config/powerUps";
 import { dropGlyphFont, DROP_GLYPH_SPAN, SCALE } from "@render/CanvasRenderer";
 import { canvasPalette } from "@render/palette";
+import { capsuleLabel, ENTRY_BLURB_LINES, ENTRY_COLUMN_WIDTH, ENTRY_FONT } from "@ui/CapsuleCatalogue";
 
 // The luminance at or above which a capsule body needs a dark letter. Today's
 // roster splits cleanly either side of it; see the `darkLetter` note in the
@@ -71,6 +72,71 @@ export function checkCapsuleLegibility(): void {
       );
     }
   }
+}
+
+/**
+ * DEV-only width guard for the CAPSULES screen's two text lines.
+ *
+ * A blurb is authored prose in a fixed 210 px column, which is the one thing on
+ * that screen nothing else can catch: the glyphs are derived and measured
+ * above, the tier and the duration come off the registry, and only the blurb is
+ * typed by hand — a long one runs into the next column and nobody sees it until
+ * a screenshot, by which time it has shipped.
+ *
+ * Same conditions as the pass above: after `document.fonts.ready`, because an
+ * unloaded Silkscreen falls back to a wider `monospace` and would fail a line
+ * that fits perfectly well in the real font. Dropped from production bundles by
+ * the `import.meta.env.DEV` branch that calls it.
+ */
+export function checkCapsuleBlurbs(): void {
+  const context = document.createElement("canvas").getContext("2d");
+  if (!context) {
+    console.error("[capsules] no 2D context: blurb widths unchecked");
+    return;
+  }
+
+  context.font = ENTRY_FONT;
+  for (const definition of POWER_UPS) {
+    // The label is one line and has to stay one: it is name, tier and duration,
+    // and a wrapped one would push the blurb out of the entry.
+    const label = capsuleLabel(definition);
+    const labelWidth = context.measureText(label).width;
+    if (labelWidth > ENTRY_COLUMN_WIDTH) {
+      console.error(
+        `[capsules] ${definition.id}: label "${label}" is ${labelWidth.toFixed(1)} px, ` +
+          `over the ${ENTRY_COLUMN_WIDTH} px column — it will wrap and shove the blurb down`,
+      );
+    }
+
+    const lines = wrappedLines(context, definition.blurb, ENTRY_COLUMN_WIDTH);
+    if (lines > ENTRY_BLURB_LINES) {
+      console.error(
+        `[capsules] ${definition.id}: blurb "${definition.blurb}" needs ${lines} lines ` +
+          `in the ${ENTRY_COLUMN_WIDTH} px column, and the entry has room for ${ENTRY_BLURB_LINES}`,
+      );
+    }
+  }
+}
+
+// Greedy line breaking, which is what the browser does with a run of words: a
+// word that will not fit the room left starts the next line. A word too wide for
+// the column on its own is counted as its own line and named, since no break
+// can rescue it.
+function wrappedLines(context: CanvasRenderingContext2D, text: string, room: number): number {
+  const space = context.measureText(" ").width;
+  let lines = 1;
+  let used = 0;
+  for (const word of text.split(" ")) {
+    const width = context.measureText(word).width;
+    const extended = used === 0 ? width : used + space + width;
+    if (extended <= room) {
+      used = extended;
+      continue;
+    }
+    lines++;
+    used = width;
+  }
+  return lines;
 }
 
 function relativeLuminance(hex: string): number {

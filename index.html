@@ -82,7 +82,7 @@
             <span class="title-controls">MOVE THE MOUSE · CLICK OR SPACE TO LAUNCH</span>
           </div>
           <div id="titlePlayHint" class="blink">CLICK TO PLAY OR PRESS SPACE</div>
-          <div id="titleMenuHints"><span>L · LEVELS</span></div>
+          <div id="titleMenuHints"><span>L · LEVELS</span><span>B · CAPSULES</span></div>
           <div id="titleFooter">ORIGINAL 2007 · REBUILT 2026</div>
         </div>
 
@@ -95,10 +95,27 @@
         </div>
 
         <div id="screenLevels" class="stage-screen" hidden>
-          <div id="levelsHeading">LEVELS</div>
-          <div class="levels-divider"></div>
+          <div class="screen-heading">LEVELS</div>
+          <div class="screen-divider"></div>
           <div id="levelTiles"></div>
-          <div id="levelsFooter"></div>
+          <div class="screen-footer" id="levelsFooter">
+            <div id="levelsPages" class="screen-pages"></div>
+            <span id="levelsCount" class="screen-count"></span>
+            <span id="levelsArrows" class="screen-arrows">← →</span>
+            <span id="levelsFacts" class="screen-facts"></span>
+          </div>
+        </div>
+
+        <div id="screenCapsules" class="stage-screen" hidden>
+          <div class="screen-heading">CAPSULES</div>
+          <div class="screen-divider"></div>
+          <div id="capsuleEntries"></div>
+          <div class="screen-footer" id="capsulesFooter">
+            <div id="capsulesPages" class="screen-pages"></div>
+            <span id="capsulesCount" class="screen-count"></span>
+            <span id="capsulesArrows" class="screen-arrows">← →</span>
+            <span id="capsulesFacts" class="screen-facts"></span>
+          </div>
         </div>
       </div>
     </div>

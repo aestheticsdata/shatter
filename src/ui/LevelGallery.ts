@@ -2,10 +2,14 @@ import { gameConfig } from "@core/config/GameConfig";
 import { LEVELS, levelIndexOf } from "@core/levels/levels";
 import { paintLevelStill } from "@render/levelStill";
 import { zeroPad } from "@shared/format";
+import { renderPageIndicator } from "@ui/pagePips";
 
 export interface LevelGalleryElements {
   tiles: HTMLElement;
-  footer: HTMLElement;
+  pages: HTMLElement;
+  arrows: HTMLElement;
+  count: HTMLElement;
+  facts: HTMLElement;
 }
 
 // Three tiles across, two down. Every number the screen shows is derived from
@@ -95,9 +99,8 @@ export class LevelGallery {
     }
     this.elements.tiles.replaceChildren(...entries);
 
-    // The arrows are named only when there is somewhere for them to go.
-    const paging = this.pageCount > 1 ? "← → · " : "";
-    this.elements.footer.textContent = `PAGE ${this.page + 1}/${this.pageCount} · ${paging}CLICK TO RETURN`;
+    renderPageIndicator(this.elements, this.page, this.pageCount);
+    this.elements.facts.textContent = "CLICK TO RETURN";
   }
 
   private entry(index: number): HTMLElement {

@@ -606,12 +606,18 @@
   color: var(--color-sky);
 }
 
-/* ---------- levels gallery ---------- */
+/* ---------- paged menu screens ---------- */
 
-#levelsHeading {
+/* The heading, rule and page line the LEVELS gallery and the CAPSULES catalogue
+   share, in the hall of fame's visual language rather than one of their own.
+   Only the footer's height is theirs, since what sits above it is not the same
+   shape on the two screens. */
+.screen-heading {
   position: absolute;
   left: 0;
   top: 12px;
+  /* CAPSULES sets its own, higher: six miniatures with two lines of type each
+     need every pixel the heading can give back. */
   width: 100%;
   text-align: center;
   font: 400 20px var(--font-display);
@@ -619,7 +625,7 @@
   text-shadow: 3px 3px 0 var(--color-orange-shadow);
 }
 
-.levels-divider {
+.screen-divider {
   position: absolute;
   left: 140px;
   top: 40px;
@@ -627,6 +633,69 @@
   height: 1px;
   background: var(--color-title-divider);
 }
+
+/* The page indicator and the line of facts beside it, kept apart on purpose:
+   `PAGE 3/6` set in the same type as the sentence next to it read as part of
+   that sentence, and a turn moved two characters somewhere in the middle of it.
+   A row of pips is not text — which page you are on is legible without reading
+   one, and turning a page moves the lit one along an evenly spaced row. */
+.screen-footer {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  /* Tight between the three parts of the indicator — pips, count, arrows are one
+     object — and the wider gap before the facts is set on the facts itself. */
+  gap: 7px;
+  /* Left-aligned on the content above it, never centred: centring hangs the
+     page pips off the length of the sentence beside them, so shortening that
+     sentence slides the pips somewhere else. Each screen sets the inset its own
+     grid starts at. */
+}
+
+.screen-pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-pip {
+  width: 5px;
+  height: 5px;
+  background: var(--color-dim-text);
+}
+
+.page-pip--current {
+  background: var(--color-yellow);
+}
+
+.screen-arrows {
+  font: 400 7px var(--font-pixel);
+  color: var(--color-sky);
+  letter-spacing: 1px;
+}
+
+.screen-count {
+  font: 400 7px var(--font-pixel);
+  color: var(--color-sky);
+  letter-spacing: 1px;
+}
+
+/* The page you are on, in the same yellow as its pip: the two indicators say
+   the same thing to two different kinds of glance, so they say it in one tone. */
+.screen-count-current {
+  color: var(--color-yellow);
+}
+
+.screen-facts {
+  margin-left: 9px;
+  font: 400 7px var(--font-pixel);
+  color: var(--color-sky);
+  letter-spacing: 1px;
+}
+
+/* ---------- levels gallery ---------- */
 
 /* Three columns of 124px with 12px gutters, which leaves 42px margins on the
    480px stage. Rows are laid by the grid rather than positioned one by one: the
@@ -665,12 +734,94 @@
 }
 
 #levelsFooter {
-  position: absolute;
-  left: 0;
   top: 288px;
-  width: 100%;
-  text-align: center;
+  padding-left: 42px;
+}
+
+/* ---------- capsule catalogue ---------- */
+
+/* Three across and two down. Fixed rows rather than as many as the page happens
+   to hold — the last page is partial and must paint like a full one instead of
+   spreading to fill. The whole block sits higher than the LEVELS grid because
+   each entry carries two lines of type under its picture. */
+#capsuleEntries {
+  position: absolute;
+  /* Centred on the *tiles*, not the tracks: a column is 148px of track holding
+     a 124px tile flush left, so the last track carries 24px of nothing and the
+     naive (480-468)/2 sat the pictures visibly left of centre. The visible
+     span is 2 pitches + one tile = 444px, and (480-444)/2 = 18. */
+  left: 18px;
+  top: 36px;
+  width: 468px;
+  display: grid;
+  grid-template-columns: repeat(3, 148px);
+  grid-template-rows: repeat(2, 119px);
+  column-gap: 12px;
+  row-gap: 8px;
+  /* Left-aligned on the column, never centered: an entry is as wide as its
+     longest text line, and centering by that width slid each tile sideways by
+     its own label — six miniatures all a few pixels off each other's grid. */
+  justify-items: start;
+}
+
+.capsule-frame {
+  position: relative;
+  width: 124px;
+  height: 100px;
+}
+
+/* The field at a third, the same miniature the LEVELS gallery paints, and the
+   stage's own fit transform must not soften it a second time. */
+.capsule-scene {
+  display: block;
+  width: 124px;
+  height: 100px;
+  image-rendering: pixelated;
+}
+
+/* The pill over the miniature's corner, at exactly the size it falls at. Its
+   canvas is SCALE times this and `pixelated` is `#playfield`'s own rule, so the
+   glyph is rasterised as the arena rasterises it rather than shrunk to a smudge
+   with the rest of the field. */
+.capsule-pill {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  width: 20px;
+  height: 8px;
+  image-rendering: pixelated;
+}
+
+/* Both lines are measured at 7px Silkscreen against the 140px column by the DEV
+   pass in `@render/checkCapsules` — `ENTRY_FONT` there is this font and
+   `ENTRY_BLURB_LINES` is the two lines below, and they have to stay the same or
+   the pass measures something nobody is looking at. */
+.capsule-label {
+  align-self: stretch;
+  margin-top: 3px;
   font: 400 7px var(--font-pixel);
-  color: var(--color-sky);
-  letter-spacing: 1px;
+  line-height: 7px;
+  color: var(--color-white);
+}
+
+.capsule-blurb {
+  align-self: stretch;
+  margin-top: 2px;
+  font: 400 7px var(--font-pixel);
+  line-height: 7px;
+  color: var(--color-grey-text);
+}
+
+#screenCapsules .screen-heading {
+  top: 4px;
+  font-size: 16px;
+}
+
+#screenCapsules .screen-divider {
+  top: 28px;
+}
+
+#capsulesFooter {
+  top: 286px;
+  padding-left: 18px;
 }

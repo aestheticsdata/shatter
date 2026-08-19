@@ -36,6 +36,7 @@ import type {
 } from "@interfaces/types";
 import type { CanvasRenderer } from "@render/CanvasRenderer";
 import type { HiScores } from "@state/HiScores";
+import type { CapsuleCatalogue } from "@ui/CapsuleCatalogue";
 import type { LevelGallery } from "@ui/LevelGallery";
 import type { Panel } from "@ui/Panel";
 import type { Screens } from "@ui/Screens";
@@ -46,6 +47,7 @@ export interface ShatterGameDeps {
   panel: Panel;
   screens: Screens;
   levels: LevelGallery;
+  capsules: CapsuleCatalogue;
   sfx: SoundBank;
   hiScores: HiScores;
   scaler: StageScaler;
@@ -1927,6 +1929,7 @@ export class ShatterGame {
         break;
       case "scores":
       case "levels":
+      case "capsules":
         this.showTitle();
         break;
       default:
@@ -2137,10 +2140,20 @@ export class ShatterGame {
       this.setScreen("levels");
       return;
     }
-    if (this.screen === "levels" && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+    // The capsule catalogue, from the title too, and for the same reason.
+    if (key === "b" && this.screen === "title") {
+      this.deps.capsules.open();
+      this.setScreen("capsules");
+      return;
+    }
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      const step = event.key === "ArrowLeft" ? -1 : 1;
       // Only a page that moved clicks: on a roster small enough to fit one page
       // the arrows land back where they were, and a click would say otherwise.
-      if (this.deps.levels.turn(event.key === "ArrowLeft" ? -1 : 1)) {
+      const turned =
+        (this.screen === "levels" && this.deps.levels.turn(step)) ||
+        (this.screen === "capsules" && this.deps.capsules.turn(step));
+      if (turned) {
         this.deps.sfx.uiKeyClick();
       }
       return;
@@ -2150,7 +2163,7 @@ export class ShatterGame {
     }
     // Escape backs out of a menu screen, the way its click and its Space do. A
     // separate branch from the quit above: a menu has no run to end.
-    if (event.key === "Escape" && this.screen === "levels") {
+    if (event.key === "Escape" && (this.screen === "levels" || this.screen === "capsules")) {
       this.showTitle();
     }
   }

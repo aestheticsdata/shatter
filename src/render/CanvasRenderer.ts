@@ -145,47 +145,57 @@ const DROP_GLYPH_SIZES = [7, 5, 4] as const;
 // One canvas for every measurement this module ever takes, made on first use so
 // the module stays importable outside a document.
 let glyphMeasurer: CanvasRenderingContext2D | null = null;
-// Silkscreen's advance never changes, so a glyph is measured once and its font
+// Silkscreen's advance never changes, so a glyph is measured once and its size
 // kept — capsule sprites are drawn every frame.
-const glyphFonts = new Map<string, string>();
+const glyphSizes = new Map<string, number>();
 
 /**
- * The largest font a glyph fits the pill's sheen span in.
+ * The largest font a glyph fits the pill's sheen span in, at the scale the pill
+ * is being painted at.
+ *
+ * The rung is chosen once by measuring at SCALE, where the type is biggest and
+ * the measurement most honest, and multiplied out from there: the capsule
+ * catalogue paints the same pill at 1 and has to land on the same rung, or a
+ * glyph would fit in the field and overflow in the list that teaches it.
  *
  * Exported for the DEV legibility pass, which must measure exactly what
  * `drawCapsule` paints — see `@render/checkCapsules`.
  */
-export function dropGlyphFont(glyph: string): string {
-  const cached = glyphFonts.get(glyph);
+export function dropGlyphFont(glyph: string, scale = SCALE): string {
+  return `${dropGlyphSize(glyph) * scale}px Silkscreen, monospace`;
+}
+
+function dropGlyphSize(glyph: string): number {
+  const cached = glyphSizes.get(glyph);
   if (cached !== undefined) {
     return cached;
   }
-  const font = widestFontThatFits(glyph);
+  const size = widestSizeThatFits(glyph);
   // Before Silkscreen is in, the fallback `monospace` measures wider and would
   // pin the glyph a rung too low. Such an answer is used for that frame and
   // dropped, not remembered.
-  if (document.fonts.check(font)) {
-    glyphFonts.set(glyph, font);
+  if (document.fonts.check(`${size * SCALE}px Silkscreen, monospace`)) {
+    glyphSizes.set(glyph, size);
   }
-  return font;
+  return size;
 }
 
-function widestFontThatFits(glyph: string): string {
+function widestSizeThatFits(glyph: string): number {
   glyphMeasurer ??= document.createElement("canvas").getContext("2d");
-  let font = "";
+  let chosen: number = DROP_GLYPH_SIZES[0];
   for (const size of DROP_GLYPH_SIZES) {
-    font = `${size * SCALE}px Silkscreen, monospace`;
+    chosen = size;
     // Nothing to measure with: fall through the ladder to the size that fits
     // whatever anyone writes.
     if (glyphMeasurer === null) {
       continue;
     }
-    glyphMeasurer.font = font;
+    glyphMeasurer.font = `${size * SCALE}px Silkscreen, monospace`;
     if (glyphMeasurer.measureText(glyph).width <= DROP_GLYPH_SPAN * SCALE) {
       break;
     }
   }
-  return font;
+  return chosen;
 }
 
 const FLASH_COLORS: Record<BrickFlashKind, string> = {
@@ -205,7 +215,7 @@ export interface PaddleRenderState {
 
 // The four tones a paddle is banded from. The ghost is the same sprite in a
 // dimmer set, which is what makes it read as the paddle's reflection.
-interface PaddleBandColors {
+export interface PaddleBandColors {
   body: string;
   cap: string;
   sheen: string;
@@ -240,14 +250,14 @@ const PORTAL_STRIPES: readonly string[] = [
   canvasPalette.portalDark,
 ];
 
-const PADDLE_BANDS: PaddleBandColors = {
+export const PADDLE_BANDS: PaddleBandColors = {
   body: canvasPalette.paddleBody,
   cap: canvasPalette.paddleCap,
   sheen: canvasPalette.paddleTopSheen,
   shade: canvasPalette.paddleBottomShade,
 };
 
-const MIRROR_BANDS: PaddleBandColors = {
+export const MIRROR_BANDS: PaddleBandColors = {
   body: canvasPalette.mirrorBody,
   cap: canvasPalette.mirrorCap,
   sheen: canvasPalette.mirrorSheen,
@@ -302,14 +312,42 @@ export interface RenderView {
 }
 
 // A palette filter: what a colour becomes on the machine it is being painted on.
-// `CanvasRenderer.ink` is the one that matters — DEMAKE's — and it stays the only
-// implementation of that rule: a sprite lifted out of the class takes the filter
-// as an argument rather than growing a second copy of it.
-export type InkFilter = (color: string) => string;
+// Off, the identity. On, the sprite palette collapses to the tube's two tones:
+// the shadow role goes to ground, everything else to ink — see
+// `DEMAKE_GROUND_TONES`. One implementation, shared by the class and by the
+// sprites lifted out of it, so a capsule added later is demade by construction
+// rather than by remembering to.
+type InkFilter = (color: string) => string;
 
 // The identity, for a caller painting on nothing but a colour screen — the level
-// gallery's stills, which are never demade.
+// gallery's stills and the capsule catalogue's pills, neither of which is ever
+// demade.
 const litInk: InkFilter = (color) => color;
+const demakeInk: InkFilter = (color) =>
+  DEMAKE_GROUND_TONES.has(color) ? canvasPalette.demakeGround : canvasPalette.demakeInk;
+
+function inkFor(demade: boolean): InkFilter {
+  return demade ? demakeInk : litInk;
+}
+
+/**
+ * `CanvasRenderer.spritePixel`, for the sprites that live outside the class.
+ *
+ * The position snaps to the backing grid rather than the game grid, which is
+ * what lets a moving sprite step in thirds of a game pixel; a still one lands
+ * on the same place either way.
+ */
+function spriteBrush(
+  ctx: CanvasRenderingContext2D,
+  scale: number,
+  demade: boolean,
+): (x: number, y: number, width: number, height: number, color: string) => void {
+  const ink = inkFor(demade);
+  return (x, y, width, height, color) => {
+    ctx.fillStyle = ink(color);
+    ctx.fillRect(Math.round(x * scale), Math.round(y * scale), width * scale, height * scale);
+  };
+}
 
 /**
  * One brick, at whatever scale it is asked for.
@@ -332,8 +370,9 @@ export function drawBrick(
   cell: BrickCell,
   scale: number,
   fade = 0,
-  ink: InkFilter = litInk,
+  demade = false,
 ): void {
+  const ink = inkFor(demade);
   // `CanvasRenderer.pixel`, at the scale asked for: whole game pixels, each one
   // a scale×scale block.
   const pixel = (left: number, top: number, width: number, height: number, color: string): void => {
@@ -366,6 +405,104 @@ export function drawBrick(
   ctx.globalAlpha = 1;
 }
 
+/**
+ * One capsule pill, wherever it is: falling through the field, showing through
+ * the brick that holds it while XRAY is lit, or standing still in the capsule
+ * catalogue. The same sprite for all three is the point — what the wall shows,
+ * and what the list teaches, is what the player will catch.
+ *
+ * Module-level and scale-taking for the same reason `drawBrick` is: the renderer
+ * paints it at SCALE, the catalogue at 1, and a hand-drawn lookalike would drift
+ * the first time the sheen is retouched.
+ *
+ * `frame` drives the trap blink and nothing else, so a caller with no frame
+ * clock of its own can hand it any number it likes — as long as it keeps the
+ * game's cadence if it wants the blink to look the same.
+ */
+export function drawCapsule(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  kind: PowerUpKind,
+  scale: number,
+  frame: number,
+  demade = false,
+): void {
+  const pixel = spriteBrush(ctx, scale, demade);
+  const color = DROP_COLORS[kind];
+  pixel(x + 1, y, 18, 8, color);
+  pixel(x, y + 1, 20, 6, color);
+  pixel(x + 2, y + 1, 16, 1, canvasPalette.dropSheen);
+  pixel(x + 2, y + 7, 16, 1, canvasPalette.dropShade);
+
+  // A trap telegraphs itself with a blinking letter, so it can be read as one
+  // while there is still time to dodge it — in the wall as much as in the air.
+  if (MALUS_KINDS.has(kind) && (frame & 8) !== 0) {
+    return;
+  }
+
+  // The glyph, not the id: the player reads the name's opening letters, and
+  // a long one draws a size down rather than over the sheen.
+  const glyph = POWER_UP_GLYPHS[kind];
+  // Demade, the pill is one flat ink slab, so the glyph is punched out of it
+  // in ground. It cannot go through the ink filter: `dropLetterLight` is not a
+  // shadow tone, so it would resolve to ink on ink and every light-lettered
+  // capsule would lose the one thing that says which capsule it is.
+  ctx.fillStyle = demade
+    ? canvasPalette.demakeGround
+    : DARK_LETTER_DROP_KINDS.has(kind)
+      ? canvasPalette.dropLetterDark
+      : canvasPalette.dropLetterLight;
+  ctx.font = dropGlyphFont(glyph, scale);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(glyph, Math.round((x + 10) * scale), Math.round((y + 4.5) * scale));
+}
+
+/**
+ * The paddle deck, at whatever scale it is asked for — one pill, caps and all.
+ *
+ * `colors` is which deck: the player's, or MIRROR's ghost. SPLIT's hole is two
+ * calls rather than a parameter, since each half is a whole deck with its own
+ * caps.
+ */
+export function drawPaddleBands(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  colors: PaddleBandColors,
+  scale: number,
+  demade = false,
+): void {
+  const pixel = spriteBrush(ctx, scale, demade);
+  const height = gameConfig.paddle.height;
+
+  pixel(x + 1, y, width - 2, height, colors.body);
+  pixel(x, y + 1, width, height - 2, colors.body);
+  pixel(x + 1, y, 7, 1, colors.cap);
+  pixel(x, y + 1, 8, height - 2, colors.cap);
+  pixel(x + 1, y + height - 1, 7, 1, colors.cap);
+  pixel(x + width - 8, y, 7, 1, colors.cap);
+  pixel(x + width - 8, y + 1, 8, height - 2, colors.cap);
+  pixel(x + width - 8, y + height - 1, 7, 1, colors.cap);
+  pixel(x + 9, y + 1, width - 18, 1, colors.sheen);
+  pixel(x + 9, y + height - 1, width - 18, 1, colors.shade);
+}
+
+// The ball's body, without the trail behind it: the smear is the renderer's,
+// since it is made of where the ball was rather than of what it is.
+export function drawBall(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, demade = false): void {
+  const pixel = spriteBrush(ctx, scale, demade);
+  BALL_PIXEL_ROWS.forEach(([offset, span], rowIndex) => {
+    pixel(x + offset, y + rowIndex, span, 1, canvasPalette.ballBody);
+  });
+  pixel(x + 2, y + 1, 2, 1, canvasPalette.ballHighlight);
+  pixel(x + 1, y + 2, 1, 2, canvasPalette.ballHighlight);
+  pixel(x + 3, y + 6, 3, 1, canvasPalette.ballShade);
+  pixel(x + 6, y + 4, 1, 2, canvasPalette.ballShade);
+}
+
 export class CanvasRenderer {
   // The canvas on screen, and the context every draw method actually writes to.
   // They are the same thing except mid-dissolve, when `ctx` is pointed at the
@@ -381,9 +518,6 @@ export class CanvasRenderer {
   // threading it through twenty private draw methods would be the same fact
   // written twenty times.
   private demade = false;
-  // The same filter as `ink`, as a value: what the module-level sprites are
-  // handed so they paint on this machine rather than on a colour screen.
-  private readonly inkFilter: InkFilter = (color) => this.ink(color);
 
   constructor(canvas: HTMLCanvasElement) {
     const { width, height } = gameConfig.field;
@@ -485,7 +619,7 @@ export class CanvasRenderer {
           const x = left + columnIndex * brickWidth;
           const y = top + rowIndex * brickHeight;
           const fade = ghostProgress(view.ghostBlend, rowIndex, columnIndex, this.frameCount);
-          drawBrick(this.ctx, x, y, cell, SCALE, fade, this.inkFilter);
+          drawBrick(this.ctx, x, y, cell, SCALE, fade, this.demade);
           if (view.xrayActive && cell.capsule) {
             this.drawRevealedCapsule(x, y, cell.capsule);
           }
@@ -532,7 +666,7 @@ export class CanvasRenderer {
     }
     for (const drop of view.drops) {
       if (drop.active) {
-        this.drawCapsule(drop.x, drop.y, drop.kind);
+        drawCapsule(this.ctx, drop.x, drop.y, drop.kind, SCALE, this.frameCount, this.demade);
       }
     }
     for (const shot of view.shots) {
@@ -743,18 +877,7 @@ export class CanvasRenderer {
   }
 
   private drawPaddleBands(x: number, y: number, width: number, colors: PaddleBandColors): void {
-    const height = gameConfig.paddle.height;
-
-    this.spritePixel(x + 1, y, width - 2, height, colors.body);
-    this.spritePixel(x, y + 1, width, height - 2, colors.body);
-    this.spritePixel(x + 1, y, 7, 1, colors.cap);
-    this.spritePixel(x, y + 1, 8, height - 2, colors.cap);
-    this.spritePixel(x + 1, y + height - 1, 7, 1, colors.cap);
-    this.spritePixel(x + width - 8, y, 7, 1, colors.cap);
-    this.spritePixel(x + width - 8, y + 1, 8, height - 2, colors.cap);
-    this.spritePixel(x + width - 8, y + height - 1, 7, 1, colors.cap);
-    this.spritePixel(x + 9, y + 1, width - 18, 1, colors.sheen);
-    this.spritePixel(x + 9, y + height - 1, width - 18, 1, colors.shade);
+    drawPaddleBands(this.ctx, x, y, width, colors, SCALE, this.demade);
   }
 
   // A ball at 8 px a tick is genuinely hard to follow, which is the trap — but it
@@ -775,13 +898,7 @@ export class CanvasRenderer {
       }
     }
 
-    BALL_PIXEL_ROWS.forEach(([offset, span], rowIndex) => {
-      this.spritePixel(x + offset, y + rowIndex, span, 1, canvasPalette.ballBody);
-    });
-    this.spritePixel(x + 2, y + 1, 2, 1, canvasPalette.ballHighlight);
-    this.spritePixel(x + 1, y + 2, 1, 2, canvasPalette.ballHighlight);
-    this.spritePixel(x + 3, y + 6, 3, 1, canvasPalette.ballShade);
-    this.spritePixel(x + 6, y + 4, 1, 2, canvasPalette.ballShade);
+    drawBall(this.ctx, x, y, SCALE, this.demade);
   }
 
   // MAGNET's pull is silent and gentle enough to miss, so every capsule it has
@@ -808,41 +925,6 @@ export class CanvasRenderer {
     }
   }
 
-  // One capsule pill, wherever it is: falling through the field, or showing
-  // through the brick that holds it while XRAY is lit. The same sprite for both
-  // is the point — what the wall shows is what the player will catch.
-  private drawCapsule(x: number, y: number, kind: PowerUpKind): void {
-    const color = DROP_COLORS[kind];
-
-    this.spritePixel(x + 1, y, 18, 8, color);
-    this.spritePixel(x, y + 1, 20, 6, color);
-    this.spritePixel(x + 2, y + 1, 16, 1, canvasPalette.dropSheen);
-    this.spritePixel(x + 2, y + 7, 16, 1, canvasPalette.dropShade);
-
-    // A trap telegraphs itself with a blinking letter, so it can be read as one
-    // while there is still time to dodge it — in the wall as much as in the air.
-    if (MALUS_KINDS.has(kind) && (this.frameCount & 8) !== 0) {
-      return;
-    }
-
-    // The glyph, not the id: the player reads the name's opening letters, and
-    // a long one draws a size down rather than over the sheen.
-    const glyph = POWER_UP_GLYPHS[kind];
-    // Demade, the pill is one flat ink slab, so the glyph is punched out of it
-    // in ground. It cannot go through `ink()`: `dropLetterLight` is not a shadow
-    // tone, so it would resolve to ink on ink and every light-lettered capsule
-    // would lose the one thing that says which capsule it is.
-    this.ctx.fillStyle = this.demade
-      ? canvasPalette.demakeGround
-      : DARK_LETTER_DROP_KINDS.has(kind)
-        ? canvasPalette.dropLetterDark
-        : canvasPalette.dropLetterLight;
-    this.ctx.font = dropGlyphFont(glyph);
-    this.ctx.textAlign = "center";
-    this.ctx.textBaseline = "middle";
-    this.ctx.fillText(glyph, Math.round((x + 10) * SCALE), Math.round((y + 4.5) * SCALE));
-  }
-
   /**
    * XRAY: the capsule a brick is holding, shown inside it.
    *
@@ -853,7 +935,7 @@ export class CanvasRenderer {
    */
   private drawRevealedCapsule(brickX: number, brickY: number, kind: PowerUpKind): void {
     this.ctx.globalAlpha = XRAY_REVEAL_ALPHA;
-    this.drawCapsule(brickX + 5, brickY + 2, kind);
+    drawCapsule(this.ctx, brickX + 5, brickY + 2, kind, SCALE, this.frameCount, this.demade);
     this.ctx.globalAlpha = 1;
   }
 

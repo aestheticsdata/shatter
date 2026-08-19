@@ -1,10 +1,11 @@
 import { SoundBank } from "@audio/SoundBank";
 import { ShatterGame } from "@core/ShatterGame";
 import { CanvasRenderer } from "@render/CanvasRenderer";
-import { checkCapsuleLegibility } from "@render/checkCapsules";
+import { checkCapsuleBlurbs, checkCapsuleLegibility } from "@render/checkCapsules";
 import { getElementByIdOrThrow } from "@shared/dom";
 import { HiScores } from "@state/HiScores";
 import { ScoreApi } from "@state/ScoreApi";
+import { CapsuleCatalogue } from "@ui/CapsuleCatalogue";
 import { LevelGallery } from "@ui/LevelGallery";
 import { Panel } from "@ui/Panel";
 import { Screens } from "@ui/Screens";
@@ -47,10 +48,21 @@ document.addEventListener("DOMContentLoaded", () => {
       entryText: getElementByIdOrThrow("entryText"),
       returnHint: getElementByIdOrThrow("returnHint"),
       levels: getElementByIdOrThrow("screenLevels"),
+      capsules: getElementByIdOrThrow("screenCapsules"),
     }),
     levels: new LevelGallery({
       tiles: getElementByIdOrThrow("levelTiles"),
-      footer: getElementByIdOrThrow("levelsFooter"),
+      pages: getElementByIdOrThrow("levelsPages"),
+      arrows: getElementByIdOrThrow("levelsArrows"),
+      count: getElementByIdOrThrow("levelsCount"),
+      facts: getElementByIdOrThrow("levelsFacts"),
+    }),
+    capsules: new CapsuleCatalogue({
+      entries: getElementByIdOrThrow("capsuleEntries"),
+      pages: getElementByIdOrThrow("capsulesPages"),
+      arrows: getElementByIdOrThrow("capsulesArrows"),
+      count: getElementByIdOrThrow("capsulesCount"),
+      facts: getElementByIdOrThrow("capsulesFacts"),
     }),
     sfx,
     hiScores: new HiScores(new ScoreApi()),
@@ -65,6 +77,9 @@ document.addEventListener("DOMContentLoaded", () => {
     (window as Window & { __shatter?: ShatterGame }).__shatter = game;
     // Once, and only once Silkscreen has loaded: the fallback font is wider and
     // would report glyph widths no capsule actually draws at.
-    void document.fonts.ready.then(() => checkCapsuleLegibility());
+    void document.fonts.ready.then(() => {
+      checkCapsuleLegibility();
+      checkCapsuleBlurbs();
+    });
   }
 });

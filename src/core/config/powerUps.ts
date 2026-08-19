@@ -86,46 +86,75 @@ export interface PowerUpDefinition {
   // U/Z/R/Q are instantaneous with no lingering state at all — the catch pop is
   // their whole acknowledgment, and BM ends the life it was caught on.
   timed: boolean;
+  // The line the CAPSULES screen prints under the pill: what the player sees,
+  // present tense, in about 40 characters — `WIDER PADDLE`, `BALLS STICK ·
+  // CLICK TO RELEASE`. Required, so a capsule invented tomorrow cannot reach
+  // the catalogue without one, and measured by the DEV pass in
+  // `@render/checkCapsules`, which says whose line overflows its column.
+  //
+  // The README's Effect column is the longer reference and the two must agree:
+  // when a capsule is retuned, both move.
+  blurb: string;
+  // What the catalogue prints for duration, for the rows where `ticks` is not
+  // the answer. Everything else derives it — `ticks / 60`, or `INSTANT` at 0 —
+  // and five rows would come out a lie:
+  //
+  //   WALL      its charge is not instant, it waits until it saves you
+  //   MULTI     3 s is how long the POWER inset names it; the balls stay
+  //   SWARM     the same
+  //   CRITTER   the grub lives `powerUps.critter.lifeTicks`, not `ticks`
+  //   BANANA    the catch is instant, the peel it leaves is not
+  //
+  // Authored, and the one thing on this screen that can drift: it is prose, and
+  // this module imports nothing, so it cannot read the config those last three
+  // live in. Retune one and the string moves with it.
+  lasts?: string;
 }
 
-// One row per capsule, and it must stay one row: the field names are short so a
-// two-character id and a name as long as BLACKOUT still fit inside 120 columns.
+// One row per capsule, and it must stay one row: this is the table the hue
+// families, the `dark` split and the tier balance above were all read off, and
+// none of that can be seen down a column of 35 ten-line blocks.
+//
+// The blurb pushed the row past the formatter's 120 columns, which is what the
+// ignore is for — the block is data, there is nothing here for oxfmt to get
+// right, and it would otherwise explode the roster into 350 lines.
+// oxfmt-ignore
 export const POWER_UPS = [
-  { id: "E", name: "WIDE", color: "#2d7fe0", dark: false, ticks: 720, tier: "common", timed: true },
-  { id: "M", name: "MULTI", color: "#3fbf4f", dark: true, ticks: 180, tier: "common", timed: true },
-  { id: "L", name: "LASER", color: "#e8384f", dark: false, ticks: 720, tier: "common", timed: true },
-  { id: "P", name: "PIERCE", color: "#ffcf1c", dark: true, ticks: 480, tier: "uncommon", timed: true },
-  { id: "B", name: "BLAST", color: "#f07d10", dark: true, ticks: 720, tier: "common", timed: true },
-  { id: "W", name: "WALL", color: "#8fd0ff", dark: true, ticks: 0, tier: "uncommon", timed: false },
-  { id: "T", name: "TEMPO", color: "#f2f4ff", dark: true, ticks: 480, tier: "common", timed: true },
-  { id: "X", name: "PAYDAY", color: "#dfae2c", dark: true, ticks: 600, tier: "uncommon", timed: true },
-  { id: "J", name: "JAMMER", color: "#d13be8", dark: false, ticks: 360, tier: "trap", timed: true },
-  { id: "N", name: "NUKE", color: "#b6ff00", dark: true, ticks: 0, tier: "rare", timed: false },
-  { id: "S", name: "SWARM", color: "#1fd8c4", dark: true, ticks: 180, tier: "rare", timed: true },
-  { id: "U", name: "1UP", color: "#ff70b8", dark: true, ticks: 0, tier: "rare", timed: false },
-  { id: "Z", name: "ZAP", color: "#4ae0ff", dark: true, ticks: 0, tier: "uncommon", timed: false },
-  { id: "R", name: "RAIN", color: "#8a5cf5", dark: false, ticks: 0, tier: "uncommon", timed: false },
-  { id: "G", name: "GLUE", color: "#b07840", dark: false, ticks: 720, tier: "common", timed: true },
-  { id: "I", name: "STASIS", color: "#9effd6", dark: true, ticks: 90, tier: "common", timed: true },
-  { id: "H", name: "HOMING", color: "#00e05a", dark: true, ticks: 480, tier: "common", timed: true },
-  { id: "Y", name: "MIRROR", color: "#a878b4", dark: false, ticks: 600, tier: "common", timed: true },
-  { id: "C", name: "CHAIN", color: "#3dff8e", dark: true, ticks: 600, tier: "uncommon", timed: true },
-  { id: "K", name: "MAGNET", color: "#6fd0b4", dark: true, ticks: 720, tier: "common", timed: true },
-  { id: "V", name: "SINGULARITY", color: "#c9a7ff", dark: true, ticks: 720, tier: "uncommon", timed: true },
-  { id: "PO", name: "PORTAL", color: "#00b3fa", dark: true, ticks: 1800, tier: "uncommon", timed: true },
-  { id: "O", name: "BUMPERS", color: "#ff00aa", dark: false, ticks: 720, tier: "uncommon", timed: true },
-  { id: "Q", name: "QUAKE", color: "#ffab6b", dark: true, ticks: 0, tier: "uncommon", timed: false },
-  { id: "BM", name: "BOMB", color: "#ff3b00", dark: false, ticks: 0, tier: "trap", timed: false },
-  { id: "GH", name: "GHOST", color: "#e1f0b4", dark: true, ticks: 300, tier: "trap", timed: true },
-  { id: "CR", name: "CRITTER", color: "#a3e04a", dark: true, ticks: 0, tier: "uncommon", timed: false },
-  { id: "RU", name: "RUSH", color: "#e1001b", dark: false, ticks: 300, tier: "trap", timed: true },
-  { id: "XW", name: "XWIDE", color: "#0082a0", dark: false, ticks: 720, tier: "rare", timed: true },
-  { id: "XR", name: "XRAY", color: "#2aff00", dark: true, ticks: 300, tier: "rare", timed: true },
-  { id: "MT", name: "METEOR", color: "#c84b19", dark: false, ticks: 0, tier: "rare", timed: false },
-  { id: "SP", name: "SPLIT", color: "#e0607a", dark: false, ticks: 360, tier: "trap", timed: true },
-  { id: "VX", name: "VORTEX", color: "#b000fc", dark: false, ticks: 720, tier: "rare", timed: true },
-  { id: "BN", name: "BANANA", color: "#e2fe74", dark: true, ticks: 0, tier: "trap", timed: false },
-  { id: "D", name: "DEMAKE", color: "#00d200", dark: true, ticks: 480, tier: "trap", timed: true },
+  { id: "E", name: "WIDE", color: "#2d7fe0", dark: false, ticks: 720, tier: "common", timed: true, blurb: "WIDER PADDLE" },
+  { id: "M", name: "MULTI", color: "#3fbf4f", dark: true, ticks: 180, tier: "common", timed: true, blurb: "MORE BALLS · 3 THEN 6 THEN 9", lasts: "INSTANT" },
+  { id: "L", name: "LASER", color: "#e8384f", dark: false, ticks: 720, tier: "common", timed: true, blurb: "THE PADDLE GROWS CANNONS" },
+  { id: "P", name: "PIERCE", color: "#ffcf1c", dark: true, ticks: 480, tier: "uncommon", timed: true, blurb: "THE BALL GOES THROUGH BRICKS" },
+  { id: "B", name: "BLAST", color: "#f07d10", dark: true, ticks: 720, tier: "common", timed: true, blurb: "KILLS DAMAGE THE 8 AROUND" },
+  { id: "W", name: "WALL", color: "#8fd0ff", dark: true, ticks: 0, tier: "uncommon", timed: false, blurb: "A BARRIER CATCHES ONE BALL", lasts: "ONE SAVE" },
+  { id: "T", name: "TEMPO", color: "#f2f4ff", dark: true, ticks: 480, tier: "common", timed: true, blurb: "BULLET TIME · BALLS AT 0.6" },
+  { id: "X", name: "PAYDAY", color: "#dfae2c", dark: true, ticks: 600, tier: "uncommon", timed: true, blurb: "DOUBLE POINTS" },
+  { id: "J", name: "JAMMER", color: "#d13be8", dark: false, ticks: 360, tier: "trap", timed: true, blurb: "THE PADDLE SHRINKS" },
+  { id: "N", name: "NUKE", color: "#b6ff00", dark: true, ticks: 0, tier: "rare", timed: false, blurb: "A SHOCKWAVE TAKES THE WALL" },
+  { id: "S", name: "SWARM", color: "#1fd8c4", dark: true, ticks: 180, tier: "rare", timed: true, blurb: "TWELVE BALLS AT ONCE", lasts: "INSTANT" },
+  { id: "U", name: "1UP", color: "#ff70b8", dark: true, ticks: 0, tier: "rare", timed: false, blurb: "ONE EXTRA LIFE, UP TO SIX" },
+  { id: "Z", name: "ZAP", color: "#4ae0ff", dark: true, ticks: 0, tier: "uncommon", timed: false, blurb: "THE BOTTOM ROW VAPORIZES" },
+  { id: "R", name: "RAIN", color: "#8a5cf5", dark: false, ticks: 0, tier: "uncommon", timed: false, blurb: "FOUR MORE CAPSULES FALL" },
+  { id: "G", name: "GLUE", color: "#b07840", dark: false, ticks: 720, tier: "common", timed: true, blurb: "BALLS STICK · CLICK TO FREE" },
+  { id: "I", name: "STASIS", color: "#9effd6", dark: true, ticks: 90, tier: "common", timed: true, blurb: "EVERY BALL STOPS IN MID-AIR" },
+  { id: "H", name: "HOMING", color: "#00e05a", dark: true, ticks: 480, tier: "common", timed: true, blurb: "BALLS CURVE ONTO BRICKS" },
+  { id: "Y", name: "MIRROR", color: "#a878b4", dark: false, ticks: 600, tier: "common", timed: true, blurb: "A GHOST PADDLE ON THE CEILING" },
+  { id: "C", name: "CHAIN", color: "#3dff8e", dark: true, ticks: 600, tier: "uncommon", timed: true, blurb: "KILLS ARC TO OTHER BRICKS" },
+  { id: "K", name: "MAGNET", color: "#6fd0b4", dark: true, ticks: 720, tier: "common", timed: true, blurb: "THE PADDLE PULLS CAPSULES IN" },
+  { id: "V", name: "SINGULARITY", color: "#c9a7ff", dark: true, ticks: 720, tier: "uncommon", timed: true, blurb: "A BLACK HOLE BENDS THE BALLS" },
+  { id: "PO", name: "PORTAL", color: "#00b3fa", dark: true, ticks: 1800, tier: "uncommon", timed: true, blurb: "SIDE WALLS BECOME DOORWAYS" },
+  { id: "O", name: "BUMPERS", color: "#ff00aa", dark: false, ticks: 720, tier: "uncommon", timed: true, blurb: "FIVE DISCS · 100 A KICK" },
+  { id: "Q", name: "QUAKE", color: "#ffab6b", dark: true, ticks: 0, tier: "uncommon", timed: false, blurb: "THE WALL DROPS A ROW" },
+  { id: "BM", name: "BOMB", color: "#ff3b00", dark: false, ticks: 0, tier: "trap", timed: false, blurb: "IT BLOWS UP THE PADDLE" },
+  { id: "GH", name: "GHOST", color: "#e1f0b4", dark: true, ticks: 300, tier: "trap", timed: true, blurb: "THE WALL GOES INTANGIBLE" },
+  { id: "CR", name: "CRITTER", color: "#a3e04a", dark: true, ticks: 0, tier: "uncommon", timed: false, blurb: "A GRUB EATS THROUGH THE WALL", lasts: "15 S" },
+  { id: "RU", name: "RUSH", color: "#e1001b", dark: false, ticks: 300, tier: "trap", timed: true, blurb: "EVERY BALL AT 1.8 SPEED" },
+  { id: "XW", name: "XWIDE", color: "#0082a0", dark: false, ticks: 720, tier: "rare", timed: true, blurb: "TWICE THE WIDE DECK" },
+  { id: "XR", name: "XRAY", color: "#2aff00", dark: true, ticks: 300, tier: "rare", timed: true, blurb: "EVERY BRICK SHOWS ITS CAPSULE" },
+  { id: "MT", name: "METEOR", color: "#c84b19", dark: false, ticks: 0, tier: "rare", timed: false, blurb: "THREE METEORS DRILL THE WALL" },
+  { id: "SP", name: "SPLIT", color: "#e0607a", dark: false, ticks: 360, tier: "trap", timed: true, blurb: "THE DECK BREAKS AROUND A HOLE" },
+  { id: "VX", name: "VORTEX", color: "#b000fc", dark: false, ticks: 720, tier: "rare", timed: true, blurb: "A BIGGER BLACK HOLE, ADRIFT" },
+  { id: "BN", name: "BANANA", color: "#e2fe74", dark: true, ticks: 0, tier: "trap", timed: false, blurb: "A PEEL SKIDS THE DECK", lasts: "10 S PEEL" },
+  { id: "D", name: "DEMAKE", color: "#00d200", dark: true, ticks: 480, tier: "trap", timed: true, blurb: "THE MACHINE DROPS TO 1-BIT" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];
