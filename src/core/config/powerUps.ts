@@ -156,6 +156,7 @@ export const POWER_UPS = [
   { id: "BN", name: "BANANA", color: "#e2fe74", dark: true, ticks: 0, tier: "trap", timed: false, blurb: "A PEEL SKIDS THE DECK", lasts: "10 S PEEL" },
   { id: "D", name: "DEMAKE", color: "#00d200", dark: true, ticks: 480, tier: "trap", timed: true, blurb: "THE MACHINE DROPS TO 1-BIT" },
   { id: "BK", name: "BLACKOUT", color: "#6998f7", dark: true, ticks: 1200, tier: "trap", timed: true, blurb: "LIGHTS OUT · THE BALL GLOWS" },
+  { id: "F", name: "FLIP", color: "#ff1aff", dark: true, ticks: 480, tier: "trap", timed: true, blurb: "THE WHOLE FIELD TURNS OVER" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];

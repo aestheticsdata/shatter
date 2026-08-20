@@ -369,6 +369,13 @@ export const gameConfig = {
     // 0.35 s power-down, so the sound is the switch and this is the lights
     // going with it.
     blackoutFadeTicks: 45,
+    // FLIP's turn, each way. The field does not switch over: it rotates about
+    // its own centre, shrinking just enough on the way round to clear the wall
+    // frame, and rotates back out when the capsule expires. 30 ticks is the
+    // same half second DEMAKE sags in — long enough to be seen turning, short
+    // enough that the ball is only unreadable for a moment — and it is what the
+    // catch's four-note tumble is scored to.
+    flipTurnTicks: 30,
     // QUAKE's shake. 24 ticks is 0.4 s, and the amplitude decays linearly over
     // them so the field settles rather than stopping dead. Whole game pixels:
     // the art is drawn at 3x, and a fractional offset would blur every block.

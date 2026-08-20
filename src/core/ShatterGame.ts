@@ -210,10 +210,22 @@ export class ShatterGame {
   // only: the dark is already owed the moment the capsule is caught, and this
   // number decides nothing but how much of the field the light still reaches.
   private blackoutBlend = 0;
+  // FLIP's turn, 0 upright to 1 fully over. Presentational like the three above
+  // it — the ball is played the same way up throughout, and the only thing that
+  // turns with the picture is which way round the hand steering it is read.
+  private flipTurn = 0;
   // Armed by a MAGNET catch, spent by the next brick a ball or a laser kills.
   // A magnet with nothing falling is a magnet nobody can see working.
   private guaranteedDrop = false;
   private laserCountdown = 0;
+
+  // Which way round the mouse is read. The picture turns continuously; the
+  // mapping cannot — at a quarter turn the field is on its side and there is no
+  // left or right to lend the hand — so it changes over at the halfway point,
+  // which is the frame the player watches the field pass through vertical.
+  private get flipped(): boolean {
+    return this.flipTurn >= 0.5;
+  }
 
   private readonly input: InputController;
   private lastTime = 0;
@@ -229,7 +241,9 @@ export class ShatterGame {
       // absolute position for the deck to be out of step with.
       onPointerMoveBy: (deltaX) => {
         if (this.skidTicksLeft === 0) {
-          this.paddle.moveByDelta(deltaX);
+          // FLIP: the deck is drawn upside down, so a hand moving right has to
+          // move the sim's paddle left for the one on screen to follow it.
+          this.paddle.moveByDelta(this.flipped ? -deltaX : deltaX);
         }
       },
       onAdvance: () => this.advanceGated(),
@@ -303,6 +317,10 @@ export class ShatterGame {
       // and the iris, frozen at whatever it had reached, closes the rest of the
       // way once the field is the player's again.
       blackoutBlend: this.detonation.active || this.clearCountdown > 0 ? 0 : this.blackoutBlend,
+      // Not gated on the two freezes the way the dark is: a shockwave sweeping
+      // an upside-down field is the joke landing twice, and neither freeze runs
+      // the timers, so the turn cannot come undone behind one either.
+      flipTurn: this.flipTurn,
       paddleHidden: this.deathCountdown > 0,
       bumpers: this.bumpers.discs,
       peels: this.peels,
@@ -383,6 +401,13 @@ export class ShatterGame {
     this.blackoutBlend = this.timers.isActive("BK")
       ? Math.min(1, this.blackoutBlend + blackoutStep)
       : Math.max(0, this.blackoutBlend - blackoutStep);
+    // Above the freeze gates with the rest, and for the starkest reason of the
+    // four: a NUKE caught mid-turn would otherwise park the field on its side
+    // for the length of the sweep.
+    const flipStep = 1 / gameConfig.effects.flipTurnTicks;
+    this.flipTurn = this.timers.isActive("F")
+      ? Math.min(1, this.flipTurn + flipStep)
+      : Math.max(0, this.flipTurn - flipStep);
 
     // A pending level clear freezes the rest of the simulation so the final
     // brick's shatter can play out — no ball can be lost, no capsule caught,
@@ -458,6 +483,11 @@ export class ShatterGame {
     // dropping back to true speed has to be heard by someone whose eyes are on it.
     if (expired.includes("RU")) {
       this.deps.sfx.rushRelease();
+    }
+    // The field comes back the same way it went, and the turn back owes the
+    // same half second of sound: without it the second tumble reads as a fault.
+    if (expired.includes("F")) {
+      this.deps.sfx.flipRelease();
     }
 
     if (this.timers.isActive("L") && --this.laserCountdown <= 0) {
@@ -1468,6 +1498,7 @@ export class ShatterGame {
     this.ghostBlend = 0;
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
+    this.flipTurn = 0;
     this.particles.reset();
     this.resetSkid();
     // First, and ahead of `timers.reset()` below: the CLEARED jingle plays out
@@ -1640,6 +1671,12 @@ export class ShatterGame {
       // is allowed to show, and the simulation behind it plays on unaware.
       this.timers.activate("BK", durations.BK);
     }
+    if (kind === "F") {
+      // The timer and nothing else, like the two above it: the field turns in
+      // the renderer and the hand is read the other way round, and the ball
+      // between them never learns which way up it is being watched.
+      this.timers.activate("F", durations.F);
+    }
     if (kind === "Q") {
       // The kill first: it is the bottom-most live row that goes, so the slide
       // below can never push a brick off the end of the grid.
@@ -1688,6 +1725,11 @@ export class ShatterGame {
     } else if (kind === "BM") {
       // Its own boom instead of the shared womp: this trap is not a setback.
       this.deps.sfx.paddleExplode();
+    } else if (kind === "F") {
+      // Its own tumble instead of the shared womp, the way GHOST's fade and
+      // BLACKOUT's power-down are: what happened is the machine turning over,
+      // and the four notes are scored to the half second the turn takes.
+      this.deps.sfx.flipPickup();
     } else if (kind === "BK") {
       // Its own power-down instead of the shared womp, the way GHOST's fade and
       // SPLIT's snap are: what happened is the lights going out, and that says
@@ -1733,11 +1775,14 @@ export class ShatterGame {
    * it once the deck is the player's again.
    */
   private pointToStage(stageX: number): void {
+    // Mirrored here rather than at either use below, so the position BANANA
+    // remembers to glide back onto is already the one the deck was steering to.
+    const fieldX = this.flipped ? gameConfig.field.width - stageX : stageX;
     if (this.skidTicksLeft > 0 || this.resyncTicksLeft > 0) {
-      this.pointerTargetX = stageX;
+      this.pointerTargetX = fieldX;
       return;
     }
-    this.paddle.moveCenterTo(stageX);
+    this.paddle.moveCenterTo(fieldX);
   }
 
   // BANANA: one peel onto the rail, never under the deck standing on it. The
@@ -2071,6 +2116,7 @@ export class ShatterGame {
     this.ghostBlend = 0;
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
+    this.flipTurn = 0;
     this.particles.reset();
     this.detonation.reset();
     this.clearCountdown = 0;
@@ -2112,6 +2158,7 @@ export class ShatterGame {
     this.ghostBlend = 0;
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
+    this.flipTurn = 0;
     this.particles.reset();
     this.dropPool.reset();
     this.detonation.reset();

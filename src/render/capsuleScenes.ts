@@ -133,6 +133,19 @@ class Field {
     drawBlackoutVeil(this.ctx, torches, tone, 1);
   }
 
+  // The field turned over, which is FLIP's whole picture. The backdrop is not
+  // in it: the renderer leaves the field art where it is and turns the wall,
+  // what stands on it and the frame around it, so the scene turns the same
+  // three things — here, everything the painter draws after this call.
+  turned(paint: () => void): void {
+    this.ctx.save();
+    this.ctx.translate(FIELD_WIDTH / 2, FIELD_HEIGHT / 2);
+    this.ctx.rotate(Math.PI);
+    this.ctx.translate(-FIELD_WIDTH / 2, -FIELD_HEIGHT / 2);
+    paint();
+    this.ctx.restore();
+  }
+
   // Where the ball has been, or where it is going.
   trace(x: number, y: number, alpha: number): void {
     this.ctx.globalAlpha = alpha;
@@ -566,6 +579,9 @@ const SCENES: Record<PowerUpKind, Painter> = {
     field.rect(233, DECK_Y - 1, peelWidth - 2, 1, canvasPalette.peelShade);
     field.ball(160, 210);
   },
+  // The default staging, upside down — the only scene that needs no staging of
+  // its own, because the capsule does nothing but turn the field over.
+  F: (field) => field.turned(() => baseScene(field)),
   // The whole machine, in the tube's two tones. The only scene that paints the
   // default staging demade rather than adding anything to it: the capsule
   // changes nothing about the game, only about the machine showing it.

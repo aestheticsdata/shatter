@@ -326,6 +326,10 @@ export interface RenderView {
   // backwards when the capsule expires. Like DEMAKE, purely presentational —
   // the simulation under it is not told and plays exactly as it would lit.
   blackoutBlend: number;
+  // FLIP's turn, 0 upright to 1 fully over. A number rather than a flag for the
+  // same reason the three above it are: the field does not switch round, it
+  // rotates — and it is only ever 0 or 1 for the frames it is not turning.
+  flipTurn: number;
   // BOMB blew it up: the debris in flight is the paddle, so neither it nor
   // MIRROR's reflection of it may be on screen.
   paddleHidden: boolean;
@@ -497,7 +501,48 @@ export function drawCapsule(
   ctx.font = dropGlyphFont(glyph, scale);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(glyph, Math.round((x + 10) * scale), Math.round((y + 4.5) * scale));
+  // The pill's own centre, not a typed offset: glyphs run two to four
+  // characters and `dropGlyphFont` picks the size, so the only place the middle
+  // of the letters can be read off is the box they are drawn in.
+  const glyphX = Math.round((x + 10) * scale);
+  const glyphY = Math.round((y + 4.5) * scale);
+  uprightText(ctx, glyphX, glyphY, () => ctx.fillText(glyph, glyphX, glyphY));
+}
+
+/**
+ * Text the player has to read, kept off its head whatever the field is doing
+ * under it.
+ *
+ * FLIP turns the whole playfield over, and a capsule's name is the one thing on
+ * it that may not end up upside down. **Half a turn back, or nothing** — never
+ * the exact counter-angle: a label pinned horizontal on a pill lying at 50°
+ * hangs off both of its long sides, and the letters stop reading as something
+ * printed on the capsule. Snapping instead leaves the glyph glued to its pill
+ * all the way round, never more than a quarter turn from upright, and puts the
+ * one moment it changes over where the field is edge-on and the mouse changes
+ * over too.
+ *
+ * The angle is read off the context's own matrix rather than passed in, so it
+ * is right by construction everywhere these labels are painted — the arena
+ * mid-turn, the arena settled, the capsule catalogue and the level gallery —
+ * and a caller under no rotation at all pays one matrix read and nothing else.
+ *
+ * `cx`/`cy` are the label's own centre in device pixels, so it turns about
+ * itself and lands exactly where it was — and two half turns compose to the
+ * identity, which is what keeps a shadow offset on the side it was drawn.
+ */
+function uprightText(ctx: CanvasRenderingContext2D, cx: number, cy: number, paint: () => void): void {
+  const { a, b } = ctx.getTransform();
+  if (Math.abs(Math.atan2(b, a)) <= Math.PI / 2) {
+    paint();
+    return;
+  }
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(Math.PI);
+  ctx.translate(-cx, -cy);
+  paint();
+  ctx.restore();
 }
 
 /**
@@ -777,6 +822,13 @@ export class CanvasRenderer {
       : this.background.imageFor(view.background, view.backgroundVariant);
     this.ctx.drawImage(layer, 0, 0, width * SCALE, height * SCALE);
 
+    // FLIP turns the arena over: the wall, everything standing on it, and the
+    // frame around it — but not the field art under them, which stays put for
+    // the same reason it does not ride QUAKE's shake. It is the room, and a
+    // room that spun would leave the canvas empty at the corners mid-turn.
+    this.ctx.save();
+    this.applyTurn(view.flipTurn);
+
     // QUAKE displaces everything that stands on the field, and nothing else: the
     // background stays put so the shake reads as the wall rattling rather than
     // as the camera drifting, and the frame is painted after the restore, which
@@ -889,13 +941,52 @@ export class CanvasRenderer {
     this.drawDetonation(view.detonation);
     this.ctx.restore();
 
+    // Inside the turn with the field: the frame is closed at the top and open
+    // at the bottom, so which edge kills is drawn rather than remembered.
     this.drawWalls();
     if (view.portalActive) {
       this.drawPortals();
     }
+    this.ctx.restore();
+
+    // Outside it: the ribbing is on the glass, not on the field.
     if (this.demade) {
       this.drawScanlines();
     }
+  }
+
+  /**
+   * FLIP's turn, as a matrix.
+   *
+   * Settled, it is an exact point reflection about the field centre — whole
+   * device pixels in, whole device pixels out, so an upside-down field is as
+   * crisp as an upright one and nothing resamples. Turning, it is the same
+   * rotation part-way through, shrunk by however much it takes for the rotated
+   * field to still fit inside the frame: at a quarter turn a 372x300 field
+   * standing on its side is 372 tall in a 300 tall canvas, and without the fit
+   * the wall would be sliced off at both ends of the turn.
+   *
+   * `transform`, never `setTransform` — this has to compose with whatever the
+   * renderer is already under, exactly as QUAKE's shake does under it.
+   */
+  private applyTurn(turn: number): void {
+    if (turn <= 0) {
+      return;
+    }
+    const width = gameConfig.field.width * SCALE;
+    const height = gameConfig.field.height * SCALE;
+    if (turn >= 1) {
+      this.ctx.transform(-1, 0, 0, -1, width, height);
+      return;
+    }
+    const angle = turn * Math.PI;
+    const cos = Math.abs(Math.cos(angle));
+    const sin = Math.abs(Math.sin(angle));
+    const fit = Math.min(1, width / (width * cos + height * sin), height / (width * sin + height * cos));
+    this.ctx.translate(width / 2, height / 2);
+    this.ctx.rotate(angle);
+    this.ctx.scale(fit, fit);
+    this.ctx.translate(-width / 2, -height / 2);
   }
 
   // The tube's ribbing: one ground row every third device pixel, over
@@ -1294,12 +1385,16 @@ export class CanvasRenderer {
     // ground letters on an ink shadow — which is the 1-bit way to say the same
     // thing, and the blink and the womp still say it twice over.
     const inverted = this.demade && pop.malus;
-    this.ctx.fillStyle = this.ink(inverted ? canvasPalette.popMalus : canvasPalette.popShadow);
-    this.ctx.fillText(pop.label, x + SCALE, y + SCALE);
-    this.ctx.fillStyle = this.ink(
-      inverted ? canvasPalette.popShadow : pop.malus ? canvasPalette.popMalus : canvasPalette.popBonus,
-    );
-    this.ctx.fillText(pop.label, x, y);
+    // Both layers inside one counter-rotation: turned separately, the shadow's
+    // one-pixel offset would end up on the other side of the label.
+    uprightText(this.ctx, x, y, () => {
+      this.ctx.fillStyle = this.ink(inverted ? canvasPalette.popMalus : canvasPalette.popShadow);
+      this.ctx.fillText(pop.label, x + SCALE, y + SCALE);
+      this.ctx.fillStyle = this.ink(
+        inverted ? canvasPalette.popShadow : pop.malus ? canvasPalette.popMalus : canvasPalette.popBonus,
+      );
+      this.ctx.fillText(pop.label, x, y);
+    });
   }
 
   // The two mouths, painted over the wall frame they replace: three bands

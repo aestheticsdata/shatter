@@ -436,6 +436,28 @@ export class SoundBank {
     this.noise({ dur: 0.3, vol: 0.12, filter: { type: "lowpass", freq: 1200, freqEnd: 120 } });
   }
 
+  // FLIP: the machine going over. `capsulePickup`'s three notes walked back
+  // down and one further, on a sawtooth so nothing about it reads as a bonus,
+  // paced across the half second the field takes to come round — then a low
+  // knock on the beat it lands. The arp is the turn; the knock is the stop.
+  flipPickup(): void {
+    if (!this.allow("flip")) {
+      return;
+    }
+    this.arp([784, 659, 523, 392], 110, { type: "sawtooth", vol: 0.06, noteDurS: 0.1 });
+    this.tone({ freq: 130, freqEnd: 80, dur: 0.12, vol: 0.08, type: "sawtooth", delayS: 0.44 });
+  }
+
+  // And back the other way up, because the event is the other way round: the
+  // field is being handed back, and the knock is it settling upright again.
+  flipRelease(): void {
+    if (!this.allow("flip")) {
+      return;
+    }
+    this.arp([392, 523, 659, 784], 110, { type: "sawtooth", vol: 0.06, noteDurS: 0.1 });
+    this.tone({ freq: 130, freqEnd: 80, dur: 0.12, vol: 0.08, type: "sawtooth", delayS: 0.44 });
+  }
+
   // Detune-beat "womp": the two layers drift apart as they fall. Every trap
   // catch gets it — one sound for the tier, not one per capsule.
   malusPickup(): void {
