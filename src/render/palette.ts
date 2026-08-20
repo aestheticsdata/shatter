@@ -42,6 +42,11 @@ export const canvasPalette = {
   ballBody: "#ffe14a",
   ballHighlight: "#fff9d0",
   ballShade: "#c98f0a",
+  // The middle of a MULTI or SWARM clone's birth: the one step between the
+  // white-hot pip it is drawn as on its first frame and the ball it settles
+  // into. Halfway between the two tones above, so the growth reads as one
+  // sprite cooling rather than as three sprites.
+  ballNewborn: "#ffed8d",
   laserShot: "#ffcf1c",
   dropLetterLight: "#ffffff",
   dropLetterDark: "#0b0b26",

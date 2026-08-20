@@ -34,6 +34,15 @@ const BALL_TRAIL_STEPS: ReadonlyArray<readonly [number, string]> = [
   [0.4, canvasPalette.rushTrailNear],
 ];
 
+// PIERCE's sparks, hottest first: white, the ball's own near-white, the
+// capsule's yellow. Cycled by slot index exactly as the brick mix below is, so
+// a shower is a mix without a colour stored per spark.
+const PIERCE_SPARK_TONES: readonly string[] = [
+  canvasPalette.dropSheen,
+  canvasPalette.ballHighlight,
+  canvasPalette.laserCannon,
+];
+
 const BALL_PIXEL_ROWS: ReadonlyArray<readonly [number, number]> = [
   [2, 4],
   [1, 6],
@@ -44,6 +53,32 @@ const BALL_PIXEL_ROWS: ReadonlyArray<readonly [number, number]> = [
   [1, 6],
   [2, 4],
 ];
+
+const BALL_SIZE = gameConfig.ball.size;
+
+/**
+ * A MULTI or SWARM clone's birth, as [ticks left at or above which this stage
+ * holds, how wide the sprite is masked to, what it is painted in].
+ *
+ * The mask is centred and the growth runs outward: a white-hot 4 px pip, one
+ * step cooler at 6 px, then the ball itself once the counter is spent — three
+ * whole-pixel stages, the same three every clone runs through. What differs
+ * between the two capsules is only how long the counter was stamped for, which
+ * is the caller's business.
+ *
+ * Strictly a picture. `findBallOverlap` samples four corners inset 1 px of a
+ * full 8 px ball from the frame the clone is stamped, so even the 4 px pip
+ * collides as a whole ball — a newborn that passed through bricks would be
+ * PIERCE's trick showing up as a bug.
+ */
+const BALL_BIRTH_STAGES: ReadonlyArray<readonly [number, number, string]> = [
+  [3, 4, canvasPalette.ballHighlight],
+  [1, 6, canvasPalette.ballNewborn],
+];
+
+function birthStage(ticksLeft: number): readonly [number, number, string] | null {
+  return BALL_BIRTH_STAGES.find(([from]) => ticksLeft >= from) ?? null;
+}
 
 // A bumper disc, as two circles: the radius-9 outline, and a radius-8 fill laid
 // one pixel inside it, which is what leaves a clean 1 px ring all the way round
@@ -496,10 +531,44 @@ export function drawPaddleBands(
   pixel(x + 9, y + height - 1, width - 18, 1, colors.shade);
 }
 
+/**
+ * What the capsules holding a ball have done to how it is drawn.
+ *
+ * The capsules that restyle the ball all mutate the same eight rows, so the
+ * order they compose in is settled once, here: **the birth mask is innermost,
+ * and GLUE's squash (SHA-93) goes over whatever is inside it.** Everything on
+ * this record is a picture and nothing else — the simulation behind it
+ * collides a full round 8 px ball throughout.
+ */
+export interface BallSprite {
+  // MULTI/SWARM: ticks left of this clone's birth, 0 for a full-grown ball.
+  birth?: number;
+}
+
 // The ball's body, without the trail behind it: the smear is the renderer's,
 // since it is made of where the ball was rather than of what it is.
-export function drawBall(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, demade = false): void {
+export function drawBall(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  scale: number,
+  demade = false,
+  sprite: BallSprite = {},
+): void {
   const pixel = spriteBrush(ctx, scale, demade);
+  const birth = birthStage(sprite.birth ?? 0);
+
+  // A newborn is the round sprite clipped to a centred window — and the round
+  // rows clipped to 4 or 6 px are exactly a filled square, so it is drawn as
+  // one. No lit edge and no shadow: the mask is smaller than the pixels they
+  // sit on, and a pip this hot reads as light, not as a lit thing.
+  if (birth) {
+    const [, width, color] = birth;
+    const inset = (BALL_SIZE - width) / 2;
+    pixel(x + inset, y + inset, width, width, color);
+    return;
+  }
+
   BALL_PIXEL_ROWS.forEach(([offset, span], rowIndex) => {
     pixel(x + offset, y + rowIndex, span, 1, canvasPalette.ballBody);
   });
@@ -751,7 +820,9 @@ export class CanvasRenderer {
         return;
       }
       const colors = BRICK_COLORS[particle.brickKind];
-      const color = [colors.flat, colors.light, colors.dark][index % 3];
+      const color = particle.spark
+        ? PIERCE_SPARK_TONES[index % PIERCE_SPARK_TONES.length]
+        : [colors.flat, colors.light, colors.dark][index % 3];
       this.spritePixel(particle.x, particle.y, particle.size, particle.size, color);
     });
     // Over their own trail, which is what the particles above just painted.
@@ -1014,7 +1085,7 @@ export class CanvasRenderer {
       }
     }
 
-    drawBall(this.ctx, x, y, SCALE, this.demade);
+    drawBall(this.ctx, x, y, SCALE, this.demade, { birth: ball.birthTicksLeft });
   }
 
   private drawDrops(view: RenderView): void {

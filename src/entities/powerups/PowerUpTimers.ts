@@ -13,6 +13,13 @@ export class PowerUpTimers {
     return this.ticksLeft[kind] > 0;
   }
 
+  // Ticks still owed, 0 when the effect is not running. What `isActive` cannot
+  // answer: an effect whose intensity has to die before its capsule does —
+  // PIERCE's sparks thin out over the timer's own last stretch.
+  remaining(kind: PowerUpKind): number {
+    return this.ticksLeft[kind];
+  }
+
   activate(kind: PowerUpKind, durationTicks: number): void {
     this.ticksLeft[kind] = durationTicks;
   }

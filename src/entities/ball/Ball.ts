@@ -20,6 +20,10 @@ export class Ball {
   // PORTAL: ticks before this ball may take another wormhole. Per ball, so a
   // swarm crossing together does not share one gate.
   portalCooldown = 0;
+  // MULTI/SWARM: ticks left of this ball's birth, 0 for a ball that was always
+  // here. Purely how the ball is drawn — a clone collides at full 8 px from the
+  // frame it is stamped, and the mask is always smaller than that.
+  birthTicksLeft = 0;
   // GHOST: this ball is passing through the wall. The capsule's timer arms it;
   // the flag is what ends it, because a ball still inside a brick when the
   // timer runs out has to finish its pass — turning solid in there would bounce
@@ -49,13 +53,17 @@ export class Ball {
     };
   }
 
-  cloneFrom(source: Ball, angleRad: number, speed: number): void {
+  // `birthTicks` is the caller's: the same growth curve read over 6 ticks for
+  // MULTI's three balls and over 10 for SWARM's twelve, which is how long each
+  // fan takes to spread wider than the sprite it is drawn at.
+  cloneFrom(source: Ball, angleRad: number, speed: number, birthTicks: number): void {
     this.active = true;
     this.stuckOffsetX = null;
     // A clone picks its own target on its first steered tick; inheriting the
     // source's would send every MULTI ball at one brick.
     this.clearHoming();
     this.portalCooldown = 0;
+    this.birthTicksLeft = birthTicks;
     this.phasing = false;
     this.x = source.x;
     this.y = source.y;

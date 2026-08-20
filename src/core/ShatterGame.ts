@@ -854,6 +854,12 @@ export class ShatterGame {
     if (ball.portalCooldown > 0) {
       ball.portalCooldown--;
     }
+    // Beside the cooldown, and below the same gates: a MULTI caught on the tick
+    // a NUKE goes off leaves its newborns 4 px wide until the shockwave has
+    // finished. Every ball on the field is frozen behind it anyway.
+    if (ball.birthTicksLeft > 0) {
+      ball.birthTicksLeft--;
+    }
 
     // The order every sub-step runs in, and the one the rest of the wave writes
     // into: bricks -> bumpers -> mirror ceiling -> portal transit -> wall clamp
@@ -863,11 +869,14 @@ export class ShatterGame {
     // The frame and the paddle also zero the bumper streak wherever they touch
     // the ball: a ball that reached either of them is not wedged between discs.
 
+    let drilling = false;
     for (let i = 0; i < subSteps; i++) {
       ball.x += dx;
       let hit = phasing ? null : this.grid.findBallOverlap(ball.x, ball.y);
       if (hit) {
-        if (!pierce()) {
+        if (pierce()) {
+          drilling = true;
+        } else {
           ball.x -= dx;
           ball.velocity.x = -ball.velocity.x;
         }
@@ -877,7 +886,9 @@ export class ShatterGame {
       ball.y += dy;
       hit = phasing ? null : this.grid.findBallOverlap(ball.x, ball.y);
       if (hit) {
-        if (!pierce()) {
+        if (pierce()) {
+          drilling = true;
+        } else {
           ball.y -= dy;
           ball.velocity.y = -ball.velocity.y;
         }
@@ -987,6 +998,35 @@ export class ShatterGame {
         return;
       }
     }
+
+    // One shower per tick however many sub-steps ground through something: the
+    // cue is "the ball is drilling", not a per-contact count, and a fast ball
+    // spraying four bursts a tick would read as an explosion.
+    if (drilling) {
+      this.emitPierceSparks(ball);
+    }
+  }
+
+  /**
+   * PIERCE's whole picture: sparks off the ball while it is inside a brick, and
+   * nothing at any other moment — the ball itself is never restyled.
+   *
+   * The shower's size is the capsule's clock. It grows over the first
+   * `riseTicks` (the drill spinning up) and starves over the last `fallTicks`,
+   * so the player watches the bite going out of it while it still works —
+   * there is no sprite change to round off, so the thinning showers are the
+   * whole departure warning. Never below one spark: a silent drill on a brick
+   * that dies without a bounce reads as a collision bug, not as an ending.
+   */
+  private emitPierceSparks(ball: Ball): void {
+    const { burst, riseTicks, fallTicks } = gameConfig.effects.pierceSparks;
+    const remaining = this.timers.remaining("P");
+    const elapsed = POWER_UP_DURATIONS.P - remaining;
+    const intensity = Math.min(elapsed / riseTicks, remaining / fallTicks, 1);
+    this.particles.sparkBurst(ball.centerX, ball.y + gameConfig.ball.size / 2, {
+      ...burst,
+      chunkCount: Math.max(1, Math.round(burst.chunkCount * intensity)),
+    });
   }
 
   // The width of SPLIT's hole, or 0 while the deck is whole. One reading of the
@@ -1511,7 +1551,7 @@ export class ShatterGame {
       // Stacking ladder: each catch climbs a tier and tops the field up to its
       // count. While a swarm is live, MULTI is inert (only the chime plays).
       this.multiTier = Math.min(gameConfig.powerUps.multiTierBallCounts.length, this.multiTier + 1);
-      this.topUpBalls(gameConfig.powerUps.multiTierBallCounts[this.multiTier - 1]);
+      this.topUpBalls(gameConfig.powerUps.multiTierBallCounts[this.multiTier - 1], gameConfig.powerUps.multiBirthTicks);
       this.timers.activate("M", durations.M);
     }
     if (kind === "S") {
@@ -1521,7 +1561,7 @@ export class ShatterGame {
       this.multiTier = 0;
       this.timers.deactivate("M");
       this.timers.activate("S", durations.S);
-      this.topUpBalls(gameConfig.powerUps.swarmBallCount);
+      this.topUpBalls(gameConfig.powerUps.swarmBallCount, gameConfig.powerUps.swarmBirthTicks);
     }
     if (kind === "B") {
       this.timers.activate("B", durations.B);
@@ -1884,7 +1924,11 @@ export class ShatterGame {
 
   // Fills the field up to targetCount from whatever is alive, cloning from the
   // first live ball in an even upward fan. Never removes a ball.
-  private topUpBalls(targetCount: number): void {
+  //
+  // `birthTicks` is how long the newcomers are *drawn* smaller than they
+  // collide — one growth curve, read over whatever the caller names, because
+  // three balls out of one separate in a couple of ticks and twelve do not.
+  private topUpBalls(targetCount: number, birthTicks: number): void {
     const source = this.balls.find((ball) => ball.active);
     if (!source) {
       return;
@@ -1899,7 +1943,7 @@ export class ShatterGame {
       .slice(0, missing)
       .forEach((ball, index) => {
         const angle = ballFanRad * ((2 * (index + 0.5)) / missing - 1) + (Math.random() - 0.5) * ballFanJitterRad;
-        ball.cloneFrom(source, angle, this.speed());
+        ball.cloneFrom(source, angle, this.speed(), birthTicks);
       });
   }
 
@@ -1995,6 +2039,11 @@ export class ShatterGame {
       ball.stuckOffsetX = null;
       ball.clearHoming();
       ball.portalCooldown = 0;
+      // Its own line, exactly like the cooldown above it: `topUpBalls` clones
+      // into any free slot including `balls[0]`, so a MULTI caught after the
+      // first ball drained stamps the very ball a lost life re-serves — and a
+      // serve drawn 4 px wide is a bug nobody would guess the cause of.
+      ball.birthTicksLeft = 0;
       ball.phasing = false;
     });
     this.balls[0].followPaddle(this.paddle);

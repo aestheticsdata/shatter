@@ -15,6 +15,9 @@ export interface Particle {
   vy: number;
   size: number;
   brickKind: BrickKind;
+  // PIERCE's drill sparks: painted in the drill's hot tones instead of the
+  // brick's palette. Same slot, same physics — only the colour is the drill's.
+  spark: boolean;
   ticksLeft: number;
 }
 
@@ -28,11 +31,22 @@ export class ParticleField {
     vy: 0,
     size: 2,
     brickKind: "1" as BrickKind,
+    spark: false,
     ticksLeft: 0,
   }));
   private cursor = 0;
 
   burst(centerX: number, centerY: number, brickKind: BrickKind, spec: BurstSpec): void {
+    this.emit(centerX, centerY, brickKind, spec, false);
+  }
+
+  // PIERCE's sparks. The kind still fills the slot — the renderer never reads
+  // it off a spark — so the two kinds of debris share one pool and one step.
+  sparkBurst(centerX: number, centerY: number, spec: BurstSpec): void {
+    this.emit(centerX, centerY, "1", spec, true);
+  }
+
+  private emit(centerX: number, centerY: number, brickKind: BrickKind, spec: BurstSpec, spark: boolean): void {
     for (let i = 0; i < spec.chunkCount; i++) {
       const particle = this.particles[this.cursor];
       this.cursor = (this.cursor + 1) % this.particles.length;
@@ -45,6 +59,7 @@ export class ParticleField {
       particle.vy = Math.sin(angle) * speed;
       particle.size = Math.round(randomBetween(spec.minChunkSize, spec.maxChunkSize));
       particle.brickKind = brickKind;
+      particle.spark = spark;
       particle.ticksLeft = Math.round(randomBetween(spec.minLifeTicks, spec.maxLifeTicks));
     }
   }

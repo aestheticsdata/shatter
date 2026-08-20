@@ -99,6 +99,20 @@ export const gameConfig = {
     // Tiny per-ball angle jitter: same-tick stacked pickups (?power=MMM) would
     // otherwise spawn balls on identical trajectories that never diverge.
     ballFanJitterRad: 0.12,
+    // How long a clone is drawn smaller than it collides, per capsule. Both are
+    // the tick the fan has spread wider than the 8 px sprite, so the balls reach
+    // full size as separate objects rather than resolving out of one blob.
+    //
+    // MULTI: two clones are 1.2 rad apart (`ballFanRad` is an absolute angle
+    // from vertical, so clone-to-parent can be zero — the chord that is always
+    // there is clone-to-clone), which at ~4 px/tick clears 8 px inside 2 ticks.
+    // 6 is that with room to be seen happening.
+    //
+    // SWARM: twelve balls over the same 1.2 rad are 0.218 rad apart, and
+    // neighbour separation passes 8 px at t ~ 9.2 — 10 is the first tick twelve
+    // balls are twelve things.
+    multiBirthTicks: 6,
+    swarmBirthTicks: 10,
     tempoTimeScale: 0.6,
     // RUSH, the same knob pulled the other way. 1.8 puts the level-15 ceiling of
     // 4.6 px/tick at 8.28 — a field crossing in ~36 ticks, which reads as much
@@ -299,6 +313,30 @@ export const gameConfig = {
       minLifeTicks: 30,
       maxLifeTicks: 45,
     } satisfies BurstSpec,
+    // PIERCE's drill: a shower of hot 1 px sparks wherever the ball is grinding
+    // through a brick, and nowhere else — the ball itself stays the ball. The
+    // burst rides the debris pool but is painted in the drill's own tones, over
+    // the brick chunks the kill throws anyway; 1 px against their 2 px is what
+    // keeps the two readable as sparks off debris rather than more debris.
+    pierceSparks: {
+      burst: {
+        chunkCount: 9,
+        minChunkSize: 1,
+        maxChunkSize: 1,
+        minSpeed: 1,
+        maxSpeed: 2.6,
+        minLifeTicks: 8,
+        maxLifeTicks: 18,
+      } satisfies BurstSpec,
+      // Both ends of the capsule, in the sparks' own idiom: the drill spins up
+      // over the first 24 ticks — GHOST's arrival ratio — and loses its bite
+      // over the last two seconds, each shower thinner than the one before,
+      // so the player watches the drill dying while it still works. There is
+      // no sprite to round off, so the warning has to be long enough to span
+      // several drills; 120 ticks is two or three wall contacts at play speed.
+      riseTicks: 24,
+      fallTicks: 120,
+    },
     // CHAIN's arc. Distances are in grid cells, not pixels, so a jump reaches
     // three columns sideways but only three rows up — the grid is 30x12, and
     // measuring in cells is what keeps the web inside the brick layout.

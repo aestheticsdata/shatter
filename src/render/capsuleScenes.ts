@@ -242,12 +242,28 @@ const SCENES: Record<PowerUpKind, Painter> = {
     field.rect(DECK_HOME + 5, 150, 2, 12, canvasPalette.laserShot);
     field.rect(DECK_HOME + gameConfig.paddle.baseWidth - 7, 206, 2, 12, canvasPalette.laserShot);
   },
-  // The ball inside the wall rather than bouncing off it.
+  // The ball two rows deep into the wall, the channel it drilled open behind
+  // it, and the drill sparks spraying back down it: the same three tones the
+  // field sprays, hand-placed mid-shower. Sparks only read against the dark —
+  // on an intact brick a 1 px spark is invisible, which is why the channel is
+  // cleared rather than the ball merely overlaid on the wall.
   P: (field) => {
     field.wall();
     field.deck();
-    field.trace(182, 140, 0.3);
-    field.ball(182, 66);
+    field.clear(5, 2);
+    field.clear(5, 3);
+    field.trace(167, 140, 0.3);
+    for (const [x, y, tone] of [
+      [165, 63, canvasPalette.dropSheen],
+      [176, 66, canvasPalette.ballHighlight],
+      [163, 70, canvasPalette.laserCannon],
+      [172, 73, canvasPalette.dropSheen],
+      [168, 78, canvasPalette.laserCannon],
+      [177, 81, canvasPalette.ballHighlight],
+    ] as const) {
+      field.rect(x, y, 1, 1, tone);
+    }
+    field.ball(167, 52);
   },
   // One kill, and the eight around it taking the damage too.
   B: (field) => {
