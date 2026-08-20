@@ -6,7 +6,9 @@ import type { PowerUpKind } from "@interfaces/types";
 // What a command is allowed to do to the running game — the console never
 // reaches into it directly, the same arrangement InputController has.
 export interface DevConsoleHost {
-  grantPowerUp(kind: PowerUpKind): void;
+  // Makes these capsules fall, rather than granting them: `false` when the pool
+  // has no room for the whole line, in which case nothing was spawned.
+  dropCapsules(kinds: readonly PowerUpKind[]): boolean;
   jumpToLevel(levelNumber: number): void;
   setBonusSpread(amount: number): void;
 }
@@ -19,7 +21,7 @@ const TYPABLE = /^[a-z0-9 .]$/i;
 // Every command is a word and its arguments. Shown as worked examples with what
 // they do, because a bare list of names reads as decoration, not as a grammar.
 const EXAMPLES: readonly (readonly [string, string])[] = [
-  ["POWER MULTI", "CATCH A CAPSULE NOW · NAME OR GLYPH"],
+  ["POWER MULTI", "DROP A CAPSULE · CATCH IT YOURSELF"],
   ["LEVEL 12", "JUMP TO A LEVEL"],
   ["BONUS 1", "CHANCE A BRICK DROPS A CAPSULE · 1 = ALL"],
 ];
@@ -137,7 +139,7 @@ export class DevConsole {
     const [command, ...operands] = line.toLowerCase().split(" ").filter(Boolean);
     switch (command) {
       case "power":
-        return this.grantPowerUps(operands);
+        return this.dropCapsules(operands);
       case "level":
         return this.jumpToLevel(operands);
       case "bonus":
@@ -147,10 +149,22 @@ export class DevConsole {
     }
   }
 
-  // `power NU`, `power NUKE`, `power N`, `power WI MU LA`. Every capsule
-  // resolves before any of them is granted: half a line would leave the run in a
-  // state nobody asked for.
-  private grantPowerUps(operands: string[]): string | null {
+  /**
+   * `power NU`, `power NUKE`, `power N`, `power WI MU LA`.
+   *
+   * It **drops** the capsules rather than granting them. Granting them outright
+   * used to mean the effect had already arrived by the time the console closed
+   * and the field unfroze — so the one thing you opened the console to watch,
+   * the effect starting, was the one thing you could never see. Now the line
+   * spawns capsules at the top of a frozen field and they fall the moment the
+   * game is yours again, to be caught with the paddle like any other. Miss one
+   * and it is gone; the console is one chord away and the line is two words.
+   *
+   * Every capsule resolves before any of them falls, and the pool is asked for
+   * room before any of them is spawned: half a line would leave the run in a
+   * state nobody asked for.
+   */
+  private dropCapsules(operands: string[]): string | null {
     if (operands.length === 0) {
       return "POWER NEEDS A CAPSULE";
     }
@@ -162,8 +176,8 @@ export class DevConsole {
       }
       kinds.push(kind);
     }
-    for (const kind of kinds) {
-      this.host.grantPowerUp(kind);
+    if (!this.host.dropCapsules(kinds)) {
+      return "NO ROOM · CAPSULES ALREADY FALLING";
     }
     return null;
   }
@@ -282,7 +296,7 @@ function suggestionFor(line: string): string {
 }
 
 // A capsule answers to its name, to what its pill says, or to its id — `power
-// multi`, `power mu` and `power m` are one grant. The glyph is the one of the
+// multi`, `power mu` and `power m` are one capsule. The glyph is the one of the
 // three a player has actually seen, and the id only still resolves because it is
 // what the code calls it. Ids are tried first, so on the day a glyph reads as
 // another capsule's id the shorter, older meaning is the one that wins.

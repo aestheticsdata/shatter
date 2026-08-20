@@ -324,6 +324,13 @@ export const gameConfig = {
     // brick flipping as the front passes it. Cosmetic — the collision follows
     // the timer alone, so the wall is already intangible while it still fades.
     ghostFadeTicks: 30,
+    // BLACKOUT's iris, each way. Longer than the other two because it is not a
+    // cross-fade but a travelling edge: the lit ground collapses from the whole
+    // field down to the ball's own pool, and 45 ticks is what it takes to read
+    // as a light dying rather than as a wipe. Catching the capsule fires a
+    // 0.35 s power-down, so the sound is the switch and this is the lights
+    // going with it.
+    blackoutFadeTicks: 45,
     // QUAKE's shake. 24 ticks is 0.4 s, and the amplitude decays linearly over
     // them so the field settles rather than stopping dead. Whole game pixels:
     // the art is drawn at 3x, and a fractional offset would blur every block.

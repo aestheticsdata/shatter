@@ -285,6 +285,12 @@ export interface RenderView {
   // runs its plasma mask over the grid, each brick melting to its outline as
   // the field rises past it.
   ghostBlend: number;
+  // BLACKOUT's iris, 0 lit to 1 fully dark. A number rather than a flag because
+  // the light does not switch off, it collapses: the pools open wider than the
+  // field at 0 and close onto the ball at 1, which is the same journey run
+  // backwards when the capsule expires. Like DEMAKE, purely presentational —
+  // the simulation under it is not told and plays exactly as it would lit.
+  blackoutBlend: number;
   // BOMB blew it up: the debris in flight is the paddle, so neither it nor
   // MIRROR's reflection of it may be on screen.
   paddleHidden: boolean;
@@ -503,6 +509,108 @@ export function drawBall(ctx: CanvasRenderingContext2D, x: number, y: number, sc
   pixel(x + 6, y + 4, 1, 2, canvasPalette.ballShade);
 }
 
+// BLACKOUT's pools, in game pixels. A solo ball carries 58 px of light; each
+// extra live ball takes 6 off every pool, down to a floor of 26 — so MULTI and
+// SWARM light more of the field between them without ever lifting the trap.
+// The deck's pool is smaller and never clears the veil outright: at 0.55 it
+// glows rather than switching the lights back on where the player is standing.
+//
+// Exported because the capsule catalogue stages the same picture at 1× and a
+// miniature may not draw the effect at a size the field would not — see
+// `@render/capsuleScenes`.
+export const BLACKOUT_TORCH = {
+  ballRadius: 58,
+  crowding: 6,
+  minRadius: 26,
+  paddleRadius: 34,
+  paddlePeak: 0.55,
+  // Where the light starts from and comes back to: the field's diagonal, so a
+  // pool at either end of the iris reaches every corner from wherever the ball
+  // happens to be and the dark has nothing to pop into.
+  openReach: 480,
+} as const;
+
+/**
+ * How much wider than its settled size a pool is, part-way through the iris.
+ *
+ * Geometric rather than linear: a light's reach falls off by ratio, so a
+ * straight lerp from 480 would crawl through the wide end and wipe through the
+ * near one. The blend is square-rooted first for the other half of the same
+ * problem — the widest reaches are off the edges of a 372 px field and change
+ * nothing anyone can see, so they are spent in the first few ticks and the rest
+ * of the fade is the part that reads. What comes out is a light dropping fast
+ * and then dying slowly, which is what a power-down looks like.
+ *
+ * Both pools are multiplied by the one factor, so the deck's glow keeps its
+ * proportion to the ball's the whole way in and the whole way back out.
+ */
+function blackoutSpread(blend: number): number {
+  return Math.pow(BLACKOUT_TORCH.openReach / BLACKOUT_TORCH.ballRadius, 1 - Math.sqrt(blend));
+}
+
+// One pool of light punched out of the veil: where it is, how far it reaches,
+// and how far it clears the dark at its centre.
+export interface Torch {
+  x: number;
+  y: number;
+  radius: number;
+  peak: number;
+}
+
+// The veil is built at 1× and blitted up, so a fill costs a ninth of what it
+// would at SCALE and the gradients' falloff comes out in whole game pixels —
+// chunky steps, which is the same art the rest of the field is drawn in. Lazy
+// and module-level: the renderer paints it at SCALE and the capsule catalogue
+// at 1, and a player who never catches the capsule never allocates it.
+let veilCtx: CanvasRenderingContext2D | null = null;
+
+/**
+ * The dark, with a hole in it wherever there is something to see by.
+ *
+ * `destination-out` on a scratch canvas rather than a gradient painted over the
+ * field: a pool has to *remove* the veil, and laying one on top would only be
+ * a lighter patch of it. The blit lands at whatever origin the caller's
+ * transform puts it — see `drawBlackout`, which is careful about that.
+ */
+export function drawBlackoutVeil(
+  ctx: CanvasRenderingContext2D,
+  torches: readonly Torch[],
+  tone: string,
+  scale: number,
+): void {
+  const { width, height } = gameConfig.field;
+  if (veilCtx === null) {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    veilCtx = canvas.getContext("2d");
+    if (veilCtx === null) {
+      return;
+    }
+  }
+  const veil = veilCtx;
+
+  veil.globalCompositeOperation = "source-over";
+  veil.fillStyle = tone;
+  veil.fillRect(0, 0, width, height);
+
+  veil.globalCompositeOperation = "destination-out";
+  for (const torch of torches) {
+    const gradient = veil.createRadialGradient(torch.x, torch.y, 0, torch.x, torch.y, torch.radius);
+    // Flat across the middle and falling only over the outer half: a pool that
+    // starts fading at its centre puts the ball in a smudge, and the one thing
+    // this capsule may not do is hide the ball.
+    gradient.addColorStop(0, `rgba(0, 0, 0, ${torch.peak})`);
+    gradient.addColorStop(0.55, `rgba(0, 0, 0, ${torch.peak * 0.85})`);
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+    veil.fillStyle = gradient;
+    veil.fillRect(torch.x - torch.radius, torch.y - torch.radius, torch.radius * 2, torch.radius * 2);
+  }
+  veil.globalCompositeOperation = "source-over";
+
+  ctx.drawImage(veil.canvas, 0, 0, width * scale, height * scale);
+}
+
 export class CanvasRenderer {
   // The canvas on screen, and the context every draw method actually writes to.
   // They are the same thing except mid-dissolve, when `ctx` is pointed at the
@@ -664,10 +772,10 @@ export class CanvasRenderer {
     if (view.magnetActive) {
       this.drawMagnetTethers(view.paddle, view.drops);
     }
-    for (const drop of view.drops) {
-      if (drop.active) {
-        drawCapsule(this.ctx, drop.x, drop.y, drop.kind, SCALE, this.frameCount, this.demade);
-      }
+    // Under the deck as always — except in a blackout, which paints them again
+    // above its veil instead. See `drawBlackout` for why they stay lit.
+    if (view.blackoutBlend <= 0) {
+      this.drawDrops(view);
     }
     for (const shot of view.shots) {
       if (shot.active) {
@@ -693,6 +801,14 @@ export class CanvasRenderer {
 
     for (const ring of view.stasisRings) {
       this.drawStasisRing(ring);
+    }
+
+    // The lights go out here: over the field, the wall, the deck and the balls,
+    // and under everything below — the capsules, the catch pops, the shockwave
+    // and the wall frame that ends the frame.
+    if (view.blackoutBlend > 0) {
+      this.drawBlackout(view);
+      this.drawDrops(view);
     }
 
     for (const pop of view.pops) {
@@ -899,6 +1015,75 @@ export class CanvasRenderer {
     }
 
     drawBall(this.ctx, x, y, SCALE, this.demade);
+  }
+
+  private drawDrops(view: RenderView): void {
+    for (const drop of view.drops) {
+      if (drop.active) {
+        drawCapsule(this.ctx, drop.x, drop.y, drop.kind, SCALE, this.frameCount, this.demade);
+      }
+    }
+  }
+
+  /**
+   * BLACKOUT: the field by torchlight.
+   *
+   * The capsules are deliberately left lit above it. Hiding them would chain
+   * the trap into blind catches — a JAMMER taken because it could not be read
+   * is the capsule punishing the player twice — and it would make RAIN a
+   * shower of nothing.
+   *
+   * The veil does not ride QUAKE's shake, for the same reason the background
+   * does not: the dark is the room, not something standing on the field. So the
+   * transform is wound back for the blit — and the shake is added to the pools
+   * instead, since those do have to stay centred on sprites that are moving.
+   *
+   * The iris is the arrival and the departure both: the pools start wider than
+   * the field and close onto the ball, then run the same way back out when the
+   * capsule expires. Nothing cross-fades — the dark is never painted at half
+   * strength, it simply has not reached you yet.
+   */
+  private drawBlackout(view: RenderView): void {
+    const shakeX = view.quake.offsetX;
+    const shakeY = view.quake.offsetY;
+    const spread = blackoutSpread(view.blackoutBlend);
+
+    // Counted first, because every pool's radius depends on how many there are.
+    let live = 0;
+    for (const ball of view.balls) {
+      if (ball.active) {
+        live++;
+      }
+    }
+    const settled = Math.max(
+      BLACKOUT_TORCH.minRadius,
+      BLACKOUT_TORCH.ballRadius - BLACKOUT_TORCH.crowding * (live - 1),
+    );
+    const radius = settled * spread;
+
+    const torches: Torch[] = [];
+    for (const ball of view.balls) {
+      if (ball.active) {
+        torches.push({ x: ball.x + 4 + shakeX, y: ball.y + 4 + shakeY, radius, peak: 1 });
+      }
+    }
+    if (!view.paddleHidden) {
+      const { y, height } = gameConfig.paddle;
+      torches.push({
+        x: view.paddle.x + view.paddle.width / 2 + shakeX,
+        y: y + height / 2 + shakeY,
+        radius: BLACKOUT_TORCH.paddleRadius * spread,
+        // The deck only dims to its glow once the dark has actually arrived:
+        // held at 0.55 through the iris it would be a shadow on the paddle
+        // while the rest of the field was still fully lit.
+        peak: 1 - (1 - BLACKOUT_TORCH.paddlePeak) * view.blackoutBlend,
+      });
+    }
+
+    this.ctx.save();
+    this.ctx.translate(-shakeX * SCALE, -shakeY * SCALE);
+    drawBlackoutVeil(this.ctx, torches, this.demade ? canvasPalette.demakeGround : canvasPalette.blackoutVeil, SCALE);
+    this.ctx.restore();
   }
 
   // MAGNET's pull is silent and gentle enough to miss, so every capsule it has

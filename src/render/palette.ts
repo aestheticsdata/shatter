@@ -117,6 +117,13 @@ export const canvasPalette = {
   // rather than as a hole in the screen.
   demakeInk: "#6cf08a",
   demakeGround: "#07160c",
+  // BLACKOUT: the dark the field goes under for 5 seconds. Near-black with just
+  // enough blue left in it to read as the lights going out rather than as a
+  // hole cut in the canvas — and it is never seen flat, since the pools around
+  // the balls and the deck are punched straight out of it. While DEMAKE holds
+  // the machine the tube's own ground stands in for it: a green screen going
+  // dark stays green.
+  blackoutVeil: "#05050c",
 } as const;
 
 /**

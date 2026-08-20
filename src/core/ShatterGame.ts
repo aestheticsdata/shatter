@@ -159,7 +159,17 @@ export class ShatterGame {
   // the module drops out of the bundle with this branch.
   private readonly devConsole: DevConsole | null = import.meta.env.DEV
     ? new DevConsole({
-        grantPowerUp: (kind) => this.applyPowerUp(kind),
+        // Dropped, not granted: the console freezes the field, so anything it
+        // applied outright would already have happened by the time the player
+        // was looking at the game again. These land at the top of the frozen
+        // field and fall on the first live tick, and the paddle earns them.
+        dropCapsules: (kinds) => {
+          if (this.dropPool.freeSlots() < kinds.length) {
+            return false;
+          }
+          this.dropPool.spawnAcrossTop(kinds);
+          return true;
+        },
         // `level N` is 1-based; rebuilding the grid serves at the new level.
         jumpToLevel: (levelNumber) => {
           this.level = levelNumber - 1;
@@ -196,6 +206,10 @@ export class ShatterGame {
   // along the picture and the panel are, and it is what the sound chip follows
   // too — see `stepSimulation`.
   private demakeBlend = 0;
+  // BLACKOUT's iris, 0 lit to 1 fully dark. Like the two above it, presentational
+  // only: the dark is already owed the moment the capsule is caught, and this
+  // number decides nothing but how much of the field the light still reaches.
+  private blackoutBlend = 0;
   // Armed by a MAGNET catch, spent by the next brick a ball or a laser kills.
   // A magnet with nothing falling is a magnet nobody can see working.
   private guaranteedDrop = false;
@@ -283,6 +297,12 @@ export class ShatterGame {
       xrayActive: this.timers.isActive("XR"),
       demakeBlend: this.demakeBlend,
       ghostBlend: this.ghostBlend,
+      // The two freezes light the field by definition: a nuke is the brightest
+      // thing the game does, and the last brick's shatter has to be seen. Both
+      // stop the timers as well, so the ticks the dark still owes survive it —
+      // and the iris, frozen at whatever it had reached, closes the rest of the
+      // way once the field is the player's again.
+      blackoutBlend: this.detonation.active || this.clearCountdown > 0 ? 0 : this.blackoutBlend,
       paddleHidden: this.deathCountdown > 0,
       bumpers: this.bumpers.discs,
       peels: this.peels,
@@ -357,6 +377,12 @@ export class ShatterGame {
     // picture passes halfway, which reads as one machine failing rather than
     // as a sound effect fired alongside a visual one.
     this.deps.sfx.setDemake(this.demakeBlend >= 0.5);
+    // Above the freeze gates with the rest: a NUKE caught halfway through the
+    // iris must not leave the light frozen mid-collapse behind the shockwave.
+    const blackoutStep = 1 / gameConfig.effects.blackoutFadeTicks;
+    this.blackoutBlend = this.timers.isActive("BK")
+      ? Math.min(1, this.blackoutBlend + blackoutStep)
+      : Math.max(0, this.blackoutBlend - blackoutStep);
 
     // A pending level clear freezes the rest of the simulation so the final
     // brick's shatter can play out — no ball can be lost, no capsule caught,
@@ -1401,6 +1427,7 @@ export class ShatterGame {
     this.meteors.reset();
     this.ghostBlend = 0;
     this.demakeBlend = 0;
+    this.blackoutBlend = 0;
     this.particles.reset();
     this.resetSkid();
     // First, and ahead of `timers.reset()` below: the CLEARED jingle plays out
@@ -1568,6 +1595,11 @@ export class ShatterGame {
     if (kind === "GH") {
       this.timers.activate("GH", durations.GH);
     }
+    if (kind === "BK") {
+      // The timer and nothing else: the trap is entirely in what the renderer
+      // is allowed to show, and the simulation behind it plays on unaware.
+      this.timers.activate("BK", durations.BK);
+    }
     if (kind === "Q") {
       // The kill first: it is the bottom-most live row that goes, so the slide
       // below can never push a brick off the end of the grid.
@@ -1616,6 +1648,11 @@ export class ShatterGame {
     } else if (kind === "BM") {
       // Its own boom instead of the shared womp: this trap is not a setback.
       this.deps.sfx.paddleExplode();
+    } else if (kind === "BK") {
+      // Its own power-down instead of the shared womp, the way GHOST's fade and
+      // SPLIT's snap are: what happened is the lights going out, and that says
+      // "trap" better than the tier's own complaint does.
+      this.deps.sfx.blackoutPickup();
     } else if (MALUS_KINDS.has(kind)) {
       // One womp for every trap: the blink and the pink pop already say which.
       this.deps.sfx.malusPickup();
@@ -1984,6 +2021,7 @@ export class ShatterGame {
     this.meteors.reset();
     this.ghostBlend = 0;
     this.demakeBlend = 0;
+    this.blackoutBlend = 0;
     this.particles.reset();
     this.detonation.reset();
     this.clearCountdown = 0;
@@ -2024,6 +2062,7 @@ export class ShatterGame {
     this.meteors.reset();
     this.ghostBlend = 0;
     this.demakeBlend = 0;
+    this.blackoutBlend = 0;
     this.particles.reset();
     this.dropPool.reset();
     this.detonation.reset();

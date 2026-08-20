@@ -425,6 +425,17 @@ export class SoundBank {
     this.noise({ dur: 0.22, vol: 0.09, filter: { type: "bandpass", freq: 400, freqEnd: 3200, q: 2 } });
   }
 
+  // BLACKOUT: a power-down. The sawtooth falls most of the way off the bottom
+  // of the range under a noise burst closing its filter as it goes, which is
+  // the sound of something switching off rather than one more trap womp.
+  blackoutPickup(): void {
+    if (!this.allow("blackout")) {
+      return;
+    }
+    this.tone({ freq: 480, freqEnd: 60, dur: 0.35, vol: 0.09, type: "sawtooth" });
+    this.noise({ dur: 0.3, vol: 0.12, filter: { type: "lowpass", freq: 1200, freqEnd: 120 } });
+  }
+
   // Detune-beat "womp": the two layers drift apart as they fall. Every trap
   // catch gets it — one sound for the tier, not one per capsule.
   malusPickup(): void {

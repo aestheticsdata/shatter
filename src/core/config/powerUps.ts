@@ -43,7 +43,7 @@ export interface PowerUpDefinition {
   // BLAST 29°), control cool 170-260° (SWARM 174°, ZAP 190°, WALL 205°, WIDE
   // 213°, RAIN 258°), ball-count green 75-140° (NUKE 77°, MULTI 128°), economy
   // gold 40-75° (PAYDAY 44°, PIERCE 47°). No band is reserved and none bans a
-  // capsule — six traps cannot be held apart inside one 35° hazard band, and a
+  // capsule — eight traps cannot be held apart inside one 35° hazard band, and a
   // trap tells on itself through the blink and the pink pop, which are
   // hue-independent. TEMPO (5 % saturation), GLUE (30°, dark enough to read
   // brown) and 1UP (330°) sit outside every band and stay there.
@@ -59,7 +59,7 @@ export interface PowerUpDefinition {
   //
   // Saturation is an aim, not a floor. Reach for something vivid, but a pale body
   // is fine when the distance holds: TEMPO at 5 % and WALL at 44 % both shipped
-  // long before anyone wrote a number down, and 34 capsules cannot all be vivid
+  // long before anyone wrote a number down, and 36 capsules cannot all be vivid
   // and 58 apart at once.
   //
   // One grandfathered exception: PIERCE and PAYDAY sit 49 apart. Every other pair
@@ -155,6 +155,7 @@ export const POWER_UPS = [
   { id: "VX", name: "VORTEX", color: "#b000fc", dark: false, ticks: 720, tier: "rare", timed: true, blurb: "A BIGGER BLACK HOLE, ADRIFT" },
   { id: "BN", name: "BANANA", color: "#e2fe74", dark: true, ticks: 0, tier: "trap", timed: false, blurb: "A PEEL SKIDS THE DECK", lasts: "10 S PEEL" },
   { id: "D", name: "DEMAKE", color: "#00d200", dark: true, ticks: 480, tier: "trap", timed: true, blurb: "THE MACHINE DROPS TO 1-BIT" },
+  { id: "BK", name: "BLACKOUT", color: "#6998f7", dark: true, ticks: 1200, tier: "trap", timed: true, blurb: "LIGHTS OUT · THE BALL GLOWS" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];

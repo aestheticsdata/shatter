@@ -124,23 +124,45 @@ export class DropPool {
   // chain into another one and never smuggles in a capsule the wall could not
   // have dropped here itself.
   rainSpawn(count: number, exclude: readonly PowerUpKind[] = NO_EXCLUSIONS): number {
-    const { left, right, top } = gameConfig.field;
     // Rolled once for the whole shower: the caller's exclusions are a property
     // of the level, not of the individual capsule.
     const barred = exclude.length === 0 ? RAIN_EXCLUDES : [...RAIN_EXCLUDES, ...exclude];
+    return this.spawnAcrossTop(Array.from({ length: count }, () => rollDropKind(barred)));
+  }
+
+  /**
+   * These capsules, in this order, spread across the top of the field.
+   *
+   * RAIN's shower is this with rolled kinds, and the dev console's `power` is
+   * this with named ones — one implementation, so a capsule asked for by hand
+   * falls exactly the way a rained one does. Evenly spaced by index with a
+   * little jitter, because the point of a spread is that every one of them can
+   * be reached, and two capsules on the same pixel are one capsule.
+   *
+   * Returns how many the pool had room for — see `freeSlots` for asking first.
+   */
+  spawnAcrossTop(kinds: readonly PowerUpKind[]): number {
+    const { left, right, top } = gameConfig.field;
     let spawned = 0;
-    for (let i = 0; i < count; i++) {
+    for (const kind of kinds) {
       const drop = this.drops.find((candidate) => !candidate.active);
       if (!drop) {
         break;
       }
-      drop.kind = rollDropKind(barred);
-      drop.x = left + ((i + 0.5) * (right - left)) / count - DROP_WIDTH / 2 + (Math.random() - 0.5) * 16;
+      drop.kind = kind;
+      drop.x = left + ((spawned + 0.5) * (right - left)) / kinds.length - DROP_WIDTH / 2 + (Math.random() - 0.5) * 16;
       drop.y = top + 8;
       drop.active = true;
       spawned++;
     }
     return spawned;
+  }
+
+  // How many more capsules can be in the air at once. The console asks before
+  // it spawns: a `power` line that only half landed would be worse than one
+  // that says so, since the half that did land is already falling past you.
+  freeSlots(): number {
+    return this.drops.reduce((free, drop) => (drop.active ? free : free + 1), 0);
   }
 
   /**

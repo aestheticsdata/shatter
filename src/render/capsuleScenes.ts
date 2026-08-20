@@ -1,9 +1,19 @@
 import { gameConfig } from "@core/config/GameConfig";
 import { paintBackground } from "@render/backgrounds";
-import { drawBall, drawBrick, drawCapsule, drawPaddleBands, MIRROR_BANDS, PADDLE_BANDS } from "@render/CanvasRenderer";
+import {
+  BLACKOUT_TORCH,
+  drawBall,
+  drawBlackoutVeil,
+  drawBrick,
+  drawCapsule,
+  drawPaddleBands,
+  MIRROR_BANDS,
+  PADDLE_BANDS,
+} from "@render/CanvasRenderer";
 import { canvasPalette } from "@render/palette";
 
 import type { BrickCell, BrickKind, PowerUpKind } from "@interfaces/types";
+import type { Torch } from "@render/CanvasRenderer";
 
 /**
  * One picture per capsule: the real field, with that capsule's effect on it.
@@ -113,6 +123,14 @@ class Field {
 
   capsule(x: number, y: number, kind: PowerUpKind): void {
     drawCapsule(this.ctx, x, y, kind, 1, 0, this.demade);
+  }
+
+  // The lights out, with a pool of light wherever there is something to see by.
+  // The field's own veil at the field's own size, so the picture is the effect
+  // rather than a drawing of it.
+  blackout(torches: readonly Torch[]): void {
+    const tone = this.demade ? canvasPalette.demakeGround : canvasPalette.blackoutVeil;
+    drawBlackoutVeil(this.ctx, torches, tone, 1);
   }
 
   // Where the ball has been, or where it is going.
@@ -536,6 +554,25 @@ const SCENES: Record<PowerUpKind, Painter> = {
   // default staging demade rather than adding anything to it: the capsule
   // changes nothing about the game, only about the machine showing it.
   D: baseScene,
+  // Torchlight. The wall and the deck are where they always are and the dark is
+  // laid over both of them, so the picture says what the trap does: you can see
+  // what the ball is near, and a dim patch of your own deck. The ball's pool is
+  // the solo radius, since there is one ball in the picture.
+  BK: (field) => {
+    const ball = { x: 182, y: 120 };
+    field.wall();
+    field.ball(ball.x, ball.y);
+    field.deck();
+    field.blackout([
+      { x: ball.x + 4, y: ball.y + 4, radius: BLACKOUT_TORCH.ballRadius, peak: 1 },
+      {
+        x: FIELD_WIDTH / 2,
+        y: DECK_Y + gameConfig.paddle.height / 2,
+        radius: BLACKOUT_TORCH.paddleRadius,
+        peak: BLACKOUT_TORCH.paddlePeak,
+      },
+    ]);
+  },
 };
 
 /** Paint one capsule's field, at field size, ready to be blitted down. */
