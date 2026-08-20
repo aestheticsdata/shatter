@@ -63,8 +63,8 @@ export class Panel {
     if (last?.demakeActive !== view.demakeActive) {
       this.elements.stage.classList.toggle("demake", view.demakeActive);
     }
-    if (last?.paydayActive !== view.paydayActive) {
-      this.elements.score.classList.toggle("blink", view.paydayActive);
+    if (last?.scoreBoosted !== view.scoreBoosted) {
+      this.elements.score.classList.toggle("blink", view.scoreBoosted);
     }
     if (last?.muted !== view.muted) {
       this.elements.soundHint.textContent = `M · SOUND ${view.muted ? "OFF" : "ON"}`;

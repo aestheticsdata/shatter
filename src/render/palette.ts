@@ -75,6 +75,12 @@ export const canvasPalette = {
   // is the red thing you caught" — a plain grey blur said neither.
   rushTrailNear: "#ff8a1c",
   rushTrailFar: "#e1001b",
+  // TURBO's streak, the same smear run cold: the capsule's own electric cyan at
+  // the far end into a near-white at the ball. RUSH's is amber into crimson,
+  // and the two capsules do the same thing for opposite reasons — the
+  // temperature of the comet is what says which one is in hand.
+  turboTrailNear: "#d6ffff",
+  turboTrailFar: "#00b8d4",
   // CHAIN's arc: the capsule's mint under a white core, so a bolt reads as hot
   // on every field the game paints.
   chainBolt: "#3dff8e",

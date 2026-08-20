@@ -436,6 +436,19 @@ export class SoundBank {
     this.noise({ dur: 0.3, vol: 0.12, filter: { type: "lowpass", freq: 1200, freqEnd: 120 } });
   }
 
+  // TURBO: winding up. A sawtooth climbing two and a half octaves over exactly
+  // the half second the spool takes, doubled a few cents apart so it thickens
+  // as it rises, and a bright note landing on the tick the balls reach speed.
+  // The catch chime would have been over before any of that had happened.
+  turboSpool(): void {
+    if (!this.allow("turbo")) {
+      return;
+    }
+    this.tone({ freq: 220, freqEnd: 1046, dur: 0.5, vol: 0.07, type: "sawtooth" });
+    this.tone({ freq: 220, freqEnd: 1046, dur: 0.5, vol: 0.04, type: "sawtooth", detuneCents: 14 });
+    this.tone({ freq: 1319, dur: 0.09, vol: 0.06, delayS: 0.48 });
+  }
+
   // FLIP: the machine going over. `capsulePickup`'s three notes walked back
   // down and one further, on a sawtooth so nothing about it reads as a bonus,
   // paced across the half second the field takes to come round — then a low

@@ -26,13 +26,18 @@ import type {
   StasisRing,
 } from "@interfaces/types";
 
-// RUSH's streak, as [how far back along this tick's displacement, tone]. Far
-// first, so the near copy paints over it and the smear darkens away from the
-// ball. Two is the whole trail: three read as a snake, one as a rendering fault.
-const BALL_TRAIL_STEPS: ReadonlyArray<readonly [number, string]> = [
-  [0.8, canvasPalette.rushTrailFar],
-  [0.4, canvasPalette.rushTrailNear],
-];
+// The speed streak, as how far back along this tick's displacement each copy of
+// the ball is laid. Far first, so the near copy paints over it and the smear
+// fades away from the ball. Two is the whole trail: three read as a snake, one
+// as a rendering fault.
+const BALL_TRAIL_STEPS: readonly number[] = [0.8, 0.4];
+
+// The two tones a streak is drawn in, far end first, and the only difference
+// between the two capsules that draw one: RUSH runs hot, TURBO runs cold. Same
+// smear, same lengths — a player who has met both reads which is in hand off
+// the colour alone.
+const RUSH_TRAIL_TONES: readonly string[] = [canvasPalette.rushTrailFar, canvasPalette.rushTrailNear];
+const TURBO_TRAIL_TONES: readonly string[] = [canvasPalette.turboTrailFar, canvasPalette.turboTrailNear];
 
 // PIERCE's sparks, hottest first: white, the ball's own near-white, the
 // capsule's yellow. Cycled by slot index exactly as the brick mix below is, so
@@ -337,10 +342,15 @@ export interface RenderView {
   // BANANA's peels on the paddle rail, oldest first.
   peels: readonly Peel[];
   balls: readonly Ball[];
-  // RUSH: the scale the simulation is stepping balls at, or 0 when nothing is
-  // speeding them up. It is a distance rather than a flag because the streak has
-  // to be the ground actually covered — see the note where the view is built.
+  // RUSH and TURBO: the scale the simulation is stepping balls at, or 0 when
+  // nothing is speeding them up. It is a distance rather than a flag because the
+  // streak has to be the ground actually covered — see the note where the view
+  // is built.
   ballTrail: number;
+  // Which of the two comets to paint. RUSH takes it whenever it is live: the
+  // trap is the thing the player has to react to, and a boost underneath it
+  // does not get to soften how it looks.
+  turboTrail: boolean;
   drops: readonly Drop[];
   shots: readonly Shot[];
   flashes: readonly BrickFlash[];
@@ -918,7 +928,7 @@ export class CanvasRenderer {
     }
     for (const ball of view.balls) {
       if (ball.active) {
-        this.drawBall(ball, view.ballTrail);
+        this.drawBall(ball, view.ballTrail, view.turboTrail ? TURBO_TRAIL_TONES : RUSH_TRAIL_TONES);
       }
     }
 
@@ -1159,21 +1169,21 @@ export class CanvasRenderer {
   }
 
   // A ball at 8 px a tick is genuinely hard to follow, which is the trap — but it
-  // has to stay trackable enough to be fair, so RUSH smears it. The copies are
-  // computed off the velocity already in hand: no per-ball history, nothing to
-  // clear on a reset. A ball glued to the paddle keeps its stored velocity and is
-  // going nowhere, so it gets no streak.
-  private drawBall(ball: Ball, trail: number): void {
+  // has to stay trackable enough to be fair, so RUSH smears it, and TURBO after
+  // it. The copies are computed off the velocity already in hand: no per-ball
+  // history, nothing to clear on a reset. A ball glued to the paddle keeps its
+  // stored velocity and is going nowhere, so it gets no streak.
+  private drawBall(ball: Ball, trail: number, tones: readonly string[]): void {
     const { x, y } = ball;
 
     if (trail > 0 && ball.stuckOffsetX === null) {
-      for (const [step, color] of BALL_TRAIL_STEPS) {
+      BALL_TRAIL_STEPS.forEach((step, index) => {
         const trailX = x - ball.velocity.x * trail * step;
         const trailY = y - ball.velocity.y * trail * step;
         BALL_PIXEL_ROWS.forEach(([offset, span], rowIndex) => {
-          this.spritePixel(trailX + offset, trailY + rowIndex, span, 1, color);
+          this.spritePixel(trailX + offset, trailY + rowIndex, span, 1, tones[index]);
         });
-      }
+      });
     }
 
     drawBall(this.ctx, x, y, SCALE, this.demade, { birth: ball.birthTicksLeft });

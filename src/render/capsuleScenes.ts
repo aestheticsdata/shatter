@@ -330,6 +330,22 @@ const SCENES: Record<PowerUpKind, Painter> = {
     }
     field.ball(186, 196);
   },
+  // RUSH's comet, run cold, against PAYDAY's gold wall: the same speed for the
+  // opposite reason, and the half of the capsule RUSH does not pay. Mirrored
+  // across the field as well, so the two do not share a diagonal either.
+  TU: (field) => {
+    field.wall(["G", "G", "G", "G"]);
+    field.deck();
+    for (const [step, tone] of [
+      [3, "#0a3a44"],
+      [2, "#158fa8"],
+      [1, "#5fe0f0"],
+      [0.45, "#ffffff"],
+    ] as const) {
+      field.disc(186 + 4 + step * 16, 196 + 4 + step * 12, 4, tone);
+    }
+    field.ball(186, 196);
+  },
   // A wall worth twice what it says.
   X: (field) => {
     field.wall(["G", "G", "G", "G"]);

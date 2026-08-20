@@ -119,6 +119,15 @@ export const gameConfig = {
     // too fast from the first frame without being unplayable. Both scales are one
     // product in `moveBall`, so a TEMPO caught during a RUSH lands at 1.08.
     rushTimeScale: 1.8,
+    // TURBO, the same knob again and the only one that pays. 1.5 puts the
+    // level-15 ceiling of 4.6 px/tick at 6.9 — quick enough to feel like a
+    // boost, short of RUSH's 8.28, which is the trap's job. All three scales
+    // are one product in `moveBall`: TEMPO under a TURBO lands at 0.9, and a
+    // RUSH caught over one reaches 12.42 and about six sub-steps. That last one
+    // is deliberate — a trap that speeds you up and a bonus that speeds you up
+    // compose rather than cancel, and a TURBO that quietly did nothing under a
+    // RUSH would read as a broken capsule.
+    turboTimeScale: 1.5,
     wallY: 294,
     splashFlashTicks: 3,
     catchPopLifeTicks: 48,
@@ -283,6 +292,10 @@ export const gameConfig = {
   scoring: {
     clearBonusPerLevel: 500,
     paydayMultiplier: 2,
+    // TURBO's cut, stacking with PAYDAY to x6 on a brick. Kills only: the
+    // level-clear bonus and a BUMPERS kick take PAYDAY alone, or FINALE would
+    // pay 42 000 and a ball parked between two discs would farm 300 a kick.
+    turboMultiplier: 3,
     // One BUMPERS kick, between a brick (60-200) and the clear bonus. PAYDAY
     // doubles it like everything else.
     bumperPoints: 100,
@@ -376,6 +389,11 @@ export const gameConfig = {
     // enough that the ball is only unreadable for a moment — and it is what the
     // catch's four-note tumble is scored to.
     flipTurnTicks: 30,
+    // TURBO's spool, each way. The balls do not jump to 1.5x, they wind up to
+    // it and wind back down — half a second, the same as the turn above, and
+    // long enough that the boost is felt arriving rather than noticed after the
+    // fact. The streak grows out of the ball over the same ramp.
+    turboSpoolTicks: 30,
     // QUAKE's shake. 24 ticks is 0.4 s, and the amplitude decays linearly over
     // them so the field settles rather than stopping dead. Whole game pixels:
     // the art is drawn at 3x, and a fractional offset would blur every block.

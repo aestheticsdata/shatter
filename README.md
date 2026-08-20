@@ -40,6 +40,7 @@ The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372�
   | `XW`   | XWIDE       | twice the WIDE deck, 144 px of paddle                                                       | 12 s      | rare     |
   | `XR`   | XRAY        | every brick shows the capsule it is holding                                                 | 5 s       | rare     |
   | `ME`   | METEOR      | three meteors drill three lanes through the wall                                            | instant   | rare     |
+  | `TU`   | TURBO       | every ball at ×1.5 and every point tripled                                                  | 10 s      | rare     |
   | `GH`   | GHOST       | **trap** — the wall goes intangible; the ball flies through                                 | 5 s       | trap     |
   | `SP`   | SPLIT       | **trap** — the deck breaks in two, hole down the middle                                     | 6 s       | trap     |
   | `RU`   | RUSH        | **trap** — every ball at ×1.8                                                               | 5 s       | trap     |
@@ -49,6 +50,8 @@ The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372�
   | `DE`   | DEMAKE      | **trap** — the machine downgrades itself to a 1-bit green phosphor tube                     | 8 s       | trap     |
   | `BLAC` | BLACKOUT    | **trap** — the lights go out; a pool of light travels with each ball, a dim one on the deck | 20 s      | trap     |
   | `FL`   | FLIP        | **trap** — the whole playfield turns over, mouse and all                                    | 8 s       | trap     |
+
+  **RUSH and TURBO are the same knob pulled by opposite hands** — a trap at ×1.8 for five seconds against a rare bonus at ×1.5 for ten that also triples every brick — so the game never leaves it to the pill you caught to say which is in hand: the smear behind the ball runs **hot for the trap and cold for the bonus**, and the SCORE readout blinks while points are worth more than they say (PAYDAY's own tell, shared). TURBO winds up to speed over half a second rather than arriving, and its comet grows out of the ball as it does. Caught together they multiply — 4.6 × 1.8 × 1.5 is 12.4 px a tick, seven sub-steps, and the wall still stops the ball — because a bonus that quietly did nothing under a trap would read as a broken capsule. The ×3 is brick kills only: the level-clear bonus and a bumper kick take PAYDAY alone, or FINALE would pay 42 000 and a ball parked between two discs would farm 300 a kick.
 
   **A trap says so before you catch it**: its glyph blinks as it falls, and the catch pop is pink with a detuning womp instead of the usual chime. That tell is the `trap` tier itself, so it costs a new trap capsule nothing to get all three.
 

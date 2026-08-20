@@ -103,6 +103,26 @@ const NO_EXCLUDES: readonly PowerUpKind[] = [];
 // is acknowledged once however far it spreads.
 type BrickDamageSource = "ball" | "laser" | "splash" | "chain";
 
+/**
+ * One tick of an effect's 0..1 blend: toward 1 while its capsule is live, back
+ * to 0 once it is not. Five capsules ride one of these — GHOST's fade, DEMAKE's
+ * dissolve, BLACKOUT's iris, FLIP's turn and TURBO's spool.
+ *
+ * The floor is not `Math.max(0, …)`. Subtracting 1/30 from 1 thirty times lands
+ * on 2e-16, never on 0, and every gate that asks `blend > 0` then stays open for
+ * the rest of the run over a blend nobody can see — which for DEMAKE means the
+ * renderer paints every frame twice, forever, after one capsule. Anything under
+ * half a step is spent.
+ */
+function stepBlend(blend: number, rising: boolean, ticks: number): number {
+  const step = 1 / ticks;
+  if (rising) {
+    return Math.min(1, blend + step);
+  }
+  const next = blend - step;
+  return next < step / 2 ? 0 : next;
+}
+
 function isDirectHit(source: BrickDamageSource): boolean {
   return source === "ball" || source === "laser";
 }
@@ -214,6 +234,12 @@ export class ShatterGame {
   // it — the ball is played the same way up throughout, and the only thing that
   // turns with the picture is which way round the hand steering it is read.
   private flipTurn = 0;
+  // TURBO's spool, 0 at true speed to 1 fully wound up. Unlike the four above
+  // it this one is not presentational: the displacement scale is read off it,
+  // so the balls wind up to 1.5x and back down instead of jumping. The points
+  // do not ramp — a fraction of a multiplier is not a thing the player could
+  // ever see — so the timer alone owns those.
+  private turboSpool = 0;
   // Armed by a MAGNET catch, spent by the next brick a ball or a laser kills.
   // A magnet with nothing falling is a magnet nobody can see working.
   private guaranteedDrop = false;
@@ -325,10 +351,8 @@ export class ShatterGame {
       bumpers: this.bumpers.discs,
       peels: this.peels,
       balls: this.balls,
-      // The streak draws the ground a ball actually covers, so it is the live
-      // product and not the RUSH scale alone — a TEMPO in hand shortens it. Zero
-      // while STASIS holds the field: frozen balls cover nothing.
-      ballTrail: this.timers.isActive("RU") && !this.timers.isActive("I") ? this.ballTimeScale() : 0,
+      ballTrail: this.ballTrail(),
+      turboTrail: !this.timers.isActive("RU"),
       drops: this.dropPool.drops,
       shots: this.shotPool.shots,
       flashes: this.brickFlashes,
@@ -381,33 +405,29 @@ export class ShatterGame {
     this.quake.step();
     // Above the freeze gates like the shake: a NUKE caught mid-fade must not
     // hold the wall half-dissolved on screen.
-    const ghostStep = 1 / gameConfig.effects.ghostFadeTicks;
-    this.ghostBlend = this.timers.isActive("GH")
-      ? Math.min(1, this.ghostBlend + ghostStep)
-      : Math.max(0, this.ghostBlend - ghostStep);
+    this.ghostBlend = stepBlend(this.ghostBlend, this.timers.isActive("GH"), gameConfig.effects.ghostFadeTicks);
     // Above the freeze gates for the same reason the fade above it is: a NUKE
     // caught mid-dissolve must not hold the machine half-broken on screen.
-    const demakeStep = 1 / gameConfig.effects.demakeFadeTicks;
-    this.demakeBlend = this.timers.isActive("D")
-      ? Math.min(1, this.demakeBlend + demakeStep)
-      : Math.max(0, this.demakeBlend - demakeStep);
+    this.demakeBlend = stepBlend(this.demakeBlend, this.timers.isActive("D"), gameConfig.effects.demakeFadeTicks);
     // The chip cannot dissolve — a square is a square — so it gives out as the
     // picture passes halfway, which reads as one machine failing rather than
     // as a sound effect fired alongside a visual one.
     this.deps.sfx.setDemake(this.demakeBlend >= 0.5);
     // Above the freeze gates with the rest: a NUKE caught halfway through the
     // iris must not leave the light frozen mid-collapse behind the shockwave.
-    const blackoutStep = 1 / gameConfig.effects.blackoutFadeTicks;
-    this.blackoutBlend = this.timers.isActive("BK")
-      ? Math.min(1, this.blackoutBlend + blackoutStep)
-      : Math.max(0, this.blackoutBlend - blackoutStep);
+    this.blackoutBlend = stepBlend(
+      this.blackoutBlend,
+      this.timers.isActive("BK"),
+      gameConfig.effects.blackoutFadeTicks,
+    );
     // Above the freeze gates with the rest, and for the starkest reason of the
     // four: a NUKE caught mid-turn would otherwise park the field on its side
     // for the length of the sweep.
-    const flipStep = 1 / gameConfig.effects.flipTurnTicks;
-    this.flipTurn = this.timers.isActive("F")
-      ? Math.min(1, this.flipTurn + flipStep)
-      : Math.max(0, this.flipTurn - flipStep);
+    this.flipTurn = stepBlend(this.flipTurn, this.timers.isActive("F"), gameConfig.effects.flipTurnTicks);
+    // Above the freeze gates like the four before it, and with one more reason:
+    // a ball frozen behind a shockwave may not come out of it at a speed the
+    // spool has not reached.
+    this.turboSpool = stepBlend(this.turboSpool, this.timers.isActive("TU"), gameConfig.effects.turboSpoolTicks);
 
     // A pending level clear freezes the rest of the simulation so the final
     // brick's shatter can play out — no ball can be lost, no capsule caught,
@@ -481,7 +501,7 @@ export class ShatterGame {
     }
     // Nothing to undo — the scale is gone the moment the timer is — but the ball
     // dropping back to true speed has to be heard by someone whose eyes are on it.
-    if (expired.includes("RU")) {
+    if (expired.includes("RU") || expired.includes("TU")) {
       this.deps.sfx.rushRelease();
     }
     // The field comes back the same way it went, and the turn back owes the
@@ -811,7 +831,7 @@ export class ShatterGame {
       }
 
       disc.flashTicksLeft = gameConfig.powerUps.bumpers.flashTicks;
-      this.score += gameConfig.scoring.bumperPoints * this.scoreMultiplier();
+      this.score += gameConfig.scoring.bumperPoints * this.paydayMultiplier();
       this.deps.sfx.bumperKick();
       return true;
     }
@@ -846,8 +866,34 @@ export class ShatterGame {
   // velocities are untouched and either capsule expiring restores the true speed
   // with nothing to unwind.
   private ballTimeScale(): number {
-    const { tempoTimeScale, rushTimeScale } = gameConfig.powerUps;
-    return (this.timers.isActive("T") ? tempoTimeScale : 1) * (this.timers.isActive("RU") ? rushTimeScale : 1);
+    const { tempoTimeScale, rushTimeScale, turboTimeScale } = gameConfig.powerUps;
+    return (
+      (this.timers.isActive("T") ? tempoTimeScale : 1) *
+      (this.timers.isActive("RU") ? rushTimeScale : 1) *
+      // The only one of the three that arrives gradually, so it is read off the
+      // spool rather than off the timer: at 0 this factor is exactly 1, which
+      // is what lets a TURBO that has not started yet cost nothing.
+      (1 + (turboTimeScale - 1) * this.turboSpool)
+    );
+  }
+
+  /**
+   * How far back the streak is smeared, which is the ground a ball actually
+   * covers in a tick — a TEMPO in hand shortens it, and STASIS holding the
+   * field ends it, because frozen balls cover nothing.
+   *
+   * TURBO's is scaled by its own spool on top, so the comet grows out of the
+   * ball as the boost winds up and shrinks back into it on the way out. RUSH's
+   * is not: it shipped arriving all at once, and that is the trap.
+   */
+  private ballTrail(): number {
+    if (this.timers.isActive("I")) {
+      return 0;
+    }
+    if (this.timers.isActive("RU")) {
+      return this.ballTimeScale();
+    }
+    return this.ballTimeScale() * this.turboSpool;
   }
 
   private moveBall(ball: Ball, index: number): void {
@@ -1439,8 +1485,17 @@ export class ShatterGame {
     }
   }
 
-  private scoreMultiplier(): number {
+  // PAYDAY on its own, for the two payouts that are not a brick kill: the
+  // level-clear bonus and a BUMPERS kick. TURBO deliberately reaches neither —
+  // see the note on `turboMultiplier`.
+  private paydayMultiplier(): number {
     return this.timers.isActive("X") ? gameConfig.scoring.paydayMultiplier : 1;
+  }
+
+  // What a killed brick pays: PAYDAY's double and TURBO's triple, stacking to
+  // x6 on independent timers.
+  private scoreMultiplier(): number {
+    return this.paydayMultiplier() * (this.timers.isActive("TU") ? gameConfig.scoring.turboMultiplier : 1);
   }
 
   // Chance that this kill drops a bonus capsule: the console's `drop` command
@@ -1499,6 +1554,7 @@ export class ShatterGame {
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
     this.flipTurn = 0;
+    this.turboSpool = 0;
     this.particles.reset();
     this.resetSkid();
     // First, and ahead of `timers.reset()` below: the CLEARED jingle plays out
@@ -1506,7 +1562,7 @@ export class ShatterGame {
     // like the punishment. The blend above would get there on its own, but not
     // for another 15 ticks, and the jingle is already playing by then.
     this.deps.sfx.setDemake(false);
-    const bonus = awardBonus ? (this.level + 1) * gameConfig.scoring.clearBonusPerLevel * this.scoreMultiplier() : 0;
+    const bonus = awardBonus ? (this.level + 1) * gameConfig.scoring.clearBonusPerLevel * this.paydayMultiplier() : 0;
     this.score += bonus;
     // The board is won: every running effect dies with it, so no portal mouths,
     // ghost paddle or tethers stay painted behind the CLEARED overlay. After
@@ -1671,6 +1727,9 @@ export class ShatterGame {
       // is allowed to show, and the simulation behind it plays on unaware.
       this.timers.activate("BK", durations.BK);
     }
+    if (kind === "TU") {
+      this.timers.activate("TU", durations.TU);
+    }
     if (kind === "F") {
       // The timer and nothing else, like the two above it: the field turns in
       // the renderer and the hand is read the other way round, and the ball
@@ -1725,6 +1784,11 @@ export class ShatterGame {
     } else if (kind === "BM") {
       // Its own boom instead of the shared womp: this trap is not a setback.
       this.deps.sfx.paddleExplode();
+    } else if (kind === "TU") {
+      // Its own wind-up instead of the pickup chime: the boost takes half a
+      // second to arrive, and a chime that is over before the balls have
+      // reached speed says the wrong thing about what just happened.
+      this.deps.sfx.turboSpool();
     } else if (kind === "F") {
       // Its own tumble instead of the shared womp, the way GHOST's fade and
       // BLACKOUT's power-down are: what happened is the machine turning over,
@@ -2117,6 +2181,7 @@ export class ShatterGame {
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
     this.flipTurn = 0;
+    this.turboSpool = 0;
     this.particles.reset();
     this.detonation.reset();
     this.clearCountdown = 0;
@@ -2159,6 +2224,7 @@ export class ShatterGame {
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
     this.flipTurn = 0;
+    this.turboSpool = 0;
     this.particles.reset();
     this.dropPool.reset();
     this.detonation.reset();
@@ -2379,7 +2445,7 @@ export class ShatterGame {
       levelName: levelAt(this.level).name,
       reserveLives: Math.max(0, this.lives - 1),
       powerLabel: this.powerLabel(),
-      paydayActive: this.timers.isActive("X"),
+      scoreBoosted: this.timers.isActive("X") || this.timers.isActive("TU"),
       demakeActive: this.timers.isActive("D"),
       muted: this.deps.sfx.muted,
     };

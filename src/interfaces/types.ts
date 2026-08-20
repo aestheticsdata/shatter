@@ -140,7 +140,9 @@ export interface PanelView {
   levelName: string;
   reserveLives: number;
   powerLabel: string;
-  paydayActive: boolean;
+  // PAYDAY or TURBO: the SCORE readout blinks while points are worth more than
+  // they say. Which capsule is doing it is the POWER inset's job to name.
+  scoreBoosted: boolean;
   // DEMAKE: the downgrade is the whole machine, so the panel goes with the
   // field. The Panel owns the class; what it means lives in `components.css`.
   demakeActive: boolean;
