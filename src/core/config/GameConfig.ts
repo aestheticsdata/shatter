@@ -55,6 +55,21 @@ export const gameConfig = {
     splitWidth: 66,
     splitGap: 26,
     initialX: 163,
+    // The deck telescopes rather than jumping between widths: one pixel per
+    // edge per tick. The rate is the spec and the durations follow from the
+    // distance, so nothing here has to be kept in step with the widths above —
+    // WIDE runs out over 13 ticks, XWIDE over 49, JAMMER shuts in 8.
+    widthEasePxPerEdge: 1,
+    // Only a capsule caught over another capsule is bounded. XWIDE from base is
+    // 49 ticks and stays 49: watching it keep going after WIDE would have
+    // stopped is the capsule, and capping that would be capping the effect.
+    // What this exists for is XWIDE over a live JAMMER — 57 px an edge — and
+    // the other swaps of that size.
+    widthEaseSwapMaxTicks: 30,
+    // How long the rail keeps the mark of a deck that shut on it. Only JAMMER
+    // leaves them: a reward retracting is the player's own timer running out,
+    // and a trap taking the wood away is the thing being said.
+    railMarkTicks: 24,
   },
   ball: {
     size: 8,

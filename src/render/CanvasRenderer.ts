@@ -22,6 +22,7 @@ import type {
   CatchPop,
   ChainBolt,
   Peel,
+  RailMark,
   PowerUpKind,
   StasisRing,
 } from "@interfaces/types";
@@ -36,6 +37,15 @@ const BALL_TRAIL_STEPS: readonly number[] = [0.8, 0.4];
 // between the two capsules that draw one: RUSH runs hot, TURBO runs cold. Same
 // smear, same lengths — a player who has met both reads which is in hand off
 // the colour alone.
+// Newest first: a mark is drawn at the step its remaining life falls in, so it
+// walks down the ladder as it dies.
+const RAIL_MARK_TONES: readonly string[] = [
+  canvasPalette.railMarkHot,
+  canvasPalette.railMarkMid,
+  canvasPalette.railMarkLow,
+  canvasPalette.railMarkFaint,
+];
+
 const RUSH_TRAIL_TONES: readonly string[] = [canvasPalette.rushTrailFar, canvasPalette.rushTrailNear];
 const TURBO_TRAIL_TONES: readonly string[] = [canvasPalette.turboTrailFar, canvasPalette.turboTrailNear];
 
@@ -251,6 +261,10 @@ export interface PaddleRenderState {
   // the span end to end either way, so the cannons and MIRROR's ghost need no
   // second number.
   splitGap: number;
+  // JAMMER, and only while its caps are still travelling: both ends wear the
+  // capsule's magenta instead of the deck's red for the eight ticks the trap
+  // takes to shut. The deck losing its own colour is the point.
+  capsJammed: boolean;
 }
 
 // The four tones a paddle is banded from. The ghost is the same sprite in a
@@ -345,6 +359,8 @@ export interface RenderView {
   bumpers: readonly Bumper[];
   // BANANA's peels on the paddle rail, oldest first.
   peels: readonly Peel[];
+  // The rail JAMMER has taken back, dying out where the deck used to be.
+  railMarks: readonly RailMark[];
   balls: readonly Ball[];
   // RUSH and TURBO: the scale the simulation is stepping balls at, or 0 when
   // nothing is speeding them up. It is a distance rather than a flag because the
@@ -1000,7 +1016,12 @@ export class CanvasRenderer {
       }
     }
     // Under the deck: a peel is on the rail the paddle slides along, and the
-    // paddle sliding over one has to be seen covering it.
+    // paddle sliding over one has to be seen covering it. The rail marks sit in
+    // the same band for the same reason — they are where the deck was, so the
+    // deck has to be drawn over them.
+    for (const mark of view.railMarks) {
+      this.drawRailMark(mark);
+    }
     for (const peel of view.peels) {
       this.drawPeel(peel);
     }
@@ -1268,7 +1289,11 @@ export class CanvasRenderer {
 
   private drawPaddle(paddle: PaddleRenderState): void {
     const y = gameConfig.paddle.y;
-    this.drawDeck(paddle, paddle.x, y, PADDLE_BANDS);
+    // The tint is resolved here and nowhere else. MIRROR's ghost draws the same
+    // sprite through `MIRROR_BANDS`, whose whole point is that every tone is
+    // desaturated enough to read as a reflection — a full-strength magenta cap
+    // on it would be the reflection shouting louder than the deck.
+    this.drawDeck(paddle, paddle.x, y, paddle.capsJammed ? { ...PADDLE_BANDS, cap: DROP_COLORS.J } : PADDLE_BANDS);
 
     if (paddle.laserActive) {
       this.spritePixel(paddle.x + 5, y - 3, 2, 3, canvasPalette.laserCannon);
@@ -1287,13 +1312,34 @@ export class CanvasRenderer {
   // its own caps and bevels, so a broken deck reads as two pieces of the same
   // paddle rather than as one paddle with a bite taken out of it.
   private drawDeck(paddle: PaddleRenderState, x: number, y: number, colors: PaddleBandColors): void {
-    if (paddle.splitGap === 0) {
+    const half = (paddle.width - paddle.splitGap) / 2;
+    // A half narrower than its own sheen is not a half. The sheen and shade are
+    // painted as `width - 18` — inset 9 px a side, not the 8 the caps are — so
+    // 18 is the floor and anything under it is a negative `fillRect` drawn
+    // leftward over the cap. Reachable for real since SHA-85: SPLIT caught over
+    // a live JAMMER opens its 26 px hole on the tick of the catch and then
+    // telescopes out from 30 px, so the first ticks of that ease ask for halves
+    // of 2 px. One pill until there is room for two, which also reads correctly
+    // — the deck grows, and then it tears.
+    if (paddle.splitGap === 0 || half < 18) {
       this.drawPaddleBands(x, y, paddle.width, colors);
       return;
     }
-    const half = (paddle.width - paddle.splitGap) / 2;
     this.drawPaddleBands(x, y, half, colors);
     this.drawPaddleBands(x + paddle.width - half, y, half, colors);
+  }
+
+  // A 1 px trace on the rail the deck used to hold, walking down four authored
+  // magenta steps as it dies. Drawn in the deck's own middle row, so it lines up
+  // with the wood that was there rather than floating above it.
+  private drawRailMark(mark: RailMark): void {
+    const step = Math.min(
+      RAIL_MARK_TONES.length - 1,
+      Math.floor(
+        ((gameConfig.paddle.railMarkTicks - mark.ticksLeft) / gameConfig.paddle.railMarkTicks) * RAIL_MARK_TONES.length,
+      ),
+    );
+    this.pixel(mark.x, gameConfig.paddle.y + 3, mark.width, 1, RAIL_MARK_TONES[step]);
   }
 
   private drawPaddleBands(x: number, y: number, width: number, colors: PaddleBandColors): void {

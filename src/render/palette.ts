@@ -118,6 +118,14 @@ export const canvasPalette = {
   // only warning the player gets before stepping on it.
   peelBody: "#e2fe74",
   peelShade: "#8a6a00",
+  // JAMMER: the rail the deck has just been shut off, dying through four steps
+  // of the capsule's own magenta. Authored rather than alpha-blended, because
+  // everything else on this field fades in whole pixels of a named tone and a
+  // `globalAlpha` mark would be the one thing on screen that does not.
+  railMarkHot: "#d13be8",
+  railMarkMid: "#a02fb3",
+  railMarkLow: "#6f217d",
+  railMarkFaint: "#3e1347",
   // METEOR: a white-hot core under the capsule's own ember, the flame drawn on
   // the trailing side so a rock reads as falling even in a still frame.
   meteorCore: "#ffe8b0",

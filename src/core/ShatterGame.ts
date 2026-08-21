@@ -30,6 +30,7 @@ import { zeroPad } from "@shared/format";
 
 import type { SoundBank } from "@audio/SoundBank";
 import type { ComboId } from "@core/config/combos";
+import type { WidthCurve } from "@entities/paddle/Paddle";
 import type {
   BrickFlash,
   BrickHit,
@@ -39,6 +40,7 @@ import type {
   PanelView,
   Peel,
   PowerUpKind,
+  RailMark,
   RectangleBounds,
   ScreenName,
   StasisRing,
@@ -95,6 +97,29 @@ const PADDLE_WIDTHS: Record<PaddleWidthKind, number> = {
   // actually catches is the two 20 px halves `splitSegments` cuts out of it.
   SP: gameConfig.paddle.splitWidth,
 };
+
+// How JAMMER's shut differs from every reward's run: fast-first, so the deck is
+// most of the way gone before the player has finished reading the pill.
+const WIDTH_CURVES: Partial<Record<PaddleWidthKind, WidthCurve>> = { J: "out" };
+
+/**
+ * How long the caps take to travel from `from` to `to`.
+ *
+ * One pixel an edge a tick, which makes the duration a consequence of the
+ * distance rather than a number anybody maintains: WIDE is 13 ticks, XWIDE 49,
+ * JAMMER 8, and XWIDE gives its 49 back at expiry.
+ *
+ * `maxTicks` is passed by exactly one caller and covers exactly one case: a
+ * capsule caught over another live capsule, where the distance is nobody's
+ * design — XWIDE over a live JAMMER is 57 px an edge. Everything else runs
+ * uncapped, because XWIDE's caps still travelling long after WIDE's would have
+ * stopped *is* the capsule saying what it is, and a retraction is the same
+ * mechanism run backwards.
+ */
+function widthEaseTicks(from: number, to: number, maxTicks = Number.POSITIVE_INFINITY): number {
+  const ticks = Math.round(Math.abs(to - from) / (2 * gameConfig.paddle.widthEasePxPerEdge));
+  return Math.min(maxTicks, ticks);
+}
 
 function isPaddleWidthKind(kind: PowerUpKind): kind is PaddleWidthKind {
   return Object.hasOwn(PADDLE_WIDTHS, kind);
@@ -191,6 +216,12 @@ export class ShatterGame {
   // pair stays up.
   private readonly combos: ComboId[] = [];
   private comboMask = 0;
+  // Which capsule the deck is currently telescoping for, and the marks a
+  // JAMMER leaves on the rail behind it. The kind outlives the catch because
+  // the tint belongs to the *run* — the deck wears pink ends for the eight
+  // ticks it is shutting, not for the six seconds it stays shut.
+  private widthEaseKind: PaddleWidthKind | null = null;
+  private railMarks: RailMark[] = [];
   // BANANA's peels, oldest first: in the air on the way to the rail, then on
   // it, and the skid one causes once it is.
   // `lastPaddleX` is the deck's position at the end of the previous tick, which
@@ -379,6 +410,10 @@ export class ShatterGame {
         width: this.paddle.width,
         laserActive: this.timers.isActive("L"),
         splitGap: this.splitGap(),
+        // Only while the caps are actually travelling: the deck wears pink ends
+        // for the eight ticks JAMMER is shutting it, not for the six seconds it
+        // stays shut.
+        capsJammed: this.widthEaseKind === "J" && this.paddle.easingWidth,
       },
       mirrorActive: this.timers.isActive("Y"),
       magnetActive: this.timers.isActive("K"),
@@ -401,6 +436,7 @@ export class ShatterGame {
       paddleHidden: this.deathCountdown > 0,
       bumpers: this.bumpers.discs,
       peels: this.peels,
+      railMarks: this.railMarks,
       balls: this.balls,
       ballTrail: this.ballTrail(),
       turboTrail: !this.timers.isActive("RU"),
@@ -463,6 +499,11 @@ export class ShatterGame {
         peel.flightTicksLeft--;
       }
     }
+    // Above the gates with the peel's flight and for the same reason: a deck
+    // caught halfway out from under a shockwave would hold there for the whole
+    // detonation, and the drawn deck is the catch surface.
+    this.stepDeckWidth();
+    this.railMarks = this.railMarks.filter((mark) => --mark.ticksLeft > 0);
     this.particles.step(this.cores);
     this.quake.step();
     // Above the freeze gates like the shake: a NUKE caught mid-fade must not
@@ -537,7 +578,12 @@ export class ShatterGame {
     // The deck goes back to base only when the last width capsule has run out:
     // a WIDE expiring under the JAMMER caught over it must not widen it again.
     if (expired.some(isPaddleWidthKind) && !PADDLE_WIDTH_KINDS.some((kind) => this.timers.isActive(kind))) {
-      this.paddle.setWidth(gameConfig.paddle.baseWidth);
+      // The reward's own linear run, whichever capsule is running out — JAMMER
+      // gives the wood back at the pace WIDE hands it over, because being let
+      // go of is not the same event as being shut.
+      const { baseWidth } = gameConfig.paddle;
+      this.widthEaseKind = null;
+      this.paddle.easeWidthTo(baseWidth, widthEaseTicks(this.paddle.width, baseWidth));
     }
     // Expired glue may not strand balls on the paddle with no way to launch.
     if (expired.includes("G")) {
@@ -1238,6 +1284,47 @@ export class ShatterGame {
   }
 
   /**
+   * One tick of the telescope, and the rail JAMMER took back.
+   *
+   * The marks are read off the move rather than computed from the capsule: what
+   * is drawn is the span the deck occupied a tick ago and does not now, which
+   * is right at a wall too, where `clampX` pins one end and the whole retreat
+   * happens at the other.
+   *
+   * Only JAMMER leaves them. A reward retracting at expiry is the player's own
+   * timer running out and needs no monument; a trap taking the wood away is the
+   * thing being said, and the mark is how long you can still see where it was.
+   */
+  private stepDeckWidth(): void {
+    if (!this.paddle.easingWidth) {
+      return;
+    }
+    const wasLeft = this.paddle.x;
+    const wasRight = this.paddle.x + this.paddle.width;
+    this.paddle.stepWidth();
+    if (this.widthEaseKind !== "J") {
+      return;
+    }
+    const { railMarkTicks } = gameConfig.paddle;
+    if (this.paddle.x > wasLeft) {
+      this.railMarks.push({ x: wasLeft, width: this.paddle.x - wasLeft, ticksLeft: railMarkTicks });
+    }
+    const right = this.paddle.x + this.paddle.width;
+    if (right < wasRight) {
+      this.railMarks.push({ x: right, width: wasRight - right, ticksLeft: railMarkTicks });
+    }
+  }
+
+  // The deck, now, with no travel left in it: every reset site takes this and
+  // not the ease. Beside it goes the rail it marked — a run that has ended owes
+  // the next one a clean rail.
+  private snapDeck(): void {
+    this.widthEaseKind = null;
+    this.railMarks = [];
+    this.paddle.snapWidth(gameConfig.paddle.baseWidth);
+  }
+
+  /**
    * Where a glued ball may sit on the deck, as an offset from its left edge.
    *
    * Whole, that is the length that keeps the ball on the wood. Split, it is the
@@ -1719,6 +1806,11 @@ export class ShatterGame {
     this.turboSpool = 0;
     this.particles.reset();
     this.resetSkid();
+    // The deck too, and it is the easy one to miss: this method zeroes every
+    // blend and resets the timers but never used to touch the width, so a WIDE
+    // caught on the last brick kept running its caps out behind the CLEARED
+    // overlay, where the panel goes on drawing the deck.
+    this.snapDeck();
     // First, and ahead of `timers.reset()` below: the CLEARED jingle plays out
     // of this method, and a squared-off fanfare would be the reward sounding
     // like the punishment. The blend above would get there on its own, but not
@@ -1845,7 +1937,17 @@ export class ShatterGame {
       for (const other of PADDLE_WIDTH_KINDS) {
         this.timers.deactivate(other);
       }
-      this.paddle.setWidth(PADDLE_WIDTHS[kind]);
+      const target = PADDLE_WIDTHS[kind];
+      // A swap — a capsule taken while another still owns the deck — is the one
+      // ease nobody designed the length of, and the only one bounded.
+      const swapping = this.paddle.width !== gameConfig.paddle.baseWidth;
+      const ticks = widthEaseTicks(
+        this.paddle.width,
+        target,
+        swapping ? gameConfig.paddle.widthEaseSwapMaxTicks : undefined,
+      );
+      this.widthEaseKind = kind;
+      this.paddle.easeWidthTo(target, ticks, WIDTH_CURVES[kind]);
       this.timers.activate(kind, durations[kind]);
     }
     if (kind === "L") {
@@ -2460,7 +2562,7 @@ export class ShatterGame {
       ball.phasing = false;
     });
     this.balls[0].followPaddle(this.paddle);
-    this.paddle.setWidth(gameConfig.paddle.baseWidth);
+    this.snapDeck();
     this.resetSkid();
     this.timers.reset();
     this.clearCombos();
@@ -2546,7 +2648,7 @@ export class ShatterGame {
     // The deck too: it is run state like the rest, and the panel keeps drawing it
     // behind the overlay — a run ended under a JAMMER or a SPLIT used to leave a
     // stunted or broken paddle sitting on the GAME OVER screen.
-    this.paddle.setWidth(gameConfig.paddle.baseWidth);
+    this.snapDeck();
     this.resetSkid();
     this.wallArmed = false;
     this.angelCharged = false;

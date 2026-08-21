@@ -92,6 +92,15 @@ export interface Peel {
   fromX: number;
 }
 
+// A 1 px mark on the rail the deck has just given up, left only by JAMMER
+// (SHA-85): a trap taking the wood away is the thing being said, and the mark
+// is how long you can still see where it was. Render-only.
+export interface RailMark {
+  x: number;
+  width: number;
+  ticksLeft: number;
+}
+
 // One BUMPERS disc: its centre, and what is left of the flash from its last
 // kick. All five share one radius, which lives in the config; the count itself
 // is `FALLBACK_LAYOUT`'s length in `BumperField`, so it moves in one place.
