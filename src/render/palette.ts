@@ -39,6 +39,12 @@ export const canvasPalette = {
   paddleTopSheen: "#a8d8ff",
   paddleBottomShade: "#0b3a78",
   laserCannon: "#ffcf1c",
+  // A cannon still coming out of the deck. `laserCannon` and `laserShot` are the
+  // same yellow, so a muzzle painted in either while it rises is painted in the
+  // colour it is about to be — the charge would be invisible. This is the ball's
+  // own highlight tone, and it cools to the yellow above on the frame the gun
+  // locks out and fires.
+  laserCharge: "#fff9d0",
   ballBody: "#ffe14a",
   ballHighlight: "#fff9d0",
   ballShade: "#c98f0a",

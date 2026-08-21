@@ -160,11 +160,20 @@ function rollFace(besides: PowerUpKind | null): PowerUpKind {
  * the rest of the run over a blend nobody can see — which for DEMAKE means the
  * renderer paints every frame twice, forever, after one capsule. Anything under
  * half a step is spent.
+ *
+ * **The ceiling is not `Math.min(1, …)` either, and for the same reason read the
+ * other way up.** Adding 1/10 ten times lands on 0.9999999999999999, so the
+ * clamp never fires and a gate asking `blend < 1` holds for one tick past the
+ * end — which for LASER (SHA-88) is the muzzle staying white for a frame after
+ * the bolt it was charging has already left. Whether it lands over or under 1
+ * depends on the denominator, which is no way to decide when an effect finishes.
+ * Anything within half a step of the end has arrived.
  */
 function stepBlend(blend: number, rising: boolean, ticks: number): number {
   const step = 1 / ticks;
   if (rising) {
-    return Math.min(1, blend + step);
+    const next = blend + step;
+    return next > 1 - step / 2 ? 1 : next;
   }
   const next = blend - step;
   return next < step / 2 ? 0 : next;
@@ -347,6 +356,16 @@ export class ShatterGame {
   // that is what makes it an after-image and not a surface — and it is the only
   // thing on screen explaining the ball that just went straight through.
   private mirrorAfterImageTicks = 0;
+  /**
+   * LASER's cannons coming out of the deck, 0 bare to 1 locked out.
+   *
+   * Presentational, unlike the two above it: it is a pixel height and a colour,
+   * and nothing reads it but `drawPaddle`. It runs over
+   * `laserFirstShotDelayTicks` rather than a duration of its own, because the
+   * whole justification for that number is the pause before the first shot —
+   * and a second constant equal to it by comment would be free to drift.
+   */
+  private laserBlend = 0;
   // Armed by a MAGNET catch, spent by the next brick a ball or a laser kills.
   // A magnet with nothing falling is a magnet nobody can see working.
   private guaranteedDrop = false;
@@ -435,7 +454,7 @@ export class ShatterGame {
       paddle: {
         x: this.paddle.x,
         width: this.paddle.width,
-        laserActive: this.timers.isActive("L"),
+        laserBlend: this.laserBlend,
         splitGap: this.splitGap(),
         splitCrack: this.splitCracking(),
         splitWeld: this.splitWeldTicks > 0,
@@ -589,6 +608,15 @@ export class ShatterGame {
     // a surface. A NUKE caught while the reflection is resolving would park a
     // half-formed ceiling over the field for the length of the shockwave, and it
     // would still be bouncing at whatever width it froze on.
+    // Above the gates with the rest, and the only one up here that changes
+    // nothing but a picture: the guns are still the timer's, and a bolt already
+    // climbing the field is drawn and stepped unconditionally, so they stow at
+    // expiry with the last shot still in the air.
+    this.laserBlend = stepBlend(
+      this.laserBlend,
+      this.timers.isActive("L"),
+      gameConfig.powerUps.laserFirstShotDelayTicks,
+    );
     if (this.mirrorAfterImageTicks > 0) {
       this.mirrorAfterImageTicks--;
     }
@@ -1944,6 +1972,7 @@ export class ShatterGame {
     this.turboSpool = 0;
     this.mirrorForm = 0;
     this.mirrorAfterImageTicks = 0;
+    this.laserBlend = 0;
     this.particles.reset();
     this.resetSkid();
     // The deck too, and it is the easy one to miss: this method zeroes every
@@ -2747,6 +2776,7 @@ export class ShatterGame {
     this.turboSpool = 0;
     this.mirrorForm = 0;
     this.mirrorAfterImageTicks = 0;
+    this.laserBlend = 0;
     this.particles.reset();
     this.detonation.reset();
     this.clearCountdown = 0;
@@ -2792,6 +2822,7 @@ export class ShatterGame {
     this.turboSpool = 0;
     this.mirrorForm = 0;
     this.mirrorAfterImageTicks = 0;
+    this.laserBlend = 0;
     this.particles.reset();
     this.dropPool.reset();
     this.detonation.reset();

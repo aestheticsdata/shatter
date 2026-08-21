@@ -287,7 +287,14 @@ export interface DeckSeamState {
 export interface PaddleRenderState extends DeckSeamState {
   x: number;
   width: number;
-  laserActive: boolean;
+  /**
+   * LASER's cannons coming out of the deck, 0 bare to 1 locked out.
+   *
+   * Presentational and nothing else: it drives a pixel height and one colour.
+   * The fire gate, the cadence and the first-shot delay all read the timer, so a
+   * LASER fires the same shots on the same ticks it always has.
+   */
+  laserBlend: number;
   // SPLIT's hole, in game pixels, or 0 while the deck is whole. `width` stays
   // the span end to end either way, so the cannons and MIRROR's ghost need no
   // second number.
@@ -1345,9 +1352,41 @@ export class CanvasRenderer {
       paddle,
     );
 
-    if (paddle.laserActive) {
-      this.spritePixel(paddle.x + 5, y - 3, 2, 3, canvasPalette.laserCannon);
-      this.spritePixel(paddle.x + paddle.width - 7, y - 3, 2, 3, canvasPalette.laserCannon);
+    this.drawCannons(paddle, y);
+  }
+
+  /**
+   * The two studs, extruded out of the deck's top edge rather than switched on.
+   *
+   * Drawn from `y - barrel` down, so the base stays welded into the housing and
+   * only the muzzle climbs — a stud that grew from the top down would be a
+   * cannon floating a pixel above the deck for the first frames.
+   *
+   * **Thirds of a game pixel, not whole ones.** Three whole steps over the ten
+   * ticks of the first-shot delay is a three-frame pop and not a growth;
+   * `spritePixel` rounds to the backing grid, so a barrel of 1/3 is exactly one
+   * device pixel and the extrusion gets nine legible steps in the sub-pixel
+   * granularity everything else that moves is already drawn in. At blend 1 the
+   * arithmetic lands on `y - 3, 2x3` — the same sprite as before, to the pixel.
+   *
+   * The muzzle runs white while it is still coming out and cools on the frame
+   * the gun locks, which normally is the frame the first bolt leaves: this blend
+   * steps above the freeze gates and `laserCountdown` is decremented below them,
+   * so a NUKE caught mid-extrusion leaves the gun finished and idle for the
+   * length of the shockwave. That is exactly today's dead air under finished
+   * hardware, and no worse for having a picture on it.
+   */
+  private drawCannons(paddle: PaddleRenderState, y: number): void {
+    const barrel = Math.round(9 * paddle.laserBlend) / 3;
+    if (barrel === 0) {
+      return;
+    }
+    const top = y - barrel;
+    for (const stud of [paddle.x + 5, paddle.x + paddle.width - 7]) {
+      this.spritePixel(stud, top, 2, barrel, canvasPalette.laserCannon);
+      if (paddle.laserBlend < 1) {
+        this.spritePixel(stud, top, 2, 1 / 3, canvasPalette.laserCharge);
+      }
     }
   }
 
