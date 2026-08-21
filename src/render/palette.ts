@@ -64,6 +64,19 @@ export const canvasPalette = {
   popShadow: "#0b0b26",
   blastFlash: "#ffc27a",
   deathFlash: "#ffffff",
+  // PAYDAY's gild, and it is the gold brick's own `light` rather than the
+  // capsule's body tone. That tone (#dfae2c) is darker than every brick's
+  // light, so painting a sheen with it strips the highlight — the wall reads
+  // dirty and flat, which is the opposite of expensive — and it *is*
+  // `BRICK_COLORS.G.flat`, which would make the gild a no-op on a hurt gold
+  // brick, on exactly the levels a player expects PAYDAY to light up. So the
+  // hurt tell moves one step down the same gold ramp instead, and the sweep
+  // reads as the whole wall turning into the gold brick.
+  paydayGild: "#ffe9a0",
+  paydayGildHurt: "#dfae2c",
+  // A brick killed behind the front. As bright as `deathFlash` so a
+  // double-points kill lands at least as hard, and unmistakably gold beside it.
+  paydayFlash: "#fff0b0",
   nukeFlash: "#ffffff",
   nukeRing: "#eaf7ff",
   // STASIS's own frost aqua, so the release ring is read as that capsule's.

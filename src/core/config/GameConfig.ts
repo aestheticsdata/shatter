@@ -462,6 +462,12 @@ export const gameConfig = {
     // brick flipping as the front passes it. Cosmetic — the collision follows
     // the timer alone, so the wall is already intangible while it still fades.
     ghostFadeTicks: 30,
+    // PAYDAY's tide, each way: how long the gild takes to run up the wall from
+    // the bottom row and to drain back out through it. The fade above it exactly
+    // — the two are the same length of half-second weather over a rule that
+    // switched instantly, and the wall has no reason to gild faster than it
+    // dissolves.
+    paydayFadeTicks: 30,
     // XRAY's scan, each way: how long the bar takes to cross the live wall,
     // top to bottom on the catch and bottom to top on the expiry. Not a
     // strength ramp — what moves is how deep into the wall you can read, and a
@@ -611,6 +617,13 @@ export const gameConfig = {
     quake: {
       shakeTicks: 24,
       amplitude: 4,
+      // How long the wall takes to fall the row the shift just gave it. Twelve
+      // pixels on a squared curve: about 3 px over the first five ticks and 9
+      // over the next five, so it accelerates into its landing. Well inside the
+      // rattle, and deliberately not the same length as it — the last thing the
+      // player sees is the ground going quiet under a wall that has already
+      // arrived, not two things stopping on the same frame.
+      dropTicks: 10,
     },
     // CRITTER's grub. `stepSpeed` is a brick every 18 ticks — 30 px at 1.667 —
     // slow enough to watch it work and slow enough that the row it is eating is

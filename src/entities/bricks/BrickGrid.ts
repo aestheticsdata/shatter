@@ -7,6 +7,10 @@ function isBrickKind(char: string): char is BrickKind {
 }
 
 export class BrickGrid {
+  // How far above its own index row the wall is being painted this frame, fed
+  // from `Quake.dropOffset` every tick. Zero except while QUAKE's wall is still
+  // falling; see `cellAt`, the only thing that reads it.
+  topOffset = 0;
   private grid: Array<Array<BrickCell | null>> = [];
   private remainingCount = 0;
 
@@ -29,6 +33,7 @@ export class BrickGrid {
   load(level: LevelDefinition, rollCapsule: () => PowerUpKind | null): void {
     this.grid = [];
     this.remainingCount = 0;
+    this.topOffset = 0;
 
     for (const row of level.rows) {
       const line: Array<BrickCell | null> = [];
@@ -64,9 +69,20 @@ export class BrickGrid {
     }
   }
 
+  /**
+   * The pixel-to-cell lookup, and the whole of the wall's pixel-space
+   * collision: balls come through `findBallOverlap`, laser bolts through
+   * `ShotPool`, meteors straight in. Every other caller — homing, BLAST and
+   * CHAIN's neighbours, the critter — is already index-space and does not care
+   * where the wall is being painted.
+   *
+   * Which is why `topOffset` belongs here and nowhere else. It is how far above
+   * its index the wall is drawn this frame, so the hitbox follows the paint
+   * instead of sitting a row below it while QUAKE's wall is still falling.
+   */
   cellAt(x: number, y: number): BrickHit | null {
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
-    return this.hitAtCell(Math.floor((y - top) / brickHeight), Math.floor((x - left) / brickWidth));
+    return this.hitAtCell(Math.floor((y - top + this.topOffset) / brickHeight), Math.floor((x - left) / brickWidth));
   }
 
   hitAtCell(row: number, column: number): BrickHit | null {

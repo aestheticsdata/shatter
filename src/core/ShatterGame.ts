@@ -312,6 +312,15 @@ export class ShatterGame {
   // the collision stays binary on the capsule itself.
   private ghostBlend = 0;
   /**
+   * PAYDAY's tide, 0 dull to 1 the whole wall gilded. Presentational, and the
+   * one blend in the game where that is a rule and not a preference:
+   * `scoreMultiplier()` reads the timer and always will, because a brick killed
+   * at 0.5 paying 1.5x would make the same run score differently depending on
+   * which tick landed where — and two runs that cannot be compared are not a
+   * hall of fame.
+   */
+  private paydayBlend = 0;
+  /**
    * XRAY's scan, 0 unread to 1 the whole wall read — and the odd blend of the
    * presentational set, because what moves over it is a *boundary* and not a
    * strength. A pill is whole, sliced, or not there; nothing ever fades.
@@ -548,6 +557,7 @@ export class ShatterGame {
       xrayReading: this.timers.isActive("XR"),
       demakeBlend: this.demakeBlend,
       ghostBlend: this.ghostBlend,
+      paydayFront: this.paydayFront(),
       // The two freezes light the field by definition: a nuke is the brightest
       // thing the game does, and the last brick's shatter has to be seen. Both
       // stop the timers as well, so the ticks the dark still owes survive it —
@@ -660,9 +670,18 @@ export class ShatterGame {
     this.railMarks = this.railMarks.filter((mark) => --mark.ticksLeft > 0);
     this.particles.step(this.cores);
     this.quake.step();
+    // One number, read by the hitbox and by everything painted in wall
+    // coordinates. Assigned here rather than in `Quake` so the grid keeps
+    // knowing nothing about the capsule that moved it — and above the freeze
+    // gates with the step that produces it, or a NUKE caught on the same tick
+    // would hold the wall in mid-air for the length of the shockwave.
+    this.grid.topOffset = this.quake.dropOffset;
     // Above the freeze gates like the shake: a NUKE caught mid-fade must not
     // hold the wall half-dissolved on screen.
     this.ghostBlend = stepBlend(this.ghostBlend, this.timers.isActive("GH"), gameConfig.effects.ghostFadeTicks);
+    // Beside it and for its reason exactly: a NUKE caught mid-tide must not hold
+    // the wall half-gilded behind the shockwave.
+    this.paydayBlend = stepBlend(this.paydayBlend, this.timers.isActive("X"), gameConfig.effects.paydayFadeTicks);
     // Beside the fade above it and above the gates with it, though for the
     // weakest of the six reasons: XRAY says nothing about light, speed or
     // collision, so this is passed raw. It is here because a bar parked
@@ -1110,6 +1129,20 @@ export class ShatterGame {
       widest = Math.max(widest, (segment.right - segment.left) / 2);
     }
     return widest;
+  }
+
+  /**
+   * The topmost row PAYDAY's tide has reached, and the wall's row count while it
+   * has reached none — one number for the standing wall and for the flash a kill
+   * leaves behind it, so the two cannot disagree about where the front is.
+   *
+   * Rounded up, so a row gilds on the tick the tide covers the whole of it: the
+   * front is five or six steps, and a step taken early is a step the wall spends
+   * in a state the blend has not earned.
+   */
+  private paydayFront(): number {
+    const rows = this.grid.rows.length;
+    return this.paydayBlend <= 0 ? rows : Math.ceil(rows * (1 - this.paydayBlend));
   }
 
   /**
@@ -1977,6 +2010,11 @@ export class ShatterGame {
           y: top + neighbor.row * brickHeight,
           ticksLeft: gameConfig.powerUps.splashFlashTicks,
           kind: "blast",
+          onWall: true,
+          // BLAST's splash keeps its own colour through a PAYDAY: the chain
+          // reads as one explosion, and half of it in a different tone would
+          // read as two.
+          gild: false,
         });
         this.damageBrick(neighbor, "splash");
       }
@@ -1998,6 +2036,11 @@ export class ShatterGame {
       y: top + hit.row * brickHeight,
       ticksLeft: gameConfig.effects.deathFlashTicks,
       kind: "death",
+      onWall: true,
+      // Read here rather than in the renderer, so the front is legible in the
+      // destruction as well as in the standing wall: mid-sweep the bottom rows
+      // are visibly already paying gold while the top ones still flash white.
+      gild: hit.row >= this.paydayFront(),
     });
     this.particles.burst(
       left + hit.column * brickWidth + brickWidth / 2,
@@ -2132,7 +2175,10 @@ export class ShatterGame {
       return;
     }
     const { top, brickHeight } = gameConfig.grid;
-    this.meteors.step(top + this.grid.rows.length * brickHeight);
+    // The floor the rocks stop at is the wall's bottom edge as drawn, not as
+    // indexed: a rock must not carry on falling through a wall it can be seen
+    // resting against.
+    this.meteors.step(top + this.grid.rows.length * brickHeight - this.quake.dropOffset);
 
     let drilled = false;
     for (const meteor of this.meteors.meteors) {
@@ -2281,6 +2327,7 @@ export class ShatterGame {
     this.critter.reset();
     this.meteors.reset();
     this.ghostBlend = 0;
+    this.paydayBlend = 0;
     this.xrayBlend = 0;
     this.xraySweepSpan = 0;
     this.demakeBlend = 0;
@@ -2575,6 +2622,11 @@ export class ShatterGame {
       this.destroyBottomRow();
       this.grid.shiftDown();
       this.quake.start();
+      // The catch happens below `quake.step()` in the same tick, so the wall
+      // would spend its first frame drawn a row above a hitbox that had not
+      // moved yet — the one frame of the fall where a ball is most likely to be
+      // arriving at the row that just changed.
+      this.grid.topOffset = this.quake.dropOffset;
     }
     if (kind === "PO") {
       this.timers.activate("PO", durations.PO);
@@ -2877,6 +2929,8 @@ export class ShatterGame {
       y: gameConfig.paddle.y - 2,
       ticksLeft: gameConfig.effects.deathFlashTicks,
       kind: "death",
+      onWall: false,
+      gild: false,
     });
     this.deathCountdown = fuseTicks;
   }
@@ -3111,6 +3165,7 @@ export class ShatterGame {
     this.critter.reset();
     this.meteors.reset();
     this.ghostBlend = 0;
+    this.paydayBlend = 0;
     this.xrayBlend = 0;
     this.xraySweepSpan = 0;
     this.demakeBlend = 0;
@@ -3166,6 +3221,7 @@ export class ShatterGame {
     this.critter.reset();
     this.meteors.reset();
     this.ghostBlend = 0;
+    this.paydayBlend = 0;
     this.xrayBlend = 0;
     this.xraySweepSpan = 0;
     this.demakeBlend = 0;
@@ -3407,7 +3463,16 @@ export class ShatterGame {
       levelName: levelAt(this.level).name,
       reserveLives: Math.max(0, this.lives - 1),
       powerLabel: this.powerLabel(),
-      scoreBoosted: this.timers.isActive("X") || this.timers.isActive("TU"),
+      // Both, and in that order: the tide has to have crossed the whole wall
+      // before the readout says anything, because the blink is the effect at
+      // full strength and the wall is it arriving — and the timer has to still
+      // be live, so the blink cannot outlive the rule it is reporting by even
+      // the one frame the blend's own decay would cost it. It stops
+      // deliberately without a fade: a steps(1) blink is a 1-bit signal, and
+      // the 1-bit way to say "not any more" is to stop.
+      //
+      // TURBO's boost is unchanged. It gilds nothing and owes no arrival.
+      scoreBoosted: (this.paydayBlend >= 1 && this.timers.isActive("X")) || this.timers.isActive("TU"),
       demakeActive: this.timers.isActive("D"),
       muted: this.deps.sfx.muted,
     };

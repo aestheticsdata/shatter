@@ -88,7 +88,7 @@ class Field {
 
   brick(column: number, row: number, kind: BrickKind, fade = 0, hurt = false): void {
     const { x, y } = this.brickAt(column, row);
-    drawBrick(this.ctx, x, y, cell(kind, hurt), 1, fade, this.demade);
+    drawBrick(this.ctx, x, y, cell(kind, hurt), 1, { fade, demade: this.demade });
   }
 
   // One full row of the wall, the width of the grid.

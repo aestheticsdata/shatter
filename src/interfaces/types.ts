@@ -141,6 +141,12 @@ export interface BrickFlash {
   y: number;
   ticksLeft: number;
   kind: BrickFlashKind;
+  // Killed behind PAYDAY's front, so it flashes gold rather than white.
+  gild: boolean;
+  // Whether the position above is in wall coordinates. Brick flashes ride the
+  // wall while QUAKE's is still falling; the paddle's own death flash is on the
+  // rail and stays where it was put.
+  onWall: boolean;
 }
 
 export interface BurstSpec {

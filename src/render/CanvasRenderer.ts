@@ -444,6 +444,20 @@ export interface RenderView {
   // read in, back up it on the way out. The blend cannot say — it is symmetric,
   // and one frame of it looks the same going either way.
   xrayReading: boolean;
+  /**
+   * The topmost row PAYDAY's tide has reached, running up from the bottom one —
+   * the wall's row count when nothing is gilded. A row index and not a blend,
+   * so the standing wall and the flashes a kill leaves read the same one number
+   * and cannot disagree about where the front is.
+   *
+   * A hard boundary, deliberately, where GHOST's fade has `GHOST_SOFTNESS`:
+   * that one cross-fades a whole brick and needs a soft edge, this swaps a
+   * single pixel row, and a half-gold pixel is a muddy pixel rather than a soft
+   * one. The wall is five or six rows, not twelve, so the front is five visible
+   * steps at about five ticks a row — a chunky march, which is both right for
+   * the idiom and the only thing a one-pixel sheen can say.
+   */
+  paydayFront: number;
   // DEMAKE's dissolve, 0 in colour to 1 fully demade. A number rather than a
   // flag because the machine sags into the tube and back out over half a second
   // at each end. Purely presentational — the simulation behind it is not told,
@@ -561,21 +575,34 @@ function spriteBrush(
  * field-sized still (`@render/levelStill`). A second copy of the bevel would
  * drift the first time a brick is retouched — GHOST already changed it once.
  *
- * `fade` is GHOST's per-brick progress: at 1 the body and both bevels are gone,
- * leaving the cell's outline over the playfield theme; between 0 and 1 the body
- * is drawn translucent under an outline still gaining strength, so a brick
- * de-materialises instead of flipping. Damage has no lit face to show while
- * ghosted, and comes back with the brick.
+ * The three ways a brick can be painted differently from its own kind, as an
+ * object rather than three trailing optionals — a fourth silent slot would have
+ * been the point at which a caller starts passing `0, false` to reach the one
+ * it means.
  */
+export interface BrickPaint {
+  // GHOST's per-brick progress: at 1 the body and both bevels are gone, leaving
+  // the cell's outline over the playfield theme; between 0 and 1 the body is
+  // drawn translucent under an outline still gaining strength, so a brick
+  // de-materialises instead of flipping. Damage has no lit face to show while
+  // ghosted, and comes back with the brick.
+  fade?: number;
+  demade?: boolean;
+  // PAYDAY's tide has reached this row. The sheen and the lit left edge go
+  // gold and nothing else does: kind colour, hurt state, dark shade and
+  // silhouette all stay, so a fully gilded wall still reads as the level it is.
+  gilded?: boolean;
+}
+
 export function drawBrick(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   cell: BrickCell,
   scale: number,
-  fade = 0,
-  demade = false,
+  paint: BrickPaint = {},
 ): void {
+  const { fade = 0, demade = false, gilded = false } = paint;
   const ink = inkFor(demade);
   // `CanvasRenderer.pixel`, at the scale asked for: whole game pixels, each one
   // a scale×scale block.
@@ -599,7 +626,15 @@ export function drawBrick(
 
   const colors = BRICK_COLORS[cell.kind];
   const flat = cell.hurt ? colors.dark : colors.flat;
-  const sheen = cell.hurt ? colors.flat : colors.light;
+  // Both branches, so the hurt tell survives the gild instead of being flattened
+  // by it — one step down the same gold ramp rather than the brick's own.
+  const sheen = gilded
+    ? cell.hurt
+      ? canvasPalette.paydayGildHurt
+      : canvasPalette.paydayGild
+    : cell.hurt
+      ? colors.flat
+      : colors.light;
 
   pixel(x + 1, y + 1, 28, 10, flat);
   pixel(x + 2, y + 1, 26, 1, sheen);
@@ -1081,22 +1116,35 @@ export class CanvasRenderer {
     }
 
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    // Where the wall's top edge is *this frame*, which is not always where its
+    // index says. QUAKE's shift gives the wall a row and this is it falling
+    // into it; the rest of the time it is `grid.top` exactly. Everything drawn
+    // in wall coordinates below reads this one number, and so does `cellAt` —
+    // a wall painted 12 px above the hitbox that plays it would cheat the
+    // player at the exact moment the screen is shaking and they can least tell
+    // what happened.
+    const wallY = top - view.quake.dropOffset;
+    const beamY = view.xrayBeamY - view.quake.dropOffset;
     view.grid.forEach((row, rowIndex) => {
       row.forEach((cell, columnIndex) => {
         if (cell) {
           const x = left + columnIndex * brickWidth;
-          const y = top + rowIndex * brickHeight;
+          const y = wallY + rowIndex * brickHeight;
           const fade = ghostProgress(view.ghostBlend, rowIndex, columnIndex, this.frameCount);
-          drawBrick(this.ctx, x, y, cell, SCALE, fade, this.demade);
+          drawBrick(this.ctx, x, y, cell, SCALE, {
+            fade,
+            demade: this.demade,
+            gilded: rowIndex >= view.paydayFront,
+          });
           // Branched rather than clipped blind. Gating on the blend alone would
           // pay a save/beginPath/rect/clip/restore on every revealed pill on
           // every one of the capsule's 300 frames, and lean on a negative-height
           // rect to keep the rows under the bar off the wall.
           if (cell.capsule && view.xrayBlend > 0) {
-            if (view.xrayBlend === 1 || y + brickHeight <= view.xrayBeamY) {
+            if (view.xrayBlend === 1 || y + brickHeight <= beamY) {
               this.drawRevealedCapsule(x, y, cell.capsule);
-            } else if (y < view.xrayBeamY) {
-              this.drawRevealedCapsule(x, y, cell.capsule, view.xrayBeamY);
+            } else if (y < beamY) {
+              this.drawRevealedCapsule(x, y, cell.capsule, beamY);
             }
           }
         }
@@ -1110,18 +1158,23 @@ export class CanvasRenderer {
     // freezes the timers for the clear but not this blend, and without it a bar
     // would sit on the wall's top edge for twenty ticks with nothing to read.
     if (view.xrayBlend > 0 && view.xrayBlend < 1 && view.xrayBeamY > gameConfig.grid.top) {
-      this.drawXrayBeam(view.xrayBeamY, view.xrayReading);
+      this.drawXrayBeam(beamY, view.xrayReading);
     }
 
     for (const flash of view.flashes) {
-      this.pixel(flash.x + 1, flash.y + 1, 28, 10, FLASH_COLORS[flash.kind]);
+      const flashY = flash.onWall ? flash.y - view.quake.dropOffset : flash.y;
+      // Whether the front had reached this brick is decided when it dies, not
+      // when it is drawn: a two-tick flash is a record of the kill, and the
+      // tide moving on cannot retroactively make an earlier one gold.
+      const tone = flash.gild ? canvasPalette.paydayFlash : FLASH_COLORS[flash.kind];
+      this.pixel(flash.x + 1, flashY + 1, 28, 10, tone);
     }
     for (const ball of view.balls) {
       if (ball.active && ball.homingRow >= 0) {
-        this.drawHomingMark(ball, view.homingOpening);
+        this.drawHomingMark(ball, view.homingOpening, wallY);
       }
     }
-    this.drawCritter(view.critter);
+    this.drawCritter(view.critter, view.quake.dropOffset);
     // Slot index cycles the brick's three palette colors — sequential ring-buffer
     // slots give each burst a flat/light/dark mix without storing a color per particle.
     view.particles.forEach((particle, index) => {
@@ -1141,7 +1194,7 @@ export class CanvasRenderer {
       }
     }
     for (const bolt of view.bolts) {
-      this.drawChainBolt(bolt);
+      this.drawChainBolt(bolt, view.quake.dropOffset);
     }
     if (view.energyWallArmed) {
       this.pixel(gameConfig.field.left, gameConfig.powerUps.wallY, 366, 2, canvasPalette.energyWall);
@@ -1951,11 +2004,15 @@ export class CanvasRenderer {
   // enough to read as walking rather than sliding, on a sprite 10 px wide. Drawn
   // over the bricks it is eating and under the debris it makes, with
   // `spritePixel`, since it moves in thirds of a game pixel.
-  private drawCritter(critter: Critter): void {
+  private drawCritter(critter: Critter, dropOffset: number): void {
     if (!critter.alive) {
       return;
     }
-    const { x, y } = critter;
+    // The grub's y is its own row's, set when it was dropped onto it, so it
+    // rides QUAKE's fall with the row it is chewing. Today the wall and the
+    // grub agree because neither moves; this is what would break them apart.
+    const { x } = critter;
+    const y = critter.y - dropOffset;
     const leading = critter.direction > 0;
 
     this.spritePixel(x, y + 2, 10, 4, canvasPalette.critterBody);
@@ -1981,16 +2038,20 @@ export class CanvasRenderer {
 
   // A CHAIN arc: the mint stroke laid down first, a thinner white core over it,
   // so the bolt reads as hot rather than as a coloured line.
-  private drawChainBolt(bolt: ChainBolt): void {
+  private drawChainBolt(bolt: ChainBolt, dropOffset: number): void {
     // Two-tick blocks, as the catch pop fades: `draw()` runs per frame, so
     // blinking on tick parity would alias against the frame rate.
     if (bolt.ticksLeft <= 4 && (bolt.ticksLeft & 2) === 0) {
       return;
     }
+    // Struck between two cells, so it is drawn in wall coordinates like the
+    // wall it is arcing across — a CHAIN taken over a live QUAKE would
+    // otherwise leave the arc hanging where the bricks used to be.
+    const drop = dropOffset * SCALE;
     this.ctx.beginPath();
-    this.ctx.moveTo(bolt.points[0].x * SCALE, bolt.points[0].y * SCALE);
+    this.ctx.moveTo(bolt.points[0].x * SCALE, bolt.points[0].y * SCALE - drop);
     for (let index = 1; index < bolt.points.length; index++) {
-      this.ctx.lineTo(bolt.points[index].x * SCALE, bolt.points[index].y * SCALE);
+      this.ctx.lineTo(bolt.points[index].x * SCALE, bolt.points[index].y * SCALE - drop);
     }
     this.ctx.strokeStyle = this.ink(canvasPalette.chainBolt);
     this.ctx.lineWidth = 2 * SCALE;
@@ -2012,15 +2073,15 @@ export class CanvasRenderer {
    * Going the other way the corners blink out over the last third of their
    * travel, on the four-frame clock a trap's glyph and a dying peel share.
    */
-  private drawHomingMark(ball: Ball, opening: boolean): void {
-    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+  private drawHomingMark(ball: Ball, opening: boolean, wallY: number): void {
+    const { left, brickWidth, brickHeight } = gameConfig.grid;
     const { homingRetargetTicks, homingMarkReach } = gameConfig.powerUps;
     if (opening && ball.homingMarkTicks < homingRetargetTicks / 3 && (ball.homingMarkTicks & 4) === 0) {
       return;
     }
     const out = homingMarkReach - Math.floor((ball.homingMarkTicks * homingMarkReach) / homingRetargetTicks);
     const x = left + ball.homingColumn * brickWidth;
-    const y = top + ball.homingRow * brickHeight;
+    const y = wallY + ball.homingRow * brickHeight;
     for (const [cornerX, cornerY] of [
       [x - out, y - out],
       [x + brickWidth - 2 + out, y - out],
