@@ -505,6 +505,14 @@ export const gameConfig = {
     // the mouth is a hitbox, and a hitbox that outlives its timer would be the
     // first in the game.
     portalFadeTicks: 20,
+    // WALL's bar writing itself out of the deck, and being spent. A charge is
+    // deliberate and spending is not, so the two are different lengths: 366 px
+    // of field either way from the origin means 24.4 px a tick going out and
+    // 36.6 coming back in. The strike is the three ticks the two pixels the
+    // ball actually struck stay white-hot.
+    wallChargeTicks: 15,
+    wallDischargeTicks: 10,
+    wallStrikeTicks: 3,
     // FLIP's turn, each way. The field does not switch over: it rotates about
     // its own centre, shrinking just enough on the way round to clear the wall
     // frame, and rotates back out when the capsule expires. 30 ticks is the

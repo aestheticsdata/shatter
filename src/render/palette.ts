@@ -59,6 +59,10 @@ export const canvasPalette = {
   dropSheen: "#ffffff",
   dropShade: "#0b0b26",
   energyWall: "#8fd0ff",
+  // The two pixels the ball struck, for the three ticks after it did. A white
+  // with the bar's own blue still in it rather than `deathFlash`'s flat one:
+  // this is the barrier at its brightest, not a thing being destroyed.
+  energyWallCore: "#f4fbff",
   popBonus: "#c8ffc8",
   popMalus: "#ff70d0",
   popShadow: "#0b0b26",

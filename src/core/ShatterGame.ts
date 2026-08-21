@@ -192,6 +192,23 @@ export class ShatterGame {
   private entry = "";
   private booted = false;
   private wallArmed = false;
+  /**
+   * WALL's bar as a picture: how much of it is drawn, where it is being drawn
+   * out of, and what is left of the white core at the point a ball struck it.
+   *
+   * A blend and not a timer, because WALL is `timed: false` — the roster row is
+   * `ticks: 0` and `PowerUpTimers` never counts it, so `wallArmed` above is the
+   * whole contract and these three decide nothing but the picture.
+   *
+   * Zeroed at `resetServe` and `gameOver` and deliberately **not** at
+   * `onLevelCleared`, which is the odd one out of the reset sites — because
+   * `wallArmed` is not cleared there either. A charge bought on level 3 is
+   * still there on level 4, and a bar that vanished under a player who still
+   * had the save would be the picture lying about the contract.
+   */
+  private wallBlend = 0;
+  private wallOriginX = 0;
+  private wallStrikeLeft = 0;
   // ANGEL's charge: one lost ball cancelled. Armed by the catch and spent by
   // the loss, like `wallArmed` above it — and unlike it, deliberately not
   // cleared by `resetServe()`, which is what carries it across levels.
@@ -631,7 +648,9 @@ export class ShatterGame {
       cores: this.cores,
       quake: this.quake,
       critter: this.critter,
-      energyWallArmed: this.wallArmed,
+      energyWallBlend: this.wallBlend,
+      energyWallOriginX: this.wallOriginX,
+      energyWallStrike: this.wallStrikeLeft > 0,
     });
     this.deps.panel.update(this.panelView());
   };
@@ -757,6 +776,16 @@ export class ShatterGame {
       this.deps.sfx.portalOpen();
     } else if (doorWas === 1 && this.portalBlend < 1) {
       this.deps.sfx.portalShut();
+    }
+    // Not `stepBlend`: the two ends have different lengths on purpose, since
+    // writing a barrier out of the deck is deliberate and spending it is not.
+    // Above the gates with the rest all the same — a bar frozen half-written
+    // behind a shockwave is a save the player cannot read the extent of.
+    this.wallBlend = this.wallArmed
+      ? Math.min(1, this.wallBlend + 1 / gameConfig.effects.wallChargeTicks)
+      : Math.max(0, this.wallBlend - 1 / gameConfig.effects.wallDischargeTicks);
+    if (this.wallStrikeLeft > 0) {
+      this.wallStrikeLeft--;
     }
     // Above the freeze gates with the rest, and for the starkest reason of the
     // four: a NUKE caught mid-turn would otherwise park the field on its side
@@ -1713,6 +1742,23 @@ export class ShatterGame {
 
       if (this.wallArmed && ball.velocity.y > 0 && ball.y + size >= gameConfig.powerUps.wallY) {
         this.wallArmed = false;
+        // The save is the whole of y 294 from the catch frame, and has to be:
+        // WALL's signature moment is catching it with a ball already past the
+        // deck, and refusing that because the picture had not finished drawing
+        // would be a life taken by an animation. So when the strike lands
+        // outside the reach the bar had written, the bar completes itself in
+        // the instant it pays — which is what a barrier catching a ball at a
+        // point it had not reached should look like, and leaves the picture
+        // never claiming less than it can do.
+        const reach = (gameConfig.field.right - gameConfig.field.left) * this.wallBlend;
+        if (Math.abs(ball.centerX - this.wallOriginX) > reach) {
+          this.wallBlend = 1;
+        }
+        // The strike is the origin, so the last pixel to go out is the one
+        // under the ball it saved. Collapsing toward the field's centre instead
+        // would spend it where nothing happened.
+        this.wallOriginX = ball.centerX;
+        this.wallStrikeLeft = gameConfig.effects.wallStrikeTicks;
         ball.y = gameConfig.powerUps.wallY - size;
         ball.velocity.y = -Math.abs(ball.velocity.y);
         this.deps.sfx.energyWallBounce();
@@ -2596,7 +2642,20 @@ export class ShatterGame {
       this.timers.activate("B", durations.B);
     }
     if (kind === "W") {
+      // The origin moves only when there is no bar on screen to move. A second
+      // WALL caught inside the ten discharge ticks — two in the air, or a RAIN
+      // shower — would otherwise tear the collapsing bar sideways to the deck
+      // and re-expand it from there; instead the charge restarts from wherever
+      // the bar already is.
+      if (this.wallBlend === 0) {
+        this.wallOriginX = this.paddle.centerX;
+        // Seeded so the catch frame itself shows the two pixels the bar starts
+        // as, rather than the 48 the first full step would jump it to. One
+        // pixel of reach either way, out of 366.
+        this.wallBlend = 1 / (gameConfig.field.right - gameConfig.field.left);
+      }
       this.wallArmed = true;
+      this.deps.sfx.energyWallCharge();
     }
     if (kind === "T") {
       this.timers.activate("T", durations.T);
@@ -3231,6 +3290,9 @@ export class ShatterGame {
     this.shotPool.reset();
     this.laserCountdown = 0;
     this.wallArmed = false;
+    this.wallBlend = 0;
+    this.wallOriginX = 0;
+    this.wallStrikeLeft = 0;
     this.gambleTicksLeft = 0;
     this.gambleKind = null;
     this.gambleFace = null;
@@ -3337,6 +3399,9 @@ export class ShatterGame {
     this.snapDeck();
     this.resetSkid();
     this.wallArmed = false;
+    this.wallBlend = 0;
+    this.wallOriginX = 0;
+    this.wallStrikeLeft = 0;
     this.angelCharged = false;
     this.gambleTicksLeft = 0;
     this.gambleKind = null;

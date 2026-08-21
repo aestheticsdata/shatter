@@ -226,6 +226,18 @@ export class SoundBank {
     this.tone({ freq: 300, freqEnd: 1200, dur: 0.09, vol: 0.05, type: "sawtooth", delayS: 0.04 });
   }
 
+  // WALL arming: the bar writing itself out of the deck. A short rising pair
+  // under a filtered breath — the charge, where `energyWallBounce` below is the
+  // spend. The catch had no voice of its own before, which left the game's one
+  // free life arriving in silence.
+  energyWallCharge(): void {
+    if (!this.allow("energyWallCharge")) {
+      return;
+    }
+    this.tone({ freq: 180, freqEnd: 520, dur: 0.26, vol: 0.05, type: "triangle" });
+    this.noise({ dur: 0.22, vol: 0.06, filter: { type: "bandpass", freq: 700, freqEnd: 2400, q: 3 } });
+  }
+
   // The two mouths cutting themselves open, and pinching shut. A door is a
   // mechanism, so this is a mechanism: a short filtered rush with a low body
   // under it, rising as the aperture grows and falling as it closes. Distinct

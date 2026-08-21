@@ -537,7 +537,19 @@ export interface RenderView {
   cores: readonly Singularity[];
   quake: Quake;
   critter: Critter;
-  energyWallArmed: boolean;
+  /**
+   * WALL's bar: how much of it is written, the x it is written out of, and
+   * whether the two pixels a ball just struck are still white-hot.
+   *
+   * The reach is normalised to the field's own 366 px either side of the
+   * origin and clamped to the frame, which is what buys a constant sweep speed
+   * out of a single 0-to-1 number: the deck is rarely centred, so the near end
+   * lands on its wall first and the far end runs on alone — the same bar every
+   * time, drawn out of wherever the player happened to be standing.
+   */
+  energyWallBlend: number;
+  energyWallOriginX: number;
+  energyWallStrike: boolean;
 }
 
 // A palette filter: what a colour becomes on the machine it is being painted on.
@@ -1207,8 +1219,8 @@ export class CanvasRenderer {
     for (const bolt of view.bolts) {
       this.drawChainBolt(bolt, view.quake.dropOffset);
     }
-    if (view.energyWallArmed) {
-      this.pixel(gameConfig.field.left, gameConfig.powerUps.wallY, 366, 2, canvasPalette.energyWall);
+    if (view.energyWallBlend > 0) {
+      this.drawEnergyWall(view);
     }
     for (const bumper of view.bumpers) {
       this.drawBumper(bumper);
@@ -1400,6 +1412,24 @@ export class CanvasRenderer {
     // wide — the two read as one object at two sizes.
     ring(singularity.radius + singularity.reach(3 + Math.sin(this.frameCount * 0.2)), canvasPalette.singularityHalo, 2);
     ring(singularity.radius + singularity.reach(7), canvasPalette.singularityRim, 1);
+  }
+
+  // WALL's bar, written out from its origin and clamped to the frame. The white
+  // core is the point a ball actually struck, which is where the bar collapses
+  // to when it is spent — so the last pixel to go out is the one under the ball
+  // it saved, and the player learns which bounce was the free one.
+  private drawEnergyWall(view: RenderView): void {
+    const { left, right } = gameConfig.field;
+    const { wallY } = gameConfig.powerUps;
+    const reach = (right - left) * view.energyWallBlend;
+    const from = Math.max(left, Math.round(view.energyWallOriginX - reach));
+    const to = Math.min(right, Math.round(view.energyWallOriginX + reach));
+    if (to > from) {
+      this.pixel(from, wallY, to - from, 2, canvasPalette.energyWall);
+    }
+    if (view.energyWallStrike) {
+      this.pixel(view.energyWallOriginX - 1, wallY, 2, 2, canvasPalette.energyWallCore);
+    }
   }
 
   // A pinball disc: a rose body with a white outline and a dark eye. It never
