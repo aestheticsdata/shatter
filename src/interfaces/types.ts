@@ -134,6 +134,13 @@ export interface Bumper {
   x: number;
   y: number;
   flashTicksLeft: number;
+  // The disc's own two ends. While either is running the disc is a ring and not
+  // a surface: `arriveTicksLeft` counts its ring closing onto the spot it will
+  // occupy — and can start above `arriveTicks`, which is the disc waiting its
+  // turn in the stagger — and `leaveTicksLeft` counts the ring travelling back
+  // out after the power is cut, with the record spliced when it reaches zero.
+  arriveTicksLeft: number;
+  leaveTicksLeft: number;
 }
 
 export interface BrickFlash {

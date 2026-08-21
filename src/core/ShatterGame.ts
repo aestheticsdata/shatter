@@ -692,6 +692,10 @@ export class ShatterGame {
     this.railMarks = this.railMarks.filter((mark) => --mark.ticksLeft > 0);
     this.particles.step(this.cores);
     this.quake.step();
+    // Moved up out of the tick body: a NUKE catching the rack mid-arrival is
+    // exactly the case this rule exists for, and a disc frozen halfway in is a
+    // ring hanging over a spot nothing will ever land on.
+    this.bumpers.step();
     // One number, read by the hitbox and by everything painted in wall
     // coordinates. Assigned here rather than in `Quake` so the grid keeps
     // knowing nothing about the capsule that moved it — and above the freeze
@@ -876,7 +880,6 @@ export class ShatterGame {
         core.step();
       }
     }
-    this.bumpers.step();
     // The deck goes back to base only when the last width capsule has run out:
     // a WIDE expiring under the JAMMER caught over it must not widen it again.
     if (expired.some(isPaddleWidthKind) && !PADDLE_WIDTH_KINDS.some((kind) => this.timers.isActive(kind))) {
@@ -904,7 +907,10 @@ export class ShatterGame {
       this.closeCore(this.vortex);
     }
     if (expired.includes("O")) {
-      this.bumpers.reset();
+      // Seen leaving rather than cut: the records stay for twelve ticks while
+      // their rings travel out, and the kick loop has already stopped reading
+      // them, so the picture is the only thing still running.
+      this.bumpers.retire();
     }
     // The wall setting again. Balls still inside it stay intangible until they
     // are out — `ghosted` owns that — so this is only the announcement.
@@ -1377,6 +1383,12 @@ export class ShatterGame {
     const centerY = ball.y + size / 2;
 
     for (const disc of this.bumpers.discs) {
+      // A converging ring is a warning that a surface is coming and a diverging
+      // one is what a surface left behind. Kicking a ball off either would be
+      // the bug this whole transition exists to avoid, in reverse.
+      if (disc.arriveTicksLeft > 0 || disc.leaveTicksLeft > 0) {
+        continue;
+      }
       const toBallX = ball.centerX - disc.x;
       const toBallY = centerY - disc.y;
       const distance = Math.hypot(toBallX, toBallY);
@@ -1606,7 +1618,12 @@ export class ShatterGame {
         this.bumpers.streak++;
         if (this.bumpers.streak >= gameConfig.powerUps.bumpers.streakLimit) {
           this.timers.deactivate("O");
-          this.bumpers.reset();
+          // `retire` and not `reset`, and it has to be said here: `deactivate`
+          // puts nothing in `expired`, so the expiry branch never runs for this
+          // one. The ball is released on this tick either way — the discs stop
+          // being read the moment they start leaving — and this is what buys
+          // the departure being seen as well as taken.
+          this.bumpers.retire();
         }
       }
 
@@ -2696,7 +2713,13 @@ export class ShatterGame {
     if (kind === "O") {
       // A second catch buys time on the set already out there: moving the discs
       // out from under a ball mid-rally would be the game changing its mind.
-      if (!this.bumpers.active) {
+      if (this.bumpers.active) {
+        // A rack halfway out of the door comes back rather than leaving a live
+        // timer over an empty field, and a rack simply standing there lights
+        // its eyes. One call, because they are the same sentence: the set you
+        // already have, topped up.
+        this.bumpers.revive();
+      } else {
         this.bumpers.spawn(gameConfig.grid.top + this.grid.rows.length * gameConfig.grid.brickHeight);
       }
       this.timers.activate("O", durations.O);

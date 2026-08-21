@@ -64,7 +64,7 @@ export class BumperField {
           if (this.discs.some((disc) => Math.hypot(x - disc.x, y - disc.y) < minGap)) {
             continue;
           }
-          this.discs.push({ x, y, flashTicksLeft: 0 });
+          this.discs.push({ x, y, flashTicksLeft: 0, arriveTicksLeft: 0, leaveTicksLeft: 0 });
           break;
         }
       }
@@ -73,15 +73,79 @@ export class BumperField {
     if (this.discs.length < FALLBACK_LAYOUT.length) {
       this.discs.length = 0;
       for (const [x, y] of FALLBACK_LAYOUT) {
-        this.discs.push({ x, y, flashTicksLeft: 0 });
+        this.discs.push({ x, y, flashTicksLeft: 0, arriveTicksLeft: 0, leaveTicksLeft: 0 });
       }
+    }
+
+    // Seeded here rather than at each push, so both placement paths get the same
+    // ladder. Array order is bottom-up by construction — the lower discs are laid
+    // first and the backstops after them — so the rack lights from the deck up
+    // and the player can count five.
+    const { arriveTicks, staggerTicks } = gameConfig.powerUps.bumpers;
+    this.discs.forEach((disc, index) => {
+      disc.arriveTicksLeft = arriveTicks + index * staggerTicks;
+    });
+  }
+
+  /**
+   * The power cut: every disc leaves together, each on its own outward ring.
+   *
+   * Not staggered, unlike the arrival. A boot sequence comes up one lamp at a
+   * time and a power cut does not, and it keeps the picture honest — after the
+   * timer there is nothing on screen a ball could have hit. A disc still on its
+   * way in never lands: its ring turns around where it is.
+   */
+  retire(): void {
+    const { leaveTicks } = gameConfig.powerUps.bumpers;
+    for (const disc of this.discs) {
+      disc.arriveTicksLeft = 0;
+      disc.leaveTicksLeft = leaveTicks;
+    }
+    this.streak = 0;
+  }
+
+  /**
+   * A second catch over a rack that is already out there.
+   *
+   * The dead case this exists for: the catch branch only spawns when the field
+   * is empty, and a rack in the middle of leaving still holds five records — so
+   * without this a player who caught the next O during those twelve ticks would
+   * buy a live 720-tick timer, BUMPERS in the POWER inset, and an empty field.
+   * The discs they were watching go snap back instead, with the kick eye lit,
+   * which is a top-up said in the rack's own language and costs no respawn.
+   *
+   * On a rack that is simply live it is only that eye — the one thing a second
+   * catch has never had to show for itself.
+   */
+  revive(): void {
+    const { flashTicks } = gameConfig.powerUps.bumpers;
+    for (const disc of this.discs) {
+      disc.leaveTicksLeft = 0;
+      disc.flashTicksLeft = flashTicks;
     }
   }
 
+  // Backwards, because it splices the array it is walking.
   step(): void {
-    for (const disc of this.discs) {
+    const { flashTicks } = gameConfig.powerUps.bumpers;
+    for (let index = this.discs.length - 1; index >= 0; index--) {
+      const disc = this.discs[index];
       if (disc.flashTicksLeft > 0) {
         disc.flashTicksLeft--;
+      }
+      if (disc.arriveTicksLeft > 0) {
+        disc.arriveTicksLeft--;
+        // The tick it lands it wears the eye it wears when it pays, so a disc's
+        // first frame is it kicking itself into existence.
+        if (disc.arriveTicksLeft === 0) {
+          disc.flashTicksLeft = flashTicks;
+        }
+      }
+      if (disc.leaveTicksLeft > 0) {
+        disc.leaveTicksLeft--;
+        if (disc.leaveTicksLeft === 0) {
+          this.discs.splice(index, 1);
+        }
       }
     }
   }

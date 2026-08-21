@@ -1407,7 +1407,37 @@ export class CanvasRenderer {
   // eye white and throws a ring out past the body, which is the whole tell that
   // this disc — not one of the others — is the one that just paid.
   private drawBumper(bumper: Bumper): void {
-    const { radius, flashTicks } = gameConfig.powerUps.bumpers;
+    const { radius, flashTicks, arriveTicks, leaveTicks } = gameConfig.powerUps.bumpers;
+
+    // Arriving: a ring 12 px out from the spot the disc will take, closing onto
+    // it and brightening as it tightens, and nothing else on the field. The
+    // counter starts above `arriveTicks` while a disc waits its turn in the
+    // stagger, and nothing at all is drawn until its own twelve ticks begin —
+    // which is what makes the rack light bottom-up rather than all at once.
+    //
+    // Growing the sprite was never available: the radius is baked into two
+    // hand-tabled pixel row sets, and a scaled draw would resample pixel art
+    // the game deliberately does not resample.
+    if (bumper.arriveTicksLeft > 0) {
+      if (bumper.arriveTicksLeft > arriveTicks) {
+        return;
+      }
+      const out = bumper.arriveTicksLeft / arriveTicks;
+      // Floored rather than run from zero: a one-pixel stroke at 8 % alpha is
+      // not a faint ring, it is nothing, and the first frame is the one that
+      // has to say a disc is coming.
+      this.strokeBumperRing(bumper, radius + 3 + out * 9, 0.25 + 0.75 * (1 - out));
+      return;
+    }
+    // Leaving: the same ring travelling the other way, on the kick flash's own
+    // alpha ramp — the ring is the disc's own material, so a power cut is said
+    // in the language the disc already uses for paying out.
+    if (bumper.leaveTicksLeft > 0) {
+      const left = bumper.leaveTicksLeft / leaveTicks;
+      this.strokeBumperRing(bumper, radius + 3 + (1 - left) * 9, left);
+      return;
+    }
+
     const left = bumper.x - radius;
     const top = bumper.y - radius;
     const flashing = bumper.flashTicksLeft > 0;
@@ -1425,14 +1455,21 @@ export class CanvasRenderer {
     });
 
     if (flashing) {
-      this.ctx.strokeStyle = this.ink(canvasPalette.bumperRim);
-      this.ctx.lineWidth = 1 * SCALE;
-      this.ctx.globalAlpha = bumper.flashTicksLeft / flashTicks;
-      this.ctx.beginPath();
-      this.ctx.arc(bumper.x * SCALE, bumper.y * SCALE, (radius + 3) * SCALE, 0, Math.PI * 2);
-      this.ctx.stroke();
-      this.ctx.globalAlpha = 1;
+      this.strokeBumperRing(bumper, radius + 3, bumper.flashTicksLeft / flashTicks);
     }
+  }
+
+  // The one ring a disc ever draws, at whatever radius and strength the thing
+  // asking for it is at: the kick, the arrival and the departure are the same
+  // white circle read three ways.
+  private strokeBumperRing(bumper: Bumper, radius: number, alpha: number): void {
+    this.ctx.strokeStyle = this.ink(canvasPalette.bumperRim);
+    this.ctx.lineWidth = 1 * SCALE;
+    this.ctx.globalAlpha = alpha;
+    this.ctx.beginPath();
+    this.ctx.arc(bumper.x * SCALE, bumper.y * SCALE, radius * SCALE, 0, Math.PI * 2);
+    this.ctx.stroke();
+    this.ctx.globalAlpha = 1;
   }
 
   // Full-field impact flash for the first ticks, then the expanding shockwave

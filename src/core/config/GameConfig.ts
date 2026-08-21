@@ -308,6 +308,19 @@ export const gameConfig = {
       coreKeepOut: 40,
       placementTries: 40,
       flashTicks: 6,
+      // The rack lighting up and losing power. Per-disc counters and not a
+      // blend, because the arrival is staggered and a single number cannot say
+      // where five discs are: `arriveTicks` is one disc's own ring closing onto
+      // the spot it will occupy, `staggerTicks` is the gap between one disc
+      // starting and the next, and `leaveTicks` is every ring travelling back
+      // out on the expiry. Twelve is the singularity iris exactly — already the
+      // game's duration for an object arriving on the field.
+      //
+      // Six apart over five discs puts the last one down at tick 36, which is
+      // slow enough to count them and 5 % of a 720-tick life.
+      arriveTicks: 12,
+      staggerTicks: 6,
+      leaveTicks: 12,
       // Consecutive kicks with nothing else touched in between. A ball wedged
       // between two discs never comes down on its own, so the set lets go.
       streakLimit: 10,
