@@ -2,6 +2,7 @@ import { gameConfig, peelFlightTicks } from "@core/config/GameConfig";
 import { MALUS_KINDS, POWER_UP_GLYPHS } from "@core/config/powerUps";
 import { type Ball, paceGhost } from "@entities/ball/Ball";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
+import { DROP_HEIGHT } from "@entities/powerups/DropPool";
 import { BackgroundLayer } from "@render/backgrounds";
 import {
   BRICK_COLORS,
@@ -2042,8 +2043,20 @@ export class CanvasRenderer {
 
     for (const drop of drops) {
       const fromX = drop.x + 10;
-      const fromY = drop.y + 8;
-      if (!drop.active || Math.abs(toX - fromX) > reach) {
+      const fromY = drop.y + DROP_HEIGHT;
+      // Nothing is tethered to a capsule the player cannot see yet. A rained one
+      // is born above the frame, and these dashes are drawn before `drawWalls`,
+      // so without this the only rows covered would be the frame's own three and
+      // the rest would be a line running down to a head that is not there. The
+      // bound is the pill's bottom edge against the ceiling, so the tether
+      // appears on the same frame the pill does.
+      //
+      // The pull itself is deliberately not gated with it. The capsule really is
+      // inside the band, and the band is still one number — this culls what can
+      // be drawn, not what the magnet is holding. Gated too, a pill would clear
+      // the frame on its launch line and only then start sliding, which is the
+      // magnet visibly picking it up late.
+      if (!drop.active || drop.y + DROP_HEIGHT <= gameConfig.field.top || Math.abs(toX - fromX) > reach) {
         continue;
       }
       const spanX = toX - fromX;

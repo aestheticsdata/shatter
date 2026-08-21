@@ -6,7 +6,9 @@ import type { Core } from "@entities/effects/Singularity";
 import type { PowerUpKind, RectangleBounds } from "@interfaces/types";
 
 const DROP_WIDTH = 20;
-const DROP_HEIGHT = 8;
+// Exported for the renderer's magnet tethers, which need to know when a capsule
+// has cleared the ceiling. One statement of the pill's height rather than two.
+export const DROP_HEIGHT = 8;
 const NO_EXCLUSIONS: readonly PowerUpKind[] = [];
 // RAIN bars itself so one shower cannot chain into the next, and METEOR because
 // four rained capsules would be twelve rocks — twice what the volley pool holds,
@@ -148,9 +150,18 @@ export class DropPool {
    *
    * RAIN's shower is this with rolled kinds, and the dev console's `power` is
    * this with named ones — one implementation, so a capsule asked for by hand
-   * falls exactly the way a rained one does. Evenly spaced by index with a
-   * little jitter, because the point of a spread is that every one of them can
-   * be reached, and two capsules on the same pixel are one capsule.
+   * falls exactly the way a rained one does, including in through the ceiling.
+   * Evenly spaced by index with a little jitter, because the point of a spread
+   * is that every one of them can be reached, and two capsules on the same pixel
+   * are one capsule.
+   *
+   * They are born **above** the frame, not inside the field: a pill-height clear
+   * of it plus a one-sided scatter, so each one wipes into view a row at a time
+   * from under the band `drawWalls` paints over the top three pixels — which is
+   * laid down after both drop-draw paths, the ordinary one and the blackout one,
+   * so the pill is covered in a blackout too. Before this, four opaque full-size
+   * capsules existed inside the playfield on a frame where nothing had been,
+   * with no flash or shatter to cover it.
    *
    * Returns how many the pool had room for — see `freeSlots` for asking first.
    */
@@ -164,7 +175,9 @@ export class DropPool {
       }
       drop.kind = kind;
       drop.x = left + ((spawned + 0.5) * (right - left)) / kinds.length - DROP_WIDTH / 2 + (Math.random() - 0.5) * 16;
-      drop.y = top + 8;
+      // The x jitter above is symmetric because a lane may be off either way;
+      // this one is not, because a capsule may only ever start higher.
+      drop.y = top - DROP_HEIGHT - Math.random() * gameConfig.powerUps.ceilingSpawnSpread;
       drop.active = true;
       spawned++;
     }

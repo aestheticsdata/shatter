@@ -110,6 +110,21 @@ export const gameConfig = {
     shotSpeed: 5.5,
     maxShots: 6,
     dropFallSpeed: 1.3,
+    // How much higher than the ceiling a capsule spawned across the top may
+    // start. Rain falls *into* the field: the birth is a full pill-height above
+    // the frame, and this is the scatter on top of it, so the shower arrives as
+    // weather rather than as four pills crossing the deck line on the same frame
+    // spread over 366 px — a set that is uncatchable by construction, which is
+    // RAIN promising four capsules and delivering one or two.
+    //
+    // One-sided, unlike the x jitter it sits beside: a capsule may start higher
+    // than the ceiling but never lower, or the entrance it exists to give back
+    // would be skipped. `dropFallSpeed` then performs the whole transition — 8 px
+    // plus up to 16 at 1.3 a tick is ~6 to ~18 ticks of a pill wiping into view
+    // one row at a time from under the frame — so this is a distance and not a
+    // fade counter, and a rained capsule enters on exactly the physics a
+    // brick-dropped one does. 0 keeps the wipe and drops the weather.
+    ceilingSpawnSpread: 16,
     // 3 slots silently swallowed spawns whenever 3 capsules were airborne —
     // constant at ?droprate=1, where QA reads the missing capsules as a bug.
     maxDrops: 6,
