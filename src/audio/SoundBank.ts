@@ -226,6 +226,27 @@ export class SoundBank {
     this.tone({ freq: 300, freqEnd: 1200, dur: 0.09, vol: 0.05, type: "sawtooth", delayS: 0.04 });
   }
 
+  // The two mouths cutting themselves open, and pinching shut. A door is a
+  // mechanism, so this is a mechanism: a short filtered rush with a low body
+  // under it, rising as the aperture grows and falling as it closes. Distinct
+  // from `portalWarp` above by having no pitched voice at all — the transit is
+  // an event and this is the thing the events happen through.
+  portalOpen(): void {
+    if (!this.allow("portalDoor")) {
+      return;
+    }
+    this.noise({ dur: 0.34, vol: 0.1, filter: { type: "bandpass", freq: 420, freqEnd: 2600, q: 2.4 } });
+    this.tone({ freq: 90, freqEnd: 150, dur: 0.2, vol: 0.05, type: "triangle" });
+  }
+
+  portalShut(): void {
+    if (!this.allow("portalDoor")) {
+      return;
+    }
+    this.noise({ dur: 0.34, vol: 0.1, filter: { type: "bandpass", freq: 2600, freqEnd: 420, q: 2.4 } });
+    this.tone({ freq: 150, freqEnd: 80, dur: 0.22, vol: 0.06, type: "triangle" });
+  }
+
   // The wall going out of phase, and coming back. Two halves of one gesture:
   // noise opening upward as the bricks thin out, closing downward as they set.
   // Noise only — a pitched voice would make an event out of what is a change of

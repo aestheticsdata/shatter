@@ -482,6 +482,16 @@ export const gameConfig = {
     // 0.35 s power-down, so the sound is the switch and this is the lights
     // going with it.
     blackoutFadeTicks: 45,
+    // PORTAL's door, each way: how long the mouths take to cut open from their
+    // own centre line and to pinch shut again. Twenty rather than the fade's
+    // thirty because a door is a mechanism and not a dissolve — 48 px at 1.2 a
+    // tick per lip, more than twice the speed the stripes inside it scroll at,
+    // so the aperture visibly outruns its own contents.
+    //
+    // Spent out of the capsule's own 1800 ticks at the far end, not after them:
+    // the mouth is a hitbox, and a hitbox that outlives its timer would be the
+    // first in the game.
+    portalFadeTicks: 20,
     // FLIP's turn, each way. The field does not switch over: it rotates about
     // its own centre, shrinking just enough on the way round to clear the wall
     // frame, and rotates back out when the capsule expires. 30 ticks is the

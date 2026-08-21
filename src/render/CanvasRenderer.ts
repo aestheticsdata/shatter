@@ -368,6 +368,10 @@ const DEMAKE_SCANLINE_STEP = 3;
 // height is the sprite's alone, and only decides how far up the rail it sits.
 const PEEL_HEIGHT = 5;
 
+// The height a doorway reaches when it has finished cutting itself open, which
+// is the one thing that tells a travelling lip from a settled edge.
+const PORTAL_FULL = gameConfig.powerUps.portalHeight;
+
 // One entry per pixel row of a portal mouth, repeating: three bands of three.
 const PORTAL_STRIPES: readonly string[] = [
   canvasPalette.portalBright,
@@ -430,7 +434,14 @@ export interface RenderView {
   // the ball that just went straight through where the ghost was.
   mirrorAfterImage: number;
   magnetActive: boolean;
-  portalActive: boolean;
+  /**
+   * PORTAL's doorway as it stands this frame: the top of the aperture and how
+   * many rows of it there are, 0 when the wall is whole. Two numbers off the
+   * simulation rather than a blend to re-derive here, because these exact rows
+   * are also the hole a ball is let through.
+   */
+  portalMouthTop: number;
+  portalMouthHeight: number;
   // XRAY: show every brick the capsule it is holding, for as long as it lasts —
   // 0 unread, 1 the whole wall read, and in between how far down the reading
   // edge has got. What changes over a sweep is the *depth* that can be seen
@@ -1301,8 +1312,12 @@ export class CanvasRenderer {
     // Inside the turn with the field: the frame is closed at the top and open
     // at the bottom, so which edge kills is drawn rather than remembered.
     this.drawWalls();
-    if (view.portalActive) {
-      this.drawPortals();
+    // After the frame and never instead of it: the rows outside the aperture
+    // are simply not painted, so what closes the gap as the door pinches shut
+    // is the real wall this call has just laid down, not a tint of it. A door
+    // cut into a wall, rather than stripes ghosting up through one.
+    if (view.portalMouthHeight > 0) {
+      this.drawPortals(view.portalMouthTop, view.portalMouthHeight, view.portalMouthHeight < PORTAL_FULL);
     }
     this.ctx.restore();
 
@@ -2141,15 +2156,27 @@ export class CanvasRenderer {
     });
   }
 
-  // The two mouths, painted over the wall frame they replace: three bands
-  // scrolling upward, so an opening reads as moving even with no ball near it.
-  private drawPortals(): void {
-    const { portalTop, portalHeight } = gameConfig.powerUps;
+  /**
+   * The two mouths, painted over the wall frame they replace: three bands
+   * scrolling upward, so an opening reads as moving even with no ball near it.
+   *
+   * `lips` marks the two rows the cut is travelling on while the door is still
+   * moving, white-hot so the edge is legible against its own contents. They are
+   * `bumperRim` and not `portalBright` for a measurable reason: three of the
+   * nine stripe rows are already `portalBright`, so a leading edge painted in
+   * it would vanish every time the scroll put a bright band under it — the tell
+   * blinking on and off at the stripe cycle's own rate. And they are dropped
+   * once the door is fully open, because a lip is where the cut has *reached*;
+   * a door that has finished opening is not cutting anything.
+   */
+  private drawPortals(top: number, height: number, lips: boolean): void {
     const offset = (this.frameCount >> 1) % PORTAL_STRIPES.length;
-    for (let row = 0; row < portalHeight; row++) {
-      const color = PORTAL_STRIPES[(row + offset) % PORTAL_STRIPES.length];
-      this.pixel(0, portalTop + row, 3, 1, color);
-      this.pixel(gameConfig.field.width - 3, portalTop + row, 3, 1, color);
+    const width = gameConfig.field.width;
+    for (let row = 0; row < height; row++) {
+      const onLip = lips && (row === 0 || row === height - 1);
+      const color = onLip ? canvasPalette.bumperRim : PORTAL_STRIPES[(row + offset) % PORTAL_STRIPES.length];
+      this.pixel(0, top + row, 3, 1, color);
+      this.pixel(width - 3, top + row, 3, 1, color);
     }
   }
 

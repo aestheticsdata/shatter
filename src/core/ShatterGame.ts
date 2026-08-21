@@ -346,6 +346,23 @@ export class ShatterGame {
   // only: the dark is already owed the moment the capsule is caught, and this
   // number decides nothing but how much of the field the light still reaches.
   private blackoutBlend = 0;
+  /**
+   * PORTAL's door, 0 shut to 1 cut all the way open — and the only blend in the
+   * game that closes *inside* its own capsule rather than after it.
+   *
+   * The mouth is a hole in a wall that otherwise bounces, so the aperture has
+   * to be the hitbox or a ball vanishes into a hairline crack. Driven down off
+   * `!isActive("PO")` it would leave that hitbox live for twenty ticks after
+   * the timer said the capsule was over, with the panel already having dropped
+   * PORTAL — balls still warping through a doorway the game had stopped
+   * admitting to. So the fall starts at `remaining("PO") <= portalFadeTicks`
+   * and the door is pinched shut on the exact tick the timer expires.
+   *
+   * The cost is real and small, and all of it at the edges: the mouth opens
+   * from its centre line, which is where transits actually happen, so what is
+   * missing for those forty ticks is the outer 23 px of a 48 px door.
+   */
+  private portalBlend = 0;
   // FLIP's turn, 0 upright to 1 fully over. Presentational like the three above
   // it — the ball is played the same way up throughout, and the only thing that
   // turns with the picture is which way round the hand steering it is read.
@@ -528,6 +545,7 @@ export class ShatterGame {
       this.accumulator -= gameConfig.loop.tickMs;
     }
 
+    const mouth = this.portalMouth();
     this.deps.renderer.draw({
       background: levelAt(this.level).background,
       backgroundVariant: levelIndexOf(this.level),
@@ -548,7 +566,11 @@ export class ShatterGame {
       mirrorForm: this.mirrorForm,
       mirrorAfterImage: this.mirrorAfterImageTicks / gameConfig.effects.mirrorAfterImageTicks,
       magnetActive: this.timers.isActive("K"),
-      portalActive: this.timers.isActive("PO"),
+      // The two numbers and not the blend: the mouth the renderer paints has to
+      // be the mouth a ball is let through, by construction rather than by two
+      // formulas agreeing.
+      portalMouthTop: mouth.top,
+      portalMouthHeight: mouth.height,
       // The scan's boundary and the scan's clock. The bar itself is only drawn
       // while the blend is between its ends, so no line sits on the wall for
       // the 260 ticks in the middle.
@@ -712,6 +734,26 @@ export class ShatterGame {
       this.timers.isActive("BK"),
       gameConfig.effects.blackoutFadeTicks,
     );
+    // Above the gates with the rest: a door caught halfway by a shockwave is a
+    // hitbox frozen halfway, and this one is the only blend that is one.
+    const doorWas = this.portalBlend;
+    this.portalBlend = stepBlend(
+      this.portalBlend,
+      // Both halves of the test. The second is what spends the closing ticks
+      // out of the capsule's own eighteen hundred instead of borrowing twenty
+      // it does not own, and the blends step above `timers.tick()`, so the
+      // last fall lands on the same frame the timer reaches zero.
+      this.timers.isActive("PO") && this.timers.remaining("PO") > gameConfig.effects.portalFadeTicks,
+      gameConfig.effects.portalFadeTicks,
+    );
+    // Fired on the frame each cut starts rather than on the catch and the
+    // expiry, so the sound is the door and not the capsule: a PORTAL taken over
+    // a live one moves nothing and says nothing.
+    if (doorWas === 0 && this.portalBlend > 0) {
+      this.deps.sfx.portalOpen();
+    } else if (doorWas === 1 && this.portalBlend < 1) {
+      this.deps.sfx.portalShut();
+    }
     // Above the freeze gates with the rest, and for the starkest reason of the
     // four: a NUKE caught mid-turn would otherwise park the field on its side
     // for the length of the sweep.
@@ -1132,6 +1174,22 @@ export class ShatterGame {
   }
 
   /**
+   * Where the doorway is this frame: the top of the aperture and how tall it is,
+   * in game pixels, 0 tall when the wall is whole.
+   *
+   * One method and not a formula written twice, because the renderer paints
+   * these rows and the transit test reads them, and two copies that have to
+   * agree to the pixel are two copies that eventually will not. The height is
+   * forced even so the aperture stays symmetric about its own centre line and
+   * the top stays a whole pixel.
+   */
+  private portalMouth(): { top: number; height: number } {
+    const { portalTop, portalHeight } = gameConfig.powerUps;
+    const open = 2 * Math.round((portalHeight * this.portalBlend) / 2);
+    return { top: portalTop + (portalHeight - open) / 2, height: open };
+  }
+
+  /**
    * The topmost row PAYDAY's tide has reached, and the wall's row count while it
    * has reached none — one number for the standing wall and for the flash a kill
    * leaves behind it, so the two cannot disagree about where the front is.
@@ -1496,8 +1554,8 @@ export class ShatterGame {
     // after-image that outlives it deliberately does not appear here.
     const mirror = this.mirrorSegments();
     const deck = this.paddleSegments();
-    const { portalTop, portalHeight, portalInset } = gameConfig.powerUps;
-    const portalsOpen = this.timers.isActive("PO");
+    const { portalInset } = gameConfig.powerUps;
+    const mouth = this.portalMouth();
     if (ball.portalCooldown > 0) {
       ball.portalCooldown--;
     }
@@ -1573,9 +1631,12 @@ export class ShatterGame {
       // A transit replaces the bounce the ball would otherwise have taken, which
       // is why it sits above the clamps. Neither `y` nor `velocity` is touched,
       // so the ball arrives at the same height on the same heading.
-      if (portalsOpen && ball.portalCooldown === 0) {
+      if (mouth.height > 0 && ball.portalCooldown === 0) {
         const center = ball.y + size / 2;
-        const inMouth = center >= portalTop && center <= portalTop + portalHeight;
+        // Exclusive at the bottom, so the hole a ball is let through is exactly
+        // the rows that are painted — inclusive it was 49 px against a 48 px
+        // door, and the odd pixel was the one at the very edge of the mouth.
+        const inMouth = center >= mouth.top && center < mouth.top + mouth.height;
         const leftward = ball.x <= left && ball.velocity.x < 0 ? right - size - portalInset : null;
         const rightward = ball.x >= right - size && ball.velocity.x > 0 ? left + portalInset : null;
         const landing = leftward ?? rightward;
@@ -2332,6 +2393,7 @@ export class ShatterGame {
     this.xraySweepSpan = 0;
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
+    this.portalBlend = 0;
     this.flipTurn = 0;
     this.turboSpool = 0;
     this.tempoBlend = 0;
@@ -3170,6 +3232,7 @@ export class ShatterGame {
     this.xraySweepSpan = 0;
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
+    this.portalBlend = 0;
     this.flipTurn = 0;
     this.turboSpool = 0;
     this.tempoBlend = 0;
@@ -3226,6 +3289,7 @@ export class ShatterGame {
     this.xraySweepSpan = 0;
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
+    this.portalBlend = 0;
     this.flipTurn = 0;
     this.turboSpool = 0;
     this.tempoBlend = 0;
