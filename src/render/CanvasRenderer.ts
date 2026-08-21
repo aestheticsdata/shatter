@@ -433,7 +433,12 @@ export interface RenderView {
   // was last a surface down to 0. It returns nothing; it is the explanation for
   // the ball that just went straight through where the ghost was.
   mirrorAfterImage: number;
-  magnetActive: boolean;
+  /**
+   * MAGNET's reach in px either side of the deck's centre, 0 when there is
+   * none. The band the pull actually has this frame, so the tethers are cut to
+   * exactly the range that is holding the capsules they are drawn on.
+   */
+  magnetReach: number;
   /**
    * PORTAL's doorway as it stands this frame: the top of the aperture and how
    * many rows of it there are, 0 when the wall is whole. Two numbers off the
@@ -1225,8 +1230,8 @@ export class CanvasRenderer {
     for (const bumper of view.bumpers) {
       this.drawBumper(bumper);
     }
-    if (view.magnetActive) {
-      this.drawMagnetTethers(view.paddle, view.drops);
+    if (view.magnetReach > 0) {
+      this.drawMagnetTethers(view.paddle, view.drops, view.magnetReach);
     }
     // Under the deck as always — except in a blackout, which paints them again
     // above its veil instead. See `drawBlackout` for why they stay lit.
@@ -2014,15 +2019,31 @@ export class CanvasRenderer {
   // MAGNET's pull is silent and gentle enough to miss, so every capsule it has
   // hold of is tied to the paddle by a dashed line. The dashes step one place
   // every four frames, which reads as a crawl toward the paddle.
-  private drawMagnetTethers(paddle: PaddleRenderState, drops: readonly Drop[]): void {
+  private drawMagnetTethers(paddle: PaddleRenderState, drops: readonly Drop[], reach: number): void {
     const toX = paddle.x + paddle.width / 2;
     const toY = gameConfig.paddle.y;
     const phase = (this.frameCount >> 2) % TETHER_DASH_SPACING;
 
+    // The two edges of the band, on the rail. Without them the whole transition
+    // is usually invisible: the reach opens across an empty field, because the
+    // capsule the catch guarantees is only guaranteed on the *next* kill and
+    // then falls for a hundred ticks before it means anything. They are also
+    // the first thing the game has ever drawn that says the magnet is a
+    // horizontal band and not a radius.
+    const { left, right } = gameConfig.field;
+    for (const edge of [toX - reach, toX + reach]) {
+      // Skipped rather than clamped when the band runs off the field: a mark
+      // pinned to the wall would claim the reach ends there, which is a lie
+      // about the only thing these marks exist to say.
+      if (edge >= left && edge < right) {
+        this.pixel(edge, gameConfig.paddle.y + 2, 1, 3, canvasPalette.magnetTether);
+      }
+    }
+
     for (const drop of drops) {
       const fromX = drop.x + 10;
       const fromY = drop.y + 8;
-      if (!drop.active || Math.abs(toX - fromX) > gameConfig.powerUps.magnet.rangeX) {
+      if (!drop.active || Math.abs(toX - fromX) > reach) {
         continue;
       }
       const spanX = toX - fromX;

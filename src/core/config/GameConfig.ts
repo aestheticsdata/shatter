@@ -233,7 +233,19 @@ export const gameConfig = {
     // 1.3 px/tick fall keeps the steepest slant at 47 degrees: capsules lean in,
     // they never dive. If a near miss reads as broken rather than as tension,
     // raise `pullMin` first — `rangeX` also decides how many tethers are drawn.
-    magnet: { rangeX: 96, pullMax: 1.4, pullMin: 0.6 },
+    magnet: {
+      rangeX: 96,
+      pullMax: 1.4,
+      pullMin: 0.6,
+      // The reach opening out of the deck and closing back into it. What
+      // arrives and leaves is the *range* and never the strength: a magnet that
+      // warmed up everywhere at once would feel unreliable exactly where
+      // catches are decided, and 96 px over 20 ticks is 4.8 a tick — nearly
+      // four times the 1.3 a capsule falls, so the edge overtakes the field
+      // rather than crawling after it, taking hold of each capsule in order of
+      // distance as it sweeps past.
+      reachTicks: 20,
+    },
     // SINGULARITY. It opens mid-field: below the deepest grid, which bottoms out
     // at y 134, and 126 px clear of the paddle, so it can bend a ball off the
     // loss line rather than into it.

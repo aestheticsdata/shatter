@@ -38,7 +38,10 @@ export function rollDropKind(exclude: readonly PowerUpKind[] = NO_EXCLUSIONS): P
 // core swallows. A capsule-bending effect adds a field here rather than another
 // parameter to `step`, which is why this is a bag and not three arguments.
 export interface DropField {
-  magnetActive: boolean;
+  // MAGNET's reach in px, 0 when there is none. The scaled range as a value
+  // rather than a flag plus a constant, so the gate the simulation reads and
+  // the cut the renderer draws its tethers to are the same number.
+  magnetReach: number;
   // Both holes, open or not — SINGULARITY's and VORTEX's. Where each one is and
   // how far it reaches is all that matters here, and a capsule between two open
   // holes answers to the nearer one alone.
@@ -61,13 +64,23 @@ export interface Drop {
 //
 // Aim is the centre and not the nearest edge, so a JAMMER-narrowed paddle
 // collects exactly as well as a WIDE one.
-function pullTowardDeck(drop: Drop, deckCenterX: number): void {
-  const { rangeX, pullMax, pullMin } = gameConfig.powerUps.magnet;
+function pullTowardDeck(drop: Drop, deckCenterX: number, rangeX: number): void {
+  const { pullMax, pullMin } = gameConfig.powerUps.magnet;
+  // The divide below is by `rangeX`, and a capsule sitting exactly on the deck
+  // centre with no reach yet would make it 0/0 — `Math.sign(0) * NaN` is NaN,
+  // and a capsule whose x is NaN is a capsule that is nowhere for the rest of
+  // its life. There is nothing to do at zero reach anyway.
+  if (rangeX <= 0) {
+    return;
+  }
   const offset = deckCenterX - (drop.x + DROP_WIDTH / 2);
   const gap = Math.abs(offset);
   if (gap > rangeX) {
     return;
   }
+  // The strength is never scaled with the range, only the reach is: this is the
+  // full pull over a shorter arm, so a capsule the edge has just taken hold of
+  // is held exactly as well as it will be in twenty ticks.
   drop.x += Math.sign(offset) * Math.min(Math.max(pullMax * (1 - gap / rangeX), pullMin), gap);
 }
 
@@ -192,9 +205,7 @@ export class DropPool {
         continue;
       }
 
-      if (field.magnetActive) {
-        pullTowardDeck(drop, deckCenterX);
-      }
+      pullTowardDeck(drop, deckCenterX, field.magnetReach);
       const core = nearestCore(field.cores, drop.x + DROP_WIDTH / 2, drop.y + DROP_HEIGHT / 2);
       if (core && pullIntoCore(drop, core)) {
         drop.active = false;

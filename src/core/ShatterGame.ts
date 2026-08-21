@@ -329,6 +329,18 @@ export class ShatterGame {
   // the collision stays binary on the capsule itself.
   private ghostBlend = 0;
   /**
+   * MAGNET's reach, 0 to 1 of the full 96 px either side of the deck.
+   *
+   * The range and not the strength, which is the whole design: the pull is at
+   * full power the instant the edge takes hold of a capsule, and what grows is
+   * how far out that edge is. It eases the simulation on purpose and the config
+   * already says why — the magnet "biases a capsule toward the paddle without
+   * ever promising it", so a ramp at each end bites only at the extreme edge,
+   * on the weakest pull the effect has, exactly where it already promises
+   * nothing.
+   */
+  private magnetBlend = 0;
+  /**
    * PAYDAY's tide, 0 dull to 1 the whole wall gilded. Presentational, and the
    * one blend in the game where that is a rule and not a preference:
    * `scoreMultiplier()` reads the timer and always will, because a brick killed
@@ -582,7 +594,9 @@ export class ShatterGame {
       },
       mirrorForm: this.mirrorForm,
       mirrorAfterImage: this.mirrorAfterImageTicks / gameConfig.effects.mirrorAfterImageTicks,
-      magnetActive: this.timers.isActive("K"),
+      // The reach in pixels, not a flag: the band the pull actually has this
+      // frame is the band the tethers are cut to and the marks are drawn at.
+      magnetReach: this.magnetReach(),
       // The two numbers and not the blend: the mouth the renderer paints has to
       // be the mouth a ball is let through, by construction rather than by two
       // formulas agreeing.
@@ -724,6 +738,9 @@ export class ShatterGame {
     // Above the freeze gates like the shake: a NUKE caught mid-fade must not
     // hold the wall half-dissolved on screen.
     this.ghostBlend = stepBlend(this.ghostBlend, this.timers.isActive("GH"), gameConfig.effects.ghostFadeTicks);
+    // Above the gates with the rest: a reach frozen halfway out is a band the
+    // player cannot read the edges of.
+    this.magnetBlend = stepBlend(this.magnetBlend, this.timers.isActive("K"), gameConfig.powerUps.magnet.reachTicks);
     // Beside it and for its reason exactly: a NUKE caught mid-tide must not hold
     // the wall half-gilded behind the shockwave.
     this.paydayBlend = stepBlend(this.paydayBlend, this.timers.isActive("X"), gameConfig.effects.paydayFadeTicks);
@@ -1029,7 +1046,7 @@ export class ShatterGame {
 
     if (this.clearCountdown === 0) {
       const field = {
-        magnetActive: this.timers.isActive("K"),
+        magnetReach: this.magnetReach(),
         cores: this.cores,
         onSwallowed: (x: number, y: number) => {
           this.particles.burst(x, y, "S", gameConfig.effects.brickDeathBurst);
@@ -1206,6 +1223,14 @@ export class ShatterGame {
       widest = Math.max(widest, (segment.right - segment.left) / 2);
     }
     return widest;
+  }
+
+  // How far out from the deck's centre the magnet can reach this frame, in px.
+  // One number for the pull's gate, the tethers' cut and the two rail marks —
+  // three things that would otherwise have to agree about a product they each
+  // computed for themselves.
+  private magnetReach(): number {
+    return gameConfig.powerUps.magnet.rangeX * this.magnetBlend;
   }
 
   /**
@@ -2451,6 +2476,7 @@ export class ShatterGame {
     this.critter.reset();
     this.meteors.reset();
     this.ghostBlend = 0;
+    this.magnetBlend = 0;
     this.paydayBlend = 0;
     this.xrayBlend = 0;
     this.xraySweepSpan = 0;
@@ -3312,6 +3338,7 @@ export class ShatterGame {
     this.critter.reset();
     this.meteors.reset();
     this.ghostBlend = 0;
+    this.magnetBlend = 0;
     this.paydayBlend = 0;
     this.xrayBlend = 0;
     this.xraySweepSpan = 0;
@@ -3369,6 +3396,7 @@ export class ShatterGame {
     this.critter.reset();
     this.meteors.reset();
     this.ghostBlend = 0;
+    this.magnetBlend = 0;
     this.paydayBlend = 0;
     this.xrayBlend = 0;
     this.xraySweepSpan = 0;
