@@ -84,6 +84,13 @@ export const gameConfig = {
   // machinery no single capsule owns.
   powerUps: {
     laserCadenceTicks: 26,
+    // STROBE (LASER+TEMPO): the cannons keep real time while the balls run at
+    // 0.6. Half the cadence, because the fusion has to be worth more than the
+    // slow motion took away from it.
+    comboLaserCadenceTicks: 13,
+    // NOVA (PIERCE+BLAST): the splash ring, in cells either side of the kill.
+    // BLAST's own 1 is the 8 neighbours; 2 is the 5x5 block, 24 cells.
+    comboBlastRadius: 2,
     laserFirstShotDelayTicks: 10,
     shotSpeed: 5.5,
     maxShots: 6,
@@ -326,6 +333,12 @@ export const gameConfig = {
     // level-clear bonus and a BUMPERS kick take PAYDAY alone, or FINALE would
     // pay 42 000 and a ball parked between two discs would farm 300 a kick.
     turboMultiplier: 3,
+    // JACKPOT (BLAST+PAYDAY), on splash kills only. It rides *on top of*
+    // PAYDAY's own double, which is live by definition here, so a splashed
+    // brick pays x4 — or x12 with TURBO over it, which is the point of lining
+    // three of them up. The direct hit that started the splash pays its own
+    // multiplier and is not touched.
+    jackpotMultiplier: 2,
     // One BUMPERS kick, between a brick (60-200) and the clear bonus. PAYDAY
     // doubles it like everything else.
     bumperPoints: 100,

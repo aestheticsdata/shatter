@@ -1,3 +1,4 @@
+import { COMBO_GLYPHS } from "@core/config/combos";
 import { POWER_UP_GLYPHS, POWER_UPS } from "@core/config/powerUps";
 import { dropGlyphFont, DROP_GLYPH_SPAN, SCALE } from "@render/CanvasRenderer";
 import { canvasPalette } from "@render/palette";
@@ -70,6 +71,18 @@ export function checkCapsuleLegibility(): void {
       console.warn(
         `[capsules] ${id}: ${color} has luminance ${luminance.toFixed(3)}, which usually wants dark: ${!dark}`,
       );
+    }
+  }
+
+  // A combo never falls, so it has no pill to measure or letter to contrast —
+  // but it is written in the same POWER inset as its halves, and the one thing
+  // that would make that inset lie is a fusion wearing a capsule's glyph. The
+  // derivation in `combos.ts` prevents it by construction; this is what says so
+  // out loud the day a name slips past it.
+  for (const [id, glyph] of Object.entries(COMBO_GLYPHS)) {
+    const twin = seen.get(glyph);
+    if (twin !== undefined) {
+      console.error(`[combos] ${id}: glyph "${glyph}" is also the ${twin} capsule's pill`);
     }
   }
 }

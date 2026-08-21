@@ -558,6 +558,16 @@ export class SoundBank {
     this.tone({ freq: 520, dur: 0.05, vol: 0.04 });
   }
 
+  // Two effects becoming a third: a bright major arpeggio, quick enough to read
+  // as one event rather than a jingle. Guarded, because two combos can form on
+  // the same catch and one fusion chord is the announcement, not two.
+  comboFuse(): void {
+    if (!this.allow("comboFuse")) {
+      return;
+    }
+    this.arp([523, 784, 1046], 40, { detunePair: true });
+  }
+
   gameStart(): void {
     this.arp([392, 523, 659], 60, { detunePair: true });
   }

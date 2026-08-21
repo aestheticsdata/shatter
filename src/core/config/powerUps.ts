@@ -247,8 +247,21 @@ export const GAMBLE_FACES: readonly PowerUpKind[] = POWER_UP_IDS.filter(
 // prefix of the other — the DEV legibility pass says so out loud if that ever
 // happens, since there is no length that would separate them.
 function glyphFor(name: string): string {
+  return glyphAgainst(name, ALL_NAMES);
+}
+
+/**
+ * The rule itself, over whatever field of names it is handed.
+ *
+ * Exported for the combo table (SHA-64), which runs its own names through it
+ * against the capsules *and* the combos, so a fusion never wears a capsule's
+ * opening. That call passes a wider field than this one does, and deliberately:
+ * only the combo may lengthen, because a capsule's pill is what the player
+ * learns and a combo — which never falls — may not move it.
+ */
+export function glyphAgainst(name: string, names: readonly string[]): string {
   let length = 2;
-  while (length < name.length && ALL_NAMES.filter((other) => other.startsWith(name.slice(0, length))).length > 1) {
+  while (length < name.length && names.filter((other) => other.startsWith(name.slice(0, length))).length > 1) {
     length++;
   }
   return name.slice(0, length);

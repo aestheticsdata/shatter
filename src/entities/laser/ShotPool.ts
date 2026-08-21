@@ -29,7 +29,12 @@ export class ShotPool {
 
   // `wallGhosted` is GHOST: the bricks are intangible, so a shot flies through
   // the whole grid and dies at the ceiling like any shot that missed.
-  step(grid: BrickGrid, wallGhosted: boolean, onBrickHit: (hit: BrickHit) => void): void {
+  //
+  // `piercing` is LANCE (LASER+PIERCE): the hit is reported but the shot lives
+  // on, so one shot rips a whole column. A 12 px cell at `shotSpeed` is two or
+  // three ticks deep, so a granite brick can take more than one hit from the
+  // same shot on the way through — which is the combo, not a fault.
+  step(grid: BrickGrid, wallGhosted: boolean, onBrickHit: (hit: BrickHit) => void, piercing = false): void {
     for (const shot of this.shots) {
       if (!shot.active) {
         continue;
@@ -44,7 +49,9 @@ export class ShotPool {
       const hit = wallGhosted ? null : grid.cellAt(shot.x + 1, shot.y);
       if (hit) {
         onBrickHit(hit);
-        shot.active = false;
+        if (!piercing) {
+          shot.active = false;
+        }
       }
     }
   }

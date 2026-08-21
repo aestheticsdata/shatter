@@ -1,3 +1,4 @@
+import { COMBO_GLYPHS, COMBOS, OVERTIME_FROZEN } from "@core/config/combos";
 import { ballSpeedForLevel, gameConfig, peelFlightTicks } from "@core/config/GameConfig";
 import {
   GAMBLE_FACES,
@@ -28,6 +29,7 @@ import { InputController } from "@input/InputController";
 import { zeroPad } from "@shared/format";
 
 import type { SoundBank } from "@audio/SoundBank";
+import type { ComboId } from "@core/config/combos";
 import type {
   BrickFlash,
   BrickHit,
@@ -182,6 +184,13 @@ export class ShatterGame {
   // loop over them is written for the array rather than the pair, so a third
   // hole is a row here and nothing else.
   private readonly cores: readonly Singularity[] = [this.singularity, this.vortex];
+  // The combos live this tick, in table order, and one bit per row of `COMBOS`
+  // for what was live last tick. The array is rewritten in place rather than
+  // rebuilt — it is read once a tick on the hot path — and the mask is what
+  // makes a *new* fusion audible without the sound retriggering every tick the
+  // pair stays up.
+  private readonly combos: ComboId[] = [];
+  private comboMask = 0;
   // BANANA's peels, oldest first: in the air on the way to the rail, then on
   // it, and the skid one causes once it is.
   // `lastPaddleX` is the deck's position at the end of the previous tick, which
@@ -508,7 +517,13 @@ export class ShatterGame {
       return;
     }
 
-    const expired = this.timers.tick();
+    // OVERTIME holds PAYDAY's clock for the length of TEMPO's. Read off last
+    // tick's table on purpose: a combo is a fact about two timers, and asking
+    // before they move would need the answer before the question.
+    const expired = this.timers.tick(this.hasCombo("OVERTIME") ? OVERTIME_FROZEN : undefined);
+    // Below both freeze gates with the timers it reads: nothing may fuse or
+    // come apart behind a shockwave or a pending clear.
+    this.refreshCombos();
     // Beside the timers and below both freeze gates: the reel is a countdown
     // like theirs, and a NUKE sweep must not resolve one behind its shockwave.
     this.stepGamble();
@@ -566,12 +581,23 @@ export class ShatterGame {
       this.deps.sfx.flipRelease();
     }
 
-    if (this.timers.isActive("L") && --this.laserCountdown <= 0) {
-      this.laserCountdown = gameConfig.powerUps.laserCadenceTicks;
+    // CHARGE (GLUE+LASER) holds the cadence while a ball is stuck: the shots
+    // are not lost, they are spent as one salvo on the release. STROBE
+    // (LASER+TEMPO) halves the gap between them.
+    if (this.timers.isActive("L") && !this.chargeHolding() && --this.laserCountdown <= 0) {
+      this.laserCountdown = this.hasCombo("STROBE")
+        ? gameConfig.powerUps.comboLaserCadenceTicks
+        : gameConfig.powerUps.laserCadenceTicks;
       this.shotPool.fireFromPaddle(this.paddle);
       this.deps.sfx.laserFire();
     }
-    this.shotPool.step(this.grid, this.timers.isActive("GH"), (hit) => this.damageBrick(hit, "laser"));
+    // LANCE (LASER+PIERCE): the shot lives through the brick it hit.
+    this.shotPool.step(
+      this.grid,
+      this.timers.isActive("GH"),
+      (hit) => this.damageBrick(hit, "laser"),
+      this.hasCombo("LANCE"),
+    );
     this.stepCritter();
     this.stepMeteors();
 
@@ -1248,7 +1274,7 @@ export class ShatterGame {
       return;
     }
 
-    this.score += hit.cell.points * this.scoreMultiplier();
+    this.score += hit.cell.points * this.scoreMultiplier(source);
     if (isDirectHit(source)) {
       this.deps.sfx.brickDestroyed(hit.row);
     }
@@ -1360,13 +1386,16 @@ export class ShatterGame {
     return found.slice(0, linksPerNode).map((entry) => entry.hit);
   }
 
-  // Splash kills never chain and never drop capsules — one explosion per ball hit.
+  // Splash kills never chain and never drop capsules — one explosion per ball
+  // hit, however wide it is. NOVA (PIERCE+BLAST) is the width: one ring of
+  // neighbours becomes two, the 5x5 block around the kill, 24 cells.
   private blastNeighbors(center: BrickHit): void {
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    const radius = this.hasCombo("NOVA") ? gameConfig.powerUps.comboBlastRadius : 1;
     let blasted = false;
 
-    for (let deltaRow = -1; deltaRow <= 1; deltaRow++) {
-      for (let deltaColumn = -1; deltaColumn <= 1; deltaColumn++) {
+    for (let deltaRow = -radius; deltaRow <= radius; deltaRow++) {
+      for (let deltaColumn = -radius; deltaColumn <= radius; deltaColumn++) {
         if (deltaRow === 0 && deltaColumn === 0) {
           continue;
         }
@@ -1574,9 +1603,61 @@ export class ShatterGame {
   }
 
   // What a killed brick pays: PAYDAY's double and TURBO's triple, stacking to
-  // x6 on independent timers.
-  private scoreMultiplier(): number {
-    return this.paydayMultiplier() * (this.timers.isActive("TU") ? gameConfig.scoring.turboMultiplier : 1);
+  // x6 on independent timers, and JACKPOT's double over the top of a splash
+  // kill for x12 at the extreme. `source` is what the splash carve-out reads —
+  // every other caller kills something directly and takes the default.
+  private scoreMultiplier(source: BrickDamageSource = "ball"): number {
+    const jackpot = source === "splash" && this.hasCombo("JACKPOT") ? gameConfig.scoring.jackpotMultiplier : 1;
+    return this.paydayMultiplier() * (this.timers.isActive("TU") ? gameConfig.scoring.turboMultiplier : 1) * jackpot;
+  }
+
+  /**
+   * The live combos, rewritten in place once a tick.
+   *
+   * A combo is nothing but two timers overlapping, so there is no state to
+   * keep: the table is walked, both halves are asked, and the answer is the
+   * whole of it. Rewritten rather than rebuilt because this runs every tick,
+   * and compared against `comboMask` because the fusion chord belongs to the
+   * tick a pair *forms*, not to every tick it stays up.
+   *
+   * Combos come apart in silence on purpose: the half that expired is the event,
+   * and it has its own tell.
+   */
+  private refreshCombos(): void {
+    this.combos.length = 0;
+    let mask = 0;
+    for (let index = 0; index < COMBOS.length; index++) {
+      const combo = COMBOS[index];
+      if (this.timers.isActive(combo.a) && this.timers.isActive(combo.b)) {
+        this.combos.push(combo.id);
+        mask |= 1 << index;
+      }
+    }
+    // Any bit that was not set last tick: two can light on one catch, and the
+    // sound's own retrigger guard makes that one chord rather than two.
+    if ((mask & ~this.comboMask) !== 0) {
+      this.deps.sfx.comboFuse();
+    }
+    this.comboMask = mask;
+  }
+
+  private hasCombo(id: ComboId): boolean {
+    return this.combos.includes(id);
+  }
+
+  // CHARGE (GLUE+LASER): fire is held while the deck is holding a ball. Not
+  // "GLUE is live" — a stuck ball is what the player can see, and a GLUE that
+  // has caught nothing yet must not silence the cannons.
+  private chargeHolding(): boolean {
+    return this.hasCombo("CHARGE") && this.balls.some((ball) => ball.active && ball.stuckOffsetX !== null);
+  }
+
+  // The cache outlives a tick, so it dies with the run state everywhere the
+  // timers do: a combo left in the list would be drawn in the POWER inset over
+  // the CLEARED or GAME OVER overlay, on halves that no longer exist.
+  private clearCombos(): void {
+    this.combos.length = 0;
+    this.comboMask = 0;
   }
 
   // Chance that this kill drops a bonus capsule: the console's `drop` command
@@ -1649,6 +1730,7 @@ export class ShatterGame {
     // ghost paddle or tethers stay painted behind the CLEARED overlay. After
     // the bonus on purpose — PAYDAY was earned on this level and still doubles it.
     this.timers.reset();
+    this.clearCombos();
     this.deps.screens.updateClear(levelAt(this.level).name, zeroPad(bonus, 5));
     this.setScreen("clear");
     this.deps.sfx.levelClear();
@@ -2204,10 +2286,15 @@ export class ShatterGame {
   }
 
   // GLUE release: every stuck ball leaves with a fresh paddle bounce, exactly
-  // as if it had struck the paddle at its current spot.
-  private releaseStuckBalls(): void {
+  // as if it had struck the paddle at its current spot. Returns how many it
+  // freed, which is what CHARGE spends its held salvo on — this is called on
+  // every click during play, and a count nobody checked would make an empty
+  // click a free salvo.
+  private releaseStuckBalls(): number {
+    let released = 0;
     for (const ball of this.balls) {
       if (ball.active && ball.stuckOffsetX !== null) {
+        released++;
         ball.stuckOffsetX = null;
         const relativeHit = relativePaddleHit(ball.centerX, this.paddle.bounds);
         ball.velocity = computePaddleBounceVelocity(relativeHit, this.speed(), gameConfig.bounce.maxAngleRad);
@@ -2215,6 +2302,7 @@ export class ShatterGame {
         this.deps.sfx.paddleBounce(relativeHit);
       }
     }
+    return released;
   }
 
   // Fills the field up to targetCount from whatever is alive, cloning from the
@@ -2290,8 +2378,17 @@ export class ShatterGame {
         this.launch();
         break;
       case "play":
-        // A click during play only means something while GLUE holds balls.
-        this.releaseStuckBalls();
+        // A click during play only means something while GLUE holds balls —
+        // and under CHARGE (GLUE+LASER) it means one more thing: the fire the
+        // hold has been sitting on comes out with them. Only on a real
+        // release, or every idle click would be a free salvo.
+        if (this.releaseStuckBalls() > 0 && this.hasCombo("CHARGE")) {
+          this.shotPool.fireFromPaddle(this.paddle);
+          this.deps.sfx.laserFire();
+          this.laserCountdown = this.hasCombo("STROBE")
+            ? gameConfig.powerUps.comboLaserCadenceTicks
+            : gameConfig.powerUps.laserCadenceTicks;
+        }
         break;
       case "pause":
         this.setScreen("play");
@@ -2348,6 +2445,7 @@ export class ShatterGame {
     this.paddle.setWidth(gameConfig.paddle.baseWidth);
     this.resetSkid();
     this.timers.reset();
+    this.clearCombos();
     // Beside the timer that owns it. `ballLost()` has already fired by here, so
     // the drain drone is still heard on the broken machine that caused it.
     this.deps.sfx.setDemake(false);
@@ -2425,6 +2523,7 @@ export class ShatterGame {
     this.dropPool.reset();
     this.detonation.reset();
     this.timers.reset();
+    this.clearCombos();
     this.deps.sfx.setDemake(false);
     // The deck too: it is run state like the rest, and the panel keeps drawing it
     // behind the overlay — a run ended under a JAMMER or a SPLIT used to leave a
@@ -2699,12 +2798,15 @@ export class ShatterGame {
       return "- - -";
     }
 
-    const names = kinds.map((kind) => this.effectName(kind)).join(" ");
+    // Combos come after the capsules, and the halves stay listed: a fusion is
+    // what the pair is doing, not a thing instead of them. Nothing here can be
+    // live without both its halves, so the empty check above covers it too.
+    const names = [...kinds.map((kind) => this.effectName(kind)), ...this.combos].join(" ");
     if (names.length <= POWER_LABEL_MAX_CHARS) {
       return names;
     }
 
-    const glyphs = kinds.map((kind) => this.effectGlyph(kind));
+    const glyphs = [...kinds.map((kind) => this.effectGlyph(kind)), ...this.combos.map((id) => COMBO_GLYPHS[id])];
     if (glyphs.join(" ").length <= POWER_LABEL_MAX_CHARS) {
       return glyphs.join(" ");
     }

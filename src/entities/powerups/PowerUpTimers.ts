@@ -28,9 +28,16 @@ export class PowerUpTimers {
     this.ticksLeft[kind] = 0;
   }
 
-  tick(): PowerUpKind[] {
+  // `frozen` is held out of the countdown for this tick and nothing more: the
+  // effect stays live, its clock simply does not move. OVERTIME (TEMPO+PAYDAY)
+  // is the only caller — PAYDAY's 600 ticks wait out TEMPO's 480 and can reach
+  // 1080 — and it hands over the same module-level array every tick.
+  tick(frozen: readonly PowerUpKind[] = []): PowerUpKind[] {
     const expired: PowerUpKind[] = [];
     for (const kind of TIMED_KINDS) {
+      if (frozen.includes(kind)) {
+        continue;
+      }
       if (this.ticksLeft[kind] > 0 && --this.ticksLeft[kind] === 0) {
         expired.push(kind);
       }
