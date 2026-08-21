@@ -186,6 +186,32 @@ export const LEVELS: readonly LevelDefinition[] = [
     rows: wordRows("1991", ["G", "S", "G", "S"]),
   },
   {
+    name: "PILLARS",
+    background: "vault",
+    rows: [
+      "S.S.S.S.S.S.",
+      "5.5.5.5.5.5.",
+      "4.4.4.4.4.4.",
+      "3.3.3.3.3.3.",
+      "2.2.2.2.2.2.",
+      "1.1.1.1.1.1.",
+      "G.G.G.G.G.G.",
+    ],
+  },
+  {
+    name: "GALAXY",
+    background: "nebula",
+    rows: [
+      "..S555....S.",
+      "......55555.",
+      ".....GG..35.",
+      "..32GGGG23..",
+      ".53..GG.....",
+      ".55555......",
+      ".S....555S..",
+    ],
+  },
+  {
     name: "FINALE",
     background: "starfield",
     rows: ["GGGGGGGGGGGG", "S5S5S5S5S5S5", "444444444444", "S3S3S3S3S3S3", "GG22222222GG", "S1S1S1S1S1S1"],
