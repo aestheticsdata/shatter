@@ -358,6 +358,17 @@ export class ShatterGame {
    */
   private homingBlend = 0;
   /**
+   * GLUE's resin, in **pixels of reach** out from each half of the deck's own
+   * centre — not a 0..1 blend, and that is the whole point of it.
+   *
+   * A blend divided by a duration would wet a 20 px SPLIT half and a 144 px
+   * XWIDE deck in the same twenty ticks, which means the wide one spreading
+   * seven times faster. A liquid does not know how big the thing it is spreading
+   * across is. So this creeps at a fixed rate and stops when it runs out of
+   * deck, and the ceiling is only how long the widest deck takes.
+   */
+  private glueReach = 0;
+  /**
    * SPLIT's tear, 0 whole to 1 fully open — and the odd one out of the six.
    *
    * The five above it are pictures over a simulation that has already changed.
@@ -506,6 +517,7 @@ export class ShatterGame {
         // for the eight ticks JAMMER is shutting it, not for the six seconds it
         // stays shut.
         capsJammed: this.widthEaseKind === "J" && this.paddle.easingWidth,
+        glueReach: this.glueReach,
       },
       mirrorForm: this.mirrorForm,
       mirrorAfterImage: this.mirrorAfterImageTicks / gameConfig.effects.mirrorAfterImageTicks,
@@ -670,6 +682,7 @@ export class ShatterGame {
     // Above the gates with the rest, and the only one of them that is two
     // things: a global ease on the turn rate, and twelve independent reticles.
     this.stepHomingMarks();
+    this.stepGlueResin();
     // Above the freeze gates like the five before it, and for a reason none of
     // them has: this blend is the catch surface. A deck frozen half-torn behind
     // a shockwave would hold a half-open hole over the drops the detonation is
@@ -1016,6 +1029,49 @@ export class ShatterGame {
     for (const hold of this.coreHold) {
       hold.fill(0);
     }
+  }
+
+  /**
+   * GLUE's film, one tick of it: out from the middle of each half of the deck
+   * while the capsule is fresh, and back in over its last twenty ticks.
+   *
+   * The target is how much deck there is to wet rather than a constant, so a
+   * SPLIT caught over a live GLUE is two short halves that finish quickly and a
+   * JAMMER shutting the deck pulls the film in with the wood. Both directions
+   * run at the same fixed rate: resin spreads and recedes at the speed resin
+   * does, whatever it is spreading across.
+   *
+   * Not `ghostProgress`, which is the wall's dissolve threshold — that one hard-
+   * codes the 12x8 brick grid and its own centre, and there is nothing shared
+   * here but the idea of a front that does not arrive everywhere at once.
+   */
+  private stepGlueResin(): void {
+    const { glueFadeTicks, glueCreepPx } = gameConfig.effects;
+    // The capsule's own last ticks and not the ticks after it: the deck has to
+    // be dry before the timer clears, or the film outlives the label telling the
+    // player why it is there.
+    //
+    // How many of them is the deck's own business, the same way the creep is —
+    // the film recedes at `glueCreepPx` too, so the window is exactly how long
+    // that takes and `glueFadeTicks` is only the ceiling on it. A flat twenty
+    // would leave a base deck looking dry for fourteen ticks while it was still
+    // catching; this way the last resin leaves on the last tick.
+    const dryTicks = Math.min(glueFadeTicks, Math.ceil(this.glueReachNeeded() / glueCreepPx));
+    const drying = !this.timers.isActive("G") || this.timers.remaining("G") <= dryTicks;
+    const target = drying ? 0 : this.glueReachNeeded();
+    const step = Math.min(glueCreepPx, Math.abs(target - this.glueReach));
+    this.glueReach += target > this.glueReach ? step : -step;
+  }
+
+  // The widest half the film has to cross, which is what it is aiming at. Read
+  // off the same segments the catch test uses, so a hole opening under a wet
+  // deck leaves two films rather than one that reaches past its own wood.
+  private glueReachNeeded(): number {
+    let widest = 0;
+    for (const segment of this.paddleSegments()) {
+      widest = Math.max(widest, (segment.right - segment.left) / 2);
+    }
+    return widest;
   }
 
   /**
@@ -2171,6 +2227,7 @@ export class ShatterGame {
     this.rushBlend = 0;
     this.stasisBlend = 0;
     this.homingBlend = 0;
+    this.glueReach = 0;
     this.mirrorForm = 0;
     this.mirrorAfterImageTicks = 0;
     this.laserBlend = 0;
@@ -2998,6 +3055,7 @@ export class ShatterGame {
     this.rushBlend = 0;
     this.stasisBlend = 0;
     this.homingBlend = 0;
+    this.glueReach = 0;
     this.mirrorForm = 0;
     this.mirrorAfterImageTicks = 0;
     this.laserBlend = 0;
@@ -3050,6 +3108,7 @@ export class ShatterGame {
     this.rushBlend = 0;
     this.stasisBlend = 0;
     this.homingBlend = 0;
+    this.glueReach = 0;
     this.mirrorForm = 0;
     this.mirrorAfterImageTicks = 0;
     this.laserBlend = 0;

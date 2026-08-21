@@ -73,6 +73,10 @@ export const canvasPalette = {
   // signal, and under a live SWARM twelve of them would be TEMPO saying MULTI's
   // sentence.
   paceGhost: "#f2f4ff",
+  // GLUE's resin, a shade up from the capsule's own #b07840 so it reads as wet
+  // over both of the deck's top tones — the pale blue sheen in the middle and
+  // the red caps at either end.
+  glueResin: "#e0a54c",
   // HOMING's signal green, on the four corners of the brick a ball has locked.
   homingMark: "#00e05a",
   // MIRROR's ghost: the paddle's own tones taken down far enough to read as a

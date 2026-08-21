@@ -510,6 +510,31 @@ export const gameConfig = {
      */
     tempoDriftTicks: 12,
     /**
+     * GLUE's resin, wetting the deck and drying off it.
+     *
+     * A ceiling and not a divisor. The film creeps out from each half's own
+     * centre at `glueCreepPx` a tick, so a 20 px SPLIT half and a 144 px XWIDE
+     * deck wet at the same *visible* speed rather than the same duration — the
+     * wide one simply takes longer to finish, which is what a spreading liquid
+     * does. Twenty ticks is what the widest of them needs (72 px a side at 4 a
+     * tick is 18), so nothing is ever caught half-wet by its own clock.
+     *
+     * Twenty is bounded above by flight time, too: the trip from deck to grid is
+     * 37-62 ticks, so a ball that left as the capsule was caught is back in 37
+     * at the earliest, and this leaves at least seventeen ticks of a fully wet
+     * deck before any ball can return. No ball ever sticks to a deck that does
+     * not already look sticky.
+     *
+     * The dry-down runs over the capsule's *last* twenty ticks rather than the
+     * twenty after it, so the resin is gone by the time the POWER inset clears.
+     */
+    glueFadeTicks: 20,
+    glueCreepPx: 4,
+    // How far a parked ball rides above the deck, sitting on the resin rather
+    // than on the wood — and the length of the thread under it. Three pixels is
+    // the most a ball can be lifted before the gap reads as a ball that missed.
+    glueLiftPx: 3,
+    /**
      * SPLIT's tear, each way — the deck coming apart, and welding back.
      *
      * Not a fade over a picture like the five above it: the hole *is* the trap,

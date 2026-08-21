@@ -92,6 +92,31 @@ function ballRowCovers(row: readonly [number, number] | undefined, column: numbe
   return row !== undefined && column >= row[0] && column < row[0] + row[1];
 }
 
+/**
+ * GLUE's leading edge, as how many pixels a given column lags behind the front.
+ *
+ * A film does not arrive everywhere at once, and a straight-edged one reads as a
+ * coloured rectangle rather than as a liquid. Indexed by distance from the
+ * half's centre rather than by screen x, so the ragged edge belongs to the deck
+ * and does not shimmer as the player steers.
+ *
+ * The columns lagging furthest are also the ones that bead: a drop that arrived
+ * late sits proud, catching the row of `paddleCap` above the film line.
+ */
+const RESIN_LAG: readonly number[] = [0, 2, 1, 0, 1, 2, 0, 1, 1, 2, 0, 2];
+
+/**
+ * How far a ball parked on a wet deck rides above it, and the length of the
+ * thread under it.
+ *
+ * Read off the film's reach rather than off a clock of its own, so the ball
+ * settles as the resin dries and no second number can disagree with the deck
+ * about how sticky it is. Two pixels of film is enough to sit on.
+ */
+function glueLift(reach: number): number {
+  return Math.min(gameConfig.effects.glueLiftPx, Math.floor(reach / 2));
+}
+
 const BALL_SIZE = gameConfig.ball.size;
 
 /**
@@ -310,6 +335,13 @@ export interface PaddleRenderState extends DeckSeamState {
   // capsule's magenta instead of the deck's red for the eight ticks the trap
   // takes to shut. The deck losing its own colour is the point.
   capsJammed: boolean;
+  /**
+   * GLUE's resin, in pixels of film out from the middle of each half of the
+   * deck. On the paddle's own state and not loose on the view because the deck
+   * is what paints it — and MIRROR's ghost gets it through the same record,
+   * which is right: the reflection is the paddle.
+   */
+  glueReach: number;
 }
 
 // The four tones a paddle is banded from. The ghost is the same sprite in a
@@ -1146,7 +1178,15 @@ export class CanvasRenderer {
         if (ghost) {
           this.drawBallShell(ghost.x, ghost.y, canvasPalette.paceGhost);
         }
-        this.drawBall(ball, view.ballTrail, view.turboTrail ? TURBO_TRAIL_TONES : RUSH_TRAIL_TONES);
+        // GLUE: a parked ball rides on the resin rather than on the wood, with
+        // a thread of it under the ball. Both settle as the film dries, so the
+        // ball is flush and untethered by the time the capsule lets go — the
+        // release itself stays instant, which is what a bounce is.
+        const lift = ball.stuckOffsetX === null ? 0 : glueLift(view.paddle.glueReach);
+        if (lift > 0) {
+          this.spritePixel(ball.centerX - 1, ball.y + BALL_SIZE - lift, 2, lift, canvasPalette.glueResin);
+        }
+        this.drawBall(ball, view.ballTrail, view.turboTrail ? TURBO_TRAIL_TONES : RUSH_TRAIL_TONES, lift);
         // Around the ball rather than in the ring pool: this one rides a ball
         // that is still coasting, while the release ring has to stay where the
         // ball stopped.
@@ -1405,6 +1445,7 @@ export class CanvasRenderer {
       paddle.splitGap,
       paddle.capsJammed ? { ...PADDLE_BANDS, cap: DROP_COLORS.J } : PADDLE_BANDS,
       paddle,
+      paddle.glueReach,
     );
 
     this.drawCannons(paddle, y);
@@ -1518,7 +1559,18 @@ export class CanvasRenderer {
     this.ctx.beginPath();
     this.ctx.rect(Math.round(x * SCALE), Math.round(top * SCALE), Math.round(span * SCALE), rows * SCALE);
     this.ctx.clip();
-    this.drawDeck(x, bounds.top, span, mirrorGap(paddle.splitGap, span, paddle.width), MIRROR_BANDS, paddle);
+    // The ghost is wet too, and through the same record: a reflection of a
+    // sticky deck is a sticky deck. It is scaled with the span like the gap is,
+    // so a half-formed reflection is not showing more film than there is.
+    this.drawDeck(
+      x,
+      bounds.top,
+      span,
+      mirrorGap(paddle.splitGap, span, paddle.width),
+      MIRROR_BANDS,
+      paddle,
+      (paddle.glueReach * span) / paddle.width,
+    );
     this.ctx.restore();
 
     // The leading edge, riding the top of whatever has unfolded so far — and
@@ -1553,13 +1605,14 @@ export class CanvasRenderer {
     gap: number,
     colors: PaddleBandColors,
     seam: DeckSeamState,
+    glueReach = 0,
   ): void {
     const half = (width - gap) / 2;
     if (gap === 0 || half < 1) {
-      this.drawDeckPill(x, y, width, colors);
+      this.drawDeckPill(x, y, width, colors, glueReach);
     } else {
-      this.drawDeckPill(x, y, half, colors);
-      this.drawDeckPill(x + width - half, y, half, colors);
+      this.drawDeckPill(x, y, half, colors, glueReach);
+      this.drawDeckPill(x + width - half, y, half, colors, glueReach);
     }
     this.drawDeckSeam(seam, x, y, width, colors);
   }
@@ -1579,14 +1632,46 @@ export class CanvasRenderer {
    * span it was asked for would put the drawn surface and the bouncing one back
    * out of step, which is the whole thing SHA-87 exists to fix.
    */
-  private drawDeckPill(x: number, y: number, width: number, colors: PaddleBandColors): void {
+  private drawDeckPill(x: number, y: number, width: number, colors: PaddleBandColors, glueReach = 0): void {
     if (width >= 18) {
       this.drawPaddleBands(x, y, width, colors);
+    } else {
+      const { height } = gameConfig.paddle;
+      this.spritePixel(x, y, width, height, colors.body);
+      this.spritePixel(x, y, width, 1, colors.sheen);
+    }
+    this.drawResin(x, y, width, glueReach);
+  }
+
+  /**
+   * GLUE's film across the pill's top edge, spreading from its own middle.
+   *
+   * The whole top edge and not the sheen span: `drawPaddleBands` insets its
+   * sheen nine pixels a side, which is 28 px on a base deck but 12 under a
+   * JAMMER and **two** on each half of a SPLIT one. A two-pixel cue is no cue,
+   * so the resin runs cap to cap — and over `paddleCap` it reads at least as
+   * strongly as over the pale sheen it covers in the middle.
+   *
+   * Row `y + 1` is the film and row `y` is where it beads, so the front has a
+   * fringe rather than an edge and the layer sits *on* the deck instead of
+   * being part of it.
+   */
+  private drawResin(x: number, y: number, width: number, reach: number): void {
+    if (reach <= 0 || width < 3) {
       return;
     }
-    const { height } = gameConfig.paddle;
-    this.spritePixel(x, y, width, height, colors.body);
-    this.spritePixel(x, y, width, 1, colors.sheen);
+    const center = width / 2;
+    for (let column = 1; column < width - 1; column++) {
+      const distance = Math.floor(Math.abs(column + 0.5 - center));
+      const lag = RESIN_LAG[distance % RESIN_LAG.length];
+      if (distance + lag > reach) {
+        continue;
+      }
+      this.spritePixel(x + column, y + 1, 1, 1, canvasPalette.glueResin);
+      if (lag === 2) {
+        this.spritePixel(x + column, y, 1, 1, canvasPalette.glueResin);
+      }
+    }
   }
 
   /**
@@ -1672,8 +1757,9 @@ export class CanvasRenderer {
     });
   }
 
-  private drawBall(ball: Ball, trail: number, tones: readonly string[]): void {
-    const { x, y } = ball;
+  private drawBall(ball: Ball, trail: number, tones: readonly string[], lift = 0): void {
+    const { x } = ball;
+    const y = ball.y - lift;
 
     if (trail > 0 && ball.stuckOffsetX === null) {
       BALL_TRAIL_STEPS.forEach((step, index) => {
