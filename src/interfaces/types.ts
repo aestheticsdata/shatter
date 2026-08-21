@@ -76,12 +76,20 @@ export interface StasisRing {
   ticksLeft: number;
 }
 
-// One BANANA peel, lying on the rail the paddle slides along. It has no height
-// to speak of and nothing else on the field collides with it: the deck sweeping
-// over its span is the whole interaction.
+// One BANANA peel, thrown clear of the deck that ate the banana and then lying
+// on the rail the paddle slides along. It has no height to speak of and nothing
+// else on the field collides with it: the deck sweeping over the span it came
+// to rest on is the whole interaction.
 export interface Peel {
+  // Where it lands, and where it is drawn from the moment it has.
   x: number;
   ticksLeft: number;
+  // The throw, counted one past the end: above 0 the peel is still in the air
+  // and no hazard at all, exactly 0 is the tick it lands and squashes on, below
+  // 0 it is at rest. With `fromX` — the deck centre it was thrown from — and
+  // `x`, this is the whole parabola: the renderer keeps no state of its own.
+  flightTicksLeft: number;
+  fromX: number;
 }
 
 // One BUMPERS disc: its centre, and what is left of the flash from its last

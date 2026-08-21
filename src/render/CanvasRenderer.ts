@@ -1,4 +1,4 @@
-import { gameConfig } from "@core/config/GameConfig";
+import { gameConfig, peelFlightTicks } from "@core/config/GameConfig";
 import { MALUS_KINDS, POWER_UP_GLYPHS } from "@core/config/powerUps";
 import { mirrorBounds } from "@entities/paddle/MirrorPaddle";
 import { BackgroundLayer } from "@render/backgrounds";
@@ -1218,19 +1218,52 @@ export class CanvasRenderer {
     this.ctx.fillRect(Math.round(x * SCALE), Math.round(y * SCALE), width * SCALE, height * SCALE);
   }
 
-  // BANANA's peel, lying flush on the rail. It blinks out its last second the
-  // way a trap capsule's glyph blinks as it falls: a hazard about to stop being
-  // one has to say so, or the player steers around nothing for the rest of the
-  // level. Whole game pixels — it never moves.
+  // BANANA's peel: thrown off the deck that ate it, then lying flush on the
+  // rail. Three states, and the pixel grid each one belongs on — in the air it
+  // moves in fractions of a game pixel, so it is drawn through `spritePixel`
+  // like everything else that does; once it is down it never moves again, so it
+  // goes back to whole game pixels. It blinks out its last second the way a
+  // trap capsule's glyph blinks as it falls: a hazard about to stop being one
+  // has to say so, or the player steers around nothing for the rest of the
+  // level.
   private drawPeel(peel: Peel): void {
-    const { peelWidth, peelBlinkTicks } = gameConfig.powerUps.banana;
+    const { peelWidth, peelBlinkTicks, peelApexPerTick } = gameConfig.powerUps.banana;
     if (peel.ticksLeft < peelBlinkTicks && (peel.ticksLeft & 4) === 0) {
       return;
     }
-    const y = gameConfig.paddle.y - PEEL_HEIGHT;
-    this.pixel(peel.x + 1, y, peelWidth - 2, 1, canvasPalette.peelBody);
-    this.pixel(peel.x, y + 1, peelWidth, 3, canvasPalette.peelBody);
-    this.pixel(peel.x + 1, y + PEEL_HEIGHT - 1, peelWidth - 2, 1, canvasPalette.peelShade);
+    const restY = gameConfig.paddle.y - PEEL_HEIGHT;
+
+    if (peel.flightTicksLeft > 0) {
+      // It leaves the rail and comes back down to it, so the arc is symmetric
+      // and its apex sits at the halfway point. The flight is recomputed rather
+      // than stored: it is a function of the distance and nothing else, and one
+      // formula in the config beats two copies drifting apart.
+      const ticks = peelFlightTicks(Math.abs(peel.x - peel.fromX));
+      const progress = (ticks - peel.flightTicksLeft) / ticks;
+      const x = peel.fromX + (peel.x - peel.fromX) * progress;
+      const y = restY - 4 * peelApexPerTick * ticks * progress * (1 - progress);
+      this.spritePixel(x + 1, y, peelWidth - 2, 1, canvasPalette.peelBody);
+      this.spritePixel(x, y + 1, peelWidth, 3, canvasPalette.peelBody);
+      this.spritePixel(x + 1, y + PEEL_HEIGHT - 1, peelWidth - 2, 1, canvasPalette.peelShade);
+      return;
+    }
+
+    if (peel.flightTicksLeft === 0) {
+      // The landing tick, and only that one: the three-row band flattened to
+      // two and spread 2 px wider, sitting on the rail. It is a single frame,
+      // and it is the whole difference between a thrown object and one that
+      // teleported. Clipped to the field, since a peel can land against either
+      // wall and the extra pixel would be drawn on the frame.
+      const left = Math.max(gameConfig.field.left, peel.x - 1);
+      const right = Math.min(gameConfig.field.right, peel.x + peelWidth + 1);
+      this.pixel(left, restY + 2, right - left, 2, canvasPalette.peelBody);
+      this.pixel(peel.x, restY + PEEL_HEIGHT - 1, peelWidth, 1, canvasPalette.peelShade);
+      return;
+    }
+
+    this.pixel(peel.x + 1, restY, peelWidth - 2, 1, canvasPalette.peelBody);
+    this.pixel(peel.x, restY + 1, peelWidth, 3, canvasPalette.peelBody);
+    this.pixel(peel.x + 1, restY + PEEL_HEIGHT - 1, peelWidth - 2, 1, canvasPalette.peelShade);
   }
 
   private drawPaddle(paddle: PaddleRenderState): void {

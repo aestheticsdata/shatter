@@ -1,4 +1,4 @@
-import { ballSpeedForLevel, gameConfig } from "@core/config/GameConfig";
+import { ballSpeedForLevel, gameConfig, peelFlightTicks } from "@core/config/GameConfig";
 import {
   GAMBLE_FACES,
   MALUS_KINDS,
@@ -182,7 +182,8 @@ export class ShatterGame {
   // loop over them is written for the array rather than the pair, so a third
   // hole is a row here and nothing else.
   private readonly cores: readonly Singularity[] = [this.singularity, this.vortex];
-  // BANANA's peels on the paddle rail, oldest first, and the skid one causes.
+  // BANANA's peels, oldest first: in the air on the way to the rail, then on
+  // it, and the skid one causes once it is.
   // `lastPaddleX` is the deck's position at the end of the previous tick, which
   // is what makes the slide the player's own last movement rather than a
   // constant: it is sampled at the end of `stepPeels`, so a skid already under
@@ -442,6 +443,17 @@ export class ShatterGame {
       pop.y -= gameConfig.powerUps.catchPopRiseSpeed;
     }
     this.catchPops = this.catchPops.filter((pop) => --pop.ticksLeft > 0);
+    // Above the freeze gates for the same reason the pops are, and with one of
+    // its own: two capsules can be caught in a single `DropPool.step` pass, so
+    // a BANANA and a NUKE landing on the same tick would otherwise hang a peel
+    // in mid-arc behind the shockwave for the whole detonation. It counts one
+    // past the end and stops there — 0 is the tick the peel lands and squashes
+    // on, below 0 it is at rest and the count is done with.
+    for (const peel of this.peels) {
+      if (peel.flightTicksLeft >= 0) {
+        peel.flightTicksLeft--;
+      }
+    }
     this.particles.step(this.cores);
     this.quake.step();
     // Above the freeze gates like the shake: a NUKE caught mid-fade must not
@@ -1993,26 +2005,46 @@ export class ShatterGame {
     this.paddle.moveCenterTo(fieldX);
   }
 
-  // BANANA: one peel onto the rail, never under the deck standing on it. The
-  // two spans either side of the keep-out are sampled as a single range, so a
-  // paddle against a wall simply leaves one span to land in and no roll is ever
-  // rejected and retried. The field is 366 px wide against an 80 px keep-out,
-  // so the two spans can never both be empty.
+  // BANANA: one peel thrown onto the rail, never under the deck standing on it.
+  // The two spans either side of the keep-out are sampled as a single range, so
+  // a paddle against a wall simply leaves one span to land in and no roll is
+  // ever rejected and retried. The field is 366 px wide against an 80 px
+  // keep-out, so the two spans can never both be empty.
   private dropPeel(): void {
-    const { peelWidth, maxPeels, peelLifeTicks, peelClearX } = gameConfig.powerUps.banana;
+    const { peelWidth, maxPeels, peelLifeTicks, peelBlinkTicks, peelClearX } = gameConfig.powerUps.banana;
     const min = gameConfig.field.left;
     const max = gameConfig.field.right - peelWidth;
     const center = this.paddle.centerX;
     const leftSpan = Math.max(0, center - peelClearX - min);
     const rightSpan = Math.max(0, max - (center + peelClearX));
     const roll = Math.random() * (leftSpan + rightSpan);
+    const x = roll < leftSpan ? min + roll : center + peelClearX + (roll - leftSpan);
+    // The peel is what is left after the deck ate the banana, so it leaves the
+    // deck rather than appearing at full size 150 px away at the edge of
+    // vision. The flight comes off the distance, so the eye can follow it out.
+    const fromX = center - peelWidth / 2;
 
     this.peels.push({
-      x: roll < leftSpan ? min + roll : center + peelClearX + (roll - leftSpan),
+      x,
       ticksLeft: peelLifeTicks,
+      flightTicksLeft: peelFlightTicks(Math.abs(x - fromX)),
+      fromX,
     });
-    if (this.peels.length > maxPeels) {
-      this.peels.shift();
+    // A fourth peel no longer deletes the oldest inside the same statement that
+    // made it: the oldest is dropped into its last second instead and leaves
+    // the rail through the same blink every other peel does. Clamped as many
+    // times over as the cap needs, never index 0 alone — nothing is spliced
+    // here any more, so three BANANAs inside a minute would otherwise leave
+    // five or six live peels rather than the one extra the trade buys.
+    let fresh = this.peels.reduce((count, peel) => count + (peel.ticksLeft > peelBlinkTicks ? 1 : 0), 0);
+    for (const peel of this.peels) {
+      if (fresh <= maxPeels) {
+        break;
+      }
+      if (peel.ticksLeft > peelBlinkTicks) {
+        peel.ticksLeft = peelBlinkTicks;
+        fresh--;
+      }
     }
   }
 
@@ -2026,6 +2058,9 @@ export class ShatterGame {
    *
    * Called from `stepSimulation` under the detonation, clear and fuse gates, so
    * a peel neither ages nor catches while the field is frozen behind an effect.
+   * The throw is the exception and is stepped above them, with the catch pops:
+   * a peel left hanging in mid-arc behind a shockwave would be the one part of
+   * this the freeze cannot excuse.
    */
   private stepPeels(): void {
     const { skidTicks, skidMaxVx, skidMinVx, skidDecay, skidCooldownTicks, resyncTicks, resyncRate, peelWidth } =
@@ -2063,7 +2098,14 @@ export class ShatterGame {
     // three at a time, and a chained skid is a deck the player never gets back.
     if (this.skidTicksLeft === 0 && this.skidCooldown === 0) {
       const { left, right } = this.paddle.bounds;
-      const index = this.peels.findIndex((peel) => peel.x + peelWidth > left && peel.x < right);
+      // Nothing in the air is a hazard: you cannot slip on a peel that has not
+      // landed. It costs the player 8-24 ticks of a 600-tick life and buys back
+      // the case `peelClearX` cannot cover, where the deck walks onto the
+      // landing spot during the flight. The life clock runs throughout, so the
+      // reprieve is paid for out of the peel's own time.
+      const index = this.peels.findIndex(
+        (peel) => peel.flightTicksLeft <= 0 && peel.x + peelWidth > left && peel.x < right,
+      );
       if (index >= 0) {
         const [peel] = this.peels.splice(index, 1);
         // Whatever the deck was doing, held and decayed. A paddle standing

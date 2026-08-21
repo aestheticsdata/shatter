@@ -274,17 +274,32 @@ export const gameConfig = {
       // between two discs never comes down on its own, so the set lets go.
       streakLimit: 10,
     },
-    // BANANA. The peel lies on the paddle rail and hands the deck to its own
-    // momentum for a second when it is swept over.
+    // BANANA. The peel comes off the deck that ate the banana, arcs out and
+    // lands on the paddle rail, where it hands the deck to its own momentum for
+    // a second when it is swept over.
     banana: {
       peelWidth: 12,
+      // The throw. A constant speed with the flight derived from it, rather
+      // than a constant flight with the speed derived from it: the landing spot
+      // can be anywhere from 40 to ~350 px away, and a fixed flight would make
+      // the far one a streak five times faster than the ball ever moves. The
+      // clamps are the two ends of the same arm.
+      peelThrowSpeed: 12,
+      peelFlightMinTicks: 8,
+      peelFlightMaxTicks: 24,
+      // Apex per tick of flight, for the reason the speed is constant: a longer
+      // throw arcs higher, or it is a flat line drive. A mid-field throw runs
+      // ~12 ticks and rises ~24 px; the longest rises 48.
+      peelApexPerTick: 2,
       // A fourth peel pushes the oldest off the rail rather than being refused:
       // the newest is the one the player just earned and has to see land.
       maxPeels: 3,
       peelLifeTicks: 600,
       peelBlinkTicks: 60,
-      // Rail kept clear either side of the deck, so a peel is never dropped
-      // under the paddle already standing on it.
+      // Rail kept clear either side of the deck, so a peel is never thrown
+      // under the paddle already standing on it. It promises that only for the
+      // instant of the throw, which is half of why a peel in the air is no
+      // hazard: the deck can be standing on the landing spot 24 ticks later.
       peelClearX: 40,
       skidTicks: 60,
       // The slide is the paddle's own last movement, held and decayed. At the
@@ -512,4 +527,12 @@ export const BRICK_HIT_POINTS: Record<BrickKind, number> = {
 export function ballSpeedForLevel(level: number): number {
   const { base, perLevel, max } = gameConfig.speed;
   return Math.min(max, base + level * perLevel) * gameConfig.rules.ballSpeedMultiplier;
+}
+
+// How long a peel thrown `distance` px is in the air. The thrower and the
+// renderer drawing the parabola both need it, and the two may never disagree
+// about where the peel is, so neither owns the formula.
+export function peelFlightTicks(distance: number): number {
+  const { peelThrowSpeed, peelFlightMinTicks, peelFlightMaxTicks } = gameConfig.powerUps.banana;
+  return Math.max(peelFlightMinTicks, Math.min(peelFlightMaxTicks, Math.round(distance / peelThrowSpeed)));
 }

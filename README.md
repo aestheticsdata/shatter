@@ -48,7 +48,7 @@ The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372�
   | `RU`   | RUSH        | **trap** — every ball at ×1.8                                                               | 5 s       | trap     |
   | `BO`   | BOMB        | catching it blows the paddle up: you lose a life                                            | instant   | trap     |
   | `JA`   | JAMMER      | **trap** — shrinks the paddle                                                               | 6 s       | trap     |
-  | `BA`   | BANANA      | **trap** — leaves a peel on the rail; sweeping it hands the deck to momentum for a second   | 10 s peel | trap     |
+  | `BA`   | BANANA      | **trap** — throws a peel on the rail; sweeping it hands the deck to momentum for a second   | 10 s peel | trap     |
   | `DE`   | DEMAKE      | **trap** — the machine downgrades itself to a 1-bit green phosphor tube                     | 8 s       | trap     |
   | `BLAC` | BLACKOUT    | **trap** — the lights go out; a pool of light travels with each ball, a dim one on the deck | 20 s      | trap     |
   | `FL`   | FLIP        | **trap** — the whole playfield turns over, mouse and all                                    | 8 s       | trap     |
