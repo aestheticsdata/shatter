@@ -466,6 +466,34 @@ export const gameConfig = {
     // fact. The streak grows out of the ball over the same ramp.
     turboSpoolTicks: 30,
     /**
+     * RUSH's surge, each way — the shortest ease in the game, deliberately.
+     *
+     * 1.8 arriving in one frame is a ball lost to a frame rather than to a
+     * decision, so the clock is eased like TURBO's. But RUSH is a trap made of
+     * suddenness, and a leisurely wind-up would soften the one thing it is for:
+     * 10 ticks is a sixth of a second, three times shorter than the spool, and
+     * it costs the trap about 8 ticks of displacement across its 300.
+     *
+     * The streak reads the same blend, which is the whole idiom here. A smear is
+     * a distance, so the honest way to ramp one is length: the far copy noses
+     * out of the back of the 8 px sprite and the near one appears in the gap
+     * behind it, instead of 3 px of solid red popping into being at full size.
+     */
+    rushSurgeTicks: 10,
+    /**
+     * TEMPO's drift, each way, and the clock its pace ghost is drawn on.
+     *
+     * 12 ticks costs about 2.4 ticks of displacement at the front and gives
+     * them back at the tail — 5 % of TEMPO's 480, which is the cheapest ease in
+     * the wave for the longest capsule in it.
+     *
+     * The ghost's offset is the accumulated debt *times this blend*, so the
+     * marker slides out of the ball as the clock winds down and is overtaken by
+     * the ball on the way back out. The debt itself only ever grows: scaling it
+     * is what makes the departure a mirror rather than a marker that vanishes.
+     */
+    tempoDriftTicks: 12,
+    /**
      * SPLIT's tear, each way — the deck coming apart, and welding back.
      *
      * Not a fade over a picture like the five above it: the hole *is* the trap,

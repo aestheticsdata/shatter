@@ -68,6 +68,11 @@ export const canvasPalette = {
   nukeRing: "#eaf7ff",
   // STASIS's own frost aqua, so the release ring is read as that capsule's.
   stasisRing: "#9effd6",
+  // TEMPO's pace ghost: the capsule's own near-white, drawn as a 1 px shell of
+  // the ball rather than a ball. A filled sprite is the game's most loaded
+  // signal, and under a live SWARM twelve of them would be TEMPO saying MULTI's
+  // sentence.
+  paceGhost: "#f2f4ff",
   // HOMING's signal green, on the four corners of the brick a ball has locked.
   homingMark: "#00e05a",
   // MIRROR's ghost: the paddle's own tones taken down far enough to read as a

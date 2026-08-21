@@ -29,6 +29,12 @@ export class Ball {
   // timer runs out has to finish its pass — turning solid in there would bounce
   // it out of the middle of the grid, or wedge it.
   phasing = false;
+  // TEMPO: ticks of displacement this ball has failed to cover on the slowed
+  // clock, since the last thing that changed its heading. The pace ghost is
+  // this debt spent forward along the stored velocity — a projection, never a
+  // second ball, because a free-flying phantom walks through bricks and walls
+  // and diverges in direction the moment either of them turns the real one.
+  tempoDebt = 0;
 
   clearHoming(): void {
     this.homingRow = -1;
@@ -65,6 +71,7 @@ export class Ball {
     this.portalCooldown = 0;
     this.birthTicksLeft = birthTicks;
     this.phasing = false;
+    this.tempoDebt = 0;
     this.x = source.x;
     this.y = source.y;
     this.velocity = {
@@ -72,4 +79,33 @@ export class Ball {
       y: -Math.abs(Math.cos(angleRad) * speed),
     };
   }
+}
+
+/**
+ * Where a ball would have been by now had TEMPO not slowed its clock, or null
+ * when there is nothing to mark.
+ *
+ * One reading, shared by the simulation and the renderer, so the marker the
+ * player is looking at is the marker the debt stopped growing for. The debt is
+ * scaled by the blend rather than drawn raw: at the catch that is what pulls
+ * the ghost out of the ball over `tempoDriftTicks`, and at expiry it is what
+ * lets the ball overtake and swallow it again over the same twelve.
+ *
+ * Null once the projection leaves the field. It only ever recedes — the ghost
+ * lies ahead along the velocity and the ball is travelling that way — so an
+ * off-field marker stays off until whatever turns the ball resets the debt.
+ */
+export function paceGhost(ball: Ball, blend: number): Vector2D | null {
+  if (blend === 0 || ball.tempoDebt === 0 || ball.stuckOffsetX !== null) {
+    return null;
+  }
+  const spent = ball.tempoDebt * blend;
+  const x = ball.x + ball.velocity.x * spent;
+  const y = ball.y + ball.velocity.y * spent;
+  const { left, right, top, height } = gameConfig.field;
+  const size = gameConfig.ball.size;
+  if (x < left || x > right - size || y < top || y > height - size) {
+    return null;
+  }
+  return { x, y };
 }

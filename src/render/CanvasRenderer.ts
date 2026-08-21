@@ -1,5 +1,6 @@
 import { gameConfig, peelFlightTicks } from "@core/config/GameConfig";
 import { MALUS_KINDS, POWER_UP_GLYPHS } from "@core/config/powerUps";
+import { type Ball, paceGhost } from "@entities/ball/Ball";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
 import { BackgroundLayer } from "@render/backgrounds";
 import {
@@ -11,7 +12,6 @@ import {
   DROP_COLORS,
 } from "@render/palette";
 
-import type { Ball } from "@entities/ball/Ball";
 import type { Critter } from "@entities/effects/Critter";
 import type { Detonation } from "@entities/effects/Detonation";
 import type { Meteor } from "@entities/effects/MeteorField";
@@ -85,6 +85,12 @@ const BALL_PIXEL_ROWS: ReadonlyArray<readonly [number, number]> = [
   [1, 6],
   [2, 4],
 ];
+
+// Whether one row of the ball's sprite table covers a given column — the whole
+// of what `drawBallShell` needs to know about its neighbours.
+function ballRowCovers(row: readonly [number, number] | undefined, column: number): boolean {
+  return row !== undefined && column >= row[0] && column < row[0] + row[1];
+}
 
 const BALL_SIZE = gameConfig.ball.size;
 
@@ -442,6 +448,12 @@ export interface RenderView {
   // trap is the thing the player has to react to, and a boost underneath it
   // does not get to soften how it looks.
   turboTrail: boolean;
+  // TEMPO: how much of each ball's banked debt to spend on its pace ghost, 0
+  // when there is no bullet time to mark.
+  tempoGhost: number;
+  // STASIS closing on the field, 0 to 1 — and 0 for the whole of the release,
+  // which the ring pool owns on its own.
+  stasisClosing: number;
   drops: readonly Drop[];
   shots: readonly Shot[];
   flashes: readonly BrickFlash[];
@@ -1127,7 +1139,18 @@ export class CanvasRenderer {
     }
     for (const ball of view.balls) {
       if (ball.active) {
+        const ghost = paceGhost(ball, view.tempoGhost);
+        if (ghost) {
+          this.drawBallShell(ghost.x, ghost.y, canvasPalette.paceGhost);
+        }
         this.drawBall(ball, view.ballTrail, view.turboTrail ? TURBO_TRAIL_TONES : RUSH_TRAIL_TONES);
+        // Around the ball rather than in the ring pool: this one rides a ball
+        // that is still coasting, while the release ring has to stay where the
+        // ball stopped.
+        if (view.stasisClosing > 0) {
+          const half = BALL_SIZE / 2;
+          this.strokeStasisRing(ball.x + half, ball.y + half, 2 + (1 - view.stasisClosing) * 18);
+        }
       }
     }
 
@@ -1616,6 +1639,36 @@ export class CanvasRenderer {
   // it. The copies are computed off the velocity already in hand: no per-ball
   // history, nothing to clear on a reset. A ball glued to the paddle keeps its
   // stored velocity and is going nowhere, so it gets no streak.
+  /**
+   * The ball as a one-pixel shell: the same 8 px sprite table with its interior
+   * cut out, which is the only honest way to mark a position with the ball's own
+   * silhouette without drawing a ball.
+   *
+   * TEMPO's pace ghost is the one caller. A filled sprite is the game's most
+   * loaded signal, and under a live SWARM twelve white ones would be TEMPO
+   * saying MULTI's sentence — an outline says "where you would have been" and
+   * nothing else.
+   */
+  private drawBallShell(x: number, y: number, color: string): void {
+    BALL_PIXEL_ROWS.forEach(([offset, span], rowIndex) => {
+      const above = BALL_PIXEL_ROWS[rowIndex - 1];
+      const below = BALL_PIXEL_ROWS[rowIndex + 1];
+      for (let column = offset; column < offset + span; column++) {
+        // On the shell if anything beside it is off the sprite: the ends of
+        // every row, and the caps at top and bottom where there is no row to
+        // hide behind. Twenty pixels of the fifty-two, and a hollow middle.
+        const edge =
+          column === offset ||
+          column === offset + span - 1 ||
+          !ballRowCovers(above, column) ||
+          !ballRowCovers(below, column);
+        if (edge) {
+          this.spritePixel(x + column, y + rowIndex, 1, 1, color);
+        }
+      }
+    });
+  }
+
   private drawBall(ball: Ball, trail: number, tones: readonly string[]): void {
     const { x, y } = ball;
 
@@ -1818,10 +1871,18 @@ export class CanvasRenderer {
   // and not as something on the field.
   private drawStasisRing(ring: StasisRing): void {
     const age = gameConfig.powerUps.stasisRingLifeTicks - ring.ticksLeft;
+    this.strokeStasisRing(ring.x, ring.y, 2 + age * 1.5);
+  }
+
+  // One ring, drawn twice over: the release expands it out of the frozen pixel
+  // at 1.5 px a tick over `stasisRingLifeTicks`, and the arrival is that same
+  // sweep read backwards, 20 px down to 2, riding each ball as it coasts to a
+  // stop. Any second number here would give the capsule two ring speeds.
+  private strokeStasisRing(centerX: number, centerY: number, radius: number): void {
     this.ctx.strokeStyle = this.ink(canvasPalette.stasisRing);
     this.ctx.lineWidth = 1 * SCALE;
     this.ctx.beginPath();
-    this.ctx.arc(ring.x * SCALE, ring.y * SCALE, (2 + age * 1.5) * SCALE, 0, Math.PI * 2);
+    this.ctx.arc(centerX * SCALE, centerY * SCALE, radius * SCALE, 0, Math.PI * 2);
     this.ctx.stroke();
   }
 

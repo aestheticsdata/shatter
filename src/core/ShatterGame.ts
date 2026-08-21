@@ -11,7 +11,7 @@ import {
 import { DevConsole } from "@core/DevConsole";
 import { levelAt, levelIndexOf } from "@core/levels/levels";
 import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/PaddleBounce";
-import { Ball } from "@entities/ball/Ball";
+import { Ball, paceGhost } from "@entities/ball/Ball";
 import { BrickGrid } from "@entities/bricks/BrickGrid";
 import { BumperField } from "@entities/effects/BumperField";
 import { Critter } from "@entities/effects/Critter";
@@ -331,6 +331,22 @@ export class ShatterGame {
   // ever see — so the timer alone owns those.
   private turboSpool = 0;
   /**
+   * The other three clocks on the ball, and the last of the six the balls read:
+   * TEMPO's drift, RUSH's surge and STASIS's hold, each 0 absent to 1 in full.
+   *
+   * All three are the displacement scale rather than pictures over it, like the
+   * spool above them — `ballTimeScale()` is one product of the four, so a field
+   * holding several of them composes instead of arbitrating, and nothing is
+   * stored on a ball that would have to be unwound when one runs out.
+   *
+   * STASIS's is read twice off one number: the ring closes on the blend itself
+   * while the balls only brake over its second half, which is what buys the
+   * coast into the freeze.
+   */
+  private tempoBlend = 0;
+  private rushBlend = 0;
+  private stasisBlend = 0;
+  /**
    * SPLIT's tear, 0 whole to 1 fully open — and the odd one out of the six.
    *
    * The five above it are pictures over a simulation that has already changed.
@@ -507,7 +523,21 @@ export class ShatterGame {
       railMarks: this.railMarks,
       balls: this.balls,
       ballTrail: this.ballTrail(),
-      turboTrail: !this.timers.isActive("RU"),
+      // The blend and not the timer, so the tones do not swap out from under a
+      // streak that is still retracting: RUSH keeps the smear all the way back
+      // into the sprite, and a TURBO underneath it only gets the cold one once
+      // the trap's own picture is finished.
+      turboTrail: this.rushBlend === 0,
+      // TEMPO's pace ghost, as the scale on every ball's banked debt. One
+      // number for the field and the debt per ball, because the debt is the
+      // ball's own history and the blend is the capsule's.
+      tempoGhost: this.tempoBlend,
+      // STASIS's ring closing on the balls — one way, deliberately. Read
+      // symmetrically it would paint the same ring growing back out on the
+      // departure, on top of the one `popStasisRings` has already pinned where
+      // each ball hung: two concentric expanding rings per ball for twelve
+      // ticks. The release is the pool's alone and is left exactly as it was.
+      stasisClosing: this.timers.isActive("I") ? this.stasisBlend : 0,
       drops: this.dropPool.drops,
       shots: this.shotPool.shots,
       flashes: this.brickFlashes,
@@ -606,6 +636,22 @@ export class ShatterGame {
     // a ball frozen behind a shockwave may not come out of it at a speed the
     // spool has not reached.
     this.turboSpool = stepBlend(this.turboSpool, this.timers.isActive("TU"), gameConfig.effects.turboSpoolTicks);
+    // The spool's three siblings, above the gates for its reason exactly: a ball
+    // frozen behind a shockwave may not come out of it on a clock the blends
+    // have not reached. TEMPO's debt is cleared here rather than per ball, so a
+    // marker cannot outlive the blend that scales it.
+    this.tempoBlend = stepBlend(this.tempoBlend, this.timers.isActive("T"), gameConfig.effects.tempoDriftTicks);
+    if (this.tempoBlend === 0) {
+      for (const ball of this.balls) {
+        ball.tempoDebt = 0;
+      }
+    }
+    this.rushBlend = stepBlend(this.rushBlend, this.timers.isActive("RU"), gameConfig.effects.rushSurgeTicks);
+    // STASIS's arrival read off the ring it already ships: `stasisRingLifeTicks`
+    // is what the release ring expands over, so closing on the same count is
+    // that ring run backwards. Any other number would give the capsule two ring
+    // speeds — one for stopping the field and one for letting it go.
+    this.stasisBlend = stepBlend(this.stasisBlend, this.timers.isActive("I"), gameConfig.powerUps.stasisRingLifeTicks);
     // Above the freeze gates like the five before it, and for a reason none of
     // them has: this blend is the catch surface. A deck frozen half-torn behind
     // a shockwave would hold a half-open hole over the drops the detonation is
@@ -773,6 +819,10 @@ export class ShatterGame {
     this.stepCritter();
     this.stepMeteors();
 
+    // One reading for the whole field, so every ball on it is stepped on the
+    // same tick of the same clock — and so the gate below and the debt above it
+    // are asking about the number the ball actually moved on.
+    const timeScale = this.ballTimeScale();
     for (let index = 0; index < this.balls.length; index++) {
       const ball = this.balls[index];
       if (!ball.active) {
@@ -784,16 +834,26 @@ export class ShatterGame {
         // hole where one was parked.
         ball.x = this.paddle.x + this.clampStuckOffset(ball.stuckOffsetX);
         ball.y = gameConfig.paddle.y - gameConfig.ball.size;
+        ball.tempoDebt = 0;
         continue;
       }
       // STASIS stops the balls and nothing else — capsules keep falling, shots
       // keep flying, the paddle keeps moving, and this is the whole of it.
       // Skipping the body writes no position or velocity, so the ball resumes
       // on exactly the trajectory it was frozen on.
-      if (this.timers.isActive("I")) {
+      //
+      // The product and not the timer, which is what lets the ball coast into
+      // the freeze — and it still has to be a `continue` rather than a scale of
+      // 0 fed to `moveBall`: at 0 the sub-step loop would run `findBallOverlap`
+      // every tick on a ball parked inside a brick and chew straight through it
+      // while the field is supposed to be held still.
+      if (timeScale === 0) {
         continue;
       }
-      this.moveBall(ball, index);
+      const wasVx = ball.velocity.x;
+      const wasVy = ball.velocity.y;
+      this.moveBall(ball, index, timeScale);
+      this.stepPaceDebt(ball, timeScale, wasVx, wasVy);
     }
     // The MULTI ladder and the swarm end as soon as a single ball is left —
     // checked before capsule catches so a fresh pickup is not instantly reset.
@@ -1114,43 +1174,94 @@ export class ShatterGame {
     return ball.phasing;
   }
 
-  // Both time scales in one product: TEMPO slows, RUSH speeds, and a field
-  // holding both lands at 1.08 — near-normal, which is the counter-play TEMPO is
-  // meant to be and wants no special case. Displacement only, so stored
-  // velocities are untouched and either capsule expiring restores the true speed
-  // with nothing to unwind.
+  /**
+   * TEMPO's factor on its own, because the deck reads it too: BANANA's skid is
+   * slowed by bullet time, and a skid still skating at full speed while the
+   * balls ease into it would read as two clocks running at once. One expression,
+   * one place — the blend is what makes that matter, since a hard 0.6 could be
+   * written twice and still agree.
+   */
+  private tempoScale(): number {
+    return 1 + (gameConfig.powerUps.tempoTimeScale - 1) * this.tempoBlend;
+  }
+
+  /**
+   * How much of STASIS's hold is on the ball, against how much is on the ring.
+   *
+   * Two curves off one number: the ring closes over the whole blend while the
+   * balls only brake over its second half, so a frozen field is entered by
+   * coasting about 14 px into a ring already tightening around it rather than
+   * by stopping dead the frame the capsule lands.
+   */
+  private stasisMotion(): number {
+    return Math.max(0, Math.min(1, (this.stasisBlend - 0.5) * 2));
+  }
+
+  // All four clocks in one product: TEMPO slows, RUSH and TURBO speed, STASIS
+  // takes it to a stop, and a field holding TEMPO and RUSH lands at 1.08 —
+  // near-normal, which is the counter-play TEMPO is meant to be and wants no
+  // special case. Displacement only, so stored velocities are untouched and any
+  // of them expiring restores the true speed with nothing to unwind.
+  //
+  // Every factor is read off a blend rather than a timer, and each is exactly 1
+  // at blend 0 — which is what lets a capsule that has not wound up yet, or has
+  // wound back down, cost nothing without a branch of its own.
   private ballTimeScale(): number {
-    const { tempoTimeScale, rushTimeScale, turboTimeScale } = gameConfig.powerUps;
+    const { rushTimeScale, turboTimeScale } = gameConfig.powerUps;
     return (
-      (this.timers.isActive("T") ? tempoTimeScale : 1) *
-      (this.timers.isActive("RU") ? rushTimeScale : 1) *
-      // The only one of the three that arrives gradually, so it is read off the
-      // spool rather than off the timer: at 0 this factor is exactly 1, which
-      // is what lets a TURBO that has not started yet cost nothing.
-      (1 + (turboTimeScale - 1) * this.turboSpool)
+      this.tempoScale() *
+      (1 + (rushTimeScale - 1) * this.rushBlend) *
+      (1 + (turboTimeScale - 1) * this.turboSpool) *
+      (1 - this.stasisMotion())
     );
   }
 
   /**
    * How far back the streak is smeared, which is the ground a ball actually
    * covers in a tick — a TEMPO in hand shortens it, and STASIS holding the
-   * field ends it, because frozen balls cover nothing.
+   * field ends it, because frozen balls cover nothing, both of which fall out
+   * of the product for free.
    *
-   * TURBO's is scaled by its own spool on top, so the comet grows out of the
-   * ball as the boost winds up and shrinks back into it on the way out. RUSH's
-   * is not: it shipped arriving all at once, and that is the trap.
+   * Whichever of the two smearing capsules is further along owns the length, so
+   * the streak grows out of the sprite either way and neither jumps when the
+   * other arrives or leaves. Written as the blend rather than as the bare
+   * product on purpose: at blend 0 the product is 1, and a far copy 3.7 px
+   * behind a level-15 ball would pop into being at three solid pixels of red
+   * and only *then* start growing.
    */
   private ballTrail(): number {
-    if (this.timers.isActive("I")) {
-      return 0;
-    }
-    if (this.timers.isActive("RU")) {
-      return this.ballTimeScale();
-    }
-    return this.ballTimeScale() * this.turboSpool;
+    return this.ballTimeScale() * Math.max(this.rushBlend, this.turboSpool);
   }
 
-  private moveBall(ball: Ball, index: number): void {
+  /**
+   * TEMPO's debt, one tick of it: the displacement this ball did not cover on
+   * the slowed clock, banked so the pace ghost can be spent forward off it.
+   *
+   * Derived, never simulated. A phantom flying free walks through bricks and
+   * walls, and after a bounce — 55 px of travel in 12 ticks at level 15, against
+   * a 37-62 tick trip from the deck to the grid — the pair diverges in
+   * *direction* and the gap stops meaning speed at all. So anything that turns
+   * the ball wipes the debt and the marker starts again from the sprite, which
+   * is also the whole of "the ghost dies on the first bounce".
+   *
+   * It stops growing rather than resetting once the projection leaves the
+   * field: zeroing it there would walk the ghost back out of the ball the very
+   * next tick, over and over, on a ball that has done nothing.
+   */
+  private stepPaceDebt(ball: Ball, timeScale: number, wasVx: number, wasVy: number): void {
+    if (this.tempoBlend === 0) {
+      return;
+    }
+    if (!ball.active || ball.stuckOffsetX !== null || ball.velocity.x !== wasVx || ball.velocity.y !== wasVy) {
+      ball.tempoDebt = 0;
+      return;
+    }
+    if (paceGhost(ball, this.tempoBlend) !== null || ball.tempoDebt === 0) {
+      ball.tempoDebt += 1 - timeScale;
+    }
+  }
+
+  private moveBall(ball: Ball, index: number, timeScale: number): void {
     // Guidance, then physics. Anything that bends a ball without touching its
     // speed belongs here, once per tick — never inside the sub-step loop, where
     // a fast ball would be steered four times and a slow one once.
@@ -1161,7 +1272,6 @@ export class ShatterGame {
     if (this.timers.isActive("H") && !insideCore) {
       this.steerBall(ball);
     }
-    const timeScale = this.ballTimeScale();
     const stepVx = ball.velocity.x * timeScale;
     const stepVy = ball.velocity.y * timeScale;
     const subSteps = Math.max(1, Math.ceil(Math.max(Math.abs(stepVx), Math.abs(stepVy)) / 2));
@@ -2002,6 +2112,9 @@ export class ShatterGame {
     this.blackoutBlend = 0;
     this.flipTurn = 0;
     this.turboSpool = 0;
+    this.tempoBlend = 0;
+    this.rushBlend = 0;
+    this.stasisBlend = 0;
     this.mirrorForm = 0;
     this.mirrorAfterImageTicks = 0;
     this.laserBlend = 0;
@@ -2484,9 +2597,12 @@ export class ShatterGame {
 
     if (this.skidTicksLeft > 0) {
       // TEMPO slows the slide as it slows the balls: bullet-time that left the
-      // deck skating at full speed would read as two clocks running at once.
-      const scale = this.timers.isActive("T") ? gameConfig.powerUps.tempoTimeScale : 1;
-      this.paddle.moveByDelta(this.skidVx * scale);
+      // deck skating at full speed would read as two clocks running at once —
+      // which is why this is the capsule's own eased factor and not a second
+      // reading of the timer. The other three clocks on `ballTimeScale()` are
+      // deliberately absent: STASIS stops the balls and nothing else, and a
+      // RUSH is not a reason for a banana skin to be more slippery.
+      this.paddle.moveByDelta(this.skidVx * this.tempoScale());
       // The paddle's own clamp swallowed the move: a skid into a wall stops
       // dead there rather than banking speed to spend on the way back out.
       if (this.paddle.x <= gameConfig.field.left || this.paddle.x >= gameConfig.field.right - this.paddle.width) {
@@ -2822,6 +2938,9 @@ export class ShatterGame {
     this.blackoutBlend = 0;
     this.flipTurn = 0;
     this.turboSpool = 0;
+    this.tempoBlend = 0;
+    this.rushBlend = 0;
+    this.stasisBlend = 0;
     this.mirrorForm = 0;
     this.mirrorAfterImageTicks = 0;
     this.laserBlend = 0;
@@ -2870,6 +2989,9 @@ export class ShatterGame {
     this.blackoutBlend = 0;
     this.flipTurn = 0;
     this.turboSpool = 0;
+    this.tempoBlend = 0;
+    this.rushBlend = 0;
+    this.stasisBlend = 0;
     this.mirrorForm = 0;
     this.mirrorAfterImageTicks = 0;
     this.laserBlend = 0;
