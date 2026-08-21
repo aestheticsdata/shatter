@@ -153,6 +153,12 @@ export const canvasPalette = {
   // the leading end — the one warm pixel on it, so which way it is walking can
   // be read without waiting to see it move.
   critterBody: "#a3e04a",
+  // The rung between the two above: what a grub's lime steps through on its way
+  // to its own belly brown as it runs down. Deliberately not a
+  // `DEMAKE_GROUND_TONES` member — it is a shade, not a shape, and a dying grub
+  // sinking into the background would read worse on the tube than one that
+  // keeps its ink and blinks.
+  critterSpent: "#969d3a",
   critterUnder: "#8a5a2a",
   critterJaw: "#e8384f",
   critterEye: "#0b0b26",

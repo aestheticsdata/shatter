@@ -677,6 +677,20 @@ export const gameConfig = {
       lifeTicks: 900,
       stepSpeed: 1.667,
       emptyRowSpeed: 3.33,
+      // What a grub does with its last second, whichever of its two clocks is
+      // about to run out — the life timer, or the travel left on the bottom
+      // row before it walks off the wall entirely. Three tells stacked rather
+      // than one, because under DEMAKE the colour half flattens to a single
+      // ink: the stride halves first, then the lime body steps twice toward
+      // its own belly brown, then it blinks out in two-tick blocks. Walking
+      // speed and bite rate are untouched — slowing a dying grub would quietly
+      // take back a brick of the chewing the capsule promised.
+      runDown: {
+        dragTicks: 60,
+        dimTicks: 40,
+        darkTicks: 20,
+        blinkTicks: 8,
+      },
     },
     // METEOR's volley. One rock per third of the 12 columns, so `count` is meant
     // to divide them evenly. `fallSpeed` 3 crosses the deepest grid in 44 ticks
@@ -688,6 +702,13 @@ export const gameConfig = {
       count: 3,
       fallSpeed: 3,
       driftSpeed: 1.2,
+      // How long a rock takes to shed the last of itself once it is past the
+      // bottom of the wall. Matched to `trailBurst.minLifeTicks`, so the final
+      // puff the rock makes outlives the rock by its own shortest chunk life —
+      // the smoke closes over the place the core went out rather than ending
+      // with it. Four rungs of core at three ticks each; on the deepest grid
+      // the last pixel goes out near y 170, a clear 100 px above the rail.
+      burnoutTicks: 12,
       // The burning trail: a puff every other tick, so ~48 chunks are alive
       // across a volley — a fifth of the pool, with a full-field NUKE's 720
       // still able to land on top of it.

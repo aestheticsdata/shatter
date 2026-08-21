@@ -2107,8 +2107,21 @@ export class CanvasRenderer {
   // enough to read as walking rather than sliding, on a sprite 10 px wide. Drawn
   // over the bricks it is eating and under the debris it makes, with
   // `spritePixel`, since it moves in thirds of a game pixel.
+  //
+  // It is an animal, so it runs down before it goes: `critter.deathTicks` is how
+  // long it has left by whichever exit is coming, and the last second of it is
+  // spent dragging, going the colour of its own belly, and blinking. Under
+  // DEMAKE `ink()` flattens the colour half of that to one tone, which is why
+  // the stride and the blink carry it too.
   private drawCritter(critter: Critter, dropOffset: number): void {
     if (!critter.alive) {
+      return;
+    }
+    const { dragTicks, dimTicks, darkTicks, blinkTicks } = gameConfig.effects.critter.runDown;
+    const left = critter.deathTicks;
+    // Two-tick blocks, the CHAIN bolt's device: `draw()` runs per frame, so a
+    // per-frame blink on a 10 px sprite would strobe rather than flash.
+    if (left < blinkTicks && (left & 2) === 0) {
       return;
     }
     // The grub's y is its own row's, set when it was dropped onto it, so it
@@ -2117,14 +2130,24 @@ export class CanvasRenderer {
     const { x } = critter;
     const y = critter.y - dropOffset;
     const leading = critter.direction > 0;
+    // Two discrete steps rather than a blend: a two-colour 10x8 sprite has no
+    // in-between, and a lerp on it would just dither.
+    const body =
+      left < darkTicks
+        ? canvasPalette.critterUnder
+        : left < dimTicks
+          ? canvasPalette.critterSpent
+          : canvasPalette.critterBody;
 
-    this.spritePixel(x, y + 2, 10, 4, canvasPalette.critterBody);
-    this.spritePixel(x + 1, y + 1, 8, 6, canvasPalette.critterBody);
+    this.spritePixel(x, y + 2, 10, 4, body);
+    this.spritePixel(x + 1, y + 1, 8, 6, body);
     this.spritePixel(x + 1, y + 6, 8, 1, canvasPalette.critterUnder);
     this.spritePixel(leading ? x + 9 : x, y + 3, 1, 2, canvasPalette.critterJaw);
     this.spritePixel(leading ? x + 7 : x + 2, y + 2, 1, 1, canvasPalette.critterEye);
 
-    const stride = (this.frameCount & 8) === 0 ? 0 : 1;
+    // The stride clock halves once it is running down, so the feet drag instead
+    // of trotting — the one tell that survives both DEMAKE and the blink.
+    const stride = (this.frameCount & (left < dragTicks ? 16 : 8)) === 0 ? 0 : 1;
     for (const foot of [1, 4, 7]) {
       this.spritePixel(x + foot + stride, y + 7, 1, 1, canvasPalette.critterUnder);
     }
@@ -2134,9 +2157,20 @@ export class CanvasRenderer {
   // cap sits on the trailing edge, so the sprite points the way it is falling
   // even in a screenshot, and `spritePixel` keeps it on the backing grid — a
   // rock steps 3.23 px a tick and would judder rounded to whole game pixels.
+  //
+  // Below the wall it is being used up: the ember cap goes out on the first
+  // burning tick, then the core steps down 4 -> 3 -> 2 -> 1 px, three ticks a
+  // rung. It shrinks at exactly the rate the trail behind it thickens, so what
+  // the player watches is a rock turning into its own smoke rather than one
+  // being deleted at the bottom of the grid.
   private drawMeteor(meteor: Meteor): void {
-    this.spritePixel(meteor.x - 2, meteor.y - 2, 4, 4, canvasPalette.meteorCore);
-    this.spritePixel(meteor.x - 1, meteor.y - 3, 2, 2, canvasPalette.meteorFlame);
+    if (meteor.burnTicks === 0) {
+      this.spritePixel(meteor.x - 2, meteor.y - 2, 4, 4, canvasPalette.meteorCore);
+      this.spritePixel(meteor.x - 1, meteor.y - 3, 2, 2, canvasPalette.meteorFlame);
+      return;
+    }
+    const size = Math.ceil((4 * meteor.burnTicks) / gameConfig.effects.meteor.burnoutTicks);
+    this.spritePixel(meteor.x - size / 2, meteor.y - size / 2, size, size, canvasPalette.meteorCore);
   }
 
   // A CHAIN arc: the mint stroke laid down first, a thinner white core over it,

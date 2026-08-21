@@ -12,6 +12,10 @@ export interface Meteor {
   vy: number;
   // Ticks since launch, which is what paces the trail: one puff every other tick.
   age: number;
+  // What is left of the burnout once the rock is past the bottom of the wall,
+  // counting down from `burnoutTicks`; 0 while it is still a rock. It is what
+  // shrinks the core, doubles the trail, and finally clears `active`.
+  burnTicks: number;
   active: boolean;
 }
 
@@ -29,6 +33,7 @@ export class MeteorField {
     vx: 0,
     vy: 0,
     age: 0,
+    burnTicks: 0,
     active: false,
   }));
 
@@ -64,6 +69,7 @@ export class MeteorField {
       meteor.vy = fallSpeed;
       meteor.vx = Math.sign(middle - meteor.x) * driftSpeed;
       meteor.age = 0;
+      meteor.burnTicks = 0;
       meteor.active = true;
       launched++;
     }
@@ -73,15 +79,26 @@ export class MeteorField {
 
   /**
    * One tick of falling. `bottomY` is the bottom of the grid the level loaded:
-   * past it there is nothing left to drill, so the rock burns out rather than
-   * flying on to the paddle — nothing on the field below the wall is METEOR's
-   * business.
+   * past it there is nothing left to drill, so the rock spends itself rather
+   * than flying on to the paddle — nothing on the field below the wall is
+   * METEOR's business.
+   *
+   * It is a rock, so being used up is not a switch: it goes on falling along the
+   * line it was launched on and sheds the last of itself into its own trail,
+   * shrinking as fast as the smoke behind it thickens. Armed as a one-shot,
+   * because `y > bottomY` is true on every tick after the first — set it and
+   * decrement it in the same breath and it re-arms forever and the rock never
+   * dies.
+   *
+   * There is no side-wall exit to fold in here: the drift is always toward the
+   * middle and the widest launch is 21 px from a 3 px gutter, so a rock has
+   * never once left through a side wall and cannot start now.
    *
    * 3 px of fall against 12 px rows skips no row, so there is no sub-stepping
    * here: the caller samples the grid once per tick under each rock.
    */
   step(bottomY: number): void {
-    const { left, right } = gameConfig.field;
+    const { burnoutTicks } = gameConfig.effects.meteor;
 
     for (const meteor of this.meteors) {
       if (!meteor.active) {
@@ -90,14 +107,19 @@ export class MeteorField {
       meteor.age++;
       meteor.x += meteor.vx;
       meteor.y += meteor.vy;
-      if (meteor.y > bottomY || meteor.x < left || meteor.x > right) {
-        meteor.active = false;
+      if (meteor.y > bottomY) {
+        if (meteor.burnTicks === 0) {
+          meteor.burnTicks = burnoutTicks;
+        } else if (--meteor.burnTicks === 0) {
+          meteor.active = false;
+        }
       }
     }
   }
 
   reset(): void {
     for (const meteor of this.meteors) {
+      meteor.burnTicks = 0;
       meteor.active = false;
     }
   }

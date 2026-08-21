@@ -2258,14 +2258,29 @@ export class ShatterGame {
     }
     // It crawls while there is something to chew in the column ahead and scoots
     // over ground already cleared: 30 px of brick is 18 ticks either way, and a
-    // stripped row costs a third of that to cross.
+    // stripped row costs a third of that to cross. Walking on and walking off
+    // are its own pace instead: there is no column out there to ask about, and a
+    // grub that scooted in over the gutter would arrive twice as fast as it
+    // leaves.
     const { stepSpeed, emptyRowSpeed } = gameConfig.effects.critter;
-    const ahead = this.grid.hitAtCell(this.critter.row, this.critterColumn() + this.critter.direction);
-    this.critter.step(ahead ? stepSpeed : emptyRowSpeed);
+    const onTheWall = !this.critter.entering && !this.critter.leaving;
+    const ahead = onTheWall
+      ? this.grid.hitAtCell(this.critter.row, this.critterColumn() + this.critter.direction)
+      : null;
+    this.critter.step(onTheWall && !ahead ? emptyRowSpeed : stepSpeed, this.grid.rows.length);
 
-    // Out of life, or chewed its way off the bottom of the grid.
-    if (this.critter.ticksLeft <= 0 || this.critter.row >= this.grid.rows.length) {
+    // Out of life: it goes out in the puff. Off the end of the bottom row: it
+    // walks out under the far bar and is simply not there any more — a grub the
+    // player watched leave owes nobody an explosion.
+    if (this.critter.ticksLeft <= 0) {
       this.despawnCritter();
+      return;
+    }
+    if (this.critter.gone) {
+      this.critter.reset();
+      return;
+    }
+    if (this.critter.entering || this.critter.leaving) {
       return;
     }
 
@@ -2317,7 +2332,11 @@ export class ShatterGame {
    *
    * Nothing collides with a rock and nothing bends one: balls, shots and
    * capsules pass through, and SINGULARITY does not reach them. They fall the
-   * line they were launched on until the grid runs out beneath them.
+   * line they were launched on until the grid runs out beneath them, and then
+   * for the twelve ticks it takes them to burn out below it — during which MT
+   * stays lit in the POWER inset, because a rock is still on screen, and the
+   * rock still holds its pool slot, which widens the window where a third catch
+   * inside one fall lands as the sound alone by a fifth of a second.
    */
   private stepMeteors(): void {
     if (!this.meteors.active) {
@@ -2335,8 +2354,11 @@ export class ShatterGame {
         continue;
       }
       // Every other tick: one puff per rock per two ticks is a trail, and one
-      // per tick is a smoke screen over the wall it is drilling.
-      if ((meteor.age & 1) === 0) {
+      // per tick is a smoke screen over the wall it is drilling. Below the wall
+      // there is nothing left to hide, so a burning rock does puff every tick —
+      // it is turning into its own smoke, and the trail has to thicken at the
+      // rate the core shrinks or the rock just quietly gets smaller.
+      if ((meteor.age & 1) === 0 || meteor.burnTicks > 0) {
         this.particles.burst(meteor.x, meteor.y, "2", gameConfig.effects.meteor.trailBurst);
       }
       const hit = this.grid.cellAt(meteor.x, meteor.y);
