@@ -77,6 +77,13 @@ export const canvasPalette = {
   // over both of the deck's top tones — the pale blue sheen in the middle and
   // the red caps at either end.
   glueResin: "#e0a54c",
+  // XRAY's scan bar and the trail behind it. White-cyan rather than the
+  // capsule's own acid green, which is a brick colour six capsules already
+  // wear: a reading line has to be the one thing on the wall that is plainly
+  // not part of it. The dimmer tone sits on the side the bar has come from, so
+  // a still frame says which way the scan is running.
+  xrayScan: "#e6fffa",
+  xrayScanTrail: "#5fbfae",
   // HOMING's signal green, on the four corners of the brick a ball has locked.
   homingMark: "#00e05a",
   // MIRROR's ghost: the paddle's own tones taken down far enough to read as a

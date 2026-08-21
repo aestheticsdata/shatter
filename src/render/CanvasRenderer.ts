@@ -431,8 +431,19 @@ export interface RenderView {
   mirrorAfterImage: number;
   magnetActive: boolean;
   portalActive: boolean;
-  // XRAY: show every brick the capsule it is holding, for as long as it lasts.
-  xrayActive: boolean;
+  // XRAY: show every brick the capsule it is holding, for as long as it lasts —
+  // 0 unread, 1 the whole wall read, and in between how far down the reading
+  // edge has got. What changes over a sweep is the *depth* that can be seen
+  // through and never the strength: a pill is whole, sliced, or not there.
+  xrayBlend: number;
+  // Where that edge stands, in whole game pixels. Whole and not a fraction of
+  // the wall, because a row is sliced against it with a clip rect and a clip
+  // between two device pixels is a soft edge on a wall made of hard ones.
+  xrayBeamY: number;
+  // Which way that edge is travelling: down the wall while the capsule is being
+  // read in, back up it on the way out. The blend cannot say — it is symmetric,
+  // and one frame of it looks the same going either way.
+  xrayReading: boolean;
   // DEMAKE's dissolve, 0 in colour to 1 fully demade. A number rather than a
   // flag because the machine sags into the tube and back out over half a second
   // at each end. Purely presentational — the simulation behind it is not told,
@@ -1077,12 +1088,30 @@ export class CanvasRenderer {
           const y = top + rowIndex * brickHeight;
           const fade = ghostProgress(view.ghostBlend, rowIndex, columnIndex, this.frameCount);
           drawBrick(this.ctx, x, y, cell, SCALE, fade, this.demade);
-          if (view.xrayActive && cell.capsule) {
-            this.drawRevealedCapsule(x, y, cell.capsule);
+          // Branched rather than clipped blind. Gating on the blend alone would
+          // pay a save/beginPath/rect/clip/restore on every revealed pill on
+          // every one of the capsule's 300 frames, and lean on a negative-height
+          // rect to keep the rows under the bar off the wall.
+          if (cell.capsule && view.xrayBlend > 0) {
+            if (view.xrayBlend === 1 || y + brickHeight <= view.xrayBeamY) {
+              this.drawRevealedCapsule(x, y, cell.capsule);
+            } else if (y < view.xrayBeamY) {
+              this.drawRevealedCapsule(x, y, cell.capsule, view.xrayBeamY);
+            }
           }
         }
       });
     });
+
+    // Over the bricks it has just read and under everything that stands on the
+    // wall — and inside the shake, so the bar rides the wall it is reading
+    // rather than detaching from it for QUAKE's ten ticks.
+    // The third clause is the empty wall: a last brick killed with XRAY in hand
+    // freezes the timers for the clear but not this blend, and without it a bar
+    // would sit on the wall's top edge for twenty ticks with nothing to read.
+    if (view.xrayBlend > 0 && view.xrayBlend < 1 && view.xrayBeamY > gameConfig.grid.top) {
+      this.drawXrayBeam(view.xrayBeamY, view.xrayReading);
+    }
 
     for (const flash of view.flashes) {
       this.pixel(flash.x + 1, flash.y + 1, 28, 10, FLASH_COLORS[flash.kind]);
@@ -1879,10 +1908,42 @@ export class CanvasRenderer {
    * than as a tint because six capsules wear a brick's exact colour by design: a
    * tint would say something is in there without ever saying what.
    */
-  private drawRevealedCapsule(brickX: number, brickY: number, kind: PowerUpKind): void {
+  private drawRevealedCapsule(brickX: number, brickY: number, kind: PowerUpKind, sliceY?: number): void {
+    // Device pixels, by hand. This ctx is not pre-scaled — `pixel()` and
+    // `spritePixel()` multiply by SCALE themselves, as does `drawChainBolt`
+    // with its points — so a rect given in game units would land at a third of
+    // its coordinates up in the corner and clip every pill on the wall to
+    // nothing. Whole game pixels in, so the cut stays on the 3x grid.
+    const sliced = sliceY !== undefined;
+    if (sliced) {
+      this.ctx.save();
+      this.ctx.beginPath();
+      this.ctx.rect(brickX * SCALE, brickY * SCALE, gameConfig.grid.brickWidth * SCALE, (sliceY - brickY) * SCALE);
+      this.ctx.clip();
+    }
     this.ctx.globalAlpha = XRAY_REVEAL_ALPHA;
     drawCapsule(this.ctx, brickX + 5, brickY + 2, kind, SCALE, this.frameCount, this.demade);
     this.ctx.globalAlpha = 1;
+    if (sliced) {
+      this.ctx.restore();
+    }
+  }
+
+  /**
+   * XRAY's reading edge, crossing the wall once on the catch and once on the
+   * way out.
+   *
+   * Two tones and not one: the dimmer line sits on the side the bar has come
+   * from, which is the only thing in a still frame that says whether the wall
+   * is being read or unread. Drawn for the forty ticks the sweeps take and not
+   * for the two hundred and sixty in between — a line parked on the wall stops
+   * being a scan and starts being a scratch on the glass.
+   */
+  private drawXrayBeam(beamY: number, descending: boolean): void {
+    const { left, columns, brickWidth } = gameConfig.grid;
+    const span = columns * brickWidth;
+    this.pixel(left, beamY, span, 1, canvasPalette.xrayScan);
+    this.pixel(left, descending ? beamY - 1 : beamY + 1, span, 1, canvasPalette.xrayScanTrail);
   }
 
   // CRITTER's grub: a lime body with a brown belly, a red jaw at the leading end

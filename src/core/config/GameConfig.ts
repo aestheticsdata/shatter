@@ -462,6 +462,13 @@ export const gameConfig = {
     // brick flipping as the front passes it. Cosmetic — the collision follows
     // the timer alone, so the wall is already intangible while it still fades.
     ghostFadeTicks: 30,
+    // XRAY's scan, each way: how long the bar takes to cross the live wall,
+    // top to bottom on the catch and bottom to top on the expiry. Not a
+    // strength ramp — what moves is how deep into the wall you can read, and a
+    // pill is whole, sliced, or not there. 20 ticks over the deepest wall is
+    // under 5 px a tick, so the bar still spends two and a half frames on every
+    // 12 px row instead of jumping it.
+    xrayFadeTicks: 20,
     // BLACKOUT's iris, each way. Longer than the other two because it is not a
     // cross-fade but a travelling edge: the lit ground collapses from the whole
     // field down to the ball's own pool, and 45 ticks is what it takes to read

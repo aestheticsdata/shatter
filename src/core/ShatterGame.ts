@@ -311,6 +311,23 @@ export class ShatterGame {
   // the timer: the renderer sweeps a wave across the wall as this moves, while
   // the collision stays binary on the capsule itself.
   private ghostBlend = 0;
+  /**
+   * XRAY's scan, 0 unread to 1 the whole wall read — and the odd blend of the
+   * presentational set, because what moves over it is a *boundary* and not a
+   * strength. A pill is whole, sliced, or not there; nothing ever fades.
+   *
+   * Ramping the reveal's alpha instead would be thirty pills breathing in
+   * together with no direction, at a glance the same event as the fade above —
+   * the only other capsule about seeing the wall differently — and it would
+   * spend most of its travel below the 0.65 where a pill sinks into its own
+   * brick, which is the exact range that constant exists to stay out of.
+   */
+  private xrayBlend = 0;
+  /**
+   * How far the bar has to travel this sweep, in px from the wall's top, taken
+   * once as the sweep leaves its rest and held until it gets back.
+   */
+  private xraySweepSpan = 0;
   // DEMAKE's dissolve, 0 in colour to 1 fully demade. The capsule's timer is
   // still the truth about whether the machine is broken; this is only how far
   // along the picture and the panel are, and it is what the sound chip follows
@@ -523,7 +540,12 @@ export class ShatterGame {
       mirrorAfterImage: this.mirrorAfterImageTicks / gameConfig.effects.mirrorAfterImageTicks,
       magnetActive: this.timers.isActive("K"),
       portalActive: this.timers.isActive("PO"),
-      xrayActive: this.timers.isActive("XR"),
+      // The scan's boundary and the scan's clock. The bar itself is only drawn
+      // while the blend is between its ends, so no line sits on the wall for
+      // the 260 ticks in the middle.
+      xrayBlend: this.xrayBlend,
+      xrayBeamY: this.xrayBeamY(),
+      xrayReading: this.timers.isActive("XR"),
       demakeBlend: this.demakeBlend,
       ghostBlend: this.ghostBlend,
       // The two freezes light the field by definition: a nuke is the brightest
@@ -641,6 +663,22 @@ export class ShatterGame {
     // Above the freeze gates like the shake: a NUKE caught mid-fade must not
     // hold the wall half-dissolved on screen.
     this.ghostBlend = stepBlend(this.ghostBlend, this.timers.isActive("GH"), gameConfig.effects.ghostFadeTicks);
+    // Beside the fade above it and above the gates with it, though for the
+    // weakest of the six reasons: XRAY says nothing about light, speed or
+    // collision, so this is passed raw. It is here because a bar parked
+    // halfway down the wall for the length of a shockwave stops reading as a
+    // scan and starts reading as a scratch on the glass.
+    const xrayWas = this.xrayBlend;
+    this.xrayBlend = stepBlend(this.xrayBlend, this.timers.isActive("XR"), gameConfig.effects.xrayFadeTicks);
+    // Sampled once as each sweep leaves its rest, and held. Normalised to the
+    // level's row count instead, a wall with one row left would be read in
+    // three ticks and the bar would crawl the other seventeen through empty
+    // space — the transition degrading back into a switch exactly when the
+    // wall is thinnest. Bricks also die mid-sweep, and recomputing per frame
+    // would jump the bar every time the deepest row lost its last one.
+    if ((xrayWas === 0 && this.xrayBlend > 0) || (xrayWas === 1 && this.xrayBlend < 1)) {
+      this.xraySweepSpan = this.xrayWallSpan();
+    }
     // Above the freeze gates for the same reason the fade above it is: a NUKE
     // caught mid-dissolve must not hold the machine half-broken on screen.
     this.demakeBlend = stepBlend(this.demakeBlend, this.timers.isActive("D"), gameConfig.effects.demakeFadeTicks);
@@ -1072,6 +1110,30 @@ export class ShatterGame {
       widest = Math.max(widest, (segment.right - segment.left) / 2);
     }
     return widest;
+  }
+
+  /**
+   * How far down a scan has to travel: the bottom edge of the deepest row still
+   * holding a brick, measured from the wall's top.
+   *
+   * The *live* wall and not the level's, which is the whole reason this is a
+   * function and not `rows.length * brickHeight` written inline.
+   */
+  private xrayWallSpan(): number {
+    const rows = this.grid.rows;
+    for (let row = rows.length - 1; row >= 0; row--) {
+      if (rows[row].some((cell) => cell !== null)) {
+        return (row + 1) * gameConfig.grid.brickHeight;
+      }
+    }
+    return 0;
+  }
+
+  // Where the reading edge stands. Rounded to a whole game pixel here rather
+  // than in the renderer, so the slice a half-read row is clipped to lands on
+  // the 3x grid the wall is drawn on and not between two of its pixels.
+  private xrayBeamY(): number {
+    return gameConfig.grid.top + Math.round(this.xraySweepSpan * this.xrayBlend);
   }
 
   /**
@@ -2219,6 +2281,8 @@ export class ShatterGame {
     this.critter.reset();
     this.meteors.reset();
     this.ghostBlend = 0;
+    this.xrayBlend = 0;
+    this.xraySweepSpan = 0;
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
     this.flipTurn = 0;
@@ -3047,6 +3111,8 @@ export class ShatterGame {
     this.critter.reset();
     this.meteors.reset();
     this.ghostBlend = 0;
+    this.xrayBlend = 0;
+    this.xraySweepSpan = 0;
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
     this.flipTurn = 0;
@@ -3100,6 +3166,8 @@ export class ShatterGame {
     this.critter.reset();
     this.meteors.reset();
     this.ghostBlend = 0;
+    this.xrayBlend = 0;
+    this.xraySweepSpan = 0;
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
     this.flipTurn = 0;
