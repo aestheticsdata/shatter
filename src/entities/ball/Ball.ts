@@ -17,6 +17,14 @@ export class Ball {
   homingRow = -1;
   homingColumn = -1;
   homingRetargetIn = 0;
+  // HOMING's reticle, per ball because the lock is: how far through its travel
+  // this ball's four corner ticks are, 0 out at `homingMarkReach` to
+  // `homingRetargetTicks` sitting on the brick. It counts up while the capsule
+  // is live and back down on the way out, and the lock is released when it
+  // reaches 0 — a global blend cannot carry twelve balls holding twelve bricks,
+  // and clearing every reticle because one ball's brick died is exactly the
+  // defect the counter exists to avoid.
+  homingMarkTicks = 0;
   // PORTAL: ticks before this ball may take another wormhole. Per ball, so a
   // swarm crossing together does not share one gate.
   portalCooldown = 0;
@@ -40,6 +48,7 @@ export class Ball {
     this.homingRow = -1;
     this.homingColumn = -1;
     this.homingRetargetIn = 0;
+    this.homingMarkTicks = 0;
   }
 
   get centerX(): number {

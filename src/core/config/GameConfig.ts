@@ -183,7 +183,23 @@ export const gameConfig = {
     homingTurnRad: 0.035,
     // Re-pick the target on this clock as well as the moment it dies, so a ball
     // that has flown past its brick swings onto a nearer one.
+    //
+    // It is also the reticle's whole travel, and that is a constraint rather
+    // than reuse: four corner ticks that took longer to shut than a lock is
+    // allowed to live would still be closing when their brick was re-chosen.
     homingRetargetTicks: 12,
+    /**
+     * How far outside the brick the reticle starts, in whole game pixels.
+     *
+     * Four, against the twelve above it, is one pixel of travel every three
+     * ticks — four discrete steps, so the corners snap shut in stages rather
+     * than gliding, which is the only way a 2×2 tick can move on a grid this
+     * size and still be read as moving. Nothing is drawn at partial strength:
+     * the marks are full green from the first frame, they are simply somewhere
+     * else, and the distance left to travel is exactly how much steering the
+     * ball has yet to earn.
+     */
+    homingMarkReach: 4,
     // Floor on |vy| as a fraction of speed. Below it the turn is skipped and the
     // lock kept: a ball may not be steered into a flat rut it cannot climb out of.
     homingMinVerticalFraction: 0.35,

@@ -347,6 +347,17 @@ export class ShatterGame {
   private rushBlend = 0;
   private stasisBlend = 0;
   /**
+   * HOMING's pull, 0 straight to 1 turning at the full rate — and only the
+   * pull. The reticle is per ball and lives on `Ball.homingMarkTicks`, because
+   * twelve balls hold twelve different bricks and a single number cannot say
+   * where twelve sets of corners are.
+   *
+   * The two are the same idiom read at two scales: the marks show how much
+   * steering a lock has earned, and this is that steering. A lock that has not
+   * closed yet has no business pulling at full strength.
+   */
+  private homingBlend = 0;
+  /**
    * SPLIT's tear, 0 whole to 1 fully open — and the odd one out of the six.
    *
    * The five above it are pictures over a simulation that has already changed.
@@ -538,6 +549,10 @@ export class ShatterGame {
       // each ball hung: two concentric expanding rings per ball for twelve
       // ticks. The release is the pool's alone and is left exactly as it was.
       stasisClosing: this.timers.isActive("I") ? this.stasisBlend : 0,
+      // Which way every reticle is travelling. Global because the capsule is:
+      // how far each set of corners has got is the ball's own counter, but they
+      // all close on the catch and all open on the expiry.
+      homingOpening: !this.timers.isActive("H"),
       drops: this.dropPool.drops,
       shots: this.shotPool.shots,
       flashes: this.brickFlashes,
@@ -652,6 +667,9 @@ export class ShatterGame {
     // that ring run backwards. Any other number would give the capsule two ring
     // speeds — one for stopping the field and one for letting it go.
     this.stasisBlend = stepBlend(this.stasisBlend, this.timers.isActive("I"), gameConfig.powerUps.stasisRingLifeTicks);
+    // Above the gates with the rest, and the only one of them that is two
+    // things: a global ease on the turn rate, and twelve independent reticles.
+    this.stepHomingMarks();
     // Above the freeze gates like the five before it, and for a reason none of
     // them has: this blend is the catch surface. A deck frozen half-torn behind
     // a shockwave would hold a half-open hole over the drops the detonation is
@@ -766,13 +784,6 @@ export class ShatterGame {
     // out of them.
     if (expired.includes("I")) {
       this.popStasisRings();
-    }
-    // The marks are drawn straight off the ball's lock, so the lock is what has
-    // to go when the capsule runs out.
-    if (expired.includes("H")) {
-      for (const ball of this.balls) {
-        ball.clearHoming();
-      }
     }
     if (expired.includes("V")) {
       this.closeCore(this.singularity);
@@ -1008,6 +1019,38 @@ export class ShatterGame {
   }
 
   /**
+   * HOMING's two clocks, one tick of each.
+   *
+   * The pull is global and eases like every other capsule's; the reticles are
+   * per ball and run their own counters, because a lock is per ball and up to
+   * twelve of them are held at once. The tempting shortcut — one blend, dropped
+   * to 0 when a target brick dies — would fling every ball's corners open
+   * because one ball's brick died, which under MULTI or SWARM is most ticks.
+   *
+   * On the way out the counters open and it is a counter reaching 0, not the
+   * expiry tick, that releases the lock. The lock is the draw condition, so
+   * clearing it at expiry is precisely why the marks used to vanish outright —
+   * and `steerBall` is gated on the timer rather than on this blend for the
+   * same reason: its first branch clears the lock on any ball below the grid
+   * heading down, which would blink that ball's corners off mid-open.
+   */
+  private stepHomingMarks(): void {
+    const { homingRetargetTicks } = gameConfig.powerUps;
+    const locking = this.timers.isActive("H");
+    this.homingBlend = stepBlend(this.homingBlend, locking, homingRetargetTicks);
+    for (const ball of this.balls) {
+      if (ball.homingRow < 0) {
+        continue;
+      }
+      if (locking) {
+        ball.homingMarkTicks = Math.min(homingRetargetTicks, ball.homingMarkTicks + 1);
+      } else if (--ball.homingMarkTicks <= 0) {
+        ball.clearHoming();
+      }
+    }
+  }
+
+  /**
    * HOMING: bend this ball one step toward the brick it has locked, at constant
    * speed. The turn is capped per tick, so the ball arcs onto its target over
    * about ninety ticks rather than snapping to it — a curve the player can read
@@ -1050,7 +1093,12 @@ export class ShatterGame {
     } else if (difference <= -Math.PI) {
       difference += Math.PI * 2;
     }
-    const steered = heading + Math.max(-homingTurnRad, Math.min(homingTurnRad, difference));
+    // The pull eased by the same number the corners are drawn from: a lock that
+    // has not closed yet does not get to steer at full strength. ~0.2 rad lost
+    // over the ramp against the ~90 ticks the capsule needs to reverse a
+    // heading, which is the ease being free.
+    const turn = homingTurnRad * this.homingBlend;
+    const steered = heading + Math.max(-turn, Math.min(turn, difference));
 
     // A ball steered flat never comes back down. Skip the turn, keep the lock:
     // the next bounce changes the heading and the arc resumes on its own.
@@ -1091,6 +1139,13 @@ export class ShatterGame {
       }
     }
 
+    // Only a genuinely different cell restamps the reticle. `homingRetargetIn`
+    // resets to 12 on every lock and `steerBall` re-locks unconditionally when
+    // it hits 0 — usually onto the same brick — so stamping here regardless
+    // would close the corners afresh five times a second for the whole capsule.
+    if (bestRow !== ball.homingRow || bestColumn !== ball.homingColumn) {
+      ball.homingMarkTicks = 0;
+    }
     ball.homingRow = bestRow;
     ball.homingColumn = bestColumn;
     ball.homingRetargetIn = gameConfig.powerUps.homingRetargetTicks;
@@ -2115,6 +2170,7 @@ export class ShatterGame {
     this.tempoBlend = 0;
     this.rushBlend = 0;
     this.stasisBlend = 0;
+    this.homingBlend = 0;
     this.mirrorForm = 0;
     this.mirrorAfterImageTicks = 0;
     this.laserBlend = 0;
@@ -2941,6 +2997,7 @@ export class ShatterGame {
     this.tempoBlend = 0;
     this.rushBlend = 0;
     this.stasisBlend = 0;
+    this.homingBlend = 0;
     this.mirrorForm = 0;
     this.mirrorAfterImageTicks = 0;
     this.laserBlend = 0;
@@ -2992,6 +3049,7 @@ export class ShatterGame {
     this.tempoBlend = 0;
     this.rushBlend = 0;
     this.stasisBlend = 0;
+    this.homingBlend = 0;
     this.mirrorForm = 0;
     this.mirrorAfterImageTicks = 0;
     this.laserBlend = 0;

@@ -454,6 +454,9 @@ export interface RenderView {
   // STASIS closing on the field, 0 to 1 — and 0 for the whole of the release,
   // which the ring pool owns on its own.
   stasisClosing: number;
+  // HOMING: whether the reticles are walking out rather than in. How far each
+  // one has got is `ball.homingMarkTicks`; this is only which way it is going.
+  homingOpening: boolean;
   drops: readonly Drop[];
   shots: readonly Shot[];
   flashes: readonly BrickFlash[];
@@ -1054,7 +1057,7 @@ export class CanvasRenderer {
     }
     for (const ball of view.balls) {
       if (ball.active && ball.homingRow >= 0) {
-        this.drawHomingMark(ball.homingRow, ball.homingColumn);
+        this.drawHomingMark(ball, view.homingOpening);
       }
     }
     this.drawCritter(view.critter);
@@ -1850,17 +1853,32 @@ export class CanvasRenderer {
     this.ctx.stroke();
   }
 
-  // The brick a homing ball has locked, cornered rather than outlined: four
-  // 2x2 ticks leave the brick's own colour and bevel readable underneath.
-  private drawHomingMark(row: number, column: number): void {
+  /**
+   * The brick a homing ball has locked, cornered rather than outlined: four 2x2
+   * ticks that leave the brick's own colour and bevel readable underneath — and
+   * that fly in from outside it as the lock takes hold.
+   *
+   * The offset is the ball's own counter, so twelve balls run twelve reticles
+   * on twelve clocks. It steps a whole pixel at a time: a 2x2 tick sliding on
+   * fractions would smear, and four discrete steps read as a mechanism closing.
+   *
+   * Going the other way the corners blink out over the last third of their
+   * travel, on the four-frame clock a trap's glyph and a dying peel share.
+   */
+  private drawHomingMark(ball: Ball, opening: boolean): void {
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
-    const x = left + column * brickWidth;
-    const y = top + row * brickHeight;
+    const { homingRetargetTicks, homingMarkReach } = gameConfig.powerUps;
+    if (opening && ball.homingMarkTicks < homingRetargetTicks / 3 && (ball.homingMarkTicks & 4) === 0) {
+      return;
+    }
+    const out = homingMarkReach - Math.floor((ball.homingMarkTicks * homingMarkReach) / homingRetargetTicks);
+    const x = left + ball.homingColumn * brickWidth;
+    const y = top + ball.homingRow * brickHeight;
     for (const [cornerX, cornerY] of [
-      [x, y],
-      [x + brickWidth - 2, y],
-      [x, y + brickHeight - 2],
-      [x + brickWidth - 2, y + brickHeight - 2],
+      [x - out, y - out],
+      [x + brickWidth - 2 + out, y - out],
+      [x - out, y + brickHeight - 2 + out],
+      [x + brickWidth - 2 + out, y + brickHeight - 2 + out],
     ]) {
       this.pixel(cornerX, cornerY, 2, 2, canvasPalette.homingMark);
     }
