@@ -1,6 +1,11 @@
 :root {
   --blink-duration: 1s;
   --copper-duration: 1.467s;
+  /* 1UP's bar landing in the rack, and the pulse when the rack turns one away.
+     Derived rather than chosen: `catchPopLifeTicks` is 48 and the pop starts
+     blinking the word 1UP apart at 16 ticks left, so 18 ticks puts the bar down
+     14 ticks before the label breaks up and the two read as one event. */
+  --life-gained: 0.3s;
   /* DEMAKE's dissolve. Must match `gameConfig.effects.demakeFadeTicks`
      (30 ticks at 60 Hz), or the panel and the field come apart mid-fade. */
   --demake-fade: 0.5s;

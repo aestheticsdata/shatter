@@ -202,5 +202,17 @@ export interface PanelView {
   // DEMAKE: the downgrade is the whole machine, so the panel goes with the
   // field. The Panel owns the class; what it means lives in `components.css`.
   demakeActive: boolean;
+  // How many 1UPs the rack has taken and turned away since the page loaded.
+  // Counts and not flags: this view is compared field by field, so a boolean
+  // would be true for exactly one frame and there would be no way to say it
+  // twice. Monotonic and never reset, so a fresh run cannot look like either one
+  // by going back to zero.
+  //
+  // The panel marks its new bar off `lifeGainedCount` rather than off the rack
+  // growing by one, which is the same number for two different reasons: a
+  // restart whose first render happens to add one bar to what GAME OVER left
+  // behind is the rack being set, not a life being caught.
+  lifeGainedCount: number;
+  lifeRefusedCount: number;
   muted: boolean;
 }

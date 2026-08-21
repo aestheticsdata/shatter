@@ -55,7 +55,15 @@ export class Panel {
       this.elements.levelName.textContent = view.levelName;
     }
     if (last?.reserveLives !== view.reserveLives) {
-      this.renderLives(view.reserveLives);
+      // The bar is new because a 1UP was caught, not because the number went up:
+      // the first render, a restart out of GAME OVER and a death all move the
+      // rack too, and one of them can move it by exactly one bar. `last` is null
+      // on the very first update, which is the case that would otherwise
+      // mint-pulse both starting bars.
+      this.renderLives(view.reserveLives, last !== null && last.lifeGainedCount !== view.lifeGainedCount);
+    }
+    if (last !== null && last.lifeRefusedCount !== view.lifeRefusedCount) {
+      this.pulseLives();
     }
     if (last?.powerLabel !== view.powerLabel) {
       this.elements.power.textContent = view.powerLabel;
@@ -73,12 +81,48 @@ export class Panel {
     this.last = { ...view };
   }
 
-  private renderLives(count: number): void {
-    const bars = Array.from({ length: count }, () => {
+  /**
+   * The rack, brought to `count` bars by adding or removing from its end.
+   *
+   * Incremental rather than `replaceChildren` with a fresh array, which tore
+   * down every bar to add one: the arriving bar appeared at full size while the
+   * five beside it silently blinked out of existence and back in the same frame.
+   * Nothing can be animated onto a node that is rebuilt every time the number
+   * changes, so the fix and the transition are one change — and death gets it
+   * too, since losing a bar stops being a full-rack teardown at the same line.
+   */
+  private renderLives(count: number, gained: boolean): void {
+    const rack = this.elements.lives;
+    while (rack.childElementCount > count) {
+      rack.lastElementChild?.remove();
+    }
+    while (rack.childElementCount < count) {
       const bar = document.createElement("div");
       bar.className = "panel-life";
-      return bar;
-    });
-    this.elements.lives.replaceChildren(...bars);
+      rack.append(bar);
+    }
+    const newest = gained ? rack.lastElementChild : null;
+    if (newest) {
+      newest.classList.add("gained");
+      // Dropped when the growth finishes, so the DOM stops asserting that the
+      // last bar in the rack is the new one for the rest of the run.
+      newest.addEventListener("animationend", () => newest.classList.remove("gained"), { once: true });
+    }
+  }
+
+  /**
+   * A 1UP the rack had no room for.
+   *
+   * Remove, force a reflow, add: without the reflow the browser never sees the
+   * class leave, so a second refusal would not restart the pulse and the
+   * capsule would go quiet again exactly when the player is testing what it
+   * does. The class is left on afterwards on purpose — the removal above is the
+   * restart, and stripping it on `animationend` would only fight that.
+   */
+  private pulseLives(): void {
+    const rack = this.elements.lives;
+    rack.classList.remove("refused");
+    void rack.offsetWidth;
+    rack.classList.add("refused");
   }
 }

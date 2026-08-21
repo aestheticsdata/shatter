@@ -20,6 +20,9 @@
   --color-green: #3fbf4f;
   --color-green-shadow: #155c1f;
   --color-blue: #2d7fe0;
+  /* 1UP's mint: the tone the catalogue outlines its new deck in (`popBonus`), so
+     the panel and the capsule scene say "this one is new" in the same colour. */
+  --color-life-new: #c8ffc8;
   --color-sky: #8fd0ff;
   --color-grey-text: #9a9caf;
   --color-dim-text: #4a4c60;

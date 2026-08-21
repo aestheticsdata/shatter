@@ -188,6 +188,12 @@ export class ShatterGame {
   private screen: ScreenName = "title";
   private score = 0;
   private lives: number = gameConfig.rules.startLives;
+  // 1UPs granted, and 1UPs caught on a full rack. Deliberately not reset by
+  // `startRun` or `gameOver`: they exist only so the panel can notice they
+  // changed, and a counter that went back to zero would read as one more of
+  // itself on the first frame of a new run.
+  private lifeGainedCount = 0;
+  private lifeRefusedCount = 0;
   private level = 0;
   private entry = "";
   private booted = false;
@@ -2716,7 +2722,15 @@ export class ShatterGame {
       this.detonation.start(this.paddle.x + this.paddle.width / 2, gameConfig.paddle.y);
     }
     if (kind === "U") {
-      this.lives = Math.min(gameConfig.rules.maxLives, this.lives + 1);
+      // Split, because a refusal is a different sentence from an arrival and the
+      // panel has to be able to say it. `Math.min` swallowed both into one line
+      // that changed nothing at the cap, which left the capsule a no-op.
+      if (this.lives < gameConfig.rules.maxLives) {
+        this.lives++;
+        this.lifeGainedCount++;
+      } else {
+        this.lifeRefusedCount++;
+      }
     }
     if (kind === "Z") {
       this.destroyBottomRow();
@@ -3676,6 +3690,8 @@ export class ShatterGame {
       // TURBO's boost is unchanged. It gilds nothing and owes no arrival.
       scoreBoosted: (this.paydayBlend >= 1 && this.timers.isActive("X")) || this.timers.isActive("TU"),
       demakeActive: this.timers.isActive("D"),
+      lifeGainedCount: this.lifeGainedCount,
+      lifeRefusedCount: this.lifeRefusedCount,
       muted: this.deps.sfx.muted,
     };
   }

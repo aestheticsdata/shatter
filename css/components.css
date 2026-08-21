@@ -30,6 +30,7 @@
   --color-green: #6cf08a;
   --color-green-shadow: #07160c;
   --color-blue: #6cf08a;
+  --color-life-new: #6cf08a;
   --color-sky: #6cf08a;
   --color-grey-text: #6cf08a;
   --color-dim-text: #6cf08a;
@@ -182,6 +183,60 @@
   width: 16px;
   height: 5px;
   background: var(--color-blue);
+}
+
+/* 1UP: the new bar is racked. It grows out of its own left edge into empty
+   panel space — it is the last child, so nothing reflows and no bar beside it
+   moves — while the mint fades off it.
+
+   `transform` and `outline-color` are not a free choice. `#stage *` transitions
+   `background-color` and `border-color` for DEMAKE's half-second sag, and
+   `.panel-life` sets `background`, which the shorthand routes through
+   `background-color`: growing the fill or a border would be eased twice, once by
+   each. These two are outside that list.
+
+   1px at 1px offset, because the rack is a 3px flex gap around a 5px-tall bar —
+   a 2px outline at 2px offset reaches 4px on every side, into the neighbouring
+   bar and over the label above. */
+.panel-life.gained {
+  transform-origin: left;
+  outline: 1px solid var(--color-life-new);
+  outline-offset: 1px;
+  animation: shatterLifeGained var(--life-gained) linear;
+}
+
+@keyframes shatterLifeGained {
+  from {
+    transform: scaleX(0);
+    outline-color: var(--color-life-new);
+  }
+
+  to {
+    transform: scaleX(1);
+    outline-color: transparent;
+  }
+}
+
+/* A 1UP caught on a full rack. "The rack is full" is a different sentence from
+   "a life arrived", and both beat the silence this used to be: at the cap the
+   count never changed, the panel short-circuited, and the capsule was a no-op
+   apart from the pop. Said across the whole rack rather than on one bar, because
+   what is full is the rack. */
+#panelLives.refused {
+  outline: 1px solid transparent;
+  outline-offset: 2px;
+  animation: shatterLifeRefused var(--life-gained) linear;
+}
+
+@keyframes shatterLifeRefused {
+  from,
+  to {
+    outline-color: transparent;
+  }
+
+  50% {
+    outline-color: var(--color-life-new);
+  }
 }
 
 #insetPower {
