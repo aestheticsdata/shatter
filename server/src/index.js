@@ -8,7 +8,7 @@ import { isValidScore, normalizeName } from "./validate.js";
 const SERVER_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const PORT = Number(process.env.PORT ?? 7000);
 const DB_PATH = process.env.SHATTER_DB ?? `${SERVER_ROOT}data/shatter.db`;
-const TOP_LIMIT = 5;
+const TOP_LIMIT = 15;
 
 // Defense in depth behind the nginx limit_req zone: per-IP in-memory throttle.
 const RATE_WINDOW_MS = 60_000;

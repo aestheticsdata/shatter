@@ -599,10 +599,13 @@
   letter-spacing: 2px;
 }
 
+/* Fifteen ranks need the screen's whole height, so the heading and its rule sit
+   at the same 12/40 the LEVELS and CAPSULES menus use — numbers those two took
+   from this screen in the first place, so this closes the gap between them. */
 #scoresHeading {
   position: absolute;
   left: 0;
-  top: 32px;
+  top: 12px;
   width: 100%;
   text-align: center;
   font: 400 20px var(--font-display);
@@ -613,31 +616,40 @@
 .scores-divider {
   position: absolute;
   left: 140px;
-  top: 75px;
+  top: 40px;
   width: 200px;
   height: 1px;
   background: var(--color-title-divider);
 }
 
+/* An 11 px pitch, stated rather than inherited: fifteen rows at Silkscreen's own
+   line box would not fit, and the block has to stop clear of the ENTRY prompt at
+   236 — the table stays on screen behind it while the initials are typed.
+   15 x 11 = 165, so the rows run 50 to 215 and leave that line 21 px of air. */
 #scoreRows {
   position: absolute;
   left: 140px;
-  top: 98px;
+  top: 50px;
   width: 200px;
   display: flex;
   flex-direction: column;
-  gap: 13px;
 }
 
 .score-row {
   display: flex;
   justify-content: space-between;
-  font: 400 13px var(--font-pixel);
+  font: 400 10px / 11px var(--font-pixel);
   color: var(--color-grey-text);
 }
 
 .score-row--top {
   color: var(--color-yellow);
+}
+
+/* A rank no one holds yet. Dim, but still a row: the board is fifteen ranks on
+   a machine nobody has played and on one that has been up for a year. */
+.score-row--empty {
+  color: var(--color-dim-text);
 }
 
 #entryLine {

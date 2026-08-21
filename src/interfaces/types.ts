@@ -187,6 +187,8 @@ export interface ScoreRowView {
   name: string;
   score: string;
   isTopRank: boolean;
+  // A rank nobody has claimed yet, drawn dim so the board keeps its full height.
+  isEmpty: boolean;
 }
 
 export interface PanelView {

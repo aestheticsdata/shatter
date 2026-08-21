@@ -27,6 +27,7 @@ import { DropPool, rollDropKind } from "@entities/powerups/DropPool";
 import { PowerUpTimers } from "@entities/powerups/PowerUpTimers";
 import { InputController } from "@input/InputController";
 import { zeroPad } from "@shared/format";
+import { type HiScores, TABLE_SIZE } from "@state/HiScores";
 
 import type { SoundBank } from "@audio/SoundBank";
 import type { ComboId } from "@core/config/combos";
@@ -47,7 +48,6 @@ import type {
   StasisRing,
 } from "@interfaces/types";
 import type { CanvasRenderer } from "@render/CanvasRenderer";
-import type { HiScores } from "@state/HiScores";
 import type { CapsuleCatalogue } from "@ui/CapsuleCatalogue";
 import type { LevelGallery } from "@ui/LevelGallery";
 import type { Panel } from "@ui/Panel";
@@ -3648,12 +3648,19 @@ export class ShatterGame {
   }
 
   private refreshScoreRows(): void {
-    const rows = this.deps.hiScores.entries.map((entry, index) => ({
-      rank: zeroPad(index + 1, 2),
-      name: entry.name,
-      score: zeroPad(entry.score, 6),
-      isTopRank: index === 0,
-    }));
+    const { entries } = this.deps.hiScores;
+    // Always TABLE_SIZE ranks, however few names the server holds: the block's
+    // height is part of the screen's layout, not a function of who has played.
+    const rows = Array.from({ length: TABLE_SIZE }, (_, index) => {
+      const entry = entries[index];
+      return {
+        rank: zeroPad(index + 1, 2),
+        name: entry?.name ?? "---",
+        score: zeroPad(entry?.score ?? 0, 6),
+        isTopRank: index === 0 && entry !== undefined,
+        isEmpty: entry === undefined,
+      };
+    });
     this.deps.screens.updateScoreRows(rows);
   }
 

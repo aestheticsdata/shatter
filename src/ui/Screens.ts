@@ -54,7 +54,9 @@ export class Screens {
   updateScoreRows(rows: readonly ScoreRowView[]): void {
     const rowElements = rows.map((row) => {
       const rowElement = document.createElement("div");
-      rowElement.className = row.isTopRank ? "score-row score-row--top" : "score-row";
+      rowElement.className = "score-row";
+      rowElement.classList.toggle("score-row--top", row.isTopRank);
+      rowElement.classList.toggle("score-row--empty", row.isEmpty);
       for (const text of [row.rank, row.name, row.score]) {
         const cell = document.createElement("span");
         cell.textContent = text;

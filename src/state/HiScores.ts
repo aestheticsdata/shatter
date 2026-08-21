@@ -2,14 +2,30 @@ import type { HiScoreEntry } from "@interfaces/types";
 import type { ScoreApi } from "@state/ScoreApi";
 
 const STORAGE_KEY = "shatter.hiscores.v1";
-const TABLE_SIZE = 5;
 
+// How many ranks the board holds. Exported because the screen pads itself out to
+// this many rows: a table that is short of players must still be a full board.
+export const TABLE_SIZE = 15;
+
+// The board a fresh machine ships with. The API seeds an empty database with the
+// same fifteen (server/src/db.js) and the two lists must stay identical, or the
+// first sync of a fresh install would swap one set of defaults for another.
 const DEFAULT_ENTRIES: readonly HiScoreEntry[] = [
   { name: "AMI", score: 12500 },
   { name: "CBM", score: 9800 },
   { name: "PAL", score: 7400 },
   { name: "FDD", score: 5200 },
   { name: "KIK", score: 3000 },
+  { name: "AGA", score: 2700 },
+  { name: "ECS", score: 2400 },
+  { name: "OCS", score: 2100 },
+  { name: "DMA", score: 1850 },
+  { name: "CIA", score: 1600 },
+  { name: "SID", score: 1350 },
+  { name: "C64", score: 1100 },
+  { name: "MOD", score: 900 },
+  { name: "WB1", score: 700 },
+  { name: "RAM", score: 500 },
 ];
 
 interface StoredEntry {

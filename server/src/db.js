@@ -39,6 +39,16 @@ export function openDatabase(filePath) {
       ["PAL", 7400],
       ["FDD", 5200],
       ["KIK", 3000],
+      ["AGA", 2700],
+      ["ECS", 2400],
+      ["OCS", 2100],
+      ["DMA", 1850],
+      ["CIA", 1600],
+      ["SID", 1350],
+      ["C64", 1100],
+      ["MOD", 900],
+      ["WB1", 700],
+      ["RAM", 500],
     ]);
   }
 
