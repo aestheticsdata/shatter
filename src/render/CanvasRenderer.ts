@@ -2,7 +2,14 @@ import { gameConfig, peelFlightTicks } from "@core/config/GameConfig";
 import { MALUS_KINDS, POWER_UP_GLYPHS } from "@core/config/powerUps";
 import { mirrorBounds } from "@entities/paddle/MirrorPaddle";
 import { BackgroundLayer } from "@render/backgrounds";
-import { BRICK_COLORS, canvasPalette, DARK_LETTER_DROP_KINDS, DEMAKE_GROUND_TONES, DROP_COLORS } from "@render/palette";
+import {
+  BRICK_COLORS,
+  canvasPalette,
+  CHUNK_COLORS,
+  DARK_LETTER_DROP_KINDS,
+  DEMAKE_GROUND_TONES,
+  DROP_COLORS,
+} from "@render/palette";
 
 import type { Ball } from "@entities/ball/Ball";
 import type { Critter } from "@entities/effects/Critter";
@@ -261,6 +268,15 @@ export interface PaddleRenderState {
   // the span end to end either way, so the cannons and MIRROR's ghost need no
   // second number.
   splitGap: number;
+  // The deck under tension with no hole in it yet — the first ticks of a tear,
+  // the last of a weld, or a SPLIT on a deck too narrow to hold two halves.
+  splitCrack: boolean;
+  // The two ticks after the halves meet. Both of these are seams down the deck's
+  // middle and both can be up at once — a JAMMER shutting the deck under a live
+  // SPLIT welds it on the tick there is no room left for a hole, while the tear
+  // still has blend to spend. The weld wins the pixel: it is the event, and the
+  // hairline behind it is the scar closing.
+  splitWeld: boolean;
   // JAMMER, and only while its caps are still travelling: both ends wear the
   // capsule's magenta instead of the deck's red for the eight ticks the trap
   // takes to shut. The deck losing its own colour is the point.
@@ -981,7 +997,7 @@ export class CanvasRenderer {
       if (particle.ticksLeft <= 0) {
         return;
       }
-      const colors = BRICK_COLORS[particle.brickKind];
+      const colors = CHUNK_COLORS[particle.material];
       const color = particle.spark
         ? PIERCE_SPARK_TONES[index % PIERCE_SPARK_TONES.length]
         : [colors.flat, colors.light, colors.dark][index % 3];
@@ -1308,25 +1324,68 @@ export class CanvasRenderer {
     this.drawDeck(paddle, bounds.left, bounds.top, MIRROR_BANDS);
   }
 
-  // One pill, or two with SPLIT's hole between them — each half a full pill with
-  // its own caps and bevels, so a broken deck reads as two pieces of the same
-  // paddle rather than as one paddle with a bite taken out of it.
+  /**
+   * One pill, or two with SPLIT's hole between them — each half a full pill with
+   * its own caps and bevels, so a broken deck reads as two pieces of the same
+   * paddle rather than as one paddle with a bite taken out of it. The inner
+   * ends grow their caps for free: `drawPaddleBands` puts one at each end of
+   * whatever it is given, so the halves are capped the moment there are two.
+   *
+   * Any non-zero gap opens the deck. The gap arrives two pixels at a time now
+   * rather than at its full 26, and the first of those steps is exactly the
+   * crack the player is being warned by — swallowing it would be swallowing the
+   * warning.
+   */
   private drawDeck(paddle: PaddleRenderState, x: number, y: number, colors: PaddleBandColors): void {
     const half = (paddle.width - paddle.splitGap) / 2;
     // A half narrower than its own sheen is not a half. The sheen and shade are
     // painted as `width - 18` — inset 9 px a side, not the 8 the caps are — so
     // 18 is the floor and anything under it is a negative `fillRect` drawn
-    // leftward over the cap. Reachable for real since SHA-85: SPLIT caught over
-    // a live JAMMER opens its 26 px hole on the tick of the catch and then
-    // telescopes out from 30 px, so the first ticks of that ease ask for halves
-    // of 2 px. One pill until there is room for two, which also reads correctly
-    // — the deck grows, and then it tears.
+    // leftward over the cap.
+    //
+    // Since SHA-86 the arithmetic cannot reach it: the gap is a fraction of the
+    // width's own surplus over two 20 px halves, so `half` is 20 at its tightest
+    // and a deck with no surplus opens no gap at all. Kept as the second line of
+    // defence it was, because the cost of being wrong about that is a sprite
+    // painted backwards over its own cap.
     if (paddle.splitGap === 0 || half < 18) {
       this.drawPaddleBands(x, y, paddle.width, colors);
+    } else {
+      this.drawPaddleBands(x, y, half, colors);
+      this.drawPaddleBands(x + paddle.width - half, y, half, colors);
+    }
+    this.drawDeckSeam(paddle, x, y, colors);
+  }
+
+  /**
+   * The tear before it is a hole, and the weld after it stops being one: a 1 px
+   * line down the deck's middle, dark going in and lit coming back. The two ends
+   * of one event, so they share a line rather than each getting their own.
+   *
+   * `spritePixel`, not `pixel`, because the deck it is cutting is drawn through
+   * `spriteBrush`: the paddle's x is whatever the pointer left it on, and a seam
+   * snapped to the game grid over a body snapped to the backing grid drifts a
+   * device pixel off centre as the player moves.
+   *
+   * Under DEMAKE the crack survives and the flash does not — the shade is a
+   * ground tone and the sheen is not, so the deck is one ink block with a line
+   * cut out of it either way. That is the downgrade working, not a gap in it.
+   */
+  private drawDeckSeam(paddle: PaddleRenderState, x: number, y: number, colors: PaddleBandColors): void {
+    if (!paddle.splitCrack && !paddle.splitWeld) {
       return;
     }
-    this.drawPaddleBands(x, y, half, colors);
-    this.drawPaddleBands(x + paddle.width - half, y, half, colors);
+    const { height } = gameConfig.paddle;
+    // The crack is drawn a pixel in from each bevel; the weld is not, because a
+    // weld is the halves touching and the touch is the full height of them.
+    const inset = paddle.splitWeld ? 0 : 1;
+    this.spritePixel(
+      x + Math.floor(paddle.width / 2),
+      y + inset,
+      1,
+      height - 2 * inset,
+      paddle.splitWeld ? colors.sheen : colors.shade,
+    );
   }
 
   // A 1 px trace on the rail the deck used to hold, walking down four authored

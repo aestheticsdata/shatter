@@ -320,6 +320,19 @@ export class ShatterGame {
   // do not ramp — a fraction of a multiplier is not a thing the player could
   // ever see — so the timer alone owns those.
   private turboSpool = 0;
+  /**
+   * SPLIT's tear, 0 whole to 1 fully open — and the odd one out of the six.
+   *
+   * The five above it are pictures over a simulation that has already changed.
+   * This one *is* the change: `splitGap()` is derived from it, and the catch
+   * surface, MIRROR's ghost and a glued ball's clamp all read `splitGap()`. The
+   * player watches the hole open and the hole opening are the same event.
+   */
+  private splitBlend = 0;
+  // Ticks left of the weld spark at the seam, set on the tick the gap reaches 0
+  // on the way back. The deck healing had no picture at all before — the width
+  // branch simply snapped 66 back to 46 and the hole stopped existing.
+  private splitWeldTicks = 0;
   // Armed by a MAGNET catch, spent by the next brick a ball or a laser kills.
   // A magnet with nothing falling is a magnet nobody can see working.
   private guaranteedDrop = false;
@@ -410,6 +423,8 @@ export class ShatterGame {
         width: this.paddle.width,
         laserActive: this.timers.isActive("L"),
         splitGap: this.splitGap(),
+        splitCrack: this.splitCracking(),
+        splitWeld: this.splitWeldTicks > 0,
         // Only while the caps are actually travelling: the deck wears pink ends
         // for the eight ticks JAMMER is shutting it, not for the six seconds it
         // stays shut.
@@ -499,6 +514,13 @@ export class ShatterGame {
         peel.flightTicksLeft--;
       }
     }
+    // Read before the width moves, because the width is one of the two things
+    // that can close SPLIT's hole: a JAMMER caught over a live SPLIT shuts the
+    // deck until there is no room left for a gap, and the halves meet on a tick
+    // the blend had nothing to do with. Sampling after `stepDeckWidth` misses
+    // exactly that weld — the only one the player has not already been told
+    // about by a timer running out.
+    const gapBefore = this.splitGap();
     // Above the gates with the peel's flight and for the same reason: a deck
     // caught halfway out from under a shockwave would hold there for the whole
     // detonation, and the drawn deck is the catch surface.
@@ -531,6 +553,23 @@ export class ShatterGame {
     // a ball frozen behind a shockwave may not come out of it at a speed the
     // spool has not reached.
     this.turboSpool = stepBlend(this.turboSpool, this.timers.isActive("TU"), gameConfig.effects.turboSpoolTicks);
+    // Above the freeze gates like the five before it, and for a reason none of
+    // them has: this blend is the catch surface. A deck frozen half-torn behind
+    // a shockwave would hold a half-open hole over the drops the detonation is
+    // still letting fall.
+    //
+    // It chases the timer rather than being driven by the catch, which is what
+    // makes the swap cases free: a WIDE taken over a live SPLIT calls
+    // `timers.deactivate("SP")` and never appears in `expired` at all, and the
+    // halves still come back together on their own.
+    if (this.splitWeldTicks > 0) {
+      this.splitWeldTicks--;
+    }
+    this.splitBlend = stepBlend(this.splitBlend, this.timers.isActive("SP"), gameConfig.effects.splitTearTicks);
+    if (gapBefore > 0 && this.splitGap() === 0) {
+      this.splitWeldTicks = gameConfig.effects.splitWeldFlashTicks;
+      this.deps.sfx.deckWeld();
+    }
 
     // A pending level clear freezes the rest of the simulation so the final
     // brick's shatter can play out — no ball can be lost, no capsule caught,
@@ -1258,11 +1297,55 @@ export class ShatterGame {
     });
   }
 
-  // The width of SPLIT's hole, or 0 while the deck is whole. One reading of the
-  // timer, shared by the catch tests and the renderer, so the gap a ball falls
-  // through is the gap the player is looking at.
+  /**
+   * The width of SPLIT's hole, or 0 while the deck is whole. One reading,
+   * shared by the catch tests, the ghost, a glued ball and the renderer, so the
+   * gap a ball falls through is the gap the player is looking at.
+   *
+   * **Derived from the width, not eased on a clock of its own.** The deck's
+   * surplus over two 20 px halves is the most it can ever open by, and the gap
+   * is a fraction of that: `gap = min(surplus, 26) * blend`. Equivalently, the
+   * *half* is what is being interpolated — from half the whole deck down to the
+   * 20 px SPLIT leaves — and the hole is what falls out of the arithmetic.
+   *
+   * Which means `half` can never go under 20, because it is `(width - gap) / 2`
+   * and the gap is bounded by the width's own surplus. A gap eased on a clock
+   * of its own against SHA-85's width ease has no such floor: SPLIT caught over
+   * a live JAMMER telescopes out from 30 px while a 26 px hole opens, and around
+   * tick 5 that asks for halves of 15 — a negative-width sheen painted leftward
+   * over the cap. There is no second clock here, so there is nothing to fall out
+   * of step with, and it composes with WIDE, XWIDE and JAMMER for nothing: a
+   * deck too narrow to hold two halves has no surplus, so it simply does not
+   * open, and widens into its tear instead.
+   *
+   * The 26 is the ceiling and not the size. Undamped, a SPLIT caught over a live
+   * XWIDE would open a 104 px hole on the way down from 144 — a void nobody
+   * designed, in place of the width playtest actually measured. Clamped, the
+   * hole is the authored one and the halves ride in from 59 px to 20 as the deck
+   * retracts, which is the same event told the right way round.
+   *
+   * Even, so both halves land on whole pixels — `spriteBrush` rounds a sprite's
+   * position but not its size, and an odd gap stands each half's sheen on a half
+   * pixel for the length of the tear.
+   */
   private splitGap(): number {
-    return this.timers.isActive("SP") ? gameConfig.paddle.splitGap : 0;
+    if (this.splitBlend === 0) {
+      return 0;
+    }
+    const { splitWidth, splitGap } = gameConfig.paddle;
+    const surplus = this.paddle.width - (splitWidth - splitGap);
+    if (surplus <= 0) {
+      return 0;
+    }
+    return 2 * Math.round((Math.min(surplus, splitGap) * this.splitBlend) / 2);
+  }
+
+  // The deck under tension with nothing open yet: the first ticks of a tear,
+  // the last of a weld, and the whole of a SPLIT caught on a deck too narrow to
+  // hold two halves. Drawn as a hairline down the middle, because a deck that
+  // has been split and shows nothing is the trap failing to say it landed.
+  private splitCracking(): boolean {
+    return this.splitBlend > 0 && this.splitGap() === 0;
   }
 
   // A deck, as the pieces that actually catch things: one box whole, two while
@@ -1321,6 +1404,12 @@ export class ShatterGame {
   private snapDeck(): void {
     this.widthEaseKind = null;
     this.railMarks = [];
+    // The tear too, and silently: a serve, a cleared level and a game over all
+    // land here, and a deck welding itself shut behind the CLEARED overlay —
+    // with the spark and the sound that go with it — is an effect outliving the
+    // run that earned it.
+    this.splitBlend = 0;
+    this.splitWeldTicks = 0;
     this.paddle.snapWidth(gameConfig.paddle.baseWidth);
   }
 
@@ -2139,6 +2228,15 @@ export class ShatterGame {
       // Its own snap ahead of the shared womp, the way GHOST's fade is: the trap
       // is heard as the thing that happened — a deck coming apart.
       this.deps.sfx.splitPickup();
+      // And a spray of the deck off the seam on the same frame, so the crack
+      // that opens over the next ten ticks has a moment it visibly started at.
+      // The material is the deck's, not a brick's: these are pieces of paddle.
+      this.particles.burst(
+        this.paddle.centerX,
+        gameConfig.paddle.y + gameConfig.paddle.height / 2,
+        "deck",
+        gameConfig.effects.splitTearBurst,
+      );
     } else if (kind === "BM") {
       // Its own boom instead of the shared womp: this trap is not a setback.
       this.deps.sfx.paddleExplode();

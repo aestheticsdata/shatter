@@ -1,6 +1,6 @@
 import { byId, POWER_UPS } from "@core/config/powerUps";
 
-import type { BrickKind, PowerUpKind } from "@interfaces/types";
+import type { BrickKind, ChunkMaterial, PowerUpKind } from "@interfaces/types";
 
 export interface BrickColorSet {
   flat: string;
@@ -144,6 +144,27 @@ export const canvasPalette = {
   // dark stays green.
   blackoutVeil: "#05050c",
 } as const;
+
+/**
+ * A chunk of debris, by what it broke off.
+ *
+ * The bricks bring their own three tones; the deck's are its bands, minus the
+ * shade — `flat` is the body, `light` the sheen along its top, and `dark` the
+ * red of its caps, which is not dark at all but is the third colour the pill is
+ * actually made of. A tear that sprayed only blue would be spraying a rectangle
+ * rather than the deck.
+ *
+ * This is the whole of what widening `ParticleField.burst` past bricks costs:
+ * one row here, and the simulation still names a material rather than a colour.
+ */
+export const CHUNK_COLORS: Record<ChunkMaterial, BrickColorSet> = {
+  ...BRICK_COLORS,
+  deck: {
+    flat: canvasPalette.paddleBody,
+    light: canvasPalette.paddleTopSheen,
+    dark: canvasPalette.paddleCap,
+  },
+};
 
 /**
  * The sprite tones DEMAKE paints as ground; everything else becomes ink.

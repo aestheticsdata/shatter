@@ -294,6 +294,19 @@ export class SoundBank {
     this.noise({ dur: 0.04, vol: 0.1, filter: { type: "bandpass", freq: 900 } });
   }
 
+  // SPLIT letting go: `splitPickup` the other way up, the way `rushRelease` is
+  // `stasisRelease` the other way up. Two rises instead of two drops, and the
+  // second one lands lower and louder — the far half arriving last is what made
+  // the catch a break, and it arriving last again is what makes this a weld.
+  deckWeld(): void {
+    if (!this.allow("deckWeld")) {
+      return;
+    }
+    this.tone({ freq: 120, freqEnd: 300, dur: 0.09, vol: 0.06 });
+    this.tone({ freq: 90, freqEnd: 240, dur: 0.09, vol: 0.07, delayS: 0.06 });
+    this.noise({ dur: 0.04, vol: 0.09, filter: { type: "bandpass", freq: 1400 } });
+  }
+
   // The volley coming in: noise sliding out of the top of the band down to a
   // rumble, over a sawtooth falling the same way. One sound for all three rocks
   // — they fall together, and three of these would be a landslide. The bricks

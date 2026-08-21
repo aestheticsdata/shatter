@@ -465,6 +465,40 @@ export const gameConfig = {
     // long enough that the boost is felt arriving rather than noticed after the
     // fact. The streak grows out of the ball over the same ramp.
     turboSpoolTicks: 30,
+    /**
+     * SPLIT's tear, each way — the deck coming apart, and welding back.
+     *
+     * Not a fade over a picture like the five above it: the hole *is* the trap,
+     * so this eases the simulation. `splitGap()` reads the blend, and the catch
+     * tests, MIRROR's ghost and a glued ball all read `splitGap()` — a drawn
+     * hole that is not a real hole is the one disagreement SPLIT cannot afford.
+     *
+     * 11 ticks buys the fairness window. The gap has to be wider than the 8 px
+     * ball before anything can drop through it, and it crosses 8 around the
+     * sixth tick from a base-width deck, because the width ease is running at
+     * the same time and the gap is derived from the width. So the player gets
+     * four or five ticks of a crack they can see and steer away from before the
+     * deck is a trap. Rushing this to 4 or 5 would make SPLIT a hole that
+     * appears under a ball already over it.
+     */
+    splitTearTicks: 11,
+    // The weld: the seam flashes on the tick the gap reaches 0. Two ticks is a
+    // spark, not an animation — the halves arriving is the event, and this is
+    // the only thing on screen that says the deck is whole again.
+    splitWeldFlashTicks: 2,
+    // Chunks off the seam on the tick it cracks. Small on purpose — a brick
+    // dying throws 6 of these and a paddle is not more important than a brick.
+    // Short-lived too: the debris must be gone before the hole it announced is
+    // wide enough to matter, or it reads as the hole rather than as the tear.
+    splitTearBurst: {
+      chunkCount: 8,
+      minChunkSize: 1,
+      maxChunkSize: 2,
+      minSpeed: 0.5,
+      maxSpeed: 1.7,
+      minLifeTicks: 10,
+      maxLifeTicks: 20,
+    } satisfies BurstSpec,
     // QUAKE's shake. 24 ticks is 0.4 s, and the amplitude decays linearly over
     // them so the field settles rather than stopping dead. Whole game pixels:
     // the art is drawn at 3x, and a fractional offset would blur every block.

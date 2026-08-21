@@ -26,6 +26,16 @@ export type ScreenName =
 
 export type BrickKind = "1" | "2" | "3" | "4" | "5" | "S" | "G";
 
+/**
+ * What a chunk of debris is a chunk of.
+ *
+ * Every brick, and the deck. The simulation names the material and the renderer
+ * owns its tones — which is why this widens with a member rather than the burst
+ * widening to take colours: a paddle tearing in two throws pieces of paddle,
+ * and nothing in the core has to learn what blue the paddle is to say so.
+ */
+export type ChunkMaterial = BrickKind | "deck";
+
 export interface BrickCell {
   kind: BrickKind;
   hitPoints: number;
