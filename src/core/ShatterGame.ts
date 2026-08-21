@@ -1,4 +1,4 @@
-import { COMBO_GLYPHS, COMBOS, OVERTIME_FROZEN } from "@core/config/combos";
+import { COMBO_GLYPHS, COMBOS, completableCombos, OVERTIME_FROZEN } from "@core/config/combos";
 import { ballSpeedForLevel, gameConfig, peelFlightTicks } from "@core/config/GameConfig";
 import {
   GAMBLE_FACES,
@@ -2006,6 +2006,24 @@ export class ShatterGame {
       // third catch inside the same fall finds the pool full and is the sound
       // alone, exactly as a BUMPERS catch over live discs only buys time.
       this.meteors.launch();
+    }
+
+    if (kind === "FU") {
+      // The missing half, or a whole pair when there is nothing to finish.
+      // Both halves go through this same method rather than straight into the
+      // timers: LASER owes itself a first-shot delay and GLUE owes itself its
+      // stick state, and neither is FUSE's business to know about.
+      //
+      // Applying a half that is *already* live is the top-up, and it is the
+      // point rather than a side effect: a PIERCE with 30 ticks left would
+      // otherwise light NOVA for half a second and the capsule would read as
+      // broken. `activate` sets the full duration either way, so one call does
+      // both jobs.
+      const completable = completableCombos((half) => this.timers.isActive(half));
+      const pool = completable.length > 0 ? completable : COMBOS;
+      const combo = pool[Math.floor(Math.random() * pool.length)];
+      this.applyPowerUp(combo.a);
+      this.applyPowerUp(combo.b);
     }
 
     if (kind === "N") {

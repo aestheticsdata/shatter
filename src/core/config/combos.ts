@@ -68,3 +68,15 @@ const GLYPH_FIELD: readonly string[] = [...POWER_UPS.map((definition) => definit
 export const COMBO_GLYPHS: Record<ComboId, string> = Object.fromEntries(
   COMBOS.map((combo) => [combo.id, glyphAgainst(combo.id, GLYPH_FIELD)]),
 ) as Record<ComboId, string>;
+
+/**
+ * The combos one capsule away: exactly one half live, the other not.
+ *
+ * FUSE's whole question (SHA-105). Asked once per catch and never per tick, so
+ * an array is the right shape here — unlike the live-combo list, which is on
+ * the hot path and is rewritten in place. A combo already fully live is not
+ * completable: there is nothing to add to it.
+ */
+export function completableCombos(isLive: (kind: PowerUpKind) => boolean): Combo[] {
+  return COMBOS.filter((combo) => isLive(combo.a) !== isLive(combo.b));
+}

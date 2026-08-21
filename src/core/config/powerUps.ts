@@ -160,6 +160,11 @@ export const POWER_UPS = [
   { id: "TU", name: "TURBO", color: "#00ffff", dark: true, ticks: 600, tier: "rare", timed: true, blurb: "BALLS RUN FAST · POINTS x3" },
   { id: "A", name: "ANGEL", color: "#ffb0e0", dark: true, ticks: 0, tier: "rare", timed: false, blurb: "IT CATCHES ONE LOST BALL", lasts: "ONE SAVE" },
   { id: "GB", name: "GAMBLE", color: "#ff6cff", dark: true, ticks: 0, tier: "uncommon", timed: false, blurb: "A REEL PAYS A RANDOM BONUS", lasts: "ONE SPIN" },
+  // The body is the widest gap left on a 40-capsule board, measured rather than
+  // picked: 98 from CRITTER and MULTI, 99 from NUKE, and 5.99:1 against the
+  // darkest field theme. The green quarter looks crowded and is not — the lime
+  // capsules all sit well above it in value.
+  { id: "FU", name: "FUSE", color: "#77b200", dark: true, ticks: 0, tier: "uncommon", timed: false, blurb: "IT COMPLETES A COMBO", lasts: "ONE FUSION" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];

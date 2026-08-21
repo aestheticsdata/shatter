@@ -40,6 +40,9 @@ const SCENE_VARIANT = 0;
 const { left: GRID_LEFT, top: GRID_TOP, brickWidth: BRICK_WIDTH, brickHeight: BRICK_HEIGHT } = gameConfig.grid;
 const COLUMNS = gameConfig.grid.columns;
 const DECK_Y = gameConfig.paddle.y;
+// One capsule pill, in field pixels: what `drawCapsule` paints, and the step
+// between two of them standing shoulder to shoulder in FUSE's scene.
+const CAPSULE_WIDTH = 20;
 const DECK_HOME = (FIELD_WIDTH - gameConfig.paddle.baseWidth) / 2;
 const BALL_HOME = { x: 182, y: 200 };
 
@@ -467,6 +470,24 @@ const SCENES: Record<PowerUpKind, Painter> = {
     field.capsule(130, 180, "L");
     field.capsule(212, 108, "X");
     field.capsule(296, 156, "M");
+  },
+  // Two pills touching, welded by the seam between them. Deliberately not what
+  // its two neighbours in this file say: RAIN is four pills scattered across
+  // the field and GAMBLE is a reel of faces over the deck, so a fusion is two
+  // and only two, side by side, mid-field, with the join lit. The pair is
+  // LASER and PIERCE — LANCE — because red against yellow still reads as two
+  // things at a third of this size, which a still has to survive.
+  FU: (field) => {
+    const x = FIELD_WIDTH / 2 - CAPSULE_WIDTH;
+    const y = DECK_Y - 40;
+    field.wall();
+    field.deck();
+    field.capsule(x, y, "L");
+    field.capsule(x + CAPSULE_WIDTH, y, "P");
+    // The seam stands taller than the pills it joins: contained inside them it
+    // would read as a gap between two capsules rather than as the weld.
+    field.rect(x + CAPSULE_WIDTH - 1, y - 4, 2, 16, canvasPalette.dropSheen);
+    field.rect(x + CAPSULE_WIDTH - 2, y + 3, 4, 2, canvasPalette.dropSheen);
   },
   // One ball, parked on the deck where it landed — off-centre, because a serve
   // is the only other time a ball sits on the paddle and a serve is centred.
