@@ -337,6 +337,8 @@ export interface RenderView {
   flipTurn: number;
   // ANGEL: a save in hand. The deck wears wings for as long as it holds one.
   angelArmed: boolean;
+  // GAMBLE: the face its reel is showing, or null when nothing is turning.
+  gambleFace: PowerUpKind | null;
   // BOMB blew it up: the debris in flight is the paddle, so neither it nor
   // MIRROR's reflection of it may be on screen.
   paddleHidden: boolean;
@@ -568,6 +570,38 @@ const ANGEL_WING_ROWS: ReadonlyArray<readonly [number, number, number, string]> 
   [4, 2, 3, BRICK_COLORS.S.light],
   [5, 2, 2, canvasPalette.dropSheen],
 ];
+
+/**
+ * GAMBLE's reel, turning above the deck.
+ *
+ * On the field rather than only in the POWER inset, and that is the whole
+ * design of the capsule: the effect *is* the reel, so a player watching the
+ * panel instead of the ball would miss the one second it exists. It rides the
+ * deck, because that is where the eye already is when a capsule is caught.
+ *
+ * The frame is what stops it being read as one more capsule to catch: a pill
+ * boxed in the capsule's own magenta, holding station over the paddle and
+ * changing face six times a second, is a machine and not something falling.
+ */
+export function drawGambleReel(
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  deckY: number,
+  face: PowerUpKind,
+  scale: number,
+  frame: number,
+  demade = false,
+): void {
+  const pixel = spriteBrush(ctx, scale, demade);
+  const left = centerX - 12;
+  const top = deckY - 16;
+  const tone = DROP_COLORS.GB;
+  pixel(left, top, 24, 1, tone);
+  pixel(left, top + 11, 24, 1, tone);
+  pixel(left, top + 1, 1, 10, tone);
+  pixel(left + 23, top + 1, 1, 10, tone);
+  drawCapsule(ctx, left + 2, top + 2, face, scale, frame, demade);
+}
 
 /**
  * ANGEL's wings, on a deck that is carrying a charge.
@@ -985,6 +1019,10 @@ export class CanvasRenderer {
           this.frameCount,
           this.demade,
         );
+      }
+      if (view.gambleFace) {
+        const center = view.paddle.x + view.paddle.width / 2;
+        drawGambleReel(this.ctx, center, gameConfig.paddle.y, view.gambleFace, SCALE, this.frameCount, this.demade);
       }
     }
     for (const ball of view.balls) {

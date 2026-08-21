@@ -436,6 +436,27 @@ export class SoundBank {
     this.noise({ dur: 0.3, vol: 0.12, filter: { type: "lowpass", freq: 1200, freqEnd: 120 } });
   }
 
+  // GAMBLE's reel, one click per face. The ladder climbs as the drum runs down,
+  // so the ear knows it is about to stop a beat before the eye does. Its own
+  // guard key and nothing else in the bank shares it: the clicks are 100 ms
+  // apart, and the shared 30 ms window would let a stray sound eat one.
+  gambleReel(step: number): void {
+    if (!this.allow("gambleReel")) {
+      return;
+    }
+    this.tone({ freq: 660 + (10 - step) * 45, dur: 0.025, vol: 0.045 });
+  }
+
+  // And the drum stopping: a flat two-tone clunk under the face that won, a
+  // fifth of a second before whatever it does actually happens.
+  gambleLand(): void {
+    if (!this.allow("gambleLand")) {
+      return;
+    }
+    this.tone({ freq: 1245, dur: 0.05, vol: 0.06 });
+    this.tone({ freq: 415, dur: 0.09, vol: 0.06, delayS: 0.03 });
+  }
+
   // ANGEL: the save. A bright rising arpeggio over a hiss of feathers — the
   // one sound in the bank that plays where `ballLost` would have, so it has to
   // be unmistakably the opposite of a drain and land before the player has

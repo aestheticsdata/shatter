@@ -159,6 +159,7 @@ export const POWER_UPS = [
   { id: "F", name: "FLIP", color: "#ff1aff", dark: true, ticks: 480, tier: "trap", timed: true, blurb: "THE WHOLE FIELD TURNS OVER" },
   { id: "TU", name: "TURBO", color: "#00ffff", dark: true, ticks: 600, tier: "rare", timed: true, blurb: "BALLS RUN FAST · POINTS x3" },
   { id: "A", name: "ANGEL", color: "#ffb0e0", dark: true, ticks: 0, tier: "rare", timed: false, blurb: "IT CATCHES ONE LOST BALL", lasts: "ONE SAVE" },
+  { id: "GB", name: "GAMBLE", color: "#ff6cff", dark: true, ticks: 0, tier: "uncommon", timed: false, blurb: "A REEL PAYS A RANDOM BONUS", lasts: "ONE SPIN" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];
@@ -214,6 +215,31 @@ export const TIMED_KINDS: readonly PowerUpKind[] = POWER_UPS.filter((definition)
 // that have to say "trap" before and as the paddle takes it.
 export const MALUS_KINDS: ReadonlySet<PowerUpKind> = new Set(
   POWER_UPS.filter((definition) => definition.tier === "trap").map((definition) => definition.id),
+);
+
+/**
+ * Every face GAMBLE's reel can show, and every result it can land on.
+ *
+ * Derived here rather than in the game, because two places have to agree about
+ * it — the reel itself and the dev console's `gamble` pin — and a hand-kept copy
+ * in either would be wrong the day a capsule is added.
+ *
+ * Two exclusions. **GAMBLE itself**, so applying a result can never re-enter the
+ * reel. And **the traps**, because a lottery the player cannot stop may not
+ * punish them for playing it: catching a capsule that shrinks the deck is a
+ * decision they made, and the same thing arriving out of a drum they had no hand
+ * in is only the game taking a turn against them.
+ *
+ * **DEMAKE is the one trap that stays on the drum**, by the user's call and for
+ * the reason its own README paragraph gives: it is the trap that costs nothing
+ * but nerve. The machine drops to a 1-bit tube for eight seconds and the
+ * simulation underneath is untouched — same ball, same deck, same score — so it
+ * is a gag the reel can hand you without the reel having cost you anything.
+ * BLACKOUT and FLIP are presentation-only in the same way and are *not* here:
+ * both genuinely take the ball away from you while they last.
+ */
+export const GAMBLE_FACES: readonly PowerUpKind[] = POWER_UP_IDS.filter(
+  (kind) => kind !== "GB" && (kind === "D" || !MALUS_KINDS.has(kind)),
 );
 
 // The shortest opening of `name` that no other capsule shares, never under two.

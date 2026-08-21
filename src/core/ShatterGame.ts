@@ -1,5 +1,12 @@
 import { ballSpeedForLevel, gameConfig } from "@core/config/GameConfig";
-import { MALUS_KINDS, POWER_UP_DURATIONS, POWER_UP_GLYPHS, POWER_UP_IDS, POWER_UP_NAMES } from "@core/config/powerUps";
+import {
+  GAMBLE_FACES,
+  MALUS_KINDS,
+  POWER_UP_DURATIONS,
+  POWER_UP_GLYPHS,
+  POWER_UP_IDS,
+  POWER_UP_NAMES,
+} from "@core/config/powerUps";
 import { DevConsole } from "@core/DevConsole";
 import { levelAt, levelIndexOf } from "@core/levels/levels";
 import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/PaddleBounce";
@@ -103,6 +110,19 @@ const NO_EXCLUDES: readonly PowerUpKind[] = [];
 // is acknowledged once however far it spreads.
 type BrickDamageSource = "ball" | "laser" | "splash" | "chain";
 
+// A face that is not the one already showing: a reel that repeats itself for a
+// step reads as stuck rather than as spinning.
+//
+// Uniform over `GAMBLE_FACES`, deliberately: the drop weights say how often a
+// capsule *falls*, and the point of the reel is that the rare things are on the
+// table. That also means a rare capsule turns up here several times more often
+// than it drops, and the ratio moves every time a capsule is invented; re-read
+// it, never assume a percentage.
+function rollFace(besides: PowerUpKind | null): PowerUpKind {
+  const pool = besides === null ? GAMBLE_FACES : GAMBLE_FACES.filter((kind) => kind !== besides);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 /**
  * One tick of an effect's 0..1 blend: toward 1 while its capsule is live, back
  * to 0 once it is not. Five capsules ride one of these — GHOST's fade, DEMAKE's
@@ -139,6 +159,18 @@ export class ShatterGame {
   // the loss, like `wallArmed` above it — and unlike it, deliberately not
   // cleared by `resetServe()`, which is what carries it across levels.
   private angelCharged = false;
+  // GAMBLE's reel: how long it still turns, what it will land on, and the face
+  // it is showing right now. The winner is drawn on the catch and held here
+  // rather than rolled at the end, so the spin is a replay of a decision
+  // already made and the face that stops is the one that fires.
+  private gambleTicksLeft = 0;
+  private gambleKind: PowerUpKind | null = null;
+  private gambleFace: PowerUpKind | null = null;
+  // Dev console only (`gamble NU`): pins every reel from here on to one result.
+  // Survives a lost ball and a new run the way a console setting should — it is
+  // a testing tool, not run state, and clearing it on death would mean retyping
+  // it after every mistake.
+  private gamblePin: PowerUpKind | null = null;
   private brickFlashes: BrickFlash[] = [];
   private catchPops: CatchPop[] = [];
   private stasisRings: StasisRing[] = [];
@@ -198,6 +230,9 @@ export class ShatterGame {
         jumpToLevel: (levelNumber) => {
           this.level = levelNumber - 1;
           this.buildLevel(this.level);
+        },
+        setGamblePin: (kind) => {
+          this.gamblePin = kind;
         },
         setBonusSpread: (amount) => {
           this.bonusSpreadOverride = amount;
@@ -352,6 +387,7 @@ export class ShatterGame {
       // the timers, so the turn cannot come undone behind one either.
       flipTurn: this.flipTurn,
       angelArmed: this.angelCharged,
+      gambleFace: this.gambleFace,
       paddleHidden: this.deathCountdown > 0,
       bumpers: this.bumpers.discs,
       peels: this.peels,
@@ -461,6 +497,9 @@ export class ShatterGame {
     }
 
     const expired = this.timers.tick();
+    // Beside the timers and below both freeze gates: the reel is a countdown
+    // like theirs, and a NUKE sweep must not resolve one behind its shockwave.
+    this.stepGamble();
     this.stepPeels();
     for (const core of this.cores) {
       if (core.active) {
@@ -1618,6 +1657,56 @@ export class ShatterGame {
    * far off to the side gets nudged up a lane it did not need — 10 px of extra
    * air, against a guessed label width that would sometimes be wrong.
    */
+  /**
+   * GAMBLE's reel, a tick at a time.
+   *
+   * Ten faces, then the winner held still for a fifth of a second before it
+   * fires: the result has to be *read* before whatever it does happens, or the
+   * capsule is a slot machine that pays out while you are still watching the
+   * drum.
+   *
+   * Called below the detonation and clear gates, so a NUKE sweep or a level's
+   * last shatter parks the reel mid-spin rather than resolving behind an opaque
+   * overlay. A spin still turning when the level actually ends dies with the
+   * rest of the run state in `resetServe()`.
+   */
+  private stepGamble(): void {
+    if (this.gambleTicksLeft === 0) {
+      return;
+    }
+    const { stepTicks, holdTicks } = gameConfig.powerUps.gamble;
+    this.gambleTicksLeft--;
+
+    if (this.gambleTicksLeft === 0) {
+      this.resolveGamble();
+      return;
+    }
+    if (this.gambleTicksLeft === holdTicks) {
+      this.gambleFace = this.gambleKind;
+      this.deps.sfx.gambleLand();
+      return;
+    }
+    if (this.gambleTicksLeft > holdTicks && this.gambleTicksLeft % stepTicks === 0) {
+      this.gambleFace = rollFace(this.gambleFace);
+      // The ladder climbs as the reel runs down, so the ear knows the drum is
+      // about to stop before the eye does.
+      this.deps.sfx.gambleReel((this.gambleTicksLeft - holdTicks) / stepTicks);
+    }
+  }
+
+  // The reel pays out. Cleared before the winner is applied, so a GAMBLE that
+  // somehow rolled itself could not spin forever, and so the winner's own catch
+  // pop lands on a field with no reel left over it.
+  private resolveGamble(): void {
+    const won = this.gambleKind;
+    this.gambleTicksLeft = 0;
+    this.gambleKind = null;
+    this.gambleFace = null;
+    if (won !== null) {
+      this.applyPowerUp(won);
+    }
+  }
+
   private freeCatchPopY(): number {
     const { catchPopStackGap } = gameConfig.powerUps;
     const base = gameConfig.paddle.y - 6;
@@ -1637,16 +1726,24 @@ export class ShatterGame {
 
     // Every catch gets an unmistakable on-field acknowledgment: passive effects
     // (PAYDAY, BLAST, PIERCE) and refresh catches are otherwise invisible.
-    this.catchPops.push({
-      // The label is centred on the paddle, so a long name at the wall would
-      // hang off the frame — SINGULARITY is 11 characters and today's shortest
-      // already graze it.
-      x: Math.max(40, Math.min(332, this.paddle.centerX)),
-      y: this.freeCatchPopY(),
-      label: POWER_UP_NAMES[kind],
-      malus: MALUS_KINDS.has(kind),
-      ticksLeft: gameConfig.powerUps.catchPopLifeTicks,
-    });
+    //
+    // GAMBLE is the one exception, and it is not an omission: its reel opens
+    // over the deck on this very tick, in the same 12 px band the label rises
+    // through, and the two printed over each other for the first third of a
+    // second. The reel says "GAMBLE" louder than the word does, and the face it
+    // lands on gets a pop of its own.
+    if (kind !== "GB") {
+      this.catchPops.push({
+        // The label is centred on the paddle, so a long name at the wall would
+        // hang off the frame — SINGULARITY is 11 characters and today's shortest
+        // already graze it.
+        x: Math.max(40, Math.min(332, this.paddle.centerX)),
+        y: this.freeCatchPopY(),
+        label: POWER_UP_NAMES[kind],
+        malus: MALUS_KINDS.has(kind),
+        ticksLeft: gameConfig.powerUps.catchPopLifeTicks,
+      });
+    }
 
     if (isPaddleWidthKind(kind)) {
       // The newest catch owns the deck: a WIDE taken under an XWIDE genuinely
@@ -1756,6 +1853,17 @@ export class ShatterGame {
       // The timer and nothing else: the trap is entirely in what the renderer
       // is allowed to show, and the simulation behind it plays on unaware.
       this.timers.activate("BK", durations.BK);
+    }
+    if (kind === "GB") {
+      const { reelTicks, holdTicks } = gameConfig.powerUps.gamble;
+      // A second GAMBLE over a reel still turning resolves that one first: the
+      // player caught two capsules and is owed two results, and the alternative
+      // — the pending one silently overwritten — is the swallowed effect SHA-29
+      // went to some trouble to remove.
+      this.resolveGamble();
+      this.gambleKind = this.gamblePin ?? rollFace(null);
+      this.gambleFace = rollFace(this.gambleKind);
+      this.gambleTicksLeft = reelTicks + holdTicks;
     }
     if (kind === "A") {
       // A second catch over a live charge is the chime and nothing else: there
@@ -2205,6 +2313,9 @@ export class ShatterGame {
     this.shotPool.reset();
     this.laserCountdown = 0;
     this.wallArmed = false;
+    this.gambleTicksLeft = 0;
+    this.gambleKind = null;
+    this.gambleFace = null;
     // `angelCharged` is deliberately absent from this list, and it is the only
     // run state that is: a charge bought on level 3 is meant to still be there
     // on level 4, and a ball lost with one in hand never reaches this method at
@@ -2280,6 +2391,9 @@ export class ShatterGame {
     this.resetSkid();
     this.wallArmed = false;
     this.angelCharged = false;
+    this.gambleTicksLeft = 0;
+    this.gambleKind = null;
+    this.gambleFace = null;
     this.clearCountdown = 0;
     this.deathCountdown = 0;
     this.guaranteedDrop = false;
@@ -2507,6 +2621,9 @@ export class ShatterGame {
     }
     if (this.angelCharged) {
       live.add("A");
+    }
+    if (this.gambleTicksLeft > 0) {
+      live.add("GB");
     }
     if (this.detonation.active) {
       live.add("N");

@@ -133,6 +133,16 @@ export const gameConfig = {
     // enough of the 300 death line that the very next tick cannot drain it
     // again before the launch has turned it around.
     angelReturnY: 288,
+    // GAMBLE's reel, above the deck. Ten faces at 6 ticks each is a second of
+    // spinning — long enough to be read as a machine deciding, short enough
+    // that the field is not on hold — and then the winner is held still for
+    // `holdTicks` before it fires, so the result is seen *before* it happens
+    // rather than inferred from whatever went off.
+    gamble: {
+      stepTicks: 6,
+      reelTicks: 60,
+      holdTicks: 18,
+    },
     wallY: 294,
     splashFlashTicks: 3,
     catchPopLifeTicks: 48,

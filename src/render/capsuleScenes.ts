@@ -4,6 +4,7 @@ import {
   BLACKOUT_TORCH,
   drawAngelWings,
   drawBall,
+  drawGambleReel,
   drawBlackoutVeil,
   drawBrick,
   drawCapsule,
@@ -112,6 +113,18 @@ class Field {
 
   deck(width: number = gameConfig.paddle.baseWidth, x = (FIELD_WIDTH - width) / 2, y = DECK_Y): void {
     drawPaddleBands(this.ctx, x, y, width, PADDLE_BANDS, 1, this.demade);
+  }
+
+  // GAMBLE's window over the deck, showing one face.
+  gambleReel(face: PowerUpKind, x = FIELD_WIDTH / 2): void {
+    drawGambleReel(this.ctx, x, DECK_Y, face, 1, 0, this.demade);
+  }
+
+  // A face the drum has already turned past, fading as it goes.
+  ghostCapsule(x: number, y: number, kind: PowerUpKind, alpha: number): void {
+    this.ctx.globalAlpha = alpha;
+    this.capsule(x, y, kind);
+    this.ctx.globalAlpha = 1;
   }
 
   // The deck with a save in hand, which is what a player holding ANGEL looks at
@@ -430,6 +443,21 @@ const SCENES: Record<PowerUpKind, Painter> = {
     }
     field.deck(gameConfig.paddle.baseWidth, DECK_HOME + 5);
     field.ball(190, 204);
+  },
+  // The drum, mid-turn: faces stacked into a framed window over the deck, the
+  // one in the window solid and the ones it has already passed fading out above
+  // it. Deliberately *not* RAIN's picture, which is four pills scattered loose
+  // across the field — this capsule never drops anything to catch, it decides
+  // one thing at the paddle, and the frame is what says so. Three bonuses on
+  // the drum and no trap among them, because that is what the reel holds.
+  GB: (field) => {
+    const x = FIELD_WIDTH / 2 - 10;
+    field.wall();
+    field.deck();
+    field.ball(122, 188);
+    field.ghostCapsule(x, DECK_Y - 44, "E", 0.2);
+    field.ghostCapsule(x, DECK_Y - 30, "U", 0.45);
+    field.gambleReel("N");
   },
   // Four more on their way down, which is what the shower looks like.
   R: (field) => {

@@ -1,4 +1,11 @@
-import { POWER_UP_BY_ID, POWER_UP_GLYPHS, POWER_UP_IDS, POWER_UP_NAMES, POWER_UPS } from "@core/config/powerUps";
+import {
+  GAMBLE_FACES,
+  POWER_UP_BY_ID,
+  POWER_UP_GLYPHS,
+  POWER_UP_IDS,
+  POWER_UP_NAMES,
+  POWER_UPS,
+} from "@core/config/powerUps";
 import { getElementByIdOrThrow } from "@shared/dom";
 
 import type { PowerUpKind } from "@interfaces/types";
@@ -11,6 +18,8 @@ export interface DevConsoleHost {
   dropCapsules(kinds: readonly PowerUpKind[]): boolean;
   jumpToLevel(levelNumber: number): void;
   setBonusSpread(amount: number): void;
+  // Pins what GAMBLE's reel lands on, or `null` to hand it back to chance.
+  setGamblePin(kind: PowerUpKind | null): void;
 }
 
 // A stuck key may not grow the buffer forever; nothing useful is this long.
@@ -24,6 +33,7 @@ const EXAMPLES: readonly (readonly [string, string])[] = [
   ["POWER MULTI", "DROP A CAPSULE · CATCH IT YOURSELF"],
   ["LEVEL 12", "JUMP TO A LEVEL"],
   ["BONUS 1", "CHANCE A BRICK DROPS A CAPSULE · 1 = ALL"],
+  ["GAMBLE NUKE", "PIN WHAT THE REEL LANDS ON · BARE = CHANCE"],
 ];
 const EXAMPLE_WIDTH = 12;
 // The roster is printed in full underneath: fifteen capsules is already more
@@ -144,6 +154,8 @@ export class DevConsole {
         return this.jumpToLevel(operands);
       case "bonus":
         return this.setBonusSpread(operands);
+      case "gamble":
+        return this.setGamblePin(operands);
       default:
         return suggestionFor(line);
     }
@@ -204,6 +216,35 @@ export class DevConsole {
     return null;
   }
 
+  // `gamble NUKE` pins every reel from here on; `gamble` on its own hands it
+  // back to chance. Testing a one-in-thirty-nine result any other way means
+  // catching capsules until it comes up.
+  private setGamblePin(operands: string[]): string | null {
+    if (operands.length === 0) {
+      this.host.setGamblePin(null);
+      return null;
+    }
+    if (operands.length > 1) {
+      return "GAMBLE TAKES ONE CAPSULE";
+    }
+    const kind = resolveCapsule(operands[0]);
+    if (kind === null) {
+      return `NO SUCH CAPSULE: ${operands[0].toUpperCase()}`;
+    }
+    if (kind === "GB") {
+      return "THE REEL CANNOT ROLL ITSELF";
+    }
+    // Refused rather than allowed as a testing escape hatch: a pin that could
+    // produce a result the reel cannot would be testing something that does not
+    // exist. Asked of the same list the reel rolls from, so the two can never
+    // disagree about it. `power JA` still drops the capsule itself.
+    if (!GAMBLE_FACES.includes(kind)) {
+      return `NOT ON THE REEL: ${POWER_UP_NAMES[kind]}`;
+    }
+    this.host.setGamblePin(kind);
+    return null;
+  }
+
   private render(): void {
     this.view ??= buildView();
     this.view.root.hidden = !this.opened;
@@ -224,11 +265,14 @@ interface ConsoleView {
 function buildView(): ConsoleView {
   const root = styled("div", "");
   root.className = "field-overlay";
-  // 10px, not the pause screen's roomier spacing: the roster is as tall as the
+  // 4px, not the pause screen's roomier spacing: the roster is as tall as the
   // registry is long, and the whole modal has to stay inside the 297px overlay
-  // or its heading and its last row hang off the field. At today's 32 capsules
-  // this leaves 4px in hand — the next wave of them is what spends it.
-  root.style.gap = "10px";
+  // or its heading and its last rows hang off the field. At 10px and 40
+  // capsules it did exactly that — 318px of content in 297px of room, with the
+  // heading clipped off the top — so this and the two lists below were
+  // tightened. Measured, not guessed: 280px of content, 17px spare, which is
+  // one more roster row and so about five more capsules.
+  root.style.gap = "4px";
 
   const commandLine = styled("div", COMMAND);
   const command = document.createElement("span");
@@ -237,7 +281,7 @@ function buildView(): ConsoleView {
   caret.textContent = "_";
   commandLine.append(command, caret);
 
-  const examples = styled("div", "display: flex; flex-direction: column; gap: 5px;");
+  const examples = styled("div", "display: flex; flex-direction: column; gap: 4px;");
   for (const [example, effect] of EXAMPLES) {
     const row = styled("div", "");
     row.append(styled("span", EXAMPLE, example.padEnd(EXAMPLE_WIDTH)), styled("span", HINT, effect));
@@ -247,7 +291,7 @@ function buildView(): ConsoleView {
   // `flex-start`, so the columns line up: the rows are ragged (each ends where
   // its last cell does), and centring them one by one would stagger the grid.
   // The roster as a block is still centred, by the overlay itself.
-  const roster = styled("div", "display: flex; flex-direction: column; gap: 4px; align-items: flex-start;");
+  const roster = styled("div", "display: flex; flex-direction: column; gap: 3px; align-items: flex-start;");
   for (const row of rosterRows()) {
     roster.append(styled("div", EXAMPLE, row));
   }
