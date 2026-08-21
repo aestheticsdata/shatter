@@ -135,6 +135,10 @@ export class ShatterGame {
   private entry = "";
   private booted = false;
   private wallArmed = false;
+  // ANGEL's charge: one lost ball cancelled. Armed by the catch and spent by
+  // the loss, like `wallArmed` above it — and unlike it, deliberately not
+  // cleared by `resetServe()`, which is what carries it across levels.
+  private angelCharged = false;
   private brickFlashes: BrickFlash[] = [];
   private catchPops: CatchPop[] = [];
   private stasisRings: StasisRing[] = [];
@@ -347,6 +351,7 @@ export class ShatterGame {
       // an upside-down field is the joke landing twice, and neither freeze runs
       // the timers, so the turn cannot come undone behind one either.
       flipTurn: this.flipTurn,
+      angelArmed: this.angelCharged,
       paddleHidden: this.deathCountdown > 0,
       bumpers: this.bumpers.discs,
       peels: this.peels,
@@ -1070,6 +1075,31 @@ export class ShatterGame {
       }
 
       if (ball.y > height) {
+        // ANGEL, on the far side of the line the ball is lost at: the catch
+        // that cancels the loss and serves it straight back. Only ever the last
+        // ball on the field — the dying one still counts itself in this test —
+        // because a charge spent while eleven others are in flight is a charge
+        // nobody saw being spent.
+        //
+        // WALL never has to be arbitrated against: its line is at 294, so an
+        // armed barrier has already turned this ball around 6 px above here.
+        if (this.angelCharged && this.balls.filter((other) => other.active).length === 1) {
+          this.angelCharged = false;
+          ball.y = gameConfig.powerUps.angelReturnY;
+          ball.launch(this.speed());
+          this.particles.burst(ball.centerX, ball.y + size / 2, "S", gameConfig.effects.angelBurst);
+          this.catchPops.push({
+            // Clamped like every other pop: a label centred on a ball against
+            // the wall would hang off the frame.
+            x: Math.max(40, Math.min(332, ball.centerX)),
+            y: this.freeCatchPopY(),
+            label: "SAVED",
+            malus: false,
+            ticksLeft: gameConfig.powerUps.catchPopLifeTicks,
+          });
+          this.deps.sfx.angelSave();
+          return;
+        }
         ball.active = false;
         return;
       }
@@ -1727,6 +1757,12 @@ export class ShatterGame {
       // is allowed to show, and the simulation behind it plays on unaware.
       this.timers.activate("BK", durations.BK);
     }
+    if (kind === "A") {
+      // A second catch over a live charge is the chime and nothing else: there
+      // is one save, and stacking them would make the strongest capsule in the
+      // game stronger still.
+      this.angelCharged = true;
+    }
     if (kind === "TU") {
       this.timers.activate("TU", durations.TU);
     }
@@ -2129,6 +2165,9 @@ export class ShatterGame {
 
   private startRun(): void {
     this.booted = true;
+    // The one thing `resetServe()` below will not clear, so the new run clears
+    // it here: a save carries across levels, never across runs.
+    this.angelCharged = false;
     this.score = 0;
     this.lives = gameConfig.rules.startLives;
     this.level = 0;
@@ -2166,6 +2205,10 @@ export class ShatterGame {
     this.shotPool.reset();
     this.laserCountdown = 0;
     this.wallArmed = false;
+    // `angelCharged` is deliberately absent from this list, and it is the only
+    // run state that is: a charge bought on level 3 is meant to still be there
+    // on level 4, and a ball lost with one in hand never reaches this method at
+    // all. `startRun()` and `gameOver()` clear it instead.
     this.multiTier = 0;
     this.swarmLive = false;
     this.brickFlashes = [];
@@ -2236,6 +2279,7 @@ export class ShatterGame {
     this.paddle.setWidth(gameConfig.paddle.baseWidth);
     this.resetSkid();
     this.wallArmed = false;
+    this.angelCharged = false;
     this.clearCountdown = 0;
     this.deathCountdown = 0;
     this.guaranteedDrop = false;
@@ -2460,6 +2504,9 @@ export class ShatterGame {
     const live = new Set<PowerUpKind>(this.timers.activeKinds());
     if (this.wallArmed) {
       live.add("W");
+    }
+    if (this.angelCharged) {
+      live.add("A");
     }
     if (this.detonation.active) {
       live.add("N");

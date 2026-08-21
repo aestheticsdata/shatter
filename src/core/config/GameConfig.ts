@@ -128,6 +128,11 @@ export const gameConfig = {
     // compose rather than cancel, and a TURBO that quietly did nothing under a
     // RUSH would read as a broken capsule.
     turboTimeScale: 1.5,
+    // ANGEL puts the ball it saved back at this height: below the deck's 276,
+    // so it rises through it and reads as caught at the last instant, and clear
+    // enough of the 300 death line that the very next tick cannot drain it
+    // again before the launch has turned it around.
+    angelReturnY: 288,
     wallY: 294,
     splashFlashTicks: 3,
     catchPopLifeTicks: 48,
@@ -316,6 +321,19 @@ export const gameConfig = {
       maxSpeed: 1.6,
       minLifeTicks: 15,
       maxLifeTicks: 15,
+    } satisfies BurstSpec,
+    // ANGEL's feathers, thrown from where the ball was caught. Wider and
+    // longer-lived than a brick's debris — this is the one burst that has to be
+    // seen at the very bottom of the field, under the deck, in the half second
+    // the player is already braced for a lost ball.
+    angelBurst: {
+      chunkCount: 14,
+      minChunkSize: 1,
+      maxChunkSize: 2,
+      minSpeed: 0.8,
+      maxSpeed: 2.2,
+      minLifeTicks: 20,
+      maxLifeTicks: 34,
     } satisfies BurstSpec,
     nukeBurst: {
       chunkCount: 10,

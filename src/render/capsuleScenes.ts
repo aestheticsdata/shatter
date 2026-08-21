@@ -2,6 +2,7 @@ import { gameConfig } from "@core/config/GameConfig";
 import { paintBackground } from "@render/backgrounds";
 import {
   BLACKOUT_TORCH,
+  drawAngelWings,
   drawBall,
   drawBlackoutVeil,
   drawBrick,
@@ -10,7 +11,7 @@ import {
   MIRROR_BANDS,
   PADDLE_BANDS,
 } from "@render/CanvasRenderer";
-import { canvasPalette } from "@render/palette";
+import { BRICK_COLORS, canvasPalette } from "@render/palette";
 
 import type { BrickCell, BrickKind, PowerUpKind } from "@interfaces/types";
 import type { Torch } from "@render/CanvasRenderer";
@@ -111,6 +112,13 @@ class Field {
 
   deck(width: number = gameConfig.paddle.baseWidth, x = (FIELD_WIDTH - width) / 2, y = DECK_Y): void {
     drawPaddleBands(this.ctx, x, y, width, PADDLE_BANDS, 1, this.demade);
+  }
+
+  // The deck with a save in hand, which is what a player holding ANGEL looks at
+  // for as long as they hold it.
+  wingedDeck(width: number = gameConfig.paddle.baseWidth, x = (FIELD_WIDTH - width) / 2): void {
+    this.deck(width, x);
+    drawAngelWings(this.ctx, x, width, DECK_Y, 1, 0, this.demade);
   }
 
   mirrorDeck(width: number = gameConfig.paddle.baseWidth, x = DECK_HOME): void {
@@ -364,6 +372,36 @@ const SCENES: Record<PowerUpKind, Painter> = {
     field.deck();
     field.ring(FIELD_WIDTH / 2, DECK_Y, 96, canvasPalette.nukeRing, 4);
     field.ring(FIELD_WIDTH / 2, DECK_Y, 64, canvasPalette.nukeRing, 3);
+  },
+  // The save, at the instant it happens. The whole picture is one fact: the
+  // ball is **below the deck**, at the height ANGEL puts it back at, which in
+  // any other frame of this game means it is already gone. The feathers fan out
+  // and up around it so the reader takes it as an event rather than a ball
+  // somebody left there, and — like BOMB's debris below — they are drawn
+  // several times the size the field throws them at, because at a third of this
+  // a 1 px chunk is nothing at all.
+  A: (field) => {
+    const y = gameConfig.powerUps.angelReturnY;
+    field.wall();
+    field.wingedDeck();
+    for (const [x, top, size, tone] of [
+      [132, y + 6, 3, BRICK_COLORS.S.dark],
+      [142, y - 2, 4, BRICK_COLORS.S.flat],
+      [154, y - 11, 5, BRICK_COLORS.S.light],
+      [168, y - 20, 4, canvasPalette.dropSheen],
+      [204, y - 20, 4, canvasPalette.dropSheen],
+      [218, y - 11, 5, BRICK_COLORS.S.light],
+      [230, y - 2, 4, BRICK_COLORS.S.flat],
+      [242, y + 6, 3, BRICK_COLORS.S.dark],
+    ] as const) {
+      field.rect(x, top, size, size, tone);
+    }
+    // Where it was caught, where it crossed back over the deck, and where it is
+    // now: the same graded trail the rest of the catalogue draws motion with,
+    // read bottom to top for once.
+    field.trace(186, y, 0.45);
+    field.trace(186, 244, 0.6);
+    field.ball(186, 196);
   },
   // A life in hand: the reserve the LIVES inset counts, one of them new.
   U: (field) => {

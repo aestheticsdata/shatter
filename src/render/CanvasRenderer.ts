@@ -335,6 +335,8 @@ export interface RenderView {
   // same reason the three above it are: the field does not switch round, it
   // rotates — and it is only ever 0 or 1 for the frames it is not turning.
   flipTurn: number;
+  // ANGEL: a save in hand. The deck wears wings for as long as it holds one.
+  angelArmed: boolean;
   // BOMB blew it up: the debris in flight is the paddle, so neither it nor
   // MIRROR's reflection of it may be on screen.
   paddleHidden: boolean;
@@ -553,6 +555,54 @@ function uprightText(ctx: CanvasRenderingContext2D, cx: number, cy: number, pain
   ctx.translate(-cx, -cy);
   paint();
   ctx.restore();
+}
+
+// ANGEL's wing, from the deck upward: [rows above the deck top, how far outside
+// the deck's end it starts, how wide, tone]. Brightest at the tip, and never
+// more than 2 px past the end — a wing that reached out sideways would be read
+// as a wider deck, which is a different capsule.
+const ANGEL_WING_ROWS: ReadonlyArray<readonly [number, number, number, string]> = [
+  [1, -1, 7, BRICK_COLORS.S.flat],
+  [2, 0, 6, BRICK_COLORS.S.flat],
+  [3, 1, 4, BRICK_COLORS.S.light],
+  [4, 2, 3, BRICK_COLORS.S.light],
+  [5, 2, 2, canvasPalette.dropSheen],
+];
+
+/**
+ * ANGEL's wings, on a deck that is carrying a charge.
+ *
+ * Without them the capsule is invisible from the catch until the instant it
+ * fires, which can be a minute of holding something the player cannot see they
+ * hold — and the first QA pass said exactly that. Two silver tufts on the ends
+ * of the deck say it at a glance, in the same feathers the save throws.
+ *
+ * They beat the two obvious alternatives: a line along the floor is WALL's
+ * sprite, and a spare ball parked below the deck would promise a return
+ * position the save does not honour — it puts the ball back where it fell, not
+ * where the deck is.
+ *
+ * Module-level and scale-taking like the deck itself: the arena paints them at
+ * SCALE and the capsule catalogue at 1.
+ */
+export function drawAngelWings(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  width: number,
+  y: number,
+  scale: number,
+  frame: number,
+  demade = false,
+): void {
+  const pixel = spriteBrush(ctx, scale, demade);
+  // A slow beat on the same clock a trap's glyph blinks to: the feathers stir
+  // rather than sit, which is most of what makes them read as wings.
+  const lift = (frame & 16) === 0 ? 0 : 1;
+  for (const [rise, outset, span, tone] of ANGEL_WING_ROWS) {
+    const top = y - rise - lift;
+    pixel(x - outset, top, span, 1, tone);
+    pixel(x + width + outset - span, top, span, 1, tone);
+  }
 }
 
 /**
@@ -925,6 +975,17 @@ export class CanvasRenderer {
     }
     if (!view.paddleHidden) {
       this.drawPaddle(view.paddle);
+      if (view.angelArmed) {
+        drawAngelWings(
+          this.ctx,
+          view.paddle.x,
+          view.paddle.width,
+          gameConfig.paddle.y,
+          SCALE,
+          this.frameCount,
+          this.demade,
+        );
+      }
     }
     for (const ball of view.balls) {
       if (ball.active) {

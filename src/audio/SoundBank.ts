@@ -436,6 +436,18 @@ export class SoundBank {
     this.noise({ dur: 0.3, vol: 0.12, filter: { type: "lowpass", freq: 1200, freqEnd: 120 } });
   }
 
+  // ANGEL: the save. A bright rising arpeggio over a hiss of feathers — the
+  // one sound in the bank that plays where `ballLost` would have, so it has to
+  // be unmistakably the opposite of a drain and land before the player has
+  // finished bracing for one.
+  angelSave(): void {
+    if (!this.allow("angelSave")) {
+      return;
+    }
+    this.arp([784, 988, 1319, 1568], 55, { detunePair: true });
+    this.noise({ dur: 0.25, vol: 0.08, filter: { type: "highpass", freq: 4000 } });
+  }
+
   // TURBO: winding up. A sawtooth climbing two and a half octaves over exactly
   // the half second the spool takes, doubled a few cents apart so it thickens
   // as it rises, and a bright note landing on the tick the balls reach speed.
