@@ -1,6 +1,6 @@
 import { gameConfig, peelFlightTicks } from "@core/config/GameConfig";
 import { MALUS_KINDS, POWER_UP_GLYPHS } from "@core/config/powerUps";
-import { mirrorBounds } from "@entities/paddle/MirrorPaddle";
+import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
 import { BackgroundLayer } from "@render/backgrounds";
 import {
   BRICK_COLORS,
@@ -51,6 +51,15 @@ const RAIL_MARK_TONES: readonly string[] = [
   canvasPalette.railMarkMid,
   canvasPalette.railMarkLow,
   canvasPalette.railMarkFaint,
+];
+
+// MIRROR's after-image, newest first: its own sheen, its own body, then a step
+// under both. Three whole tones rather than an alpha ramp, like every other
+// thing on this field that dies.
+const MIRROR_FADE_TONES: readonly string[] = [
+  canvasPalette.mirrorSheen,
+  canvasPalette.mirrorBody,
+  canvasPalette.mirrorFade,
 ];
 
 const RUSH_TRAIL_TONES: readonly string[] = [canvasPalette.rushTrailFar, canvasPalette.rushTrailNear];
@@ -260,14 +269,10 @@ const FLASH_COLORS: Record<BrickFlashKind, string> = {
   blast: canvasPalette.blastFlash,
 };
 
-export interface PaddleRenderState {
-  x: number;
-  width: number;
-  laserActive: boolean;
-  // SPLIT's hole, in game pixels, or 0 while the deck is whole. `width` stays
-  // the span end to end either way, so the cannons and MIRROR's ghost need no
-  // second number.
-  splitGap: number;
+// SPLIT's two seams, split out of the paddle's state so `drawDeck` can be given
+// a span that is not the paddle's — MIRROR's ghost is the same deck at a
+// fraction of it, and carries the same seam.
+export interface DeckSeamState {
   // The deck under tension with no hole in it yet — the first ticks of a tear,
   // the last of a weld, or a SPLIT on a deck too narrow to hold two halves.
   splitCrack: boolean;
@@ -277,6 +282,16 @@ export interface PaddleRenderState {
   // still has blend to spend. The weld wins the pixel: it is the event, and the
   // hairline behind it is the scar closing.
   splitWeld: boolean;
+}
+
+export interface PaddleRenderState extends DeckSeamState {
+  x: number;
+  width: number;
+  laserActive: boolean;
+  // SPLIT's hole, in game pixels, or 0 while the deck is whole. `width` stays
+  // the span end to end either way, so the cannons and MIRROR's ghost need no
+  // second number.
+  splitGap: number;
   // JAMMER, and only while its caps are still travelling: both ends wear the
   // capsule's magenta instead of the deck's red for the eight ticks the trap
   // takes to shut. The deck losing its own colour is the point.
@@ -341,7 +356,19 @@ export interface RenderView {
   backgroundVariant: number;
   grid: ReadonlyArray<ReadonlyArray<BrickCell | null>>;
   paddle: PaddleRenderState;
-  mirrorActive: boolean;
+  /**
+   * MIRROR's reflection, 0 absent to 1 fully resolved.
+   *
+   * A number rather than a flag, and — like SPLIT's tear and unlike GHOST's or
+   * BLACKOUT's fades — one the simulation reads too: this is the fraction of the
+   * deck's width the ghost both draws at and bounces off. The renderer is
+   * looking at the same span the ball is.
+   */
+  mirrorForm: number;
+  // The line left on the ceiling after the surface is gone, 1 on the tick it
+  // was last a surface down to 0. It returns nothing; it is the explanation for
+  // the ball that just went straight through where the ghost was.
+  mirrorAfterImage: number;
   magnetActive: boolean;
   portalActive: boolean;
   // XRAY: show every brick the capsule it is holding, for as long as it lasts.
@@ -1041,8 +1068,8 @@ export class CanvasRenderer {
     for (const peel of view.peels) {
       this.drawPeel(peel);
     }
-    if (view.mirrorActive && !view.paddleHidden) {
-      this.drawMirror(view.paddle);
+    if ((view.mirrorForm > 0 || view.mirrorAfterImage > 0) && !view.paddleHidden) {
+      this.drawMirror(view.paddle, view.mirrorForm, view.mirrorAfterImage);
     }
     if (!view.paddleHidden) {
       this.drawPaddle(view.paddle);
@@ -1309,7 +1336,14 @@ export class CanvasRenderer {
     // sprite through `MIRROR_BANDS`, whose whole point is that every tone is
     // desaturated enough to read as a reflection — a full-strength magenta cap
     // on it would be the reflection shouting louder than the deck.
-    this.drawDeck(paddle, paddle.x, y, paddle.capsJammed ? { ...PADDLE_BANDS, cap: DROP_COLORS.J } : PADDLE_BANDS);
+    this.drawDeck(
+      paddle.x,
+      y,
+      paddle.width,
+      paddle.splitGap,
+      paddle.capsJammed ? { ...PADDLE_BANDS, cap: DROP_COLORS.J } : PADDLE_BANDS,
+      paddle,
+    );
 
     if (paddle.laserActive) {
       this.spritePixel(paddle.x + 5, y - 3, 2, 3, canvasPalette.laserCannon);
@@ -1317,11 +1351,55 @@ export class CanvasRenderer {
     }
   }
 
-  // MIRROR's ghost: the paddle's sprite, dimmed, at the mirrored x — and never
-  // any cannons, since the ghost is a surface and not a second paddle.
-  private drawMirror(paddle: PaddleRenderState): void {
+  /**
+   * MIRROR's ghost: the paddle's sprite, dimmed, at the mirrored x — and never
+   * any cannons, since the ghost is a surface and not a second paddle.
+   *
+   * It resolves rather than switching on. The span and the gap both scale with
+   * `form`, so the ghost is a shrunken copy of the deck growing to full size and
+   * not a window onto a full-size one — which matters the moment SPLIT is live,
+   * because a window opening from the centre of a split deck would reveal the
+   * hole first. `mirrorSpan` is shared with the bounce test, so the surface the
+   * ball meets is this one to the pixel.
+   *
+   * The height does not scale: it unfolds, **anchored on the bottom edge**. That
+   * edge at `mirrorY + height` is where an upward ball is returned from, so a
+   * band growing downward from the top would be drawn three pixels up the screen
+   * from the surface doing the work — visible on the first rally. Clipped rather
+   * than drawn short, because `drawPaddleBands` hardcodes its rows against the
+   * deck's full height and a four-tone bevel has nothing to say at 3 px.
+   */
+  private drawMirror(paddle: PaddleRenderState, form: number, afterImage: number): void {
+    const { height } = gameConfig.paddle;
     const bounds = mirrorBounds(paddle.x, paddle.width);
-    this.drawDeck(paddle, bounds.left, bounds.top, MIRROR_BANDS);
+    const center = (bounds.left + bounds.right) / 2;
+    const span = mirrorSpan(paddle.width, form);
+    const x = center - span / 2;
+
+    // The surface is gone and only its mark is left: one line at the row the
+    // ghost used to return balls from, walking down three tones as it goes.
+    if (form === 0) {
+      const step = Math.min(MIRROR_FADE_TONES.length - 1, Math.floor((1 - afterImage) * MIRROR_FADE_TONES.length));
+      this.spritePixel(x, bounds.top + height - 1, span, 1, MIRROR_FADE_TONES[step]);
+      return;
+    }
+
+    const rows = Math.max(1, Math.round(height * form));
+    const top = bounds.top + height - rows;
+    this.ctx.save();
+    this.ctx.beginPath();
+    this.ctx.rect(Math.round(x * SCALE), Math.round(top * SCALE), Math.round(span * SCALE), rows * SCALE);
+    this.ctx.clip();
+    this.drawDeck(x, bounds.top, span, mirrorGap(paddle.splitGap, span, paddle.width), MIRROR_BANDS, paddle);
+    this.ctx.restore();
+
+    // The leading edge, riding the top of whatever has unfolded so far — and
+    // gone the moment there is nothing left to lead. Deliberately the ghost's
+    // own sheen and not something brighter: the dimness is what says reflection,
+    // and the signal a departure needs is bought with the after-image instead.
+    if (form < 1) {
+      this.spritePixel(x, top, span, 1, canvasPalette.mirrorSheen);
+    }
   }
 
   /**
@@ -1331,30 +1409,56 @@ export class CanvasRenderer {
    * ends grow their caps for free: `drawPaddleBands` puts one at each end of
    * whatever it is given, so the halves are capped the moment there are two.
    *
-   * Any non-zero gap opens the deck. The gap arrives two pixels at a time now
-   * rather than at its full 26, and the first of those steps is exactly the
-   * crack the player is being warned by — swallowing it would be swallowing the
-   * warning.
+   * Any non-zero gap opens the deck. The gap arrives two pixels at a time rather
+   * than at its full 26, and the first of those steps is exactly the crack the
+   * player is being warned by — swallowing it would be swallowing the warning.
+   *
+   * The width and the gap are arguments rather than read off `paddle`, because
+   * MIRROR's ghost is the same deck at a fraction of both. `seam` still comes
+   * from the paddle: the crack and the weld are the deck's, and the reflection
+   * carries them because it is a reflection.
    */
-  private drawDeck(paddle: PaddleRenderState, x: number, y: number, colors: PaddleBandColors): void {
-    const half = (paddle.width - paddle.splitGap) / 2;
-    // A half narrower than its own sheen is not a half. The sheen and shade are
-    // painted as `width - 18` — inset 9 px a side, not the 8 the caps are — so
-    // 18 is the floor and anything under it is a negative `fillRect` drawn
-    // leftward over the cap.
-    //
-    // Since SHA-86 the arithmetic cannot reach it: the gap is a fraction of the
-    // width's own surplus over two 20 px halves, so `half` is 20 at its tightest
-    // and a deck with no surplus opens no gap at all. Kept as the second line of
-    // defence it was, because the cost of being wrong about that is a sprite
-    // painted backwards over its own cap.
-    if (paddle.splitGap === 0 || half < 18) {
-      this.drawPaddleBands(x, y, paddle.width, colors);
+  private drawDeck(
+    x: number,
+    y: number,
+    width: number,
+    gap: number,
+    colors: PaddleBandColors,
+    seam: DeckSeamState,
+  ): void {
+    const half = (width - gap) / 2;
+    if (gap === 0 || half < 1) {
+      this.drawDeckPill(x, y, width, colors);
     } else {
-      this.drawPaddleBands(x, y, half, colors);
-      this.drawPaddleBands(x + paddle.width - half, y, half, colors);
+      this.drawDeckPill(x, y, half, colors);
+      this.drawDeckPill(x + width - half, y, half, colors);
     }
-    this.drawDeckSeam(paddle, x, y, colors);
+    this.drawDeckSeam(seam, x, y, width, colors);
+  }
+
+  /**
+   * A pill, or a plain bar where there is not room for one.
+   *
+   * `drawPaddleBands` hardcodes 8 px caps at each end and paints its sheen and
+   * shade as `width - 18` — inset 9 px a side, not the caps' 8 — so 18 is the
+   * narrowest width that is still a pill, and anything under it draws a
+   * negative `fillRect` leftward over its own cap.
+   *
+   * Two callers reach it and only one can go under. The deck cannot: SHA-86
+   * makes its halves 20 px at the tightest, and this stays the second line of
+   * defence it was there. MIRROR's ghost does, every time it forms — and the bar
+   * is why the floor is a fallback and not a clamp. A pill drawn wider than the
+   * span it was asked for would put the drawn surface and the bouncing one back
+   * out of step, which is the whole thing SHA-87 exists to fix.
+   */
+  private drawDeckPill(x: number, y: number, width: number, colors: PaddleBandColors): void {
+    if (width >= 18) {
+      this.drawPaddleBands(x, y, width, colors);
+      return;
+    }
+    const { height } = gameConfig.paddle;
+    this.spritePixel(x, y, width, height, colors.body);
+    this.spritePixel(x, y, width, 1, colors.sheen);
   }
 
   /**
@@ -1371,20 +1475,20 @@ export class CanvasRenderer {
    * ground tone and the sheen is not, so the deck is one ink block with a line
    * cut out of it either way. That is the downgrade working, not a gap in it.
    */
-  private drawDeckSeam(paddle: PaddleRenderState, x: number, y: number, colors: PaddleBandColors): void {
-    if (!paddle.splitCrack && !paddle.splitWeld) {
+  private drawDeckSeam(seam: DeckSeamState, x: number, y: number, width: number, colors: PaddleBandColors): void {
+    if (!seam.splitCrack && !seam.splitWeld) {
       return;
     }
     const { height } = gameConfig.paddle;
     // The crack is drawn a pixel in from each bevel; the weld is not, because a
     // weld is the halves touching and the touch is the full height of them.
-    const inset = paddle.splitWeld ? 0 : 1;
+    const inset = seam.splitWeld ? 0 : 1;
     this.spritePixel(
-      x + Math.floor(paddle.width / 2),
+      x + Math.floor(width / 2),
       y + inset,
       1,
       height - 2 * inset,
-      paddle.splitWeld ? colors.sheen : colors.shade,
+      seam.splitWeld ? colors.sheen : colors.shade,
     );
   }
 

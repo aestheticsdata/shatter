@@ -70,6 +70,10 @@ export const canvasPalette = {
   mirrorBody: "#1e5796",
   mirrorCap: "#93273a",
   mirrorSheen: "#5f8fc4",
+  // The last step of MIRROR's after-image, under its own body tone: still a
+  // reflection's blue, but only just — the line has to be gone before the player
+  // can wonder whether the ghost is still a surface.
+  mirrorFade: "#123258",
   // RUSH's streak: the ball smeared along the path it covered this tick. Amber
   // into the capsule's own crimson, so the trail says both "moving" and "this
   // is the red thing you caught" — a plain grey blur said neither.

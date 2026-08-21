@@ -21,7 +21,7 @@ import { ParticleField } from "@entities/effects/ParticleField";
 import { Quake } from "@entities/effects/Quake";
 import { Singularity } from "@entities/effects/Singularity";
 import { ShotPool } from "@entities/laser/ShotPool";
-import { mirrorBounds } from "@entities/paddle/MirrorPaddle";
+import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
 import { Paddle } from "@entities/paddle/Paddle";
 import { DropPool, rollDropKind } from "@entities/powerups/DropPool";
 import { PowerUpTimers } from "@entities/powerups/PowerUpTimers";
@@ -333,6 +333,20 @@ export class ShatterGame {
   // on the way back. The deck healing had no picture at all before — the width
   // branch simply snapped 66 back to 46 and the hole stopped existing.
   private splitWeldTicks = 0;
+  /**
+   * MIRROR's reflection, 0 absent to 1 fully resolved onto the ceiling.
+   *
+   * The second blend on this list that eases the simulation rather than a
+   * picture over it: the ghost's span is read off this, and the span is what
+   * returns the ball. A reflection that bounced off a surface wider than the one
+   * drawn would be the capsule lying at the one end of the field the player is
+   * not watching.
+   */
+  private mirrorForm = 0;
+  // Ticks left of the line the reflection leaves behind it. It returns nothing —
+  // that is what makes it an after-image and not a surface — and it is the only
+  // thing on screen explaining the ball that just went straight through.
+  private mirrorAfterImageTicks = 0;
   // Armed by a MAGNET catch, spent by the next brick a ball or a laser kills.
   // A magnet with nothing falling is a magnet nobody can see working.
   private guaranteedDrop = false;
@@ -430,7 +444,8 @@ export class ShatterGame {
         // stays shut.
         capsJammed: this.widthEaseKind === "J" && this.paddle.easingWidth,
       },
-      mirrorActive: this.timers.isActive("Y"),
+      mirrorForm: this.mirrorForm,
+      mirrorAfterImage: this.mirrorAfterImageTicks / gameConfig.effects.mirrorAfterImageTicks,
       magnetActive: this.timers.isActive("K"),
       portalActive: this.timers.isActive("PO"),
       xrayActive: this.timers.isActive("XR"),
@@ -569,6 +584,18 @@ export class ShatterGame {
     if (gapBefore > 0 && this.splitGap() === 0) {
       this.splitWeldTicks = gameConfig.effects.splitWeldFlashTicks;
       this.deps.sfx.deckWeld();
+    }
+    // Above the freeze gates with the rest, and with SPLIT's reason: this one is
+    // a surface. A NUKE caught while the reflection is resolving would park a
+    // half-formed ceiling over the field for the length of the shockwave, and it
+    // would still be bouncing at whatever width it froze on.
+    if (this.mirrorAfterImageTicks > 0) {
+      this.mirrorAfterImageTicks--;
+    }
+    const wasReflecting = this.mirrorForm > 0;
+    this.mirrorForm = stepBlend(this.mirrorForm, this.timers.isActive("Y"), gameConfig.effects.mirrorFormTicks);
+    if (wasReflecting && this.mirrorForm === 0) {
+      this.mirrorAfterImageTicks = gameConfig.effects.mirrorAfterImageTicks;
     }
 
     // A pending level clear freezes the rest of the simulation so the final
@@ -1088,9 +1115,10 @@ export class ShatterGame {
     // so both are cut once per tick rather than per sub-step. The ghost is split
     // wherever the paddle is: it is the paddle's reflection, and a solid ghost
     // over a broken deck would be a surface the player cannot read.
-    const mirror = this.timers.isActive("Y")
-      ? this.splitSegments(mirrorBounds(this.paddle.x, this.paddle.width))
-      : null;
+    // The blend and not the timer: the ghost is a surface from the tick it is
+    // first drawn, and stops being one on the tick it stops being drawn. The
+    // after-image that outlives it deliberately does not appear here.
+    const mirror = this.mirrorSegments();
     const deck = this.paddleSegments();
     const { portalTop, portalHeight, portalInset } = gameConfig.powerUps;
     const portalsOpen = this.timers.isActive("PO");
@@ -1350,8 +1378,7 @@ export class ShatterGame {
 
   // A deck, as the pieces that actually catch things: one box whole, two while
   // SPLIT holds. Applied to the paddle and to MIRROR's ghost alike.
-  private splitSegments(bounds: RectangleBounds): RectangleBounds[] {
-    const gap = this.splitGap();
+  private splitSegments(bounds: RectangleBounds, gap = this.splitGap()): RectangleBounds[] {
     if (gap === 0) {
       return [bounds];
     }
@@ -1364,6 +1391,28 @@ export class ShatterGame {
 
   private paddleSegments(): RectangleBounds[] {
     return this.splitSegments(this.paddle.bounds);
+  }
+
+  /**
+   * The ghost, as the pieces that actually return balls — or `null` while there
+   * is no reflection to return them.
+   *
+   * Narrowed about the mirrored centre by `mirrorSpan` and holed by `mirrorGap`,
+   * the two functions the renderer draws through, so the surface the ball meets
+   * and the surface on screen cannot come apart.
+   *
+   * Cut once a tick rather than per sub-step, like the deck below it and for the
+   * same reason — neither surface moves between sub-steps.
+   */
+  private mirrorSegments(): RectangleBounds[] | null {
+    if (this.mirrorForm === 0) {
+      return null;
+    }
+    const full = mirrorBounds(this.paddle.x, this.paddle.width);
+    const span = mirrorSpan(this.paddle.width, this.mirrorForm);
+    const center = (full.left + full.right) / 2;
+    const narrowed = { ...full, left: center - span / 2, right: center + span / 2 };
+    return this.splitSegments(narrowed, mirrorGap(this.splitGap(), span, this.paddle.width));
   }
 
   /**
@@ -1893,6 +1942,8 @@ export class ShatterGame {
     this.blackoutBlend = 0;
     this.flipTurn = 0;
     this.turboSpool = 0;
+    this.mirrorForm = 0;
+    this.mirrorAfterImageTicks = 0;
     this.particles.reset();
     this.resetSkid();
     // The deck too, and it is the easy one to miss: this method zeroes every
@@ -2694,6 +2745,8 @@ export class ShatterGame {
     this.blackoutBlend = 0;
     this.flipTurn = 0;
     this.turboSpool = 0;
+    this.mirrorForm = 0;
+    this.mirrorAfterImageTicks = 0;
     this.particles.reset();
     this.detonation.reset();
     this.clearCountdown = 0;
@@ -2737,6 +2790,8 @@ export class ShatterGame {
     this.blackoutBlend = 0;
     this.flipTurn = 0;
     this.turboSpool = 0;
+    this.mirrorForm = 0;
+    this.mirrorAfterImageTicks = 0;
     this.particles.reset();
     this.dropPool.reset();
     this.detonation.reset();

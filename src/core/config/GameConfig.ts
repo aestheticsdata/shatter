@@ -490,6 +490,36 @@ export const gameConfig = {
     // dying throws 6 of these and a paddle is not more important than a brick.
     // Short-lived too: the debris must be gone before the hole it announced is
     // wide enough to matter, or it reads as the hole rather than as the tear.
+    /**
+     * MIRROR's reflection resolving onto the ceiling, and leaving it.
+     *
+     * Like SPLIT's tear and unlike the five fades above, this one eases the
+     * *simulation*: the span the ghost is drawn at is the span it returns balls
+     * off. A drawn surface narrower than the one that bounces is the lie the
+     * capsule cannot afford, at the one end of the field the player is not
+     * looking at.
+     *
+     * 12 ticks is 200 ms and 2 % of MIRROR's ten seconds, and it is deliberately
+     * *not* the deck's one-pixel-an-edge — a reflection is not hydraulics, so it
+     * takes the same fifth of a second to arrive whether the deck under it is
+     * 46 px or a 144 px XWIDE.
+     *
+     * The height does not ease with it. A two-pixel-tall bounce surface would be
+     * a coin flip nobody could see coming; a narrow full-height one is honest,
+     * because it looks narrow. What the height does instead is unfold, anchored
+     * at the bottom edge the balls actually meet.
+     */
+    mirrorFormTicks: 12,
+    // The after-image: the line stays on the ceiling for a moment after the
+    // surface is gone, walking down three tones. It bounces nothing — that is
+    // the whole point of it. Without this, MIRROR's departure is a surface that
+    // was there last frame and is not now, and the ball that would have come
+    // back flat-ricochets off the ceiling with nothing to explain why.
+    mirrorAfterImageTicks: 6,
+    // What the reflection starts and ends as: a few pixels of line at the
+    // mirrored centre, before it has opened into anything. Also the floor on the
+    // span all the way down, so the retreat has something left to leave behind.
+    mirrorSeedSpan: 6,
     splitTearBurst: {
       chunkCount: 8,
       minChunkSize: 1,
