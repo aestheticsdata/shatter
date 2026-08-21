@@ -105,6 +105,22 @@ export interface Peel {
 // A 1 px mark on the rail the deck has just given up, left only by JAMMER
 // (SHA-85): a trap taking the wood away is the thing being said, and the mark
 // is how long you can still see where it was. Render-only.
+/**
+ * One of the three pieces the deck comes apart into when a BOMB is caught.
+ *
+ * `x` is the piece's centre, not its left edge: the shard burns down to nothing
+ * over the break, and a piece that shrank toward one end would be sliding while
+ * it did it. `width` is what it was cut at — the drawn width is that times the
+ * break blend.
+ */
+export interface PaddleShard {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  width: number;
+}
+
 export interface RailMark {
   x: number;
   width: number;

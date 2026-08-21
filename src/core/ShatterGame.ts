@@ -38,6 +38,7 @@ import type {
   CatchPop,
   ChainBolt,
   PanelView,
+  PaddleShard,
   Peel,
   PowerUpKind,
   RailMark,
@@ -366,6 +367,22 @@ export class ShatterGame {
    * and a second constant equal to it by comment would be free to drift.
    */
   private laserBlend = 0;
+  /**
+   * BOMB's break, 1 on the frame the deck goes up and 0 twelve ticks later.
+   *
+   * Not the shards — those are per-piece state and live in the list below. This
+   * is only what genuinely is a curve: the whiteout on the catch frame, how much
+   * of each piece is left to draw, and how fast BLACKOUT's deck torch dies, so
+   * the light the player was steering by goes out with the deck instead of
+   * switching off under them.
+   *
+   * Forced to 0 whenever there is no fuse burning, and that is the whole guard:
+   * `die()` goes straight to `resetServe`, which draws a fresh 46 px deck, and a
+   * break blend still ramping down there would visibly reassemble a paddle out
+   * of three pieces on the serve screen.
+   */
+  private paddleBreak = 0;
+  private paddleShards: PaddleShard[] = [];
   // Armed by a MAGNET catch, spent by the next brick a ball or a laser kills.
   // A magnet with nothing falling is a magnet nobody can see working.
   private guaranteedDrop = false;
@@ -483,6 +500,8 @@ export class ShatterGame {
       angelArmed: this.angelCharged,
       gambleFace: this.gambleFace,
       paddleHidden: this.deathCountdown > 0,
+      paddleBreak: this.paddleBreak,
+      paddleShards: this.paddleShards,
       bumpers: this.bumpers.discs,
       peels: this.peels,
       railMarks: this.railMarks,
@@ -608,6 +627,19 @@ export class ShatterGame {
     // a surface. A NUKE caught while the reflection is resolving would park a
     // half-formed ceiling over the field for the length of the shockwave, and it
     // would still be bouncing at whatever width it froze on.
+    // Above the gates like the rest — though BOMB's fuse is a freeze of its own
+    // and this is the one effect that plays *during* one. The pieces fall while
+    // everything else is held still, which is the whole of what the fuse buys.
+    this.paddleBreak =
+      this.deathCountdown > 0 ? stepBlend(this.paddleBreak, false, gameConfig.effects.paddleBlast.breakTicks) : 0;
+    if (this.paddleBreak === 0) {
+      this.paddleShards = [];
+    }
+    for (const shard of this.paddleShards) {
+      shard.x += shard.vx;
+      shard.y += shard.vy;
+      shard.vy += gameConfig.effects.particleGravity;
+    }
     // Above the gates with the rest, and the only one up here that changes
     // nothing but a picture: the guns are still the timer's, and a bolt already
     // climbing the field is drawn and stepped unconditionally, so they stow at
@@ -1973,6 +2005,8 @@ export class ShatterGame {
     this.mirrorForm = 0;
     this.mirrorAfterImageTicks = 0;
     this.laserBlend = 0;
+    this.paddleBreak = 0;
+    this.paddleShards = [];
     this.particles.reset();
     this.resetSkid();
     // The deck too, and it is the easy one to miss: this method zeroes every
@@ -2526,10 +2560,24 @@ export class ShatterGame {
    * them.
    */
   private blowUpPaddle(): void {
-    const { fuseTicks, burst } = gameConfig.effects.paddleBlast;
+    const { fuseTicks, burst, shardSpread, shardLift } = gameConfig.effects.paddleBlast;
     const y = gameConfig.paddle.y + gameConfig.paddle.height / 2;
+    // The deck itself, cut in three and thrown. The pieces tile it exactly on
+    // the frame they are cut — the same three places the bursts go off, near
+    // enough — so the explosion is the paddle rather than a red flash where the
+    // paddle was. `deck` and not a brick kind for the chunks, for the same
+    // reason: these are pieces of the thing the player was steering.
+    const third = this.paddle.width / 3;
+    this.paddleShards = [0, 1, 2].map((index) => ({
+      x: this.paddle.x + (index + 0.5) * third,
+      y: gameConfig.paddle.y,
+      vx: (index - 1) * shardSpread,
+      vy: -shardLift,
+      width: third,
+    }));
+    this.paddleBreak = 1;
     for (const at of [0.15, 0.5, 0.85]) {
-      this.particles.burst(this.paddle.x + this.paddle.width * at, y, "1", burst);
+      this.particles.burst(this.paddle.x + this.paddle.width * at, y, "deck", burst);
     }
     this.brickFlashes.push({
       x: this.paddle.centerX - 15,
@@ -2777,6 +2825,8 @@ export class ShatterGame {
     this.mirrorForm = 0;
     this.mirrorAfterImageTicks = 0;
     this.laserBlend = 0;
+    this.paddleBreak = 0;
+    this.paddleShards = [];
     this.particles.reset();
     this.detonation.reset();
     this.clearCountdown = 0;
@@ -2823,6 +2873,8 @@ export class ShatterGame {
     this.mirrorForm = 0;
     this.mirrorAfterImageTicks = 0;
     this.laserBlend = 0;
+    this.paddleBreak = 0;
+    this.paddleShards = [];
     this.particles.reset();
     this.dropPool.reset();
     this.detonation.reset();

@@ -575,6 +575,19 @@ export const gameConfig = {
     // debris out of the air.
     paddleBlast: {
       fuseTicks: 45,
+      // How long the deck is still on screen as pieces. A quarter of the fuse,
+      // and the first quarter of the debris' own 24-45 tick flight, so the
+      // sprite pieces and the chunks are in the air together instead of one
+      // after the other — and the 33 ticks of empty rail that follow are the
+      // beat that says the life is gone.
+      breakTicks: 12,
+      // The kick on the three pieces. Outward for the outer two and nothing for
+      // the middle one, which is the piece the charge was under: a deck coming
+      // apart at two seams throws its ends and drops its middle. The lift is
+      // small on purpose — these are pieces of paddle, not sparks, and they
+      // answer to `particleGravity` from the first tick.
+      shardSpread: 2.2,
+      shardLift: 1.1,
       burst: {
         chunkCount: 10,
         minChunkSize: 2,

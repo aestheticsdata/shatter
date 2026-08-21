@@ -28,6 +28,7 @@ import type {
   Bumper,
   CatchPop,
   ChainBolt,
+  PaddleShard,
   Peel,
   RailMark,
   PowerUpKind,
@@ -349,6 +350,20 @@ export const PADDLE_BANDS: PaddleBandColors = {
   shade: canvasPalette.paddleBottomShade,
 };
 
+// The deck on the frame a BOMB goes off: every band its own top sheen, which is
+// the brightest tone the pill owns. Not white — the flash under it already is,
+// and a deck that whited out to something it is not made of would read as a
+// sprite swap rather than as the paddle catching the light of its own charge.
+export const BLAST_BANDS: PaddleBandColors = {
+  body: canvasPalette.paddleTopSheen,
+  cap: canvasPalette.paddleTopSheen,
+  sheen: canvasPalette.paddleTopSheen,
+  shade: canvasPalette.paddleTopSheen,
+};
+
+// A deck with no seam to draw: the pieces of one are past having a middle.
+const NO_SEAM: DeckSeamState = { splitCrack: false, splitWeld: false };
+
 export const MIRROR_BANDS: PaddleBandColors = {
   body: canvasPalette.mirrorBody,
   cap: canvasPalette.mirrorCap,
@@ -406,6 +421,12 @@ export interface RenderView {
   // BOMB blew it up: the debris in flight is the paddle, so neither it nor
   // MIRROR's reflection of it may be on screen.
   paddleHidden: boolean;
+  // BOMB's break, 1 on the frame the deck goes up and 0 twelve ticks later. It
+  // is what is left of each piece, and what is left of the light on the rail.
+  paddleBreak: number;
+  // The three pieces themselves. Per-piece position and velocity is not a blend
+  // and is not pretending to be one.
+  paddleShards: readonly PaddleShard[];
   bumpers: readonly Bumper[];
   // BANANA's peels on the paddle rail, oldest first.
   peels: readonly Peel[];
@@ -1075,8 +1096,16 @@ export class CanvasRenderer {
     for (const peel of view.peels) {
       this.drawPeel(peel);
     }
-    if ((view.mirrorForm > 0 || view.mirrorAfterImage > 0) && !view.paddleHidden) {
-      this.drawMirror(view.paddle, view.mirrorForm, view.mirrorAfterImage);
+    // A reflection has nothing left to reflect once the deck is in pieces, so
+    // the ghost leaves on the break's own curve rather than being cut at the
+    // frame the bomb lands. It is only a picture by then — the fuse gate has
+    // already refused every bounce for its whole 45 ticks.
+    const deckDim = view.paddleHidden ? view.paddleBreak : 1;
+    if ((view.mirrorForm > 0 || view.mirrorAfterImage > 0) && deckDim > 0) {
+      this.drawMirror(view.paddle, view.mirrorForm * deckDim, view.mirrorAfterImage * deckDim);
+    }
+    if (view.paddleHidden) {
+      this.drawPaddleBreak(view);
     }
     if (!view.paddleHidden) {
       this.drawPaddle(view.paddle);
@@ -1356,6 +1385,40 @@ export class CanvasRenderer {
   }
 
   /**
+   * BOMB: the deck going up, out of its own pieces.
+   *
+   * One frame of whiteout — the whole pill in its own top sheen, which is the
+   * paddle catching the light of the charge under it — and then eleven of three
+   * pieces thrown apart and falling, each burning down to nothing as the break
+   * runs out. The pieces tile the deck exactly on the frame they are cut, so
+   * there is no moment where a different sprite appears; the paddle simply stops
+   * being one thing.
+   *
+   * Deliberately no tumble. `spriteBrush` is axis-aligned `fillRect` at
+   * `Math.round(x * scale)`, and a rotation transform would break the pixel grid
+   * every other sprite in this file is built on — falling, shrinking,
+   * outward-kicked pills say the deck came apart without it.
+   *
+   * After the twelfth tick the rail is empty for the remaining thirty-three of
+   * the fuse. That emptiness is the point: it is the beat that says the life is
+   * gone, and it is why this stops well before the serve screen does.
+   */
+  private drawPaddleBreak(view: RenderView): void {
+    if (view.paddleBreak === 0) {
+      return;
+    }
+    if (view.paddleBreak === 1) {
+      const { paddle } = view;
+      this.drawDeck(paddle.x, gameConfig.paddle.y, paddle.width, paddle.splitGap, BLAST_BANDS, NO_SEAM);
+      return;
+    }
+    for (const shard of view.paddleShards) {
+      const width = shard.width * view.paddleBreak;
+      this.drawDeckPill(shard.x - width / 2, shard.y, width, PADDLE_BANDS);
+    }
+  }
+
+  /**
    * The two studs, extruded out of the deck's top edge rather than switched on.
    *
    * Drawn from `y - barrel` down, so the base stays welded into the housing and
@@ -1619,16 +1682,20 @@ export class CanvasRenderer {
         torches.push({ x: ball.x + 4 + shakeX, y: ball.y + 4 + shakeY, radius, peak: 1 });
       }
     }
-    if (!view.paddleHidden) {
+    // The deck's own glow — and what is left of it. A BOMB takes the light the
+    // player was steering by with the deck, over the same twelve ticks the
+    // pieces are in the air, rather than switching it off under them.
+    const deckLight = view.paddleHidden ? view.paddleBreak : 1;
+    if (deckLight > 0) {
       const { y, height } = gameConfig.paddle;
       torches.push({
         x: view.paddle.x + view.paddle.width / 2 + shakeX,
         y: y + height / 2 + shakeY,
-        radius: BLACKOUT_TORCH.paddleRadius * spread,
+        radius: BLACKOUT_TORCH.paddleRadius * spread * deckLight,
         // The deck only dims to its glow once the dark has actually arrived:
         // held at 0.55 through the iris it would be a shadow on the paddle
         // while the rest of the field was still fully lit.
-        peak: 1 - (1 - BLACKOUT_TORCH.paddlePeak) * view.blackoutBlend,
+        peak: (1 - (1 - BLACKOUT_TORCH.paddlePeak) * view.blackoutBlend) * deckLight,
       });
     }
 
