@@ -533,6 +533,30 @@ export class SoundBank {
     this.noise({ dur: 0.2, vol: 0.05, filter: { type: "bandpass", freq: 2400, freqEnd: 600, q: 1.4 } });
   }
 
+  // SNAP: the paper going down. One dry tick with a higher one a frame behind
+  // it — the sound an operating system makes when a setting is switched on, not
+  // the sound of something being won. It is deliberately the smallest arrival
+  // in the bank: the capsule changes how the field behaves and shows it with a
+  // grid, and a fanfare over that would be the machine congratulating itself
+  // for turning a ruler on.
+  snapGridOn(): void {
+    if (!this.allow("snapGridOn")) {
+      return;
+    }
+    this.tone({ freq: 1080, dur: 0.03, vol: 0.05 });
+    this.tone({ freq: 1620, dur: 0.02, vol: 0.03, delayS: 0.03 });
+  }
+
+  // The same tick a fifth lower and on its own, which is the setting going off
+  // again. No second note: the pair above is the switch closing, and one note
+  // is what is left when it opens.
+  snapGridOff(): void {
+    if (!this.allow("snapGridOff")) {
+      return;
+    }
+    this.tone({ freq: 720, dur: 0.045, vol: 0.05 });
+  }
+
   // BANANA: the slip itself, not the catch — the womp already covered the pill.
   // A sawtooth slide-whistle up under a noise sweep opening the same way, which
   // is the cartoon the trap is, and short enough to be over before the deck is.

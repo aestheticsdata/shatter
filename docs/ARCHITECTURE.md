@@ -16,8 +16,8 @@ under it.
 | Framework | none — no React, no game engine, no ECS                     |
 | Build     | Vite 7 + Lightning CSS                                      |
 | Assets    | none — every sprite, letter and background is drawn in code |
-| Source    | 44 files, ~14 000 lines                                     |
-| Bundle    | 137 kB, 43 kB gzipped                                       |
+| Source    | 44 files, ~14 700 lines                                     |
+| Bundle    | 142 kB, 45 kB gzipped                                       |
 | Runtime   | one `<canvas>`, one `<aside>`, ten overlay `<div>`s         |
 | Server    | Fastify + better-sqlite3, one table, two routes             |
 
@@ -26,7 +26,7 @@ sync with the code, no atlas, no texture packer, no art directory. A brick is a
 few `fillRect` calls, a capsule is a rounded pill with two letters on it, and the
 3×5 font that spells `PLAY` in a level layout is an array of bitmasks in
 [`wordFont.ts`](../src/core/levels/wordFont.ts). That is why the whole game is
-137 kB, and why a level is six strings.
+142 kB, and why a level is six strings.
 
 ---
 
@@ -102,7 +102,7 @@ Path aliases (`@core`, `@entities`, `@render`, `@ui`, `@input`, `@audio`,
                                      |
                                      v
   +------------------------------------------------------------------------+
-  |  @core/ShatterGame            3 985 lines, the orchestrator             |
+  |  @core/ShatterGame            4 278 lines, the orchestrator             |
   |  Owns: the loop, the screen, score, lives, level, and one field         |
   |  cluster per capsule effect. The only module that knows all the others. |
   +------------------------------------------------------------------------+
@@ -390,13 +390,13 @@ that gate.
 
 ## 7. A capsule, end to end
 
-42 capsules, and not one of them is a special case in the drop machinery. The
+44 capsules, and not one of them is a special case in the drop machinery. The
 whole roster is a table.
 
 ```text
   src/core/config/powerUps.ts
   +---------------------------------------------------------------+
-  | { id, name, color, letter, ticks, tier, timed, blurb }  x 42   |
+  | { id, name, color, letter, ticks, tier, timed, blurb }  x 44   |
   +---------------------------------------------------------------+
         |
         |  everything below DERIVES from that table:
@@ -606,11 +606,11 @@ contract is those four lines in `frame()`.
 
 ### The size of ShatterGame.ts
 
-**It is 3 985 lines, and that is the first thing a reviewer will notice.** So:
+**It is 4 278 lines, and that is the first thing a reviewer will notice.** So:
 
 It is one class holding a small field cluster per capsule effect — `magnetBlend`,
 `xrayBlend`, `xraySweepSpan`, `portalBlend`, `flipTurn`, `haywireBlend`,
-`haywireKickIn`, `haywireKicking`, and so on for forty-two capsules and six
+`haywireKickIn`, `haywireKicking`, and so on for forty-four capsules and six
 combos.
 
 The reason is that **every effect touches the same three or four objects**: the

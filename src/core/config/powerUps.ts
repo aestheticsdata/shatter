@@ -199,6 +199,19 @@ export const POWER_UPS = [
   // colour of the cloth you do it on or it is nothing. The glyph is what tells
   // them apart, as it is for the other seven.
   { id: "EN", name: "ENGLISH", color: "#009436", dark: false, ticks: 1200, tier: "rare", timed: true, blurb: "WHIP THE PADDLE · CURVE THE BALL" },
+  // The brightest body on the board and the one with the most room under it:
+  // 11.6:1 against the darkest field theme, which is three times the bar, and
+  // 76 from XRAY, MULTI and CRITTER alike. The green quarter is crowded and
+  // this still fits, because what is crowded there is the *hue* and not the
+  // value — the four bright greens sit at four different luminances.
+  //
+  // It is measured against the traps as well, which is not one of the roster's
+  // written rules and is the rule that actually decided it: the nearest trap is
+  // DEMAKE at 119, further than any other candidate came, and a capsule the
+  // player might read as a trap while it falls is worse than one they cannot
+  // tell from another bonus. The grid it lays over the field is drawn in this
+  // green taken right down, so the effect and the pill are one colour.
+  { id: "SN", name: "SNAP", color: "#60ff36", dark: true, ticks: 720, tier: "common", timed: true, blurb: "EVERY BOUNCE SNAPS TO THE GRID" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];

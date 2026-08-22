@@ -78,6 +78,22 @@ export interface ChainBolt {
   ticksLeft: number;
 }
 
+/**
+ * SNAP: the mark one snapped bounce leaves, at the point it happened.
+ *
+ * Render-only, and it outlives nothing — the ball is already gone down its new
+ * diagonal, which is what the bracket and the dashes are pointing at. `dirX`
+ * and `dirY` are the signs of the heading it left on, so a still frame says
+ * which of the four diagonals the bounce chose.
+ */
+export interface SnapMark {
+  x: number;
+  y: number;
+  dirX: number;
+  dirY: number;
+  ticksLeft: number;
+}
+
 // Expanding ring left where a ball stood when STASIS let go of it. Render-only:
 // it marks the release, nothing collides with it.
 export interface StasisRing {

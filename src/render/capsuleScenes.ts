@@ -743,6 +743,28 @@ const SCENES: Record<PowerUpKind, Painter> = {
     field.rect(233, DECK_Y - 1, peelWidth - 2, 1, canvasPalette.peelShade);
     field.ball(160, 210);
   },
+  // A bank shot, called. The lattice is settled, the ball has just come off the
+  // left wall, and the bracket and the dashes say where it is going before it
+  // gets there — which is the whole of what the capsule sells. Drawn by hand
+  // like ENGLISH's felt above: the pitch and the reach come out of the config
+  // the field uses, and only the staging is authored.
+  SN: (field) => {
+    const { cell: pitch, dashStep, dashes, bracketArm } = gameConfig.powerUps.snap;
+    for (let x = pitch; x < FIELD_WIDTH; x += pitch) {
+      for (let y = pitch; y < FIELD_HEIGHT; y += pitch) {
+        field.rect(x, y, 1, 1, canvasPalette.snapGrid);
+      }
+    }
+    field.wall();
+    const hit = { x: 7, y: 196 };
+    field.rect(hit.x, hit.y, bracketArm, 1, canvasPalette.snapMark);
+    field.rect(hit.x, hit.y - bracketArm, 1, bracketArm, canvasPalette.snapMark);
+    for (let index = 1; index <= dashes; index++) {
+      field.rect(hit.x + index * dashStep, hit.y - index * dashStep, 2, 1, canvasPalette.snapMark);
+    }
+    field.ball(hit.x + 26, hit.y - 30);
+    field.deck(gameConfig.paddle.baseWidth, 96);
+  },
   // The default staging, upside down — the only scene that needs no staging of
   // its own, because the capsule does nothing but turn the field over.
   F: (field) => field.turned(() => baseScene(field)),

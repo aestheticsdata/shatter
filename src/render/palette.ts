@@ -203,6 +203,14 @@ export const canvasPalette = {
   // the trailing side so a rock reads as falling even in a still frame.
   meteorCore: "#ffe8b0",
   meteorFlame: "#c84b19",
+  // SNAP's lattice, and the mark a snapped bounce leaves on it. The grid is the
+  // capsule's own acid green taken right down to a tone that sits under every
+  // sprite on the field — it is graph paper, and paper the player has to read
+  // the ball against may not compete with the ball. The mark is the same green
+  // most of the way back up, because the bracket has to be legible for the
+  // twelve ticks it exists and is drawn over the field rather than under it.
+  snapGrid: "#20461a",
+  snapMark: "#9cff7a",
   // DEMAKE: the two tones the whole machine collapses onto for 8 seconds. Ink
   // is a P1 phosphor at the brightness a sprite has to hold against the ground,
   // which is the tube's black with just enough green in it to read as glass

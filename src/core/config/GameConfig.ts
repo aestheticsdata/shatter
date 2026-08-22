@@ -240,6 +240,25 @@ export const gameConfig = {
       // than being clamped onto it, and the next bounce hands the arc back.
       minVerticalFraction: 0.2,
     },
+    /**
+     * SNAP: the 45-degree lattice, and the marks a snapped bounce leaves.
+     *
+     * The cell is the brick's own height, which is the one measure the field is
+     * already built on — a lattice on any other pitch would be a second grid
+     * arguing with the wall. It divides the 372 px field into 31 columns and the
+     * 300 px of height into 25 rows, so nothing is cut off at either edge.
+     *
+     * The dashes are the promise the snap makes: three of them, one cell apart
+     * down the new diagonal, which is far enough to be read as a direction and
+     * short enough that they are gone before the ball reaches the end of them.
+     */
+    snap: {
+      cell: 12,
+      markTicks: 12,
+      dashes: 3,
+      dashStep: 7,
+      bracketArm: 3,
+    },
     // ANGEL puts the ball it saved back at this height: below the deck's 276,
     // so it rises through it and reads as caught at the last instant, and clear
     // enough of the 300 death line that the very next tick cannot drain it
@@ -774,6 +793,13 @@ export const gameConfig = {
     // mirrored centre, before it has opened into anything. Also the floor on the
     // span all the way down, so the retreat has something left to leave behind.
     mirrorSeedSpan: 6,
+    // SNAP's lattice dithering in and back out, cell by cell. Half a second, the
+    // same length GHOST and the other field-wide pictures take: this one is
+    // drawn under everything on the field, so it may not arrive faster than the
+    // eye can take it in — and the cells come up in a fixed scatter rather than
+    // a wipe, which is what makes it read as a grid resolving rather than as a
+    // curtain crossing the screen.
+    snapGridTicks: 30,
     splitTearBurst: {
       chunkCount: 8,
       minChunkSize: 1,

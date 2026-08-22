@@ -33,6 +33,7 @@ import type {
   Peel,
   RailMark,
   PowerUpKind,
+  SnapMark,
   StasisRing,
 } from "@interfaces/types";
 
@@ -566,6 +567,12 @@ export interface RenderView {
   // HOMING: whether the reticles are walking out rather than in. How far each
   // one has got is `ball.homingMarkTicks`; this is only which way it is going.
   homingOpening: boolean;
+  // SNAP's lattice, 0 no paper to 1 the whole grid, and the marks the snapped
+  // bounces have left on it. The blend is a dither threshold rather than an
+  // alpha: cells come up whole, in a fixed scatter, which is how a grid
+  // resolves on a machine that has no alpha to fade with.
+  snapGrid: number;
+  snapMarks: readonly SnapMark[];
   drops: readonly Drop[];
   shots: readonly Shot[];
   flashes: readonly BrickFlash[];
@@ -1160,6 +1167,14 @@ export class CanvasRenderer {
       : this.background.imageFor(view.background, view.backgroundVariant);
     this.ctx.drawImage(layer, 0, 0, width * SCALE, height * SCALE);
 
+    // SNAP's paper goes straight onto the field art, outside both the turn and
+    // the shake: it is part of the room, exactly as the background is, and a
+    // lattice that rode QUAKE would be a grid measuring a wall that is moving
+    // relative to it. A 180-degree turn maps the lattice onto itself anyway.
+    if (view.snapGrid > 0) {
+      this.drawSnapGrid(view.snapGrid);
+    }
+
     // FLIP turns the arena over: the wall, everything standing on it, and the
     // frame around it — but not the field art under them, which stays put for
     // the same reason it does not ride QUAKE's shake. It is the room, and a
@@ -1232,6 +1247,12 @@ export class CanvasRenderer {
       // tide moving on cannot retroactively make an earlier one gold.
       const tone = flash.gild ? canvasPalette.paydayFlash : FLASH_COLORS[flash.kind];
       this.pixel(flash.x + 1, flashY + 1, 28, 10, tone);
+    }
+    // Inside the shake and over the wall: a bracket marks a point on the field
+    // where something happened, and a mark that ignored QUAKE would drift off
+    // the brick it was struck against.
+    for (const mark of view.snapMarks) {
+      this.drawSnapMark(mark);
     }
     for (const ball of view.balls) {
       if (ball.active && ball.homingRow >= 0) {
@@ -2294,6 +2315,70 @@ export class CanvasRenderer {
   // spent dragging, going the colour of its own belly, and blinking. Under
   // DEMAKE `ink()` flattens the colour half of that to one tone, which is why
   // the stride and the blink carry it too.
+  /**
+   * SNAP's lattice: one pixel at every crossing of a 12 px grid, dithered in.
+   *
+   * **A threshold and not an alpha.** Each cell has a fixed pseudo-random value
+   * and comes up whole the moment the blend passes it, so the grid resolves out
+   * of the dark in a scatter and dissolves back into it the same way — which is
+   * how a machine with two states per pixel fades anything, and is the same
+   * trick GHOST plays on the wall a few hundred lines up.
+   *
+   * The hash is over the cell's own coordinates, so a given crossing arrives at
+   * the same point in the fade every time the capsule is caught; a per-frame
+   * random would boil.
+   */
+  private drawSnapGrid(blend: number): void {
+    const { cell } = gameConfig.powerUps.snap;
+    const { width, height } = gameConfig.field;
+    for (let x = cell; x < width; x += cell) {
+      for (let y = cell; y < height; y += cell) {
+        // Two large odd primes, which is the cheapest hash that does not comb:
+        // a plain `x * y` puts every multiple of a row on the same value and the
+        // grid would arrive in stripes.
+        const hash = ((x * 73856093) ^ (y * 19349663)) >>> 8;
+        if ((hash & 0xff) / 255 < blend) {
+          this.pixel(x, y, 1, 1, canvasPalette.snapGrid);
+        }
+      }
+    }
+  }
+
+  /**
+   * One snapped bounce: a right-angle bracket at the point of contact, opening
+   * along the diagonal the ball left on, and dashes down that diagonal.
+   *
+   * The bracket is the drafting mark for a right angle and it is the whole
+   * claim the capsule makes — this rebound is exact. The dashes are the
+   * promise: they lie where the ball is about to be, so the player reads the
+   * bank shot before it happens rather than after.
+   *
+   * They go out one at a time as the mark dies, furthest first, so the guide
+   * retracts toward the corner it came from instead of dimming. Whole pixels of
+   * one tone, like every other thing on this field that ends.
+   *
+   * Every arm and dash is drawn with a *signed* width, so the mark mirrors with
+   * the diagonal rather than needing four cases: `fillRect` normalises a
+   * negative extent, and the sign is the whole of what `dirX`/`dirY` mean.
+   */
+  private drawSnapMark(mark: SnapMark): void {
+    const { markTicks, dashes, dashStep, bracketArm } = gameConfig.powerUps.snap;
+    const life = mark.ticksLeft / markTicks;
+    const x = Math.round(mark.x);
+    const y = Math.round(mark.y);
+    this.pixel(x, y, bracketArm * mark.dirX, 1, canvasPalette.snapMark);
+    this.pixel(x, y, 1, bracketArm * mark.dirY, canvasPalette.snapMark);
+    for (let index = 0; index < dashes; index++) {
+      // The furthest dash is the first to go: `index` is how far out it is, and
+      // a mark with a third of its life left keeps only its first third.
+      if ((index + 1) / dashes > life) {
+        return;
+      }
+      const step = (index + 1) * dashStep;
+      this.pixel(x + step * mark.dirX, y + step * mark.dirY, 2 * mark.dirX, 1, canvasPalette.snapMark);
+    }
+  }
+
   private drawCritter(critter: Critter, dropOffset: number): void {
     if (!critter.alive) {
       return;

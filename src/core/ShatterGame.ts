@@ -45,6 +45,7 @@ import type {
   RailMark,
   RectangleBounds,
   ScreenName,
+  SnapMark,
   StasisRing,
 } from "@interfaces/types";
 import type { CanvasRenderer } from "@render/CanvasRenderer";
@@ -219,6 +220,17 @@ export class ShatterGame {
   // the loss, like `wallArmed` above it — and unlike it, deliberately not
   // cleared by `resetServe()`, which is what carries it across levels.
   private angelCharged = false;
+  /**
+   * SNAP's lattice, 0 to 1 — the grid dithering in over the field and back out.
+   *
+   * Only the paper. The rule itself is the timer's and nothing about it eases:
+   * a bounce is snapped or it is not, and a half-snapped rebound would be an
+   * angle nobody could call. What arrives and leaves is the picture that
+   * explains it, which is exactly the right way round for a capsule whose whole
+   * promise is that the ball is now honest.
+   */
+  private snapBlend = 0;
+  private snapMarks: SnapMark[] = [];
   // GAMBLE's reel: how long it still turns, what it will land on, and the face
   // it is showing right now. The winner is drawn on the catch and held here
   // rather than rolled at the end, so the spin is a replay of a decision
@@ -711,6 +723,11 @@ export class ShatterGame {
       // how far each set of corners has got is the ball's own counter, but they
       // all close on the catch and all open on the expiry.
       homingOpening: !this.timers.isActive("H"),
+      // The lattice under everything, and the marks over it. Two fields because
+      // they are two different kinds of thing: the grid is the capsule's state
+      // and the marks are its history.
+      snapGrid: this.snapBlend,
+      snapMarks: this.snapMarks,
       drops: this.dropPool.drops,
       shots: this.shotPool.shots,
       flashes: this.brickFlashes,
@@ -795,6 +812,13 @@ export class ShatterGame {
     // exactly the case this rule exists for, and a disc frozen halfway in is a
     // ring hanging over a spot nothing will ever land on.
     this.bumpers.step();
+    // The lattice, above the gates with every other picture: a grid frozen half
+    // dithered behind a shockwave is graph paper with holes in it.
+    this.snapBlend = stepBlend(this.snapBlend, this.timers.isActive("SN"), gameConfig.effects.snapGridTicks);
+    // Beside the brick flashes at the top of the tick and for their reason: the
+    // marks are a record of something that already happened, and a bracket held
+    // still behind a detonation is pointing at a ball that has long gone.
+    this.snapMarks = this.snapMarks.filter((mark) => --mark.ticksLeft > 0);
     // One number, read by the hitbox and by everything painted in wall
     // coordinates. Assigned here rather than in `Quake` so the grid keeps
     // knowing nothing about the capsule that moved it — and above the freeze
@@ -1055,6 +1079,13 @@ export class ShatterGame {
     // sound is what says the fault cleared rather than got quiet.
     if (expired.includes("HA")) {
       this.deps.sfx.haywireClear();
+    }
+    // The paper coming up. Nothing has to be undone — the next bounce simply is
+    // not snapped — so the tick and the grid dissolving under it are the whole
+    // of the ending, and a ball already flying a diagonal keeps flying it until
+    // something turns it.
+    if (expired.includes("SN")) {
+      this.deps.sfx.snapGridOff();
     }
     // The cloth coming off, and the one ending here that is *not* the whole of
     // it: a ball already curving keeps curving until its own spin runs out. The
@@ -1858,6 +1889,49 @@ export class ShatterGame {
     ball.velocity.y = Math.sin(curved) * speed;
   }
 
+  /**
+   * SNAP: the heading a bounce just produced, put on the nearest diagonal.
+   *
+   * Speed is untouched, which is what makes this a *quantiser* and not a
+   * capsule about pace: the ball covers exactly the ground it was going to,
+   * along one of four headings instead of a continuum of them. What the player
+   * buys is that a bank shot can be called before it is taken.
+   *
+   * **The paddle still chooses.** `computePaddleBounceVelocity` fans the return
+   * across 1.05 rad either side of vertical, and the sign of that fan is what
+   * this reads: hit the ball left of centre and it leaves up-left, right of
+   * centre and it leaves up-right. The capsule takes the fine control away and
+   * leaves the coarse one, which is the trade.
+   *
+   * A rebound with no lateral component at all — straight up off the middle of
+   * the deck, straight down off the ceiling — has no side to fall on, so it is
+   * sent toward the middle of the field. Away from the near wall rather than
+   * toward it, because the alternative is a ball that snaps into the corner it
+   * was already closest to and rattles there.
+   */
+  private snapBall(ball: Ball): void {
+    const speed = Math.hypot(ball.velocity.x, ball.velocity.y);
+    if (speed === 0) {
+      return;
+    }
+    const lateral = Math.sign(ball.velocity.x) || (ball.centerX < gameConfig.field.width / 2 ? 1 : -1);
+    // A ball with no vertical component is heading along the floor; up is the
+    // only answer that is not a slow loss.
+    const vertical = Math.sign(ball.velocity.y) || -1;
+    ball.velocity.x = lateral * speed * Math.SQRT1_2;
+    ball.velocity.y = vertical * speed * Math.SQRT1_2;
+    // The mark is pushed here rather than at each bounce site for the reason the
+    // hook itself is one test: whatever turned the ball, this is the moment the
+    // diagonal was decided, and that is what the bracket is pointing at.
+    this.snapMarks.push({
+      x: ball.centerX,
+      y: ball.y + gameConfig.ball.size / 2,
+      dirX: lateral,
+      dirY: vertical,
+      ticksLeft: gameConfig.powerUps.snap.markTicks,
+    });
+  }
+
   private moveBall(ball: Ball, index: number, timeScale: number): void {
     // Guidance, then physics. Anything that bends a ball without touching its
     // speed belongs here, once per tick — never inside the sub-step loop, where
@@ -1923,8 +1997,21 @@ export class ShatterGame {
     // The frame and the paddle also zero the bumper streak wherever they touch
     // the ball: a ball that reached either of them is not wedged between discs.
 
+    // SNAP: whether the rebounds this tick land on the 45-degree lattice. Read
+    // once per tick like the decks above it, since a timer cannot expire between
+    // two sub-steps.
+    const snapping = this.timers.isActive("SN");
+
     let drilling = false;
     for (let i = 0; i < subSteps; i++) {
+      // What the ball was doing before anything in this sub-step touched it.
+      // One reading at the top and one test at the foot is the whole of SNAP's
+      // hook into the physics: six different things in this loop can turn a
+      // ball — bricks, discs, the ghost ceiling, the three walls, the deck and
+      // the barrier — and a call bolted onto each of them would be six places
+      // for the seventh to be forgotten.
+      const wasVx = ball.velocity.x;
+      const wasVy = ball.velocity.y;
       ball.x += dx;
       let hit = phasing ? null : this.grid.findBallOverlap(ball.x, ball.y);
       if (hit) {
@@ -2138,6 +2225,15 @@ export class ShatterGame {
         }
         ball.active = false;
         return;
+      }
+
+      // The foot of the sub-step: if anything turned the ball, the heading it
+      // leaves on is a diagonal. Deliberately not gated on *what* turned it —
+      // a rebound off a bumper is as much a rebound as one off the deck — and
+      // deliberately after the loss test, which returns, so a ball leaving the
+      // field is never snapped on its way out.
+      if (snapping && (ball.velocity.x !== wasVx || ball.velocity.y !== wasVy)) {
+        this.snapBall(ball);
       }
     }
 
@@ -2818,6 +2914,8 @@ export class ShatterGame {
     this.quake.reset();
     this.critter.reset();
     this.meteors.reset();
+    this.snapBlend = 0;
+    this.snapMarks = [];
     this.ghostBlend = 0;
     this.magnetBlend = 0;
     this.paydayBlend = 0;
@@ -3189,6 +3287,9 @@ export class ShatterGame {
       // is carrying a shot, not a subscription.
       this.timers.activate("EN", durations.EN);
     }
+    if (kind === "SN") {
+      this.timers.activate("SN", durations.SN);
+    }
     if (kind === "XR") {
       this.timers.activate("XR", durations.XR);
     }
@@ -3258,6 +3359,11 @@ export class ShatterGame {
     } else if (MALUS_KINDS.has(kind)) {
       // One womp for every trap: the blink and the pink pop already say which.
       this.deps.sfx.malusPickup();
+    } else if (kind === "SN") {
+      // The switch closing, and nothing more: see `snapGridOn`. A second SNAP
+      // caught over a live one is the same tick again, which is right — the
+      // setting was already on and has been turned on again.
+      this.deps.sfx.snapGridOn();
     } else if (kind === "V") {
       this.deps.sfx.singularityOpen();
     } else if (kind === "VX") {
@@ -3717,6 +3823,8 @@ export class ShatterGame {
     this.quake.reset();
     this.critter.reset();
     this.meteors.reset();
+    this.snapBlend = 0;
+    this.snapMarks = [];
     this.ghostBlend = 0;
     this.magnetBlend = 0;
     this.paydayBlend = 0;
@@ -3781,6 +3889,8 @@ export class ShatterGame {
     this.quake.reset();
     this.critter.reset();
     this.meteors.reset();
+    this.snapBlend = 0;
+    this.snapMarks = [];
     this.ghostBlend = 0;
     this.magnetBlend = 0;
     this.paydayBlend = 0;
