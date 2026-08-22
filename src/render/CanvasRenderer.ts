@@ -67,6 +67,15 @@ const MIRROR_FADE_TONES: readonly string[] = [
 const RUSH_TRAIL_TONES: readonly string[] = [canvasPalette.rushTrailFar, canvasPalette.rushTrailNear];
 const TURBO_TRAIL_TONES: readonly string[] = [canvasPalette.turboTrailFar, canvasPalette.turboTrailNear];
 
+// HAYWIRE's static, at full strength: six arcs reaching up to five pixels past
+// the ball's own radius. Six is the most that still reads as sparks rather than
+// as a halo — beyond it the scatter closes into a ring and the ball looks like
+// it has grown, which is the one thing the arc exists to avoid. Both are scaled
+// by the blend at the draw, so the static is thinner than this at either end of
+// the capsule and never wider than it in the middle.
+const HAYWIRE_ARCS = 6;
+const HAYWIRE_REACH = 5;
+
 // PIERCE's sparks, hottest first: white, the ball's own near-white, the
 // capsule's yellow. Cycled by slot index exactly as the brick mix below is, so
 // a shower is a mix without a colour stored per spark.
@@ -525,6 +534,10 @@ export interface RenderView {
   // TEMPO: how much of each ball's banked debt to spend on its pace ghost, 0
   // when there is no bullet time to mark.
   tempoGhost: number;
+  // HAYWIRE: how hard the fault is running, 0 when there is none. The static
+  // around each ball is drawn from it, and so is the size of the kicks the
+  // simulation is throwing — one number, so the picture cannot overstate them.
+  haywire: number;
   // STASIS closing on the field, 0 to 1 — and 0 for the whole of the release,
   // which the ring pool owns on its own.
   stasisClosing: number;
@@ -1283,7 +1296,7 @@ export class CanvasRenderer {
         drawGambleReel(this.ctx, center, gameConfig.paddle.y, view.gambleFace, SCALE, this.frameCount, this.demade);
       }
     }
-    for (const ball of view.balls) {
+    view.balls.forEach((ball, index) => {
       if (ball.active) {
         const ghost = paceGhost(ball, view.tempoGhost);
         if (ghost) {
@@ -1305,8 +1318,14 @@ export class CanvasRenderer {
           const half = BALL_SIZE / 2;
           this.strokeStasisRing(ball.x + half, ball.y + half, 2 + (1 - view.stasisClosing) * 18);
         }
+        // Over the ball and last, so the arc is the topmost thing on the sprite
+        // it is arcing off. Indexed rather than `for..of` for the seed alone:
+        // two balls side by side may not crackle in lockstep.
+        if (view.haywire > 0) {
+          this.drawHaywireArc(ball, index, view.haywire, lift);
+        }
       }
-    }
+    });
 
     for (const ring of view.stasisRings) {
       this.drawStasisRing(ring);
@@ -1925,6 +1944,46 @@ export class CanvasRenderer {
         }
       }
     });
+  }
+
+  /**
+   * HAYWIRE's static: a few stray pixels arcing off the ball, never on it.
+   *
+   * **Outside the sprite by construction.** Every arc sits at or beyond the
+   * ball's own radius, so the eight-pixel silhouette is untouched — what the
+   * player is looking at is a ball with something wrong *around* it, which is
+   * the truth of the capsule, rather than a ball drawn wrong, which is the one
+   * thing this sprite is never allowed to be.
+   *
+   * The scatter is hashed off the frame, the ball and the arc's own index
+   * rather than drawn from `Math.random()`. A random one resamples all of them
+   * every frame at 60 Hz and comes out as a uniform shimmer; held for four
+   * frames at a time this crackles, because the eye gets long enough to read
+   * each arrangement as an arrangement before it is replaced.
+   *
+   * `strength` is the blend, spent on how many arcs there are and how far they
+   * reach, so the static thickens and thins with the kicks it belongs to — and
+   * both ends of the capsule are in it without a second clock. The dim tone
+   * takes the outer half of the scatter: a discharge has a hot core and a cool
+   * edge, and one flat colour blinking reads as a fault in the renderer instead
+   * of a fault in the machine.
+   */
+  private drawHaywireArc(ball: Ball, index: number, strength: number, lift: number): void {
+    const half = BALL_SIZE / 2;
+    const centerX = ball.x + half;
+    const centerY = ball.y - lift + half;
+    const arcs = Math.max(1, Math.round(HAYWIRE_ARCS * strength));
+    const seed = (this.frameCount >> 2) * 977 + index * 131;
+    for (let arc = 0; arc < arcs; arc++) {
+      // A cheap integer hash — two odd multipliers and a shift — which is all
+      // the decorrelation a handful of pixels needs, and allocates nothing on a
+      // path that runs for every ball on every frame.
+      const noise = ((seed + arc * 2749) * 1103515245 + 12345) >>> 8;
+      const angle = ((noise & 255) / 256) * Math.PI * 2;
+      const reach = half + 1 + (((noise >> 8) & 3) / 3) * HAYWIRE_REACH * strength;
+      const tone = arc * 2 < arcs ? canvasPalette.haywireArc : canvasPalette.haywireArcDim;
+      this.spritePixel(centerX + Math.cos(angle) * reach - 0.5, centerY + Math.sin(angle) * reach - 0.5, 1, 1, tone);
+    }
   }
 
   private drawBall(ball: Ball, trail: number, tones: readonly string[], lift = 0): void {

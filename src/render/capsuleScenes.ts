@@ -354,6 +354,34 @@ const SCENES: Record<PowerUpKind, Painter> = {
     }
     field.ball(186, 196);
   },
+  // The kinked flight, which is the only part of HAYWIRE a still can hold. The
+  // game says the trap in sparks and in a heading that keeps changing — one is
+  // a moment and the other is time, and neither survives being frozen. What
+  // does survive is the *path*: four legs with hard elbows between them, drawn
+  // as the ball's own sprite fading back the way TEMPO's trace does, so the
+  // picture is a ball that has been knocked off course three times rather than
+  // a diagram of one. The arcs are on the head alone, where the last kick was.
+  HA: (field) => {
+    field.wall();
+    field.deck();
+    for (const [x, y, alpha] of [
+      [120, 250, 0.2],
+      [156, 226, 0.35],
+      [130, 200, 0.5],
+      [170, 178, 0.7],
+    ] as const) {
+      field.trace(x, y, alpha);
+    }
+    field.ball(206, 158);
+    for (const [x, y, tone] of [
+      [204, 154, canvasPalette.haywireArc],
+      [215, 160, canvasPalette.haywireArc],
+      [201, 168, canvasPalette.haywireArcDim],
+      [213, 152, canvasPalette.haywireArcDim],
+    ] as const) {
+      field.rect(x, y, 1, 1, tone);
+    }
+  },
   // RUSH's comet, run cold, against PAYDAY's gold wall: the same speed for the
   // opposite reason, and the half of the capsule RUSH does not pay. Mirrored
   // across the field as well, so the two do not share a diagonal either.

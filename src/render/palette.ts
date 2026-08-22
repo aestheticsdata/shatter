@@ -53,6 +53,14 @@ export const canvasPalette = {
   // into. Halfway between the two tones above, so the growth reads as one
   // sprite cooling rather than as three sprites.
   ballNewborn: "#ffed8d",
+  // HAYWIRE's static, arcing off the ball. Two tones and not one: a single
+  // colour flickering on and off reads as a rendering fault, while a hot core
+  // with a cooler outer scatter reads as a discharge. Deliberately blue-white
+  // and nowhere near the ball's yellow — the arc has to be legible as something
+  // happening *to* the sprite, not as the sprite changing colour, which is the
+  // one thing the ball is never allowed to do.
+  haywireArc: "#dce8ff",
+  haywireArcDim: "#5b74e8",
   laserShot: "#ffcf1c",
   dropLetterLight: "#ffffff",
   dropLetterDark: "#0b0b26",

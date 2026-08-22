@@ -460,6 +460,47 @@ export class SoundBank {
     this.tone({ freq: 330, dur: 0.08, vol: 0.06, delayS: 0.2 });
   }
 
+  /**
+   * HAYWIRE's kick: a contact fault, four times a second.
+   *
+   * Short, dry and electrical — a square blip snapped down over a band-passed
+   * tick, which is a relay chattering rather than a note. It has to survive
+   * being heard twenty times in five seconds without becoming a melody or a
+   * nuisance, so there is no pitch bend to follow and nothing sustains.
+   *
+   * `strength` is the same blend the kick's angle is scaled by, spent on volume
+   * and on pitch together: the first and last kicks of a fault are quieter and
+   * higher — a tick — and the ones in the middle land with weight. One number
+   * for both, because a loud kick that barely turned the ball would be the
+   * sound lying about the simulation.
+   */
+  haywireKick(strength: number): void {
+    // A tighter window than the default: the cadence is 15 ticks (250 ms) and
+    // the shared one would let a second HA caught mid-fault swallow a kick.
+    if (!this.allow("haywireKick", 120)) {
+      return;
+    }
+    const base = 210 + (1 - strength) * 320;
+    this.tone({ freq: base, freqEnd: base * 0.7, dur: 0.05, vol: 0.035 + strength * 0.045, type: "square" });
+    this.noise({
+      dur: 0.05,
+      vol: 0.03 + strength * 0.04,
+      filter: { type: "bandpass", freq: 2600, freqEnd: 1100 },
+    });
+  }
+
+  // The fault clearing: the kick's own chatter resolved into one settling tone
+  // instead of a fanfare. The trap took nothing but the player's aim, so what
+  // is owed at the end is the machine getting a grip again — nothing to
+  // celebrate and nothing to mourn.
+  haywireClear(): void {
+    if (!this.allow("haywireClear")) {
+      return;
+    }
+    this.noise({ dur: 0.14, vol: 0.05, filter: { type: "bandpass", freq: 2200, freqEnd: 500 } });
+    this.tone({ freq: 260, freqEnd: 440, dur: 0.16, vol: 0.06, type: "square", delayS: 0.06 });
+  }
+
   // BANANA: the slip itself, not the catch — the womp already covered the pill.
   // A sawtooth slide-whistle up under a noise sweep opening the same way, which
   // is the cartoon the trap is, and short enough to be over before the deck is.

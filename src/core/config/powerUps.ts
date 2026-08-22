@@ -165,6 +165,28 @@ export const POWER_UPS = [
   // darkest field theme. The green quarter looks crowded and is not — the lime
   // capsules all sit well above it in value.
   { id: "FU", name: "FUSE", color: "#77b200", dark: true, ticks: 0, tier: "uncommon", timed: false, blurb: "IT COMPLETES A COMBO", lasts: "ONE FUSION" },
+  // Hazard pink, and the one row in the roster where every constraint was
+  // binding at once. Three rules had to hold: 58 from every capsule and the
+  // ball, 3:1 against the darkest playfield themes, and 48 from every star and
+  // glint tone the backgrounds paint. This clears them at 65 (LASER), 4.3:1 and
+  // 178 respectively.
+  //
+  // The two colours it wanted to be both failed, and the failures are worth
+  // keeping: a deep indigo (#2a1ae0) reads at 1.7:1 against the dark themes —
+  // a body is read against the field before it is read against the roster, and
+  // anything under about 0.154 luminance is out however empty its corner looks
+  // — and the steel blue above the line (#6175b3) lands 11 from `planet`'s
+  // glint, which is a trap disguised as a star. The blue quarter is simply
+  // full: WIDE, XWIDE, WALL, MIRROR, BLACKOUT, RAIN and SINGULARITY hold the
+  // capsule side of it and the starfields hold the rest.
+  //
+  // So the pill is loud instead of atmospheric, which is the honest answer for
+  // a trap that has to be read while a ball is in the air — 178 from the
+  // nearest speck is the largest margin on the board, and no starfield has
+  // anything like it. The arcs it throws stay blue-white regardless: PIERCE is
+  // a yellow pill throwing white sparks for the same reason, since a spark is
+  // hot, not branded.
+  { id: "HA", name: "HAYWIRE", color: "#ff0066", dark: false, ticks: 300, tier: "trap", timed: true, blurb: "EVERY BALL FLIES OFF COURSE" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];

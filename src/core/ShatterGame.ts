@@ -425,6 +425,30 @@ export class ShatterGame {
   private rushBlend = 0;
   private stasisBlend = 0;
   /**
+   * HAYWIRE's fault, 0 to 1, and the size of every kick it throws.
+   *
+   * The odd one out among the ball capsules above: it is not a factor in
+   * `ballTimeScale()` and never will be. Speed is what those four argue over,
+   * and this one changes only direction — so it composes with every one of them
+   * without appearing in the product, and a ball kicked during a STASIS holds
+   * its new heading until the field starts again.
+   */
+  private haywireBlend = 0;
+  /**
+   * Ticks until the next kick, counted for the field rather than per ball.
+   *
+   * One fault in the machine, not one per ball: the whole roster's other
+   * per-ball state (HOMING's lock, PORTAL's cooldown, TEMPO's debt) is per ball
+   * because the *ball* is what differs, and here it is the machine. Twelve
+   * balls jinking on twelve private schedules is twelve faults, which reads as
+   * noise rather than as a thing that just happened.
+   */
+  private haywireKickIn = 0;
+  // Whether this tick is a kick, decided above the ball loop and read inside
+  // it. The clock has to move once per tick while the kick has to be applied
+  // per ball, and those are the two halves of the same event.
+  private haywireKicking = false;
+  /**
    * HOMING's pull, 0 straight to 1 turning at the full rate — and only the
    * pull. The reticle is per ball and lives on `Ball.homingMarkTicks`, because
    * twelve balls hold twelve different bricks and a single number cannot say
@@ -646,6 +670,10 @@ export class ShatterGame {
       // number for the field and the debt per ball, because the debt is the
       // ball's own history and the blend is the capsule's.
       tempoGhost: this.tempoBlend,
+      // HAYWIRE's fault, as the size of the crackle rather than as a flag: the
+      // static thickens as the kicks grow and thins as they shrink, so what the
+      // ball is wearing is what is being done to it.
+      haywire: this.haywireBlend,
       // STASIS's ring closing on the balls — one way, deliberately. Read
       // symmetrically it would paint the same ring growing back out on the
       // departure, on top of the one `popStasisRings` has already pinned where
@@ -829,6 +857,11 @@ export class ShatterGame {
       }
     }
     this.rushBlend = stepBlend(this.rushBlend, this.timers.isActive("RU"), gameConfig.effects.rushSurgeTicks);
+    // Above the gates with the four clocks it sits beside, and for their reason
+    // exactly: a ball frozen behind a shockwave may not come out of it under a
+    // fault the blend has not reached. The kick clock below is gated instead —
+    // see `stepHaywire`.
+    this.haywireBlend = stepBlend(this.haywireBlend, this.timers.isActive("HA"), gameConfig.effects.haywireFrayTicks);
     // STASIS's arrival read off the ring it already ships: `stasisRingLifeTicks`
     // is what the release ring expands over, so closing on the same count is
     // that ring run backwards. Any other number would give the capsule two ring
@@ -927,6 +960,11 @@ export class ShatterGame {
     // like theirs, and a NUKE sweep must not resolve one behind its shockwave.
     this.stepGamble();
     this.stepPeels();
+    // Below both freeze gates, unlike the blend above it: a shockwave or a
+    // pending clear holds the field still, and a fault that kept counting
+    // behind one would spend its kicks on balls nobody can see move — then let
+    // several land at once on the frame the field comes back.
+    this.stepHaywire();
     for (const core of this.cores) {
       if (core.active) {
         core.step();
@@ -973,6 +1011,13 @@ export class ShatterGame {
     // dropping back to true speed has to be heard by someone whose eyes are on it.
     if (expired.includes("RU") || expired.includes("TU")) {
       this.deps.sfx.rushRelease();
+    }
+    // Nothing to undo here either — a heading is where it is — so the fizzle is
+    // the whole of the ending, and it is owed: the kicks have been shrinking
+    // for twenty-four ticks and the last of them is too small to be felt. The
+    // sound is what says the fault cleared rather than got quiet.
+    if (expired.includes("HA")) {
+      this.deps.sfx.haywireClear();
     }
     // The field comes back the same way it went, and the turn back owes the
     // same half second of sound: without it the second tumble reads as a fault.
@@ -1331,6 +1376,109 @@ export class ShatterGame {
    * about ninety ticks rather than snapping to it — a curve the player can read
    * and still bounce off, not a magnet.
    */
+  /**
+   * HAYWIRE's clock: whether this tick is a kick, for the whole field.
+   *
+   * Driven off the blend and not the timer, which is what makes the departure a
+   * fade rather than a cut. The timer reaches zero, the blend spends its
+   * twenty-four ticks winding down, and the kicks that land inside that window
+   * are the last, smallest ones — the fault clearing rather than being switched
+   * off. Reading the timer here would end the trap on a full-strength kick.
+   */
+  private stepHaywire(): void {
+    if (this.haywireBlend === 0) {
+      this.haywireKicking = false;
+      return;
+    }
+    this.haywireKicking = --this.haywireKickIn <= 0;
+    if (this.haywireKicking) {
+      this.haywireKickIn = gameConfig.powerUps.haywire.kickTicks;
+      this.deps.sfx.haywireKick(this.haywireBlend);
+    }
+  }
+
+  /**
+   * One kick: this ball's heading knocked off course, its speed untouched.
+   *
+   * **Rotation, never displacement.** The velocity is rebuilt at the same speed
+   * from a new angle, so the trap owns direction and nothing else — it costs
+   * the player their read on where the ball is going and not their grip on how
+   * fast it is going there, which is RUSH's job and is already taken.
+   *
+   * The magnitude is the blend, so both ends of the capsule are in the kicks
+   * themselves: the first are nudges, the middle are the full cone, the last
+   * are nudges again. There is no sprite state to unwind at expiry — a heading
+   * is where it is — and that is exactly why the fade has to live here.
+   *
+   * A glued ball is skipped: it has no heading to knock, and kicking the stored
+   * velocity would hand the player a launch angle they never chose.
+   */
+  private glitchBall(ball: Ball): void {
+    const { maxKickRad, minKickRad, minVerticalFraction } = gameConfig.powerUps.haywire;
+    if (ball.stuckOffsetX !== null) {
+      return;
+    }
+    const speed = Math.hypot(ball.velocity.x, ball.velocity.y);
+    if (speed === 0) {
+      return;
+    }
+
+    const heading = Math.atan2(ball.velocity.y, ball.velocity.x);
+    const size = (minKickRad + Math.random() * (maxKickRad - minKickRad)) * this.haywireBlend;
+    const away = Math.random() < 0.5 ? -1 : 1;
+
+    /**
+     * The flat cone, and the three ways out of it in order of honesty.
+     *
+     * A ball knocked flatter than `minVerticalFraction` rattles between the two
+     * walls until the timer runs out, and a trap that ends by boring the player
+     * stopped being a trap — so headings that shallow are refused. HOMING has
+     * the identical test and simply *skips* the turn, which it can afford
+     * because the next bounce resumes its arc for free. This may not: a kick
+     * that does nothing is a spark shower over a ball that did not move, and
+     * the sparks would be lying about the simulation.
+     *
+     * **Turning the other way is the first answer**, and it is a real turn of
+     * the full size — the fault still happened, it just could not push that way.
+     * From any legal heading this always lands inside the cone: the floor puts
+     * the ball at least 20.5 deg off horizontal and the kick is at most 34.4,
+     * so turning away from the near wall of the cone moves toward vertical and
+     * cannot reach the far one.
+     *
+     * **Clamping is the fallback**, for a ball that arrived flatter than the
+     * floor by some other route — a singularity or a bumper can bend a heading
+     * anywhere, while the deck cannot: its widest bounce is 1.05 rad, which is
+     * 0.498 vertical and clear of this. Clamping to the edge is what the first
+     * cut did in every case, and it was wrong for the common one: a ball parked
+     * exactly on the boundary was re-clamped to the identical heading, so every
+     * kick toward flat visibly did nothing while the sparks still fired.
+     *
+     * The vertical *sense* survives all three. A fault may take the player's
+     * aim, but it may not decide that every ball is now heading for the floor.
+     */
+    let kicked = heading + away * size;
+    if (Math.abs(Math.sin(kicked)) < minVerticalFraction) {
+      kicked = heading - away * size;
+    }
+    if (Math.abs(Math.sin(kicked)) < minVerticalFraction) {
+      const rising = ball.velocity.y < 0 ? -1 : 1;
+      const forward = Math.cos(kicked) < 0 ? -1 : 1;
+      kicked = Math.atan2(rising * minVerticalFraction, forward * Math.sqrt(1 - minVerticalFraction ** 2));
+    }
+
+    ball.velocity.x = Math.cos(kicked) * speed;
+    ball.velocity.y = Math.sin(kicked) * speed;
+    // The kick, seen: sparks off the ball on the frame its heading changed, and
+    // only on that frame. The shower thins with the blend for the same reason
+    // the kick does — the two are one event and may not disagree about how
+    // strong it was.
+    const { haywireSparkBurst } = gameConfig.effects;
+    this.particles.sparkBurst(ball.centerX, ball.y + gameConfig.ball.size / 2, {
+      ...haywireSparkBurst,
+      chunkCount: Math.max(1, Math.round(haywireSparkBurst.chunkCount * this.haywireBlend)),
+    });
+  }
+
   private steerBall(ball: Ball): void {
     const { homingTurnRad, homingMinVerticalFraction } = gameConfig.powerUps;
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
@@ -1607,6 +1755,14 @@ export class ShatterGame {
     const insideCore = this.pullIntoCores(ball, index);
     if (this.timers.isActive("H") && !insideCore) {
       this.steerBall(ball);
+    }
+    // Last of the three, and deliberately after HOMING: a capsule whose whole
+    // job is to take the player's aim away has to be able to take the game's
+    // too. Caught together, HOMING re-aims at its brick every tick and HAYWIRE
+    // knocks it off every fifteen — the ball wanders and still finds bricks,
+    // which is the honest sum of the two rather than either of them winning.
+    if (this.haywireKicking) {
+      this.glitchBall(ball);
     }
     const stepVx = ball.velocity.x * timeScale;
     const stepVy = ball.velocity.y * timeScale;
@@ -2515,6 +2671,9 @@ export class ShatterGame {
     this.turboSpool = 0;
     this.tempoBlend = 0;
     this.rushBlend = 0;
+    this.haywireBlend = 0;
+    this.haywireKickIn = 0;
+    this.haywireKicking = false;
     this.stasisBlend = 0;
     this.homingBlend = 0;
     this.glueReach = 0;
@@ -2850,6 +3009,15 @@ export class ShatterGame {
     }
     if (kind === "RU") {
       this.timers.activate("RU", durations.RU);
+    }
+    if (kind === "HA") {
+      this.timers.activate("HA", durations.HA);
+      // The first kick is a full cadence away rather than on the catch itself.
+      // The blend needs those fifteen ticks to be worth anything — a kick on
+      // the catch frame would be scaled by a blend of 1/24 and land as nothing,
+      // spending the trap's loudest moment on its weakest one. A second HA
+      // caught over a live one re-arms the same clock, which is the top-up.
+      this.haywireKickIn = gameConfig.powerUps.haywire.kickTicks;
     }
     if (kind === "XR") {
       this.timers.activate("XR", durations.XR);
@@ -3385,6 +3553,9 @@ export class ShatterGame {
     this.turboSpool = 0;
     this.tempoBlend = 0;
     this.rushBlend = 0;
+    this.haywireBlend = 0;
+    this.haywireKickIn = 0;
+    this.haywireKicking = false;
     this.stasisBlend = 0;
     this.homingBlend = 0;
     this.glueReach = 0;
@@ -3443,6 +3614,9 @@ export class ShatterGame {
     this.turboSpool = 0;
     this.tempoBlend = 0;
     this.rushBlend = 0;
+    this.haywireBlend = 0;
+    this.haywireKickIn = 0;
+    this.haywireKicking = false;
     this.stasisBlend = 0;
     this.homingBlend = 0;
     this.glueReach = 0;

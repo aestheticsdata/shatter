@@ -165,6 +165,37 @@ export const gameConfig = {
     // compose rather than cancel, and a TURBO that quietly did nothing under a
     // RUSH would read as a broken capsule.
     turboTimeScale: 1.5,
+    /**
+     * HAYWIRE: the trap that costs aim instead of speed.
+     *
+     * **The clock is global and the angle is not.** Every live ball is kicked on
+     * the same tick, because what the player is being told is that the machine
+     * has a fault — twelve balls jinking on twelve private schedules is twelve
+     * faults, which is noise. Each ball then picks its own direction out of that
+     * one event, so a SWARM scatters rather than turning as a flock.
+     *
+     * Nothing here touches speed. The kick is a rotation of the stored velocity,
+     * so the trap composes with all four clocks in `ballTimeScale` for free and
+     * has nothing to unwind when it ends.
+     */
+    haywire: {
+      // A kick every quarter second. Slower and the fault is a rumour; faster
+      // and no heading survives long enough to be read and played, which is the
+      // whole difference between chaos you fight and chaos you watch.
+      kickTicks: 15,
+      // Up to ~34 deg either way, and never under ~3.5. The floor is the point:
+      // a kick small enough to be absorbed by the next bounce is a kick that
+      // read as the ball being wrong rather than as the machine being wrong,
+      // and the sparks would have announced it either way.
+      maxKickRad: 0.6,
+      minKickRad: 0.06,
+      // HOMING's floor, borrowed for a sharper reason. A ball kicked flat
+      // rattles between the two walls until the timer runs out, and a trap that
+      // ends by boring the player stopped being a trap. A kick that would cross
+      // it is clamped to the edge of the cone rather than dropped — dropping it
+      // spends the tick silently while the sparks say one landed.
+      minVerticalFraction: 0.35,
+    },
     // ANGEL puts the ball it saved back at this height: below the deck's 276,
     // so it rises through it and reads as caught at the last instant, and clear
     // enough of the 300 death line that the very next tick cannot drain it
@@ -567,6 +598,35 @@ export const gameConfig = {
      * behind it, instead of 3 px of solid red popping into being at full size.
      */
     rushSurgeTicks: 10,
+    /**
+     * HAYWIRE's fray, each way, and the scale on every kick it throws.
+     *
+     * The magnitude is the blend, which is the whole of both transitions: the
+     * first kicks are nudges the player barely has to answer, the middle of the
+     * capsule is the full 34 deg, and the last few shrink back to nudges as the
+     * fault clears. Nothing switches off — the ball is simply obeying again.
+     *
+     * 24 ticks against a 15-tick cadence puts the first kick at about 0.6 of
+     * full and the second at full, so the trap is felt arriving over two of
+     * them rather than announced by one. It is longer than RUSH's six-frame
+     * surge on purpose: a surge is a speed and is read instantly, while an
+     * angle is only read against the heading it replaced.
+     */
+    haywireFrayTicks: 24,
+    // The kick, seen. A tight shower of hot 1 px sparks off the ball on the
+    // frame its heading changes — PIERCE's tones and PIERCE's pool, because
+    // this is the same fact about the same sprite: something is happening *to*
+    // the ball and the ball itself is untouched. Shorter-lived and slower than
+    // the drill's, so a kick reads as one crackle rather than as a trail.
+    haywireSparkBurst: {
+      chunkCount: 7,
+      minChunkSize: 1,
+      maxChunkSize: 1,
+      minSpeed: 0.5,
+      maxSpeed: 1.7,
+      minLifeTicks: 6,
+      maxLifeTicks: 14,
+    } satisfies BurstSpec,
     /**
      * TEMPO's drift, each way, and the clock its pace ghost is drawn on.
      *
