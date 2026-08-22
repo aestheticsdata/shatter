@@ -4,10 +4,12 @@ Amiga-style brick breaker for one player. Originally written in 2007, rebuilt in
 
 The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372×300 canvas playfield** (pixel-art rendering) next to a **108px Workbench-style side panel** (DOM). Vite + strict TypeScript + native CSS with Lightning CSS.
 
+How it is built — the loop, the module graph, the capsule pipeline, all drawn in ASCII — is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Gameplay
 
 - **Screens**: title (animated copper bars) → serve → play, with pause, level-clear, game-over, and a hall of fame with 3-letter initials entry. `L` from the title opens the **LEVELS gallery**: every layout in the roster as a live-rendered miniature of the real field — six a page, `←`/`→` to page, and nothing exported, so a new level appears there with no second edit. `B` opens the **CAPSULES catalogue** on the same scaffolding: the whole roster sorted by rarity, each entry a staged miniature of the effect on the field, drawn by the game's own sprites, with the pill at real size and the registry's one-line `blurb` under it.
-- **28 levels**: SUNRISE, SMILEY, PYRAMID, CHOMP, GATEWAY, HEART, VORTEX, BOLT, CHECKER, INVADER, RAMPART, ROCKET, HELIX, TETRA, ORBIT, COOL, HIVE, DNA, SERPENT, SKULL, MIRROR, BUNKER, CASCADE, PLAY, MAZE, OMEGA, 1991, FINALE — looping with increasing ball speed. Silver bricks take 2 hits, gold bricks 3.
+- **30 levels**: SUNRISE, SMILEY, PYRAMID, CHOMP, GATEWAY, HEART, VORTEX, BOLT, CHECKER, INVADER, RAMPART, ROCKET, HELIX, TETRA, ORBIT, COOL, HIVE, DNA, SERPENT, SKULL, MIRROR, BUNKER, CASCADE, PLAY, MAZE, OMEGA, 1991, PILLARS, GALAXY, FINALE — looping with increasing ball speed. Silver bricks take 2 hits, gold bricks 3.
 - **Per-level backgrounds**: eight playfield themes (starfield, nebula haze, blueprint grid, sunrise horizon, gas giant, circuit board, CRT cathode, stone vault), assigned so no two consecutive levels look alike, each seeded per level so the levels sharing a theme still differ. Every theme is static and stays darker than the sprite palette — a `check:backgrounds` script enforces it.
 - **Power-ups** dropped by destroyed bricks, each catch acknowledged by a floating label at the paddle. How often a brick drops anything at all is `bonusSpreadAmount`; _which_ capsule it drops is the rarity tier below, and the two are independent.
 
@@ -119,7 +121,7 @@ The game runs on a fixed **480×300 stage** scaled to fit the viewport: a **372�
 ### Controls
 
 - **Mouse** moves the paddle; **click** or **Space** starts the game, launches the ball, and advances screens.
-- Clicking also engages **Pointer Lock** (relative `movementX` control); without lock, absolute pointer position is used. Press `Esc` once to exit lock.
+- Clicking also engages **Pointer Lock** (relative `movementX` control); without lock, absolute pointer position is used. Press `Esc` once to exit lock; `Esc` also closes the LEVELS gallery and the CAPSULES catalogue back to the title.
 - **P** pause · **M** sound on/off · **L** levels gallery · **B** capsules catalogue (both from the title) · **VOL** fader in the side panel (mouse-only, reachable whenever the cursor is free — title, pause, before launch) · **ESC** quit run (from lock, press `Esc` twice: first exits lock, second quits), or leave the levels gallery and the capsules catalogue.
 - The mouse is the only paddle control, so a run **auto-pauses** whenever it would go on unsteered: cursor leaving the window, window losing focus, or pointer lock dropping. Click to resume — that click also re-engages the lock.
 
@@ -203,18 +205,19 @@ Manual rollback:
 src/
   core/
     ShatterGame.ts   # Orchestrator: state machine, fixed-timestep loop, game rules
-    config/          # GameConfig: geometry, speeds, timers, points · powerUps: the capsule roster
-    levels/          # ASCII level definitions (28 layouts) + 3×5 pixel font for word levels
+    DevConsole.ts    # Dev-only command line (import.meta.env.DEV): jump levels, force capsules
+    config/          # GameConfig: geometry, speeds, timers, points · powerUps: the capsule roster · combos: the six authored fusions
+    levels/          # ASCII level definitions (30 layouts) + 3×5 pixel font for word levels
     physics/         # Paddle bounce math
   entities/
     ball/            # Ball position/velocity, launch, multi-ball cloning
-    paddle/          # Paddle position/width with field clamping
+    paddle/          # Paddle position/width with field clamping + MirrorPaddle (the ceiling reflection)
     bricks/          # BrickGrid: cell parsing, HP, grid collision queries
     powerups/        # PowerUpTimers (timed effects) + DropPool (weighted falling capsules)
-    effects/         # ParticleField (debris ring buffer) + Detonation (NUKE shockwave)
+    effects/         # ParticleField (debris ring buffer) · Detonation (NUKE shockwave) · Singularity (VORTEX/SINGULARITY cores) · BumperField · MeteorField · Quake · Critter
     laser/           # ShotPool (paddle cannon shots)
-  render/            # CanvasRenderer (pixel sprites) + palette (sprite hex colors) + backgrounds (per-level field art) + levelStill/capsuleScenes (field-sized stills for the menu screens)
-  ui/                # Panel (side panel), Screens (overlays), LevelGallery + CapsuleCatalogue (menu screens), StageScaler (fit transform)
+  render/            # CanvasRenderer (pixel sprites) + palette (sprite hex colors) + backgrounds (per-level field art) + levelStill/capsuleScenes (field-sized stills for the menu screens) + checkCapsules (dev-only legibility assertions)
+  ui/                # Panel (side panel), Screens (overlays), LevelGallery + CapsuleCatalogue (menu screens), pagePips (shared paging dots), StageScaler (fit transform)
   input/             # InputController: mouse + keyboard + hybrid pointer lock
   audio/             # Sound: WebAudio engine (tone/noise/arp + compressor) · SoundBank: per-event SFX recipes
   state/             # HiScores (server table + localStorage fallback) + ScoreApi client
@@ -235,6 +238,10 @@ server/
     db.js            # better-sqlite3 (WAL), schema + classic-board seeding
     validate.js      # ^[A-Z0-9]{3}$ names, blocklist → "???", score cap
   ecosystem.config.cjs  # pm2 app definition (port must match nginx + Zeus registry)
+
+docs/
+  ARCHITECTURE.md    # How the engine is put together, with ASCII diagrams
+  superpowers/       # Design specs and implementation plans, by date
 
 scripts/
   deploy.sh          # Deploy the game + rollback (auto/manual)
@@ -258,11 +265,11 @@ scripts/
 
 ### Score API
 
-- `GET /api/scores` → `{ scores: [{ name, score }] }` (top 5, ties rank by insertion order).
-- `POST /api/scores` `{ name, score }` → `201` with the fresh top 5, or `422` on invalid input.
+- `GET /api/scores` → `{ scores: [{ name, score }] }` (top 15, ties rank by insertion order).
+- `POST /api/scores` `{ name, score }` → `201` with the fresh top 15, or `422` on invalid input.
 - Server-side validation (the client is not trusted): names must match `^[A-Z0-9]{3}$` after uppercasing, a small blocklist of crude combos lands as `???`, scores are integers `0..10 000 000`.
 - Per-IP in-memory rate limit (6 POST/min, `429`) behind the nginx `limit_req` zone; submitter IPs are stored for abuse cleanup.
-- SQLite file: `server/data/shatter.db` locally (gitignored), `/home/debian/apps/shatter-api/data/shatter.db` on ks-b — a brand-new table is seeded with the classic board (AMI, CBM, PAL, FDD, KIK).
+- SQLite file: `server/data/shatter.db` locally (gitignored), `/home/debian/apps/shatter-api/data/shatter.db` on ks-b — a brand-new table is seeded with the classic board (AMI, CBM, PAL, FDD, KIK, AGA, ECS, OCS, DMA, CIA, SID, C64, MOD, WB1, RAM).
 - The front (`ScoreApi`) treats every failure as `null` and keeps the `localStorage` table; a remote sync landing refreshes whichever screen currently shows scores.
 
 ### Deployment
