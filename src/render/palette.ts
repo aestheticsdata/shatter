@@ -61,6 +61,22 @@ export const canvasPalette = {
   // one thing the ball is never allowed to do.
   haywireArc: "#dce8ff",
   haywireArcDim: "#5b74e8",
+  // ENGLISH's cloth, laid across the deck. Two tones for the same reason the
+  // arc above has two: the band is a *sweep*, and a flat colour arriving all
+  // at once cannot show which way it is travelling. The dark one is the felt
+  // and the light one is the nap at its leading edge, so the cloth reads as
+  // being rolled out from the middle of the deck and rolled back in at expiry.
+  //
+  // Deep enough to sit under the deck's blue rather than on top of it: this is
+  // a surface the paddle is wearing, and a band brighter than the sheen above
+  // it would read as a second cap.
+  englishFelt: "#0a6a30",
+  englishFeltNap: "#25b45c",
+  // The spin, orbiting the ball it is stored on. Mint rather than the felt's
+  // green: these are 1 px specks against the field at whatever the background
+  // is, not paint on a deck, and they have to clear the dark themes on their
+  // own. Nowhere near the ball's yellow, by the rule the arc above states.
+  englishFleck: "#7cffb0",
   laserShot: "#ffcf1c",
   dropLetterLight: "#ffffff",
   dropLetterDark: "#0b0b26",

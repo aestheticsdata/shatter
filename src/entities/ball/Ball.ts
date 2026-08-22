@@ -43,6 +43,16 @@ export class Ball {
   // second ball, because a free-flying phantom walks through bricks and walls
   // and diverges in direction the moment either of them turns the real one.
   tempoDebt = 0;
+  // ENGLISH: radians this ball's heading turns per tick, signed — the shot the
+  // deck put on it, not a property of the capsule. It outlives the timer on
+  // purpose and simply decays away, so a ball still curving when the twenty
+  // seconds run out straightens out instead of snapping level.
+  spin = 0;
+  // ENGLISH's cue, and a real quantity rather than an animation clock: the
+  // total heading this ball's spin has actually turned it through. The flecks
+  // orbit on it, so they go round the way the ball is bending and slow as the
+  // spin decays without a second number that could disagree with the first.
+  spinPhase = 0;
 
   clearHoming(): void {
     this.homingRow = -1;
@@ -77,6 +87,10 @@ export class Ball {
     // A clone picks its own target on its first steered tick; inheriting the
     // source's would send every MULTI ball at one brick.
     this.clearHoming();
+    // A clone is a new ball off a split, not a ball the deck hit: it carries no
+    // english. Inheriting it would send a whole MULTI fan round the same bend.
+    this.spin = 0;
+    this.spinPhase = 0;
     this.portalCooldown = 0;
     this.birthTicksLeft = birthTicks;
     this.phasing = false;

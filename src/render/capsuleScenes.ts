@@ -382,6 +382,39 @@ const SCENES: Record<PowerUpKind, Painter> = {
       field.rect(x, y, 1, 1, tone);
     }
   },
+  // The shot, drawn as the shot: a deck wearing the cloth, and the ball's own
+  // track bending away from the straight line it left on. Deliberately not a
+  // picture of the paddle moving — a blurred deck would say "this capsule is
+  // about the paddle", and the capsule is about what the paddle does to the
+  // ball. The ghosts are spaced evenly and turn by a fixed angle each step,
+  // which is exactly `curveBall` run five times, so the curvature in the
+  // miniature is the curvature in the game.
+  EN: (field) => {
+    field.wall();
+    field.deck(undefined, 128);
+    // The cloth, laid the way `drawFelt` lays it: the deck's middle row, cap to
+    // cap inside the bevel, with the nap lit at each end.
+    field.rect(129, DECK_Y + 3, 44, 1, canvasPalette.englishFelt);
+    field.rect(129, DECK_Y + 3, 2, 1, canvasPalette.englishFeltNap);
+    field.rect(171, DECK_Y + 3, 2, 1, canvasPalette.englishFeltNap);
+    for (const [x, y, alpha] of [
+      [150, 262, 0.2],
+      [159, 238, 0.35],
+      [173, 215, 0.5],
+      [189, 195, 0.7],
+    ] as const) {
+      field.trace(x, y, alpha);
+    }
+    field.ball(209, 178);
+    // The three flecks, at the orbit and the spacing the field draws them at.
+    for (const [x, y] of [
+      [219, 182],
+      [209, 187],
+      [209, 176],
+    ] as const) {
+      field.rect(x, y, 1, 1, canvasPalette.englishFleck);
+    }
+  },
   // RUSH's comet, run cold, against PAYDAY's gold wall: the same speed for the
   // opposite reason, and the half of the capsule RUSH does not pay. Mirrored
   // across the field as well, so the two do not share a diagonal either.

@@ -192,9 +192,53 @@ export const gameConfig = {
       // HOMING's floor, borrowed for a sharper reason. A ball kicked flat
       // rattles between the two walls until the timer runs out, and a trap that
       // ends by boring the player stopped being a trap. A kick that would cross
-      // it is clamped to the edge of the cone rather than dropped — dropping it
-      // spends the tick silently while the sparks say one landed.
+      // it turns the other way at the same size instead of being dropped —
+      // dropping it spends the tick silently while the sparks say one landed.
+      // Clamping to the cone's edge survives only as `glitchBall`'s fallback.
       minVerticalFraction: 0.35,
+    },
+    /**
+     * ENGLISH: the deck's own travel, banked on the ball it just hit.
+     *
+     * The numbers are set against the flight rather than against the deck. A
+     * ball leaves the paddle at 3.1 px a tick and meets the wall's underside
+     * roughly 65 ticks later, so a spin that decays at `decay` is worth about
+     * 48 ticks of turning — `maxSpinRad` times that is 0.67 rad, or a 38 deg
+     * banana on the hardest whip the player can throw. Anything much past that
+     * and the arc stops being a shot and starts being a spiral.
+     *
+     * `perPixel` is calibrated the same way round: a deliberate whip moves the
+     * deck 6-8 px in a tick, which is where the clamp bites. Ordinary tracking
+     * puts on a fraction of it, which is the capsule being *usable* rather than
+     * a special move — you steer to the ball, and how you got there is the shot.
+     */
+    english: {
+      // Radians of turn a tick, per pixel the deck travelled in the tick it hit.
+      perPixel: 0.0022,
+      maxSpinRad: 0.014,
+      // Below this the deck was tracking, not whipping, and the ball flies
+      // straight. Without it every return curves a little and the capsule reads
+      // as the ball being drunk rather than as the player having a tool.
+      minPaddleVx: 0.8,
+      // What is left of the spin a tick later. The capsule's own end, and the
+      // reason the effect never has to be switched off a ball: the curve runs
+      // out on its own, so a spin still on a ball when the timer expires simply
+      // straightens out over the next couple of seconds.
+      decay: 0.99,
+      // Below this the arc is under a tenth of a degree a tick and nothing on
+      // screen can show it, so it is spent — which is also what puts the last
+      // fleck out.
+      minSpinRad: 0.0004,
+      // A wall mirrors the sense of a spin and takes half of it: the ball is
+      // still turning, the other way and less. Negative because that *is* the
+      // mirroring, and one number rather than two so the two facts cannot be
+      // retuned apart.
+      wallKeep: -0.5,
+      // HOMING's floor again, and the loosest of the three uses: a curve that
+      // would take the heading flatter than this simply does not apply this
+      // tick, exactly as HOMING skips its turn. The ball rides the limit rather
+      // than being clamped onto it, and the next bounce hands the arc back.
+      minVerticalFraction: 0.2,
     },
     // ANGEL puts the ball it saved back at this height: below the deck's 276,
     // so it rises through it and reads as caught at the last instant, and clear
@@ -613,6 +657,16 @@ export const gameConfig = {
      * angle is only read against the heading it replaced.
      */
     haywireFrayTicks: 24,
+    /**
+     * ENGLISH's felt, each way: the cloth laid across the deck and taken back.
+     *
+     * 20 ticks and not the fray's 24, because this transition has a distance to
+     * cover as well as a duration — the band grows out of the deck's middle to
+     * both ends and drains back the same way, so it is a sweep the player
+     * watches rather than a tint that appears. A third of a second is about as
+     * slow as a surface can arrive before it starts reading as a load.
+     */
+    englishFeltTicks: 20,
     // The kick, seen. A tight shower of hot 1 px sparks off the ball on the
     // frame its heading changes — PIERCE's tones and PIERCE's pool, because
     // this is the same fact about the same sprite: something is happening *to*

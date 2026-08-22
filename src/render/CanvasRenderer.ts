@@ -76,6 +76,17 @@ const TURBO_TRAIL_TONES: readonly string[] = [canvasPalette.turboTrailFar, canva
 const HAYWIRE_ARCS = 6;
 const HAYWIRE_REACH = 5;
 
+// ENGLISH's cue, in game pixels. Three flecks because two read as an axis and
+// four as a ring, and neither of those turns; 6 px of orbit puts them a pixel
+// clear of the sprite's 4 px radius, so the ball keeps its outline. The gain is
+// how much of an orbit one radian of delivered curve is worth — see
+// `drawSpinFlecks`. The cloth's row is the deck's middle of seven, the one row
+// that is body from cap to cap.
+const FLECKS = 3;
+const FLECK_ORBIT = 6;
+const FLECK_GAIN = 24;
+const FELT_ROW = 3;
+
 // PIERCE's sparks, hottest first: white, the ball's own near-white, the
 // capsule's yellow. Cycled by slot index exactly as the brick mix below is, so
 // a shower is a mix without a colour stored per spark.
@@ -352,6 +363,17 @@ export interface PaddleRenderState extends DeckSeamState {
    * which is right: the reflection is the paddle.
    */
   glueReach: number;
+  /**
+   * ENGLISH's felt, 0 to 1 — how far the cloth has been rolled out from the
+   * middle of each half of the deck.
+   *
+   * Beside the resin and on the same record for its reason: the deck is what
+   * paints it, and MIRROR's ghost is the paddle, so the reflection wears the
+   * cloth too. It cannot *use* it — the ghost is mirrored across the field and
+   * therefore travels the opposite way, so english taken off it would fight the
+   * hand that threw it — but a reflection of a felted deck is a felted deck.
+   */
+  english: number;
 }
 
 // The four tones a paddle is banded from. The ghost is the same sprite in a
@@ -1324,6 +1346,13 @@ export class CanvasRenderer {
         if (view.haywire > 0) {
           this.drawHaywireArc(ball, index, view.haywire, lift);
         }
+        // Beside the arc and drawn the same way — around the sprite, never on
+        // it. Gated on the ball's own spin rather than on a blend, because that
+        // is what the flecks are showing: a ball with english on it wears them
+        // whether or not the capsule that put it there is still live.
+        if (ball.spin !== 0) {
+          this.drawSpinFlecks(ball, lift);
+        }
       }
     });
 
@@ -1635,6 +1664,7 @@ export class CanvasRenderer {
       paddle.capsJammed ? { ...PADDLE_BANDS, cap: DROP_COLORS.J } : PADDLE_BANDS,
       paddle,
       paddle.glueReach,
+      paddle.english,
     );
 
     this.drawCannons(paddle, y);
@@ -1759,6 +1789,7 @@ export class CanvasRenderer {
       MIRROR_BANDS,
       paddle,
       (paddle.glueReach * span) / paddle.width,
+      paddle.english,
     );
     this.ctx.restore();
 
@@ -1795,13 +1826,14 @@ export class CanvasRenderer {
     colors: PaddleBandColors,
     seam: DeckSeamState,
     glueReach = 0,
+    english = 0,
   ): void {
     const half = (width - gap) / 2;
     if (gap === 0 || half < 1) {
-      this.drawDeckPill(x, y, width, colors, glueReach);
+      this.drawDeckPill(x, y, width, colors, glueReach, english);
     } else {
-      this.drawDeckPill(x, y, half, colors, glueReach);
-      this.drawDeckPill(x + width - half, y, half, colors, glueReach);
+      this.drawDeckPill(x, y, half, colors, glueReach, english);
+      this.drawDeckPill(x + width - half, y, half, colors, glueReach, english);
     }
     this.drawDeckSeam(seam, x, y, width, colors);
   }
@@ -1821,7 +1853,14 @@ export class CanvasRenderer {
    * span it was asked for would put the drawn surface and the bouncing one back
    * out of step, which is the whole thing SHA-87 exists to fix.
    */
-  private drawDeckPill(x: number, y: number, width: number, colors: PaddleBandColors, glueReach = 0): void {
+  private drawDeckPill(
+    x: number,
+    y: number,
+    width: number,
+    colors: PaddleBandColors,
+    glueReach = 0,
+    english = 0,
+  ): void {
     if (width >= 18) {
       this.drawPaddleBands(x, y, width, colors);
     } else {
@@ -1830,6 +1869,7 @@ export class CanvasRenderer {
       this.spritePixel(x, y, width, 1, colors.sheen);
     }
     this.drawResin(x, y, width, glueReach);
+    this.drawFelt(x, y, width, english);
   }
 
   /**
@@ -1860,6 +1900,38 @@ export class CanvasRenderer {
       if (lag === 2) {
         this.spritePixel(x + column, y, 1, 1, canvasPalette.glueResin);
       }
+    }
+  }
+
+  /**
+   * ENGLISH's cloth, laid across the middle of the pill and rolled out from its
+   * own centre.
+   *
+   * `FELT_ROW` is the deck's fourth row of seven — the one row that is body on
+   * every column, cap to cap. The resin above it owns rows 0 and 1 and the
+   * shade owns row 6, so the two capsules can be live together without either
+   * painting over the other, and the sheen the deck has always had is untouched.
+   *
+   * The full width less the bevel, and not `drawPaddleBands`' nine-pixel inset
+   * span, for the reason the resin gives: that span is 2 px on each half of a
+   * SPLIT deck, and a two-pixel cue is no cue. The nap at the leading edge is
+   * what makes it a sweep — the cloth is 2 px of light where it is still moving
+   * and flat felt behind, so the arrival reads as rolling out and the departure
+   * as rolling back in, which is the whole of both transitions in one number.
+   */
+  private drawFelt(x: number, y: number, width: number, blend: number): void {
+    if (blend <= 0 || width < 3) {
+      return;
+    }
+    const center = width / 2;
+    const reach = blend * center;
+    for (let column = 1; column < width - 1; column++) {
+      const distance = Math.abs(column + 0.5 - center);
+      if (distance > reach) {
+        continue;
+      }
+      const tone = reach - distance < 2 ? canvasPalette.englishFeltNap : canvasPalette.englishFelt;
+      this.spritePixel(x + column, y + FELT_ROW, 1, 1, tone);
     }
   }
 
@@ -1983,6 +2055,43 @@ export class CanvasRenderer {
       const reach = half + 1 + (((noise >> 8) & 3) / 3) * HAYWIRE_REACH * strength;
       const tone = arc * 2 < arcs ? canvasPalette.haywireArc : canvasPalette.haywireArcDim;
       this.spritePixel(centerX + Math.cos(angle) * reach - 0.5, centerY + Math.sin(angle) * reach - 0.5, 1, 1, tone);
+    }
+  }
+
+  /**
+   * ENGLISH's spin, orbiting the ball that is carrying it.
+   *
+   * Three flecks at 120 deg, riding just outside the sprite's own radius — the
+   * silhouette is never touched, for the reason the arc above states and the
+   * reason every ball capsule states: the ball is one shape, and a spinning one
+   * that changed shape would be a different object.
+   *
+   * The phase is `Ball.spinPhase`, which is the total heading the spin has
+   * actually turned this ball through, multiplied up into something an eye can
+   * follow. Read that way both halves of the cue come out for free and cannot
+   * disagree with the simulation: the flecks go round the way the ball is
+   * bending, and they slow as the spin decays, stopping on the tick it is spent.
+   * A clock of their own would be a picture of a curve rather than the curve.
+   *
+   * `FLECK_GAIN` is the only authored number here: a hard whip turns the ball
+   * about 0.67 rad over its flight, and 24 makes that two and a half orbits —
+   * fast enough to read as spin, slow enough that a single fleck can be
+   * followed round.
+   */
+  private drawSpinFlecks(ball: Ball, lift: number): void {
+    const half = BALL_SIZE / 2;
+    const centerX = ball.x + half;
+    const centerY = ball.y - lift + half;
+    const phase = ball.spinPhase * FLECK_GAIN;
+    for (let fleck = 0; fleck < FLECKS; fleck++) {
+      const angle = phase + (fleck / FLECKS) * Math.PI * 2;
+      this.spritePixel(
+        centerX + Math.cos(angle) * FLECK_ORBIT - 0.5,
+        centerY + Math.sin(angle) * FLECK_ORBIT - 0.5,
+        1,
+        1,
+        canvasPalette.englishFleck,
+      );
     }
   }
 

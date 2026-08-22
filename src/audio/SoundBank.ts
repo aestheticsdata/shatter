@@ -501,6 +501,38 @@ export class SoundBank {
     this.tone({ freq: 260, freqEnd: 440, dur: 0.16, vol: 0.06, type: "square", delayS: 0.06 });
   }
 
+  // ENGLISH: the whip, on top of the bounce that always plays. A short filtered
+  // noise sweep rising as it opens — cloth going across cloth — with the
+  // faintest sine under it so a hard shot has a body and a soft one is only air.
+  //
+  // Deliberately not a tone the player could mistake for a pickup: this fires
+  // on every return for twenty seconds, and anything with a pitch to it would
+  // turn the capsule into a metronome. `strength` is the shot as a fraction of
+  // the clamp, so the loudness of the brush *is* how much curve went on — the
+  // one number the player cannot read off the deck at the moment they throw it.
+  englishWhip(strength: number): void {
+    if (!this.allow("englishWhip", 60)) {
+      return;
+    }
+    this.noise({
+      dur: 0.07,
+      vol: 0.02 + strength * 0.05,
+      filter: { type: "bandpass", freq: 900 + strength * 700, freqEnd: 2600 + strength * 1400, q: 1.4 },
+    });
+    this.tone({ freq: 300 + strength * 180, freqEnd: 200, dur: 0.06, vol: strength * 0.03 });
+  }
+
+  // The cloth coming off the deck: the whip run backwards and softer, closing
+  // its filter instead of opening it. No settling tone under it — a ball may
+  // still be curving when this plays, and a resolved chord would be claiming
+  // the effect is over when it is not.
+  englishClear(): void {
+    if (!this.allow("englishClear")) {
+      return;
+    }
+    this.noise({ dur: 0.2, vol: 0.05, filter: { type: "bandpass", freq: 2400, freqEnd: 600, q: 1.4 } });
+  }
+
   // BANANA: the slip itself, not the catch — the womp already covered the pill.
   // A sawtooth slide-whistle up under a noise sweep opening the same way, which
   // is the cartoon the trap is, and short enough to be over before the deck is.

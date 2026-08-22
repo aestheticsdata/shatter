@@ -187,6 +187,18 @@ export const POWER_UPS = [
   // a yellow pill throwing white sparks for the same reason, since a spark is
   // hot, not branded.
   { id: "HA", name: "HAYWIRE", color: "#ff0066", dark: false, ticks: 300, tier: "trap", timed: true, blurb: "EVERY BALL FLIES OFF COURSE" },
+  // Billiard felt, and the roster's first dark green: the eight greens already
+  // on the board are all pale or acid (DEMAKE 0.30 luminance is the darkest of
+  // them), so the table's own colour was the one green nobody had taken. 80
+  // from MULTI, 3.88:1 against the darkest field theme and 79 from the nearest
+  // star, which is room on every rule at once.
+  //
+  // Hue 142 lands it in the ball-count band MULTI and NUKE were measured into,
+  // and it stays there: the bands are a description of where the roster fell,
+  // not a reservation, and a capsule about putting english on a ball is the
+  // colour of the cloth you do it on or it is nothing. The glyph is what tells
+  // them apart, as it is for the other seven.
+  { id: "EN", name: "ENGLISH", color: "#009436", dark: false, ticks: 1200, tier: "rare", timed: true, blurb: "WHIP THE PADDLE · CURVE THE BALL" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];

@@ -449,6 +449,32 @@ export class ShatterGame {
   // per ball, and those are the two halves of the same event.
   private haywireKicking = false;
   /**
+   * ENGLISH's felt, 0 to 1 — the cloth on the deck, and nothing else.
+   *
+   * The curve itself is not on this blend and deliberately cannot be: the spin
+   * is banked on the ball at the moment of contact and decays on its own, so
+   * there is no global strength to fade. What the blend owns is the *surface* —
+   * a deck that can put english on a ball, arriving and leaving as a sweep
+   * across its own face. A ball still curving when the twenty seconds run out
+   * keeps curving until its spin runs out, which is the departure the capsule
+   * actually has.
+   */
+  private englishBlend = 0;
+  /**
+   * How far the deck travelled over the last tick, signed, sampled once at the
+   * top of the tick and read at the moment of contact.
+   *
+   * Not `lastPaddleX`, which is eight lines up and looks like the same number.
+   * That one is sampled at the *end* of `stepPeels`, after a skid has already
+   * moved the deck, precisely so a slide cannot feed itself — BANANA wants the
+   * player's own last movement. ENGLISH wants everything the deck did,
+   * skid included: a ball struck by a deck sliding out from under the player is
+   * a ball with english on it, and pretending otherwise would be the simulation
+   * lying about a shot the player is watching.
+   */
+  private paddleVx = 0;
+  private paddleWasX: number = gameConfig.paddle.initialX;
+  /**
    * HOMING's pull, 0 straight to 1 turning at the full rate — and only the
    * pull. The reticle is per ball and lives on `Ball.homingMarkTicks`, because
    * twelve balls hold twelve different bricks and a single number cannot say
@@ -621,6 +647,7 @@ export class ShatterGame {
         // stays shut.
         capsJammed: this.widthEaseKind === "J" && this.paddle.easingWidth,
         glueReach: this.glueReach,
+        english: this.englishBlend,
       },
       mirrorForm: this.mirrorForm,
       mirrorAfterImage: this.mirrorAfterImageTicks / gameConfig.effects.mirrorAfterImageTicks,
@@ -752,6 +779,11 @@ export class ShatterGame {
     // exactly that weld — the only one the player has not already been told
     // about by a timer running out.
     const gapBefore = this.splitGap();
+    // Above the gates with the readings around it, and above `stepPeels` for a
+    // reason of its own: the skid moves the deck later in this same tick, and
+    // sampling after it would count that displacement twice.
+    this.paddleVx = this.paddle.x - this.paddleWasX;
+    this.paddleWasX = this.paddle.x;
     // Above the gates with the peel's flight and for the same reason: a deck
     // caught halfway out from under a shockwave would hold there for the whole
     // detonation, and the drawn deck is the catch surface.
@@ -862,6 +894,11 @@ export class ShatterGame {
     // fault the blend has not reached. The kick clock below is gated instead —
     // see `stepHaywire`.
     this.haywireBlend = stepBlend(this.haywireBlend, this.timers.isActive("HA"), gameConfig.effects.haywireFrayTicks);
+    // Above the gates with the rest, and with the plainest reason of any of
+    // them: this one is only a picture. A deck frozen with the cloth half laid
+    // across it behind a shockwave is a surface caught mid-arrival, and the
+    // sweep is the only thing that says which way it was going.
+    this.englishBlend = stepBlend(this.englishBlend, this.timers.isActive("EN"), gameConfig.effects.englishFeltTicks);
     // STASIS's arrival read off the ring it already ships: `stasisRingLifeTicks`
     // is what the release ring expands over, so closing on the same count is
     // that ring run backwards. Any other number would give the capsule two ring
@@ -1018,6 +1055,12 @@ export class ShatterGame {
     // sound is what says the fault cleared rather than got quiet.
     if (expired.includes("HA")) {
       this.deps.sfx.haywireClear();
+    }
+    // The cloth coming off, and the one ending here that is *not* the whole of
+    // it: a ball already curving keeps curving until its own spin runs out. The
+    // sound belongs to the deck, which is where the change actually happens.
+    if (expired.includes("EN")) {
+      this.deps.sfx.englishClear();
     }
     // The field comes back the same way it went, and the turn back owes the
     // same half second of sound: without it the second tumble reads as a fault.
@@ -1745,6 +1788,76 @@ export class ShatterGame {
     }
   }
 
+  /**
+   * ENGLISH: the deck's travel at the moment of contact, banked on the ball.
+   *
+   * Replaces whatever was there rather than adding to it. The deck has just hit
+   * this ball, so what the deck was doing *is* the shot — and that makes a
+   * straight-bat return a real move, because it is the one way to take the spin
+   * back off a ball that is carrying some.
+   *
+   * The sign is the obvious one and has to be: a deck sliding right bends the
+   * ball right. Anything cleverer would be a control the player cannot learn by
+   * doing it once.
+   */
+  private putEnglishOn(ball: Ball): void {
+    const { perPixel, maxSpinRad, minPaddleVx } = gameConfig.powerUps.english;
+    // The deadzone, and it cuts both ways: under it the deck was tracking the
+    // ball rather than whipping at it, so the return is straight *and* clean.
+    if (Math.abs(this.paddleVx) < minPaddleVx) {
+      ball.spin = 0;
+      return;
+    }
+    ball.spin = Math.max(-maxSpinRad, Math.min(maxSpinRad, this.paddleVx * perPixel));
+    this.deps.sfx.englishWhip(Math.abs(ball.spin) / maxSpinRad);
+  }
+
+  /**
+   * One tick of the curve, and one tick of it running out.
+   *
+   * Rotation at constant speed, which is what a Magnus force on a ball that
+   * cannot slow down comes to — the same trick `glitchBall` and `steerBall`
+   * both do, for the third reason: the player bought an arc, not a boost.
+   *
+   * The decay is spent whether or not the turn lands, so the shot has a fixed
+   * life however it is spent. Below `minSpinRad` the arc is under a tenth of a
+   * degree a tick — less than the sprite can show — so it is dropped outright,
+   * which is also what puts the last fleck out.
+   *
+   * A heading that would come out flatter than the floor simply does not turn
+   * this tick. HOMING's answer rather than HAYWIRE's, because this is HOMING's
+   * situation: the spin is still there, the next bounce hands it a heading it
+   * can bend, and the arc resumes. HAYWIRE could not skip because it had fired
+   * sparks over the tick; nothing here has announced anything.
+   */
+  private curveBall(ball: Ball): void {
+    const { decay, minSpinRad, minVerticalFraction } = gameConfig.powerUps.english;
+    // A glued ball has no heading to bend, and bending the stored velocity would
+    // hand back a launch angle the player never chose.
+    if (ball.stuckOffsetX !== null) {
+      return;
+    }
+    const speed = Math.hypot(ball.velocity.x, ball.velocity.y);
+    if (speed === 0) {
+      return;
+    }
+    const turn = ball.spin;
+    const curved = Math.atan2(ball.velocity.y, ball.velocity.x) + turn;
+    ball.spin *= decay;
+    if (Math.abs(ball.spin) < minSpinRad) {
+      ball.spin = 0;
+    }
+    if (Math.abs(Math.sin(curved)) < minVerticalFraction) {
+      return;
+    }
+    // Below the floor test, and advanced by the turn that was actually
+    // delivered: a tick spent refusing a flat heading is a tick the flecks do
+    // not move either. They are showing the curve, not the capsule.
+    ball.spinPhase += turn;
+    ball.velocity.x = Math.cos(curved) * speed;
+    ball.velocity.y = Math.sin(curved) * speed;
+  }
+
   private moveBall(ball: Ball, index: number, timeScale: number): void {
     // Guidance, then physics. Anything that bends a ball without touching its
     // speed belongs here, once per tick — never inside the sub-step loop, where
@@ -1753,6 +1866,13 @@ export class ShatterGame {
     // The core goes first because it is physics; HOMING is aim, and it gives way
     // wherever the core has real hold of the ball.
     const insideCore = this.pullIntoCores(ball, index);
+    // Second, and above HOMING because it is the same kind of thing the core is:
+    // a spinning ball curves whether or not anything is aiming it, and the
+    // capsule that put the spin there may already have expired. Gated on the
+    // ball and not on the timer for exactly that reason.
+    if (ball.spin !== 0) {
+      this.curveBall(ball);
+    }
     if (this.timers.isActive("H") && !insideCore) {
       this.steerBall(ball);
     }
@@ -1772,6 +1892,7 @@ export class ShatterGame {
     const { left, right, top, height } = gameConfig.field;
     const size = gameConfig.ball.size;
     const pierce = () => this.timers.isActive("P");
+    const { wallKeep } = gameConfig.powerUps.english;
     const phasing = this.ghosted(ball, this.timers.isActive("GH"));
     // Neither deck can move between sub-steps — the paddle only moves on input —
     // so both are cut once per tick rather than per sub-step. The ghost is split
@@ -1813,6 +1934,12 @@ export class ShatterGame {
           ball.x -= dx;
           ball.velocity.x = -ball.velocity.x;
         }
+        // ENGLISH: the shot is delivered, so it is spent. A curve is aimed at a
+        // brick, and one that survived the brick would go on bending the ball
+        // round the wall for the rest of the rally — the arc has to end where it
+        // was pointed. Above the pierce branch and not inside it: a drill that
+        // kept its spin would corkscrew through the wall on a single whip.
+        ball.spin = 0;
         this.damageBrick(hit);
       }
 
@@ -1825,6 +1952,7 @@ export class ShatterGame {
           ball.y -= dy;
           ball.velocity.y = -ball.velocity.y;
         }
+        ball.spin = 0;
         this.damageBrick(hit);
       }
 
@@ -1880,20 +2008,43 @@ export class ShatterGame {
         }
       }
 
+      // ENGLISH: a bounce off the frame mirrors the spin and takes half of it —
+      // `wallKeep` is one negative number because those are one fact. All three
+      // walls and not just the two vertical ones: a reflection reverses
+      // handedness whichever way the surface lies, so a ball curving right off
+      // the ceiling comes back curving left. The half is what stops a hard whip
+      // surviving the rally it was thrown in.
+      //
+      // **Guarded on the velocity it is about to turn, and it has to be.** `dx`
+      // and `dy` are fixed for the whole tick, so a ball parked on a wall by one
+      // sub-step is walked back into it by every later one and re-clamped — at
+      // base speed that is two sub-steps and so two clamps per bounce. The three
+      // lines under each guard are all idempotent (`Math.abs` of an already
+      // positive number, a streak already zero); a multiply is not, and unguarded
+      // it quartered the spin on the commonest bounce in the game.
       if (ball.x <= left) {
         ball.x = left;
+        if (ball.velocity.x < 0) {
+          ball.spin *= wallKeep;
+        }
         ball.velocity.x = Math.abs(ball.velocity.x);
         this.bumpers.streak = 0;
         this.deps.sfx.wallBounce();
       }
       if (ball.x >= right - size) {
         ball.x = right - size;
+        if (ball.velocity.x > 0) {
+          ball.spin *= wallKeep;
+        }
         ball.velocity.x = -Math.abs(ball.velocity.x);
         this.bumpers.streak = 0;
         this.deps.sfx.wallBounce();
       }
       if (ball.y <= top) {
         ball.y = top;
+        if (ball.velocity.y < 0) {
+          ball.spin *= wallKeep;
+        }
         ball.velocity.y = Math.abs(ball.velocity.y);
         this.bumpers.streak = 0;
         this.deps.sfx.wallBounce();
@@ -1925,6 +2076,14 @@ export class ShatterGame {
         ball.velocity = computePaddleBounceVelocity(relativeHit, this.speed(), gameConfig.bounce.maxAngleRad);
         ball.y = paddleTop - size;
         this.deps.sfx.paddleBounce(relativeHit);
+        // Below the bounce, because the spin is put on the heading the deck just
+        // gave the ball rather than on the one it arrived with. MIRROR's ceiling
+        // deliberately does not do this: the ghost is a reflection of where the
+        // paddle *is*, not of what it is doing, and english off a surface the
+        // player is not holding would be a curve nobody threw.
+        if (this.timers.isActive("EN")) {
+          this.putEnglishOn(ball);
+        }
       }
 
       if (this.wallArmed && ball.velocity.y > 0 && ball.y + size >= gameConfig.powerUps.wallY) {
@@ -2674,6 +2833,9 @@ export class ShatterGame {
     this.haywireBlend = 0;
     this.haywireKickIn = 0;
     this.haywireKicking = false;
+    this.englishBlend = 0;
+    this.paddleVx = 0;
+    this.paddleWasX = this.paddle.x;
     this.stasisBlend = 0;
     this.homingBlend = 0;
     this.glueReach = 0;
@@ -3018,6 +3180,14 @@ export class ShatterGame {
       // spending the trap's loudest moment on its weakest one. A second HA
       // caught over a live one re-arms the same clock, which is the top-up.
       this.haywireKickIn = gameConfig.powerUps.haywire.kickTicks;
+    }
+    if (kind === "EN") {
+      // Nothing is armed on the catch and nothing needs to be: the shot is put
+      // on at the next contact, out of whatever the deck is doing then. A second
+      // ENGLISH caught over a live one is a plain top-up of the same twenty
+      // seconds, and any spin already in the air is untouched by it — the ball
+      // is carrying a shot, not a subscription.
+      this.timers.activate("EN", durations.EN);
     }
     if (kind === "XR") {
       this.timers.activate("XR", durations.XR);
@@ -3507,6 +3677,12 @@ export class ShatterGame {
       // serve drawn 4 px wide is a bug nobody would guess the cause of.
       ball.birthTicksLeft = 0;
       ball.phasing = false;
+      // Its own line for the cooldown's reason as well: spin outlives its
+      // capsule by design, so nothing else would ever take it off, and a serve
+      // that curved out of the deck would be the last life's shot arriving on
+      // this one.
+      ball.spin = 0;
+      ball.spinPhase = 0;
     });
     this.balls[0].followPaddle(this.paddle);
     this.snapDeck();
@@ -3556,6 +3732,9 @@ export class ShatterGame {
     this.haywireBlend = 0;
     this.haywireKickIn = 0;
     this.haywireKicking = false;
+    this.englishBlend = 0;
+    this.paddleVx = 0;
+    this.paddleWasX = this.paddle.x;
     this.stasisBlend = 0;
     this.homingBlend = 0;
     this.glueReach = 0;
@@ -3617,6 +3796,9 @@ export class ShatterGame {
     this.haywireBlend = 0;
     this.haywireKickIn = 0;
     this.haywireKicking = false;
+    this.englishBlend = 0;
+    this.paddleVx = 0;
+    this.paddleWasX = this.paddle.x;
     this.stasisBlend = 0;
     this.homingBlend = 0;
     this.glueReach = 0;
