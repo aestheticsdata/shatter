@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 
-import Fastify from "fastify";
+import Fastify, { LogController } from "fastify";
 
 import { openDatabase } from "./db.js";
 import { isValidScore, normalizeName } from "./validate.js";
@@ -36,11 +36,48 @@ setInterval(() => {
   }
 }, RATE_WINDOW_MS * 5).unref();
 
+// Zeus's health probe, and the only route here that exists for a machine rather than a player.
+// It used to be `/api/scores`: the registry had nowhere else to point, so the fleet checked whether
+// shatter was alive by reading the leaderboard out of SQLite every thirty seconds (IKN-32).
+const HEALTH_PATH = "/api/health";
+
+/**
+ * Both of fastify's access lines go through this controller — "incoming request" before any hook can
+ * run, "request completed" after the last one — which makes it the only place that can drop the
+ * first and still decide about the second once a status code exists.
+ *
+ * A probe answered 2xx leaves nothing behind. Anything else keeps its completed line, status and
+ * all, because a health check that has started failing is the one thing on this route worth reading.
+ * At two lines a probe, silencing the successful ones is 5 760 lines a day that stop burying the
+ * handful this server writes about actual play.
+ *
+ * Not `disableRequestLogging`: it is consulted at both ends with the request alone, so it cannot
+ * answer differently once the status exists, and fastify 5.12 deprecates it (FSTDEP023) in favour of
+ * this class. The query string is stripped rather than matched, so `/api/health?from=curl` is still
+ * a probe.
+ */
+class QuietHealthLog extends LogController {
+  incomingRequest(request, reply, metadata) {
+    if (isHealthProbe(request)) return;
+    super.incomingRequest(request, reply, metadata);
+  }
+
+  requestCompleted(error, request, reply, metadata) {
+    const answered = !error && reply.statusCode >= 200 && reply.statusCode < 300;
+    if (answered && isHealthProbe(request)) return;
+    super.requestCompleted(error, request, reply, metadata);
+  }
+}
+
+function isHealthProbe(request) {
+  return request.url.split("?")[0] === HEALTH_PATH;
+}
+
 const db = openDatabase(DB_PATH);
 // Trust exactly the local nginx/vite hop: trustProxy: true would let clients forge
 // request.ip via X-Forwarded-For and walk around the per-IP rate limit entirely.
 // nginx must set `proxy_set_header X-Forwarded-For $remote_addr;` (overwrite, not append).
-const app = Fastify({ logger: true, trustProxy: "127.0.0.1" });
+const app = Fastify({ logger: true, trustProxy: "127.0.0.1", logController: new QuietHealthLog() });
 
 // Fastify's default handler echoes error.message to the client — never expose
 // SQLite/driver internals. Its own 4xx (invalid JSON body, etc.) pass through.
@@ -51,6 +88,10 @@ app.setErrorHandler((error, request, reply) => {
   request.log.error(error);
   return reply.code(500).send({ error: "internal error" });
 });
+
+// Liveness only, and deliberately empty of detail: it answers from the process without touching
+// SQLite, so it says "this server is up" and never anything a stranger could learn from.
+app.get(HEALTH_PATH, () => ({ status: "ok" }));
 
 app.get("/api/scores", () => ({ scores: db.top(TOP_LIMIT) }));
 
