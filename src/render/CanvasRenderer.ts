@@ -18,6 +18,7 @@ import type { BrickGrain } from "@core/config/bricks";
 import type { WallErosion } from "@entities/bricks/BrickGrid";
 import type { Critter } from "@entities/effects/Critter";
 import type { Detonation } from "@entities/effects/Detonation";
+import type { Pip } from "@entities/effects/GravelField";
 import type { Meteor } from "@entities/effects/MeteorField";
 import type { Particle } from "@entities/effects/ParticleField";
 import type { Quake } from "@entities/effects/Quake";
@@ -569,6 +570,19 @@ export interface RenderView {
   // while it sets.
   erodeBlend: number;
   erodeSetting: boolean;
+  /**
+   * GRAVEL's fault, 0 whole wall to 1 every face split.
+   *
+   * One number and no companion flag, which is where it parts company with the
+   * pair above it. ERODE's wear is symmetric and needs to be told which way it
+   * is running; this one is a *front*, and a front says so by itself — each
+   * cell's turn comes at its own point in the blend, so running the number down
+   * heals the wall from the far end backwards with nothing else passed over.
+   */
+  gravelBlend: number;
+  // The chips in the air. Their own list rather than the debris pool, because
+  // they are a drop: what is falling here can still be caught.
+  pips: readonly Pip[];
   // BLACKOUT's iris, 0 lit to 1 fully dark. A number rather than a flag because
   // the light does not switch off, it collapses: the pools open wider than the
   // field at 0 and close onto the ball at 1, which is the same journey run
@@ -1366,6 +1380,15 @@ export class CanvasRenderer {
           if (view.erodeBlend > 0 && view.erodeBlend < 1) {
             this.drawErodeGrains(x, y, erodeX, erodeY, view.erodeBlend, view.erodeSetting);
           }
+          // The fractures this brick is opening, drawn from the brick for the
+          // trickle's reason exactly: they ride the wall through QUAKE's shake
+          // and stop the tick the brick is killed. Over the wear above them —
+          // a crack is on the face of whatever stone is left, so it is drawn
+          // last of the two — and under the revealed pill, which is a thing to
+          // read rather than weather.
+          if (view.gravelBlend > 0) {
+            this.drawGravelCracks(x, y, rowIndex, columnIndex, erodeX, erodeY, view.gravelBlend);
+          }
           // Branched rather than clipped blind. Gating on the blend alone would
           // pay a save/beginPath/rect/clip/restore on every revealed pill on
           // every one of the capsule's 300 frames, and lean on a negative-height
@@ -1457,6 +1480,12 @@ export class CanvasRenderer {
     if (view.blackoutBlend <= 0) {
       this.drawDrops(view);
     }
+    // With the capsules and under the deck, because a pip is one: it is caught
+    // on the same surface, it is worth points, and the deck sliding over one
+    // has to be seen covering it. Unlike a capsule it is *not* redrawn above a
+    // blackout veil — that carve-out exists so a trap cannot be caught blind,
+    // and there is no such thing as a pip you regret taking.
+    this.drawPips(view);
     for (const shot of view.shots) {
       if (shot.active) {
         this.spritePixel(shot.x, shot.y, 2, 9, canvasPalette.laserShot);
@@ -2756,6 +2785,135 @@ export class CanvasRenderer {
         1,
         1,
         index % 2 === 0 ? canvasPalette.erodeGrain : canvasPalette.erodeDust,
+      );
+    }
+  }
+
+  /**
+   * GRAVEL: the fault crossing one brick's face, and the grit it lets go while
+   * it crosses.
+   *
+   * **A front and not a curtain.** The blend is one number for the wall, and
+   * each cell turns it into a moment of its own: the front's position is the
+   * column's share of `wipeSpan`, the cell's own hash nudges it either way by
+   * `jitter`, and whatever is left of the fade is what that brick spends
+   * splitting. So the crack arrives along the wall a course at a time with a
+   * ragged edge, every brick visibly opens rather than switching on, and the
+   * expiry is the same thing read backwards — the far column heals first,
+   * because it is the one whose turn came last.
+   *
+   * Hashed off the cell's coordinates rather than kept as state, for the erode
+   * trickle's reason and its own: a brick's fractures have to be in the same
+   * place on every frame of the twelve seconds it wears them, and a wall that
+   * re-cracked each frame would boil.
+   *
+   * The grit is on the **face**, drifting down across the stone and looping,
+   * which is the one thing holding it apart from the trickle a few lines up:
+   * ERODE's grains come out of the seams *between* the bricks, because that
+   * capsule is about the mortar. This one is about the brick, so the dust is on
+   * it.
+   */
+  private drawGravelCracks(
+    x: number,
+    y: number,
+    row: number,
+    column: number,
+    erodeX: number,
+    erodeY: number,
+    blend: number,
+  ): void {
+    const { wipeSpan, jitter, fractures, fractureLength, grit, gritFall } = gameConfig.powerUps.gravel.crack;
+    const { brickWidth, brickHeight, columns } = gameConfig.grid;
+    // The body, not the cell: a wall ERODE has worn to 20x6 has to crack over
+    // what it has left, or the fault would run through the lane beside it.
+    const padX = Math.max(1, erodeX);
+    const padY = Math.max(1, erodeY);
+    const bodyWidth = brickWidth - padX * 2;
+    const bodyHeight = brickHeight - padY * 2;
+    const cellHash = grainHash(column * 7 + 1, row * 13 + 1);
+    // The cell's turn: the column's share of the crossing, plus a slip of its
+    // own. The slip is **one-sided** and the share is shortened by exactly its
+    // size, so `start` lands inside `[0, wipeSpan]` by construction and every
+    // cell has the whole of `1 - wipeSpan` left to split in. Two-sided, the far
+    // column would finish past 1 — its crack would stop a pixel short for the
+    // whole twelve seconds and, worse, it would sit inside its own split
+    // shedding grit the entire time, since the dust is drawn while a cell is
+    // still moving.
+    const start = (column / (columns - 1)) * (wipeSpan - jitter) + (((cellHash >>> 7) % 1001) / 1000) * jitter;
+    const progress = Math.min(1, Math.max(0, (blend - start) / (1 - wipeSpan)));
+    if (progress <= 0) {
+      return;
+    }
+
+    for (let index = 0; index < fractures; index++) {
+      const hash = grainHash(cellHash, index);
+      // Started inside the body by two, so a fracture at full length still has
+      // room to run without eating the bevel it is drawn on.
+      let crackX = x + padX + 1 + (hash % Math.max(1, bodyWidth - fractureLength - 2));
+      let crackY = y + padY + 1 + ((hash >>> 8) % Math.max(1, bodyHeight - 3));
+      const drawn = Math.round(progress * fractureLength);
+      for (let step = 0; step < drawn; step++) {
+        this.pixel(crackX, crackY, 1, 1, canvasPalette.gravelCrack);
+        // Always along, sometimes down: a line that stepped both ways every
+        // pixel is a diagonal, and a diagonal is a cut rather than a crack.
+        crackX++;
+        crackY += (hash >>> (step + 12)) & 1;
+        if (crackY >= y + padY + bodyHeight - 1) {
+          crackY = y + padY + bodyHeight - 2;
+        }
+      }
+    }
+
+    if (progress >= 1) {
+      return;
+    }
+    // A triangle over the cell's own split, so the dust starts and stops with
+    // it rather than being switched on: heaviest while the face is actually
+    // opening, gone by the time it has set. The same shape ERODE puts over the
+    // wall's wear, spent per brick because this front is per brick.
+    const weight = Math.round(Math.min(progress, 1 - progress) * 200);
+    for (let index = 0; index < grit; index++) {
+      const hash = grainHash(cellHash, fractures + index);
+      if ((hash >>> 12) % 100 >= weight) {
+        continue;
+      }
+      const fallen = (this.frameCount * 0.5 + (hash % gritFall)) % gritFall;
+      this.pixel(x + padX + (hash % bodyWidth), y + padY + (fallen % bodyHeight), 1, 1, canvasPalette.gravelDust);
+    }
+  }
+
+  /**
+   * GRAVEL's chips, tumbling.
+   *
+   * Three tones on a 4 px square, which is the smallest block that can turn
+   * over and still be told from a star: the body is the capsule's own stone,
+   * one corner carries the pale and
+   * the opposite corner carries the crack's own near-black, and the pair walks
+   * round the square on `tumbleTicks`. A lit corner alone would only blink; a
+   * lit corner with a shadow across from it is a solid object catching the
+   * light from a different side, which is what says the chips are stone and not
+   * sparks.
+   *
+   * Off the frame count plus the pip's own seed, so a shower of sixty is never
+   * in step — sixty blocks turning together would read as one flashing object.
+   */
+  private drawPips(view: RenderView): void {
+    const { size, tumbleTicks } = gameConfig.powerUps.gravel;
+    for (const pip of view.pips) {
+      if (!pip.active) {
+        continue;
+      }
+      this.spritePixel(pip.x, pip.y, size, size, canvasPalette.gravelChip);
+      const corner = (Math.floor(this.frameCount / tumbleTicks) + pip.seed) % 4;
+      const litX = pip.x + (corner === 1 || corner === 2 ? size - 1 : 0);
+      const litY = pip.y + (corner >= 2 ? size - 1 : 0);
+      this.spritePixel(litX, litY, 1, 1, canvasPalette.gravelChipLit);
+      this.spritePixel(
+        pip.x + (size - 1) - (litX - pip.x),
+        pip.y + (size - 1) - (litY - pip.y),
+        1,
+        1,
+        canvasPalette.gravelCrack,
       );
     }
   }

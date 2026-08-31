@@ -318,6 +318,128 @@ export const gameConfig = {
       },
     },
     /**
+     * GRAVEL: what a killed brick leaves on the way down.
+     *
+     * **The pips are a drop, not debris, and every number here follows from
+     * that.** They pay points, so they are on the capsule side of the game's
+     * oldest economy line — the one that says a NUKE, a ZAP, the grub, a meteor
+     * and a PYRE crater take the wall without paying it out. They are caught on
+     * the deck, so they have to be *reachable*: a chip that fell like debris
+     * would be a reward the player watches go past.
+     *
+     * `maxFall` is the whole of that. Under gravity alone a pip leaving the top
+     * row arrives at the deck at 6.4 px a tick, which is most of a paddle's
+     * height in one frame — it would cross the catch band between two ticks and
+     * read as a chip that went through the deck. Capped at 3.2 it accelerates
+     * for the first 36 ticks, settles, and takes about a second and a half to
+     * come down: long enough to be a decision, short enough that the kill it
+     * came out of is still the thing on screen.
+     *
+     * `drag` is on the horizontal only, and it is what keeps the decision
+     * *local*. A pip thrown at 1.9 px a tick with no drag travels 165 px
+     * sideways over that fall — across half the field, so the choice stops
+     * being "chase the gravel or cover the ball" and becomes "the gravel went
+     * somewhere". At 0.97 a tick the whole horizontal budget is about 60 px and
+     * a typical one is thirty: the shower lands under the brick that threw it.
+     */
+    gravel: {
+      // Per kill, rolled per brick. The ticket's four to six, and the reason it
+      // is a range rather than five: a fixed count over a row of twelve reads
+      // as a machine dispensing, and the wall is supposed to be crumbling.
+      minPips: 4,
+      maxPips: 6,
+      // **The cap, and the ticket's note about a NUKE answered as a pool rather
+      // than as a clamp.** Sixty-four is a NOVA blast's worth and a little over:
+      // 25 cells asking for five each is 125, so the widest thing on the board
+      // spends the pool and stops, which is a shower the player can read instead
+      // of a screen of stone. A full pool simply gives no more — never a
+      // recycled slot, because a pip vanishing mid-fall is a reward taken back.
+      poolSize: 64,
+      // What one is worth, and what a kill is worth if you take all of it:
+      // 120-180 on top of a brick's own 60-200, which is roughly doubling a
+      // brick and is only ever collected by leaving the ball to look after
+      // itself. PAYDAY doubles it and TURBO does not, by the rule the bumper
+      // kick and the clear bonus already follow — the triple is for kills.
+      points: 30,
+      // A chip, in whole pixels, and **four rather than three because of the
+      // starfields**. The background palette's own rule is that a speck tone
+      // only ever lands on a 1-3 px detail — stars, nodes, landing pads — so
+      // three is exactly the size of the largest thing already scattered across
+      // this field, and a chip that size is a reward the player has to pick out
+      // of the sky. Four is over the top of that rule and still nothing like a
+      // pill: it leaves a 2x2 core between the lit corner and the dark one, so
+      // it reads as a block with a light on it rather than as a checker.
+      size: 4,
+      // The scatter off the dead brick. Slower than the debris burst it is
+      // thrown alongside (0.6-1.6) so the pips visibly separate from their own
+      // dust inside the first few ticks — the dust is what happened, the pips
+      // are what to do about it.
+      minSpeed: 0.5,
+      maxSpeed: 1.4,
+      // Under the debris' own 0.12, for `maxFall`'s reason one rung earlier: a
+      // pip has to be catchable, and a catchable thing falls slower than the
+      // wreckage it came out of.
+      gravity: 0.075,
+      maxFall: 3.2,
+      drag: 0.97,
+      // How long the lit corner holds before it moves round. Seven ticks is
+      // about nine turns over a pip's fall — a tumble rather than a flicker,
+      // and off the frame count so a shower of them is never in step.
+      tumbleTicks: 7,
+      // The catch, as a puff of the capsule's own stone. Small: this fires up
+      // to sixty times in a shower, and a death's worth of debris a chip would
+      // bury the field the player is trying to read.
+      catchBurst: {
+        chunkCount: 3,
+        minChunkSize: 1,
+        maxChunkSize: 1,
+        minSpeed: 0.4,
+        maxSpeed: 1.2,
+        minLifeTicks: 8,
+        maxLifeTicks: 16,
+      },
+      /**
+       * The cracks the wall wears while the capsule is live, and the fault that
+       * puts them there.
+       *
+       * `wipeSpan` is the share of the fade the front spends crossing the wall,
+       * and the rest is what one brick spends splitting: at 0.55 the fault
+       * reaches the last column just past halfway through the half second, and
+       * every brick still has 45 % of it to open its own cracks in. Both at
+       * once is the point — a wipe with no per-brick growth is a curtain, and
+       * per-brick growth with no wipe is the whole wall cracking on one frame.
+       *
+       * Left to right, because the two fronts already on this field are not:
+       * PAYDAY's tide runs up the rows and XRAY's bar runs down them. A fault
+       * travelling along a course of masonry is the one direction left, and it
+       * is the right one for the idiom.
+       *
+       * `jitter` is how far a cell's own turn may slip behind where the front
+       * is. Without it the fault is a ruler crossing the wall; with it the
+       * column ahead has started before the column behind has finished, and it
+       * reads as stone. **Behind and never ahead**, and the crossing is
+       * shortened by exactly this much to pay for it: a slip that could push a
+       * cell past the end of the wipe is a cell that never finishes splitting,
+       * which would leave it a pixel short of cracked and shedding grit for the
+       * whole twelve seconds.
+       */
+      crack: {
+        wipeSpan: 0.55,
+        jitter: 0.12,
+        // Fractures per brick face, and how far each walks. Two of five is ten
+        // dark pixels on a 28x10 body — enough to read as split at a glance
+        // across sixty bricks, few enough that the wall keeps its own colour
+        // for the twelve seconds it wears them.
+        fractures: 2,
+        fractureLength: 5,
+        // The dusting, per brick, while that brick is actually splitting. Gone
+        // by the time it has set, so the grit is the arrival rather than a
+        // weather effect the wall wears for twelve seconds.
+        grit: 4,
+        gritFall: 9,
+      },
+    },
+    /**
      * PYRE: the capsule that spends a ball for a crater.
      *
      * **It brings its own ammo.** The ticket had it arm whatever the field
@@ -940,6 +1062,14 @@ export const gameConfig = {
     // up, and the crowns on the balls will not light until it is half across —
     // which is the ticket's "then", spent rather than described.
     pyreEmberTicks: 24,
+    // GRAVEL's fault crossing the wall and healing back off it. Thirty, which
+    // is the half second the ticket asks for at the expiry and the same length
+    // every other field-wide picture takes — this one changes nothing but the
+    // face of the bricks, so it may arrive as fast as the eye can follow a
+    // crack. The whole of both ends is inside this number: the front crosses
+    // the wall in the first 55 % of it and each brick splits in the rest, and
+    // running down it does both backwards.
+    gravelCrackTicks: 30,
     // ERODE's wear, each way: how long the mortar takes to give and to set again.
     // Sixty rather than the thirty the field-wide pictures take, because this
     // one is not a picture — the collider shrinks with it, and a wall that

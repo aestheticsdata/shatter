@@ -820,6 +820,80 @@ const SCENES: Record<PowerUpKind, Painter> = {
     field.deck();
   },
   /**
+   * Both halves of the capsule in one frame: the wall that is going to crumble,
+   * and one brick that already has.
+   *
+   * **The cracks run at double length and the chips at five across**, which is
+   * more than the field gives either. PYRE's crown paid for this rule and it
+   * bites hardest here: a tile is the field divided by three, so a 1 px
+   * fracture is a third of a pixel and a chip is barely one — a card painted at
+   * the real sizes would be a plain wall over a plain deck. What has to survive
+   * the divide is that the faces are *split* and that something is *falling*,
+   * so those are the two things drawn at a size that can.
+   *
+   * The fracture is lengthened rather than thickened, which is the whole
+   * difference between a card that says cracked and one that says punctured: a
+   * 2 px-square walk resolves at a third into a row of black holes, while a
+   * long chain of 2x1 dashes resolves into the dark line it is meant to be.
+   *
+   * The fault is staged mid-crossing rather than complete: the right-hand
+   * columns are still whole, which says the cracks arrive along the wall rather
+   * than appearing on it, and is the only thing one still frame can say about a
+   * front.
+   */
+  GR: (field) => {
+    const dead = { column: 4, row: 2 };
+    field.wall();
+    for (let row = 0; row < DEFAULT_WALL.length; row++) {
+      for (let column = 0; column < COLUMNS; column++) {
+        // Where the front has got to, staged as the game stages it: the column's
+        // own share of the wall, jittered off its own hash so the edge is ragged.
+        const hash = ((column * 73856093) ^ (row * 19349663)) >>> 6;
+        if (column * 12 + (hash % 24) > 96) {
+          continue;
+        }
+        const { x, y } = field.brickAt(column, row);
+        for (let index = 0; index < 2; index++) {
+          let crackX = x + 3 + ((hash >>> (index * 3)) % 12);
+          let crackY = y + 3 + ((hash >>> (index * 5)) % 5);
+          for (let step = 0; step < 7; step++) {
+            field.rect(crackX, crackY, 2, 1, canvasPalette.gravelCrack);
+            crackX += 2;
+            crackY += (hash >>> (step + index * 7)) & 1;
+          }
+        }
+      }
+    }
+    // The brick that went, and the flash it went in: the pips leave the hole
+    // rather than the wall, so the card says a *kill* crumbles and not the
+    // capsule.
+    field.clear(dead.column, dead.row);
+    const origin = field.brickAt(dead.column, dead.row);
+    field.rect(origin.x + 8, origin.y + 3, 14, 6, canvasPalette.deathFlash);
+    // The shower, spread down and out of that hole and one of them arriving at
+    // the deck — the whole of the choice the capsule offers, which is that the
+    // chips and the ball want the deck in different places.
+    for (const [x, y] of [
+      [-14, 14],
+      [-4, 26],
+      [6, 18],
+      [16, 34],
+      [-22, 44],
+      [10, 58],
+      [-2, 96],
+      [24, 150],
+      [-30, 212],
+    ]) {
+      const chipX = origin.x + BRICK_WIDTH / 2 + x;
+      const chipY = origin.y + BRICK_HEIGHT / 2 + y;
+      field.rect(chipX, chipY, 5, 5, canvasPalette.gravelChip);
+      field.rect(chipX, chipY, 2, 2, canvasPalette.gravelChipLit);
+      field.rect(chipX + 3, chipY + 3, 2, 2, canvasPalette.gravelCrack);
+    }
+    field.ball(300, 150);
+    field.deck();
+  },
+  /**
    * The trade, both halves of it in one frame: a crater where one ball went,
    * and two more still wearing their fire.
    *

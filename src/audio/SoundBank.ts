@@ -586,6 +586,59 @@ export class SoundBank {
   }
 
   /**
+   * GRAVEL: the dry rasp of a wall going to pieces without falling down.
+   *
+   * **A rasp and not a rumble**, which is the whole distance between this and
+   * ERODE's `mortarGive` — the two capsules are next to each other in the
+   * catalogue and neighbours on the wall, and the one thing they may not be is
+   * hard to tell apart with the eyes shut. That one sinks from a hiss to a
+   * rumble over a full second, because the mortar is *going somewhere*. This is
+   * high, short and gritty and it stays there: nothing leaves the wall, the
+   * faces simply crack.
+   *
+   * Scored to `gravelCrackTicks` — half a second — so the noise runs out on the
+   * frame the fault reaches the last column.
+   */
+  gravelRasp(): void {
+    if (!this.allow("gravelRasp")) {
+      return;
+    }
+    this.noise({ dur: 0.5, vol: 0.1, filter: { type: "bandpass", freq: 2400, freqEnd: 3600, q: 1.4 } });
+    this.tone({ freq: 220, dur: 0.09, vol: 0.05 });
+  }
+
+  // The faces closing again: the same grit run short and downward, and only an
+  // announcement — the cracks heal along the wall on their own clock, from the
+  // far end back. Quieter than the arrival by half, the way every ending in the
+  // roster is: the player is being told a thing stopped, not sold one.
+  gravelSettle(): void {
+    if (!this.allow("gravelSettle")) {
+      return;
+    }
+    this.noise({ dur: 0.35, vol: 0.06, filter: { type: "bandpass", freq: 3200, freqEnd: 1500, q: 1.4 } });
+  }
+
+  /**
+   * One chip on the deck: the coin tick.
+   *
+   * A single high square, and short enough that sixty of them in a shower read
+   * as a rattle rather than as a chord. The guard is the plain one on purpose —
+   * a NOVA's worth of gravel arriving over half a second should be *heard* as
+   * that much money, and the 30 ms window is what stops the ones landing on the
+   * same frame from stacking into a single loud blip.
+   *
+   * Deliberately not the capsule chime's three-note run: that says "you have a
+   * thing", and this is change falling into a hand.
+   */
+  gravelPip(): void {
+    if (!this.allow("gravelPip")) {
+      return;
+    }
+    this.tone({ freq: 1568, dur: 0.035, vol: 0.05 });
+    this.tone({ freq: 2093, dur: 0.025, vol: 0.035, delayS: 0.02 });
+  }
+
+  /**
    * PYRE: the fire taking. A short noise sweep opening upward under two notes a
    * fifth apart — a match struck, then the deck catching.
    *

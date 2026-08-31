@@ -396,13 +396,13 @@ that gate.
 
 ## 7. A capsule, end to end
 
-44 capsules, and not one of them is a special case in the drop machinery. The
+47 capsules, and not one of them is a special case in the drop machinery. The
 whole roster is a table.
 
 ```text
   src/core/config/powerUps.ts
   +---------------------------------------------------------------+
-  | { id, name, color, letter, ticks, tier, timed, blurb }  x 44   |
+  | { id, name, color, letter, ticks, tier, timed, blurb }  x 47   |
   +---------------------------------------------------------------+
         |
         |  everything below DERIVES from that table:
@@ -655,12 +655,16 @@ rattle arriving over a stronger is dropped rather than taken —
 [`Critter`](../src/entities/effects/Critter.ts),
 [`Detonation`](../src/entities/effects/Detonation.ts),
 [`ParticleField`](../src/entities/effects/ParticleField.ts),
-[`Erosion`](../src/entities/effects/Erosion.ts). Those eight left the
-class cleanly because each is a simulation of its own that `ShatterGame` merely
-steps and reads — and the last of them is the only one the wall itself reads
-back, through the `WallErosion` interface `BrickGrid` declares for it, which is
-what keeps ERODE's hitbox out of the grid's vocabulary the way `topOffset` keeps
-QUAKE's out of it. The remaining bulk is the effects that are _modifiers on shared
+[`Erosion`](../src/entities/effects/Erosion.ts),
+[`GravelField`](../src/entities/effects/GravelField.ts) — which is
+`ParticleField`'s twin and deliberately not a mode of it, because GRAVEL's chips
+are worth points: a pool that refuses instead of recycling its oldest slot, a
+capped fall, and a catch test are all things debris has no use for and a reward
+cannot do without. Those nine left the class cleanly because each is a
+simulation of its own that `ShatterGame` merely steps and reads — and `Erosion`
+is the only one the wall itself reads back, through the `WallErosion` interface
+`BrickGrid` declares for it, which is what keeps ERODE's hitbox out of the
+grid's vocabulary the way `topOffset` keeps QUAKE's out of it. The remaining bulk is the effects that are _modifiers on shared
 state_, and the honest next cut is not "one class per capsule" but a `BlendBank`
 that owns the ~20 named blends and their step-above-the-gates rule as data,
 shrinking the field list without pretending the rules are separable.

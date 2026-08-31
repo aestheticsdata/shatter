@@ -217,6 +217,31 @@ export const canvasPalette = {
   erodeGrain: "#8c8869",
   erodeDust: "#c4c0a0",
   /**
+   * GRAVEL: the fractures on the wall, and the chips that come off it.
+   *
+   * The crack is a **near-black** rather than a dark version of the capsule's
+   * own stone, and that is the one tone here that had to be measured against
+   * the bricks instead of against the roster: a fracture is drawn on top of six
+   * different brick bodies, and anything carrying a hue of its own would read
+   * as a crack on four of them and as a smudge on the other two. A shadow reads
+   * on everything, which is what a crack in a face actually is.
+   *
+   * The chip is the pill's own body with the pale on one corner and the crack's
+   * own near-black on the corner across from it, and the pair walks the square
+   * on `tumbleTicks`. A lit corner on its own would only blink; a lit corner
+   * with a shadow opposite is a solid thing catching the light from a new side,
+   * which is the whole of the tumble and the reason there are three tones on
+   * the block rather than one.
+   *
+   * The dust is the pale taken further up, because it is 1 px and lives nine
+   * ticks over a brick face that is already mid-value: the grit either arrives
+   * brighter than the stone it comes off or it is not there at all.
+   */
+  gravelCrack: "#26261f",
+  gravelChip: "#8a8c78",
+  gravelChipLit: "#c4c6ae",
+  gravelDust: "#d8dac0",
+  /**
    * PYRE: the fire on the balls, the ember over the deck, and the crater.
    *
    * The crown is drawn **cooling upward**, which is the one thing that made it

@@ -18,6 +18,7 @@ import { BumperField } from "@entities/effects/BumperField";
 import { Critter } from "@entities/effects/Critter";
 import { Detonation } from "@entities/effects/Detonation";
 import { Erosion } from "@entities/effects/Erosion";
+import { GravelField } from "@entities/effects/GravelField";
 import { MeteorField } from "@entities/effects/MeteorField";
 import { ParticleField } from "@entities/effects/ParticleField";
 import { Quake } from "@entities/effects/Quake";
@@ -307,6 +308,10 @@ export class ShatterGame {
   private resyncTicksLeft = 0;
   private readonly bumpers = new BumperField();
   private readonly quake = new Quake();
+  // GRAVEL's chips, in the air. Its own pool rather than the debris field's,
+  // because a pip is worth points: see `GravelField` for the three things that
+  // follow from that and none of which a `Particle` could carry.
+  private readonly gravel = new GravelField();
   // ERODE's wear, cell by cell. Handed to the grid once at construction and read
   // by its hitbox from there — this class only steps it.
   private readonly erosion = new Erosion();
@@ -387,6 +392,21 @@ export class ShatterGame {
    * ball has gone.
    */
   private erodeBlend = 0;
+
+  /**
+   * GRAVEL's fault, 0 whole wall to 1 every face split.
+   *
+   * The **held cue**, and the only one this capsule has: for twelve seconds
+   * every brick on the wall wears the cracks that say the next kill will
+   * crumble. It is on the wall rather than in the POWER inset by the rule
+   * ANGEL's wings paid for — the cue belongs on the thing the capsule changes,
+   * and what this one changes is what a brick does when it dies.
+   *
+   * One number for the wall and no companion flag, unlike the wear above it:
+   * each cell reads its own turn out of this, so running it down heals the wall
+   * from the far column back with nothing else to pass over.
+   */
+  private gravelBlend = 0;
   /**
    * MAGNET's reach, 0 to 1 of the full 96 px either side of the deck.
    *
@@ -738,6 +758,11 @@ export class ShatterGame {
       // the tick the capsule ends rather than a tick later.
       erodeBlend: this.erodeBlend,
       erodeSetting: !this.timers.isActive("ER"),
+      // One number, and the pips it is about. The fault says which bricks will
+      // crumble and the pool says which ones already did — the capsule's state
+      // and its history, the way SNAP's lattice and its marks are two fields.
+      gravelBlend: this.gravelBlend,
+      pips: this.gravel.pips,
       paydayFront: this.paydayFront(),
       // The two freezes light the field by definition: a nuke is the brightest
       // thing the game does, and the last brick's shatter has to be seen. Both
@@ -877,6 +902,10 @@ export class ShatterGame {
     // The lattice, above the gates with every other picture: a grid frozen half
     // dithered behind a shockwave is graph paper with holes in it.
     this.snapBlend = stepBlend(this.snapBlend, this.timers.isActive("SN"), gameConfig.effects.snapGridTicks);
+    // The fault, above the gates with every other picture: this one changes
+    // nothing but the face of the bricks, and a wall frozen with the crack
+    // halfway along it is a wall someone stopped drawing.
+    this.gravelBlend = stepBlend(this.gravelBlend, this.timers.isActive("GR"), gameConfig.effects.gravelCrackTicks);
     // Beside the brick flashes at the top of the tick and for their reason: the
     // marks are a record of something that already happened, and a bracket held
     // still behind a detonation is pointing at a ball that has long gone.
@@ -1185,6 +1214,14 @@ export class ShatterGame {
     if (expired.includes("ER")) {
       this.deps.sfx.mortarSet();
     }
+    // The faces closing again, and — like the mortar setting above it — the
+    // announcement only: the cracks heal along the wall from the far column
+    // back over the next half second, and a kill landing inside that half
+    // second no longer crumbles. What this marks is the moment the wall stopped
+    // owing you gravel.
+    if (expired.includes("GR")) {
+      this.deps.sfx.gravelSettle();
+    }
     // The fires going out, one ball at a time. Nothing has to be undone — a
     // click after this is simply a click again — so the crowns guttering are the
     // whole of the ending, and they are owed one: the standing cue is on the
@@ -1293,6 +1330,7 @@ export class ShatterGame {
         this.applyPowerUp(kind);
         return true;
       });
+      this.stepGravel();
     }
   }
 
@@ -2601,6 +2639,22 @@ export class ShatterGame {
       this.deps.sfx.brickDestroyed(hit.row);
     }
     this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
+    // GRAVEL: the chips, thrown alongside the brick's own dust. Here and
+    // nowhere else, which is the capsule's one real rule: `damageBrick` is
+    // every kill a *ball* is behind — direct, laser, BLAST splash, CHAIN link —
+    // and a pip is worth points, so it sits on the capsule side of the line
+    // NUKE, ZAP, the grub, a meteor and a PYRE crater are already on. Those
+    // five take the wall without paying it out, and thirteen bricks each
+    // throwing five 30-point chips would make a spent ball worth more than the
+    // level.
+    //
+    // It is also the honest half of the ticket's note about capping a NUKE or a
+    // BLAST fired during the window. The nuke is gone by construction, and what
+    // is left to cap is a NOVA taking 25 cells at once — which the pool does by
+    // running out rather than by clamping. See `GravelField.burst`.
+    if (this.timers.isActive("GR")) {
+      this.crumbleBrick(hit);
+    }
 
     // What falls was rolled into the brick when the wall was built, so a capsule
     // XRAY showed is the capsule that comes out. MAGNET's guarantee still rolls
@@ -2767,6 +2821,25 @@ export class ShatterGame {
       top + hit.row * brickHeight + brickHeight / 2 - this.grid.topOffset,
       hit.cell.kind,
       gameConfig.powerUps.erode.clipBurst,
+    );
+  }
+
+  /**
+   * GRAVEL: one dead brick's worth of chips.
+   *
+   * Thrown from where the brick is being *painted* rather than from where its
+   * index says it is — the clip puff's reading, and for its reason: QUAKE's
+   * wall is up to a row above its own row while it falls, and gravel arriving
+   * out of thin air a brick's height below the stone it came from would be on
+   * the one frame the player is watching the wall move.
+   */
+  private crumbleBrick(hit: BrickHit): void {
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    const { minPips, maxPips, size } = gameConfig.powerUps.gravel;
+    this.gravel.burst(
+      left + hit.column * brickWidth + (brickWidth - size) / 2,
+      top + hit.row * brickHeight + (brickHeight - size) / 2 - this.grid.topOffset,
+      minPips + Math.floor(Math.random() * (maxPips - minPips + 1)),
     );
   }
 
@@ -3098,6 +3171,8 @@ export class ShatterGame {
     this.pyreBlasts = [];
     this.erodeBlend = 0;
     this.erosion.reset();
+    this.gravelBlend = 0;
+    this.gravel.reset();
     this.ghostBlend = 0;
     this.magnetBlend = 0;
     this.paydayBlend = 0;
@@ -3478,6 +3553,14 @@ export class ShatterGame {
     if (kind === "ER") {
       this.timers.activate("ER", durations.ER);
     }
+    if (kind === "GR") {
+      // The timer and nothing else. The cracks are the capsule's whole state
+      // and they chase this by themselves; a second GRAVEL over a live one is a
+      // plain top-up of the twelve seconds, and the pips already falling are
+      // nobody's business but their own — they were paid for by a kill that
+      // has already happened.
+      this.timers.activate("GR", durations.GR);
+    }
     if (kind === "PY") {
       this.timers.activate("PY", durations.PY);
       // The ammunition, and the reason this capsule is not a dud. Through
@@ -3566,6 +3649,11 @@ export class ShatterGame {
       // Its own strike instead of the pickup chime: what happened is two balls
       // arriving already alight, and the chime says "you have a thing".
       this.deps.sfx.pyreLight();
+    } else if (kind === "GR") {
+      // Its own rasp instead of the pickup chime, and it has to be its own: the
+      // chime says "you have a thing", and what the player has to hear here is
+      // sixty brick faces splitting at once.
+      this.deps.sfx.gravelRasp();
     } else if (kind === "ER") {
       this.deps.sfx.mortarGive();
     } else if (kind === "V") {
@@ -4025,6 +4113,37 @@ export class ShatterGame {
   // freed, which is what CHARGE spends its held salvo on — this is called on
   // every click during play, and a count nobody checked would make an empty
   // click a free salvo.
+  /**
+   * GRAVEL's chips, one tick, and what the deck took off them.
+   *
+   * Beside the capsule catch and inside its gate for its reasons exactly: a pip
+   * is a drop, so nothing may be collected behind a pending clear and nothing
+   * moves behind a detonation — the freeze returns long before this, so a
+   * shower caught by a shockwave hangs in the air with everything else and
+   * finishes falling on the tick the field is the player's again.
+   *
+   * PAYDAY doubles the take and TURBO does not, which is the rule the bumper
+   * kick and the level-clear bonus already follow: the triple is for kills, and
+   * a shower farmed under it would pay more than the wall it came out of.
+   *
+   * One score line and one tick for the whole shower, and a puff of granite per
+   * chip — see `GravelField.step` for why those are two different scales. The
+   * puff is the game's stone material rather than a tone of the capsule's,
+   * because that is honestly what broke: a chip landing on the deck is granite
+   * hitting wood.
+   */
+  private stepGravel(): void {
+    const { points, catchBurst } = gameConfig.powerUps.gravel;
+    const caught = this.gravel.step({ cores: this.cores, paddleSegments: this.paddleSegments() }, (x, y) =>
+      this.particles.burst(x, y, "R", catchBurst),
+    );
+    if (caught === 0) {
+      return;
+    }
+    this.score += points * caught * this.paydayMultiplier();
+    this.deps.sfx.gravelPip();
+  }
+
   private releaseStuckBalls(): number {
     let released = 0;
     for (const ball of this.balls) {
@@ -4241,6 +4360,8 @@ export class ShatterGame {
     this.pyreBlasts = [];
     this.erodeBlend = 0;
     this.erosion.reset();
+    this.gravelBlend = 0;
+    this.gravel.reset();
     this.ghostBlend = 0;
     this.magnetBlend = 0;
     this.paydayBlend = 0;
@@ -4311,6 +4432,8 @@ export class ShatterGame {
     this.pyreBlasts = [];
     this.erodeBlend = 0;
     this.erosion.reset();
+    this.gravelBlend = 0;
+    this.gravel.reset();
     this.ghostBlend = 0;
     this.magnetBlend = 0;
     this.paydayBlend = 0;

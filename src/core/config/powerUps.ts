@@ -250,6 +250,29 @@ export const POWER_UPS = [
   // it sits 93 away, which matters more, because BOMB and PYRE are the two
   // capsules on the board about something exploding.
   { id: "PY", name: "PYRE", color: "#ff744a", dark: true, ticks: 600, tier: "uncommon", timed: true, blurb: "CLICK BURNS A BALL AS A BOMB" },
+  // Stone, and the one material on the board nobody had taken. The roster is
+  // 45 pills of hue and this is the first one with none: at 8 % saturation it
+  // reads as grey to the eye, and grey is what is left when every quarter of
+  // the wheel has been spent. 70 from MIRROR, ERODE and GLUE alike — the widest
+  // gap on a 45-capsule board — 4.48:1 against the darkest field theme, and 97
+  // from the nearest trap.
+  //
+  // **Not granite's own #857a6e**, which was the tempting answer: six capsules
+  // already wear a brick's exact colour by the game's original design, and a
+  // capsule about bricks crumbling into stone belongs in that tradition. It
+  // measures worse on both rules that matter — 63 from GLUE against this one's
+  // 70, and 3.68:1 against the field against this one's 4.48 — and 21 RGB is
+  // already near enough to read as the same rock without spending the margin
+  // to be it.
+  //
+  // The letter is light at 3.44:1 rather than dark at 5.60, which is the one
+  // measurement here that does not take the better number. Luminance 0.255 sits
+  // in the gap the registry's `dark` note describes, and GLUE (0.230, light
+  // letter, 3.75:1) is the precedent for a mid-value body on this board: a pill
+  // is read as a shape with a letter in it before it is read as a letter, and
+  // the light one keeps it in the family of everything else that is not a
+  // yellow or an orange.
+  { id: "GR", name: "GRAVEL", color: "#8a8c78", dark: false, ticks: 720, tier: "common", timed: true, blurb: "KILLS CRUMBLE · CATCH THE BITS" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];
