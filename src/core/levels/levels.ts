@@ -239,6 +239,36 @@ export const LEVELS: readonly LevelDefinition[] = [
       { row: 4, column: 7, kind: "L" },
     ],
   },
+  // The run's one exhale, and its only joke. SUPER MAZE before it is 212 hits of
+  // granite; this is eleven bricks on an empty court. Two three-brick gold bars
+  // hug the side walls at opposite heights, a dotted blue net runs down the
+  // middle column, and the silver ball sits one cell past it — high paddle,
+  // ball, low paddle, stepping down the diagonal a rally is already on.
+  //
+  // The ball is beside the net rather than on it because a silver brick with a
+  // blue one hard above and below reads as a length of net and not as a ball at
+  // all; off the line it has air on four sides. Dot and ball straddle the exact
+  // centre of the court between them, which is the closest either gets on their
+  // own: twelve columns have no middle cell, only a seam between the sixth and
+  // the seventh.
+  //
+  // 87 % of the cells are air, which is the gag and also the whole difficulty.
+  // The 24 hits are nothing; finding the last of them is, because by then what
+  // is left is one 30x12 brick alone in open space with no neighbours to catch a
+  // stray. The level is the chase, not the wall.
+  {
+    name: "PONG",
+    background: "cathode",
+    rows: [
+      "G....5......",
+      "G...........",
+      "G....5......",
+      "......S.....",
+      ".....5.....G",
+      "...........G",
+      ".....5.....G",
+    ],
+  },
   {
     name: "FINALE",
     background: "starfield",
