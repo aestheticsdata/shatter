@@ -295,7 +295,11 @@ It climbs for eighteen levels and then holds.
 
 Ten states, one field (`this.screen`), one setter that also shows the matching
 overlay. `advance()` is the single "the player pressed go" verb — mouse click or
-key, both routed through the same pointer-lock gate.
+key, both routed through the same pointer-lock gate. On `play` it is also the
+only place a click can _mean_ something, and two capsules want it: GLUE frees the
+balls parked on the deck, PYRE burns the ball nearest the wall. **The release
+wins and returns**, so a player who has been clicking to serve since they caught
+the resin never has the ball they were about to launch spent as a grenade.
 
 ```text
    +---------+
@@ -645,7 +649,9 @@ independent state have already been extracted —
 [`BumperField`](../src/entities/effects/BumperField.ts),
 [`MeteorField`](../src/entities/effects/MeteorField.ts),
 [`Singularity`](../src/entities/effects/Singularity.ts),
-[`Quake`](../src/entities/effects/Quake.ts),
+[`Quake`](../src/entities/effects/Quake.ts) — which is the field's rattle and not
+QUAKE's, since PYRE's crater asks it for a shorter, shallower one and a weaker
+rattle arriving over a stronger is dropped rather than taken —
 [`Critter`](../src/entities/effects/Critter.ts),
 [`Detonation`](../src/entities/effects/Detonation.ts),
 [`ParticleField`](../src/entities/effects/ParticleField.ts),

@@ -43,6 +43,14 @@ export class Ball {
   // second ball, because a free-flying phantom walks through bricks and walls
   // and diverges in direction the moment either of them turns the real one.
   tempoDebt = 0;
+  // PYRE: this ball's flame crown, in ticks, 0 for a ball wearing none. It runs
+  // up to `crownTicks + smokeTicks` and back down, and the two bands are the
+  // two halves of the picture: the top one is fire and the bottom one is smoke,
+  // so a crown lighting comes up through a wisp and a crown going out falls
+  // back into one. Above the top of the range on purpose while the capsule is
+  // expiring — see `gutterStaggerTicks`, which is how the crowns are made to go
+  // out one at a time off this same counter.
+  pyreCrown = 0;
   // ENGLISH: radians this ball's heading turns per tick, signed — the shot the
   // deck put on it, not a property of the capsule. It outlives the timer on
   // purpose and simply decays away, so a ball still curving when the twenty
@@ -92,6 +100,10 @@ export class Ball {
     this.spin = 0;
     this.spinPhase = 0;
     this.portalCooldown = 0;
+    // A recycled slot may still be carrying the crown of the ball that was in
+    // it: `topUpBalls` clones into whatever is free, and a PYRE ball burned a
+    // moment ago is exactly the free slot the next MULTI reaches for.
+    this.pyreCrown = 0;
     this.birthTicksLeft = birthTicks;
     this.phasing = false;
     this.tempoDebt = 0;

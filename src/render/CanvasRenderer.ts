@@ -34,6 +34,7 @@ import type {
   ChainBolt,
   PaddleShard,
   Peel,
+  PyreBlast,
   RailMark,
   PowerUpKind,
   SnapMark,
@@ -90,6 +91,28 @@ const FLECKS = 3;
 const FLECK_ORBIT = 6;
 const FLECK_GAIN = 24;
 const FELT_ROW = 3;
+
+// PYRE's wash: the two deck rows nobody else has claimed, and the cap width
+// `drawPaddleBands` reserves at each end of them.
+const EMBER_ROWS: readonly number[] = [4, 5];
+const EMBER_CAP = 8;
+
+// PYRE's crown, across the ball's own 8 px: six licks starting a pixel in, so
+// the fire is as wide as the sprite under it and no wider. Two specks of smoke,
+// which is enough to read as a wisp and few enough that a crown coming up is
+// still mostly a crown coming up.
+const CROWN_LICKS = 6;
+const CROWN_LEFT = 1;
+const CROWN_TAPER: readonly number[] = [0.5, 0.8, 1, 1, 0.8, 0.5];
+const CROWN_SMOKE = 2;
+// The fireball at its widest, and the white the first three frames flash at.
+// Both a good deal larger than the 8 px ball that made them: what went up is
+// not the size of what is standing there.
+const PYRE_FIREBALL = 9;
+const PYRE_FLASH = 6;
+// The shockwave at its heaviest, on the frame it leaves. It thins to 1 px by
+// the time it reaches the crater's edge.
+const PYRE_RING_WIDTH = 3;
 
 // PIERCE's sparks, hottest first: white, the ball's own near-white, the
 // capsule's yellow. Cycled by slot index exactly as the brick mix below is, so
@@ -368,6 +391,15 @@ export interface PaddleRenderState extends DeckSeamState {
    */
   glueReach: number;
   /**
+   * PYRE's ember wash, 0 to 1 — how far the fire has rolled across the deck.
+   *
+   * Beside the resin and the felt and on the same record for their reason: the
+   * deck is what paints it. Unlike either of them it is a *front* and not a
+   * spread — it enters from one cap and leaves back through it, which is what
+   * makes the ten seconds start and end with something moving.
+   */
+  ember: number;
+  /**
    * ENGLISH's felt, 0 to 1 — how far the cloth has been rolled out from the
    * middle of each half of the deck.
    *
@@ -594,6 +626,9 @@ export interface RenderView {
   // resolves on a machine that has no alpha to fade with.
   snapGrid: number;
   snapMarks: readonly SnapMark[];
+  // PYRE's craters, each already spent: the bricks went on the frame the player
+  // clicked, and these are the light and the ring saying so.
+  pyreBlasts: readonly PyreBlast[];
   drops: readonly Drop[];
   shots: readonly Shot[];
   flashes: readonly BrickFlash[];
@@ -1501,6 +1536,14 @@ export class CanvasRenderer {
         if (ball.spin !== 0) {
           this.drawSpinFlecks(ball, lift);
         }
+        // Last of the three, and above the ball rather than around it: the arc
+        // and the flecks orbit the sprite, and a crown is standing on it. Gated
+        // on the ball's own counter and not on the capsule, so a crown guttering
+        // out after the ten seconds are up is still drawn — which is the point
+        // of the stagger that put it there.
+        if (ball.pyreCrown > 0) {
+          this.drawPyreCrown(ball, index, lift);
+        }
       }
     });
 
@@ -1518,6 +1561,12 @@ export class CanvasRenderer {
 
     for (const pop of view.pops) {
       this.drawPop(pop);
+    }
+
+    // Under the nuke and over everything else on the field: a crater is the
+    // brightest thing the game does short of a shockwave taking the whole wall.
+    for (const blast of view.pyreBlasts) {
+      this.drawPyreBlast(blast);
     }
 
     this.drawDetonation(view.detonation);
@@ -1813,6 +1862,7 @@ export class CanvasRenderer {
       paddle,
       paddle.glueReach,
       paddle.english,
+      paddle.ember,
     );
 
     this.drawCannons(paddle, y);
@@ -1975,13 +2025,14 @@ export class CanvasRenderer {
     seam: DeckSeamState,
     glueReach = 0,
     english = 0,
+    ember = 0,
   ): void {
     const half = (width - gap) / 2;
     if (gap === 0 || half < 1) {
-      this.drawDeckPill(x, y, width, colors, glueReach, english);
+      this.drawDeckPill(x, y, width, colors, glueReach, english, ember);
     } else {
-      this.drawDeckPill(x, y, half, colors, glueReach, english);
-      this.drawDeckPill(x + width - half, y, half, colors, glueReach, english);
+      this.drawDeckPill(x, y, half, colors, glueReach, english, ember);
+      this.drawDeckPill(x + width - half, y, half, colors, glueReach, english, ember);
     }
     this.drawDeckSeam(seam, x, y, width, colors);
   }
@@ -2008,6 +2059,7 @@ export class CanvasRenderer {
     colors: PaddleBandColors,
     glueReach = 0,
     english = 0,
+    ember = 0,
   ): void {
     if (width >= 18) {
       this.drawPaddleBands(x, y, width, colors);
@@ -2017,6 +2069,11 @@ export class CanvasRenderer {
       this.spritePixel(x, y, width, 1, colors.sheen);
     }
     this.drawResin(x, y, width, glueReach);
+    // Under the cloth on purpose. The two can be live together, and a deck
+    // wearing both is a deck with fire under its felt, which is the right way
+    // round: ENGLISH is a surface the player put on, PYRE is what is happening
+    // to the wood.
+    this.drawEmber(x, y, width, ember);
     this.drawFelt(x, y, width, english);
   }
 
@@ -2067,6 +2124,51 @@ export class CanvasRenderer {
    * and flat felt behind, so the arrival reads as rolling out and the departure
    * as rolling back in, which is the whole of both transitions in one number.
    */
+  /**
+   * PYRE's ember wash: fire rolling across the deck, and back off it.
+   *
+   * A **front**, not a spread, and that is the whole difference between this
+   * and the two layers either side of it. GLUE's resin and ENGLISH's felt both
+   * open from the middle of the deck outward and are symmetric by construction;
+   * this enters at the left cap and travels, so what the player sees at the
+   * catch is fire *arriving*, and what they see ten seconds later is the same
+   * fire going back out the way it came. One blend, read as a position rather
+   * than as a strength, and both ends of the capsule come out of it.
+   *
+   * The band is the deck's rows 4 and 5, which is the only pair of rows on a
+   * seven-row deck that belongs to nobody: row 0 is the top bevel, row 1 the
+   * sheen, row 3 the felt, row 6 the shade. Fire on the lower half also reads as
+   * the deck burning from underneath, which is what a pyre is.
+   *
+   * The span is the body's and not the pill's — `drawPaddleBands` puts 8 px of
+   * cap at each end of these rows, and an ember drawn over the cap's red would
+   * be one warm colour on another and read as nothing at all. A deck too narrow
+   * to have a body between its caps simply has no room for this, and says so by
+   * drawing nothing rather than by drawing a negative span.
+   */
+  private drawEmber(x: number, y: number, width: number, blend: number): void {
+    if (blend <= 0) {
+      return;
+    }
+    const span = width - 2 * EMBER_CAP;
+    if (span <= 0) {
+      return;
+    }
+    const front = blend * span;
+    for (let column = 0; column < span; column++) {
+      if (column > front) {
+        continue;
+      }
+      // The leading two pixels are the hot ones. On the way out the front is
+      // receding, so the same two pixels are the trailing edge — which is right:
+      // the bright part is wherever the fire is moving.
+      const tone = front - column < 2 ? canvasPalette.pyreWashHot : canvasPalette.pyreWash;
+      for (const row of EMBER_ROWS) {
+        this.spritePixel(x + EMBER_CAP + column, y + row, 1, 1, tone);
+      }
+    }
+  }
+
   private drawFelt(x: number, y: number, width: number, blend: number): void {
     if (blend <= 0 || width < 3) {
       return;
@@ -2241,6 +2343,139 @@ export class CanvasRenderer {
         canvasPalette.englishFleck,
       );
     }
+  }
+
+  /**
+   * PYRE's flame crown: a ball that is loaded, wearing fire.
+   *
+   * **Above the sprite and never on it.** Every pixel here sits at `ball.y - 1`
+   * or higher, so the eight-pixel silhouette is untouched — the ball is one
+   * shape, and a loaded one that changed shape would be a different object. What
+   * the player reads is a ball with something burning on top of it, which is
+   * exactly what it is.
+   *
+   * The fire is drawn **cooling upward**, which is what makes it legible at all:
+   * the base of a flame is its hottest part, and the base here is the ball's own
+   * `#ffe14a`. So the ball is the heat and the licks above it run orange to deep
+   * red as they leave. A pale core painted over a yellow sprite would have been
+   * a crown nobody could see.
+   *
+   * `Ball.pyreCrown` carries both ends of the cue on one counter: its top band
+   * is fire and its bottom band is smoke, so a crown lighting comes up through a
+   * wisp and one going out falls back into one. Above the top of the band it
+   * simply clamps — that is the expiry stagger holding this crown at full while
+   * the one before it burns down.
+   *
+   * The scatter is hashed off the frame and the ball rather than sampled, and
+   * held for four frames at a time: resampled every frame a flame is a uniform
+   * shimmer, and held it flickers, because the eye gets long enough to read each
+   * arrangement before it is replaced. The same clock every other ball-held cue
+   * in this file blinks on.
+   */
+  private drawPyreCrown(ball: Ball, index: number, lift: number): void {
+    const { crownTicks, smokeTicks } = gameConfig.powerUps.pyre;
+    const flame = Math.min(1, Math.max(0, (ball.pyreCrown - smokeTicks) / crownTicks));
+    const smoke = 1 - flame;
+    const top = ball.y - lift;
+    const seed = (this.frameCount >> 2) * 599 + index * 149;
+
+    for (let lick = 0; lick < CROWN_LICKS; lick++) {
+      // The same cheap integer hash the static uses, for its reason: a handful
+      // of pixels needs decorrelation and not randomness, and this allocates
+      // nothing on a path that runs for every loaded ball on every frame.
+      const noise = ((seed + lick * 3121) * 1103515245 + 12345) >>> 8;
+      // Four heights, tapered toward the ends. The taper is what makes this a
+      // flame rather than a comb: fire on a round object is tallest over the
+      // middle of it, and six licks all reaching the same height read as
+      // machinery. It also keeps the outer two inside the ball's own silhouette
+      // width, so the crown is as wide as the sprite and no wider.
+      const height = Math.round(flame * CROWN_TAPER[lick] * (2 + ((noise >> 4) & 3)));
+      if (height <= 0) {
+        continue;
+      }
+      const column = CROWN_LEFT + lick;
+      for (let step = 0; step < height; step++) {
+        // The last pixel of a lick is its tip, and the tip is the cool one.
+        const tone = step === height - 1 ? canvasPalette.pyreFlameTip : canvasPalette.pyreFlame;
+        this.spritePixel(ball.x + column, top - 1 - step, 1, 1, tone);
+      }
+    }
+
+    if (smoke <= 0) {
+      return;
+    }
+    // The wisp: two specks well clear of the licks, drifting on the same clock.
+    // They are what the crown comes up through and what it falls back into, so
+    // they ride the *inverse* of the fire and are at their thickest on the frame
+    // it is at its thinnest.
+    for (let speck = 0; speck < CROWN_SMOKE; speck++) {
+      const noise = ((seed + speck * 7919) * 1103515245 + 12345) >>> 8;
+      const column = CROWN_LEFT + (noise % CROWN_LICKS);
+      const rise = 2 + Math.round(smoke * (2 + ((noise >> 6) & 1)));
+      this.spritePixel(ball.x + column, top - 1 - rise, 1, 1, canvasPalette.pyreSmoke);
+    }
+  }
+
+  /**
+   * PYRE's crater: a spent ball, three frames of white, and the reach it took.
+   *
+   * The ring is an **ellipse**, and that is not a stylistic choice. The crater
+   * is measured in cells — a radius of two on a grid of 30x12 bricks — so the
+   * set of bricks that died is an ellipse in pixels, five columns wide and five
+   * rows tall. A circular shockwave over it would be a picture of a different
+   * blast from the one that happened, and the ring is the only thing that tells
+   * the player what one of these is worth. It runs out to exactly the centres of
+   * the outermost bricks it took, which is the locus of the kill itself.
+   *
+   * The white goes first and covers the ball's own last frame; the fireball
+   * blooms behind it and collapses back into nothing while the ring runs on. The
+   * bricks are long gone by any of this — they went on the frame the player
+   * clicked, and this is the twenty-four ticks of light that say so.
+   */
+  private drawPyreBlast(blast: PyreBlast): void {
+    const { blastTicks, flashTicks, cellRadius } = gameConfig.powerUps.pyre;
+    const { brickWidth, brickHeight } = gameConfig.grid;
+    const age = blastTicks - blast.ticksLeft;
+    const progress = age / blastTicks;
+    const x = blast.x * SCALE;
+    const y = blast.y * SCALE;
+
+    const disc = (radius: number, color: string): void => {
+      this.ctx.fillStyle = this.ink(color);
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, radius * SCALE, 0, Math.PI * 2);
+      this.ctx.fill();
+    };
+
+    // The fireball first and the white over it, so the three frames of flash are
+    // the whole sprite rather than a rim around a hotter middle.
+    // `sqrt` puts the peak a quarter of the way in: a fireball is at its widest
+    // almost at once and spends the rest of its life collapsing.
+    const fire = PYRE_FIREBALL * Math.sin(Math.PI * Math.sqrt(progress));
+    if (fire >= 1) {
+      disc(fire, canvasPalette.pyreFireball);
+    }
+    if (age < flashTicks) {
+      disc(PYRE_FLASH, canvasPalette.deathFlash);
+    }
+
+    this.ctx.strokeStyle = this.ink(canvasPalette.pyreRing);
+    // Thinning as it goes, so the wave runs out rather than stopping at full
+    // weight on the frame it reaches the edge of the crater. The one thing this
+    // ring may not do is disappear mid-stride: it is the only drawing of the
+    // reach, and a shockwave cut off short would understate what a ball buys.
+    this.ctx.lineWidth = (PYRE_RING_WIDTH - (PYRE_RING_WIDTH - 1) * progress) * SCALE;
+    this.ctx.beginPath();
+    this.ctx.ellipse(
+      x,
+      y,
+      cellRadius * brickWidth * progress * SCALE,
+      cellRadius * brickHeight * progress * SCALE,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    this.ctx.stroke();
   }
 
   private drawBall(ball: Ball, trail: number, tones: readonly string[], lift = 0): void {

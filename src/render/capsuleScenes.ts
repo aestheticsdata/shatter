@@ -86,6 +86,17 @@ class Field {
     this.ctx.stroke();
   }
 
+  // The same, squashed. PYRE's crater is measured in cells on a grid of 30x12
+  // bricks, so its shockwave is an ellipse — the field draws one and so does
+  // this, or the picture would be of a blast that never happened.
+  oval(x: number, y: number, radiusX: number, radiusY: number, color: string, width = 1): void {
+    this.ctx.strokeStyle = this.demade ? canvasPalette.demakeInk : color;
+    this.ctx.lineWidth = width;
+    this.ctx.beginPath();
+    this.ctx.ellipse(x, y, radiusX, radiusY, 0, 0, Math.PI * 2);
+    this.ctx.stroke();
+  }
+
   brickAt(column: number, row: number): { x: number; y: number } {
     return { x: GRID_LEFT + column * BRICK_WIDTH, y: GRID_TOP + row * BRICK_HEIGHT };
   }
@@ -807,6 +818,73 @@ const SCENES: Record<PowerUpKind, Painter> = {
     // than as arriving at it.
     field.ball(GRID_LEFT + 6 * BRICK_WIDTH - gameConfig.ball.size / 2, GRID_TOP + BRICK_HEIGHT + 6);
     field.deck();
+  },
+  /**
+   * The trade, both halves of it in one frame: a crater where one ball went,
+   * and two more still wearing their fire.
+   *
+   * The hole is the real one — every cell inside two of the impact point, which
+   * on a grid of 30x12 bricks is five columns wide and five rows tall — and the
+   * shockwave is drawn as the ellipse those cells actually make rather than as
+   * a circle over them. A round ring here would be a picture of a blast the
+   * capsule does not have.
+   *
+   * The crowns are drawn **three times the height the field draws them**, by
+   * ANGEL's rule and for its reason: at a third of this size a 1 px lick is
+   * nothing at all, and the one thing this card has to say is that the fire is
+   * on the *balls*. Two of them, because two is what a catch hands you and
+   * because a single crowned ball beside a crater reads as the survivor rather
+   * than as the ammunition.
+   *
+   * They are kept well clear of the crater and low on the field: a ball drawn
+   * inside its own explosion would say the fire is on the wall.
+   */
+  PY: (field) => {
+    const impact = { column: 6, row: 1 };
+    const { cellRadius } = gameConfig.powerUps.pyre;
+    field.wall();
+    for (let row = 0; row < DEFAULT_WALL.length; row++) {
+      for (let column = 0; column < COLUMNS; column++) {
+        const deltaRow = row - impact.row;
+        const deltaColumn = column - impact.column;
+        if (deltaRow * deltaRow + deltaColumn * deltaColumn <= cellRadius * cellRadius) {
+          field.clear(column, row);
+        }
+      }
+    }
+    const center = field.brickAt(impact.column, impact.row);
+    const x = center.x + BRICK_WIDTH / 2;
+    const y = center.y + BRICK_HEIGHT / 2;
+    field.disc(x, y, 8, canvasPalette.pyreFireball);
+    field.disc(x, y, 4, canvasPalette.deathFlash);
+    // Three quarters of the way out, so the ring is visibly still travelling
+    // and the bricks it has already taken are visibly already gone.
+    field.oval(x, y, cellRadius * BRICK_WIDTH * 0.75, cellRadius * BRICK_HEIGHT * 0.75, canvasPalette.pyreRing, 2);
+    field.deck();
+    // The deck alight, on the same two rows the field burns and inset past the
+    // caps for the same reason: an ember over the cap's red is one warm colour
+    // on another.
+    for (let column = 8; column < gameConfig.paddle.baseWidth - 8; column++) {
+      field.rect(DECK_HOME + column, DECK_Y + 4, 1, 2, canvasPalette.pyreWash);
+    }
+    for (const [x0, y0] of [
+      [96, 176],
+      [246, 208],
+    ]) {
+      field.ball(x0, y0);
+      // The field's own crown — six licks tapering to the middle, cooling
+      // upward off the ball's yellow — at twice its height and two pixels a
+      // lick, which is the smallest it can be drawn and still read as fire at a
+      // third of this size. Capped at the ball's own 8 px: taller than that and
+      // the sprite disappears under its own flame, and what the card has to say
+      // is that the fire is on a *ball*.
+      for (const [lick, height] of [2, 5, 8, 8, 5, 2].entries()) {
+        for (let step = 0; step < height; step++) {
+          const tone = step >= height - 3 ? canvasPalette.pyreFlameTip : canvasPalette.pyreFlame;
+          field.rect(x0 + lick * 2 - 1, y0 - 1 - step, 2, 1, tone);
+        }
+      }
+    }
   },
   // The default staging, upside down — the only scene that needs no staging of
   // its own, because the capsule does nothing but turn the field over.

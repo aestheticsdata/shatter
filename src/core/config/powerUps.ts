@@ -229,6 +229,27 @@ export const POWER_UPS = [
   // could be mistaken for the other while it falls would be the worst pill on
   // the board.
   { id: "ER", name: "ERODE", color: "#bcb88e", dark: true, ticks: 720, tier: "rare", timed: true, blurb: "MORTAR ERODES · THREAD THE WALL" },
+  // Coral, and the roster's own answer to a fire capsule arriving on a board
+  // where fire is the one thing everybody already took. Swept properly, the
+  // warm quarter has exactly one opening left: 60.5 from SPLIT and 60.6 from
+  // BLAST at hue 14, which clears the 58 bar and is the *most* any colour in
+  // the flame family can clear it by. Hue 20-34 has nothing at all — BLAST
+  // 29°, GLUE 30°, QUAKE 26° and METEOR 17° hold every value in it, and no
+  // saturation or lightness inside that band reaches 58 from all four.
+  //
+  // The two colours that scored better were both refused. A dark bronze at hue
+  // 45 reaches 71 and sits at exactly 3.01:1 against the darkest field theme —
+  // on the floor of the rule rather than inside it, and a smouldering brown is
+  // not what a pyre looks like. A pale salmon at hue 2 reaches 60 as well and
+  // reads as a cousin of ANGEL's pink, which is the last thing a capsule that
+  // spends your spare balls should look like.
+  //
+  // The nearest trap is SPLIT at 60.5, and the 34° of hue between them is what
+  // does the work there: SPLIT is rose and this is orange. Against the fire it
+  // could actually be confused with — BOMB, the trap that blows up the deck —
+  // it sits 93 away, which matters more, because BOMB and PYRE are the two
+  // capsules on the board about something exploding.
+  { id: "PY", name: "PYRE", color: "#ff744a", dark: true, ticks: 600, tier: "uncommon", timed: true, blurb: "CLICK BURNS A BALL AS A BOMB" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];

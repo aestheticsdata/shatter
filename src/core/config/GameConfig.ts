@@ -317,6 +317,82 @@ export const gameConfig = {
         maxLifeTicks: 26,
       },
     },
+    /**
+     * PYRE: the capsule that spends a ball for a crater.
+     *
+     * **It brings its own ammo.** The ticket had it arm whatever the field
+     * happened to be carrying, and the field is carrying one ball most of the
+     * time — a capsule whose rule is that the last ball never burns is a
+     * capsule that does nothing at all on a single-ball field, which is the
+     * loudest way there is to ship a dud. So the catch tops the field up the
+     * way MULTI's first tier does, and the ten seconds are what the two
+     * newcomers are for: catch it, and you are holding two grenades and the
+     * ball you started with.
+     *
+     * `ballCount` is deliberately MULTI's own first rung rather than a number
+     * of its own. It goes through `topUpBalls`, so a swarm or a stacked MULTI
+     * already over it is left exactly alone — the ammo is topped up, never
+     * capped.
+     */
+    pyre: {
+      ballCount: 3,
+      // The crater, in **cells** — the reading CHAIN's `cellRadius` already
+      // uses, and the only one "a 2-brick radius" can honestly mean on a grid
+      // of 30x12 cells. Two brick widths is a 60 px disc that takes forty
+      // bricks; two brick heights is a 24 px one two columns wide. Measured in
+      // cells it is thirteen bricks in a plus five wide and five tall, which is
+      // a fifth of a heavy row for one ball — and the shockwave is drawn as the
+      // ellipse those cells actually make, so the ring the player reads is the
+      // crater they got.
+      cellRadius: 2,
+      // The flame crown, and the wisp either side of it. One counter per ball
+      // runs 0 to `crownTicks + smokeTicks`: the top band is the fire and the
+      // bottom band is smoke, so a crown lighting comes up through a wisp and a
+      // crown going out falls back into one, off a single number that cannot
+      // disagree with itself. It is also what makes a ball that stops being
+      // eligible — two balls crossing, so the reserve changes hands — hand its
+      // fire over rather than teleport it.
+      crownTicks: 18,
+      smokeTicks: 12,
+      // Expiry: every crown left standing is bumped past full by this much per
+      // ball, so they hold and then fall in sequence instead of all going out
+      // on one frame. Eight ticks is far enough apart to be read as one after
+      // another and close enough that four balls are done inside half a second.
+      gutterStaggerTicks: 8,
+      // The blast, as a picture. Three frames of white — the ticket's
+      // flash-whiten, and the ball's last frame is in them — then the fireball
+      // shrinking back into itself while the ring runs out to the full crater.
+      // The kill is not on this clock: every brick inside the radius dies on
+      // the click, and the ring is the announcement, exactly as CHAIN's bolts
+      // outlive the bricks they arced between.
+      blastTicks: 24,
+      flashTicks: 3,
+      // The field takes the hit. Shorter and shallower than QUAKE's 24 at 4 —
+      // this is one ball going up inside the wall, not the wall dropping a row,
+      // and the two have to be told apart with the eyes shut.
+      shakeTicks: 16,
+      shakeAmplitude: 3,
+      // What the ball itself throws, on top of the debris the thirteen bricks
+      // already throw for themselves. Hot sparks rather than material — this is
+      // the one burst in the game that comes off something that was neither a
+      // brick nor the deck, and PIERCE's shower is already the answer to that:
+      // a spark is hot, not branded, so the fireball is white-hot whatever it
+      // went up against.
+      //
+      // Bigger and longer-lived than a drill's shower because it is one event
+      // and not a grind: sixteen at up to 3.2 px a tick reach a brick's width
+      // out inside ten ticks, which is the fireball spreading rather than a
+      // puff sitting where the ball was.
+      fireBurst: {
+        chunkCount: 16,
+        minChunkSize: 1,
+        maxChunkSize: 3,
+        minSpeed: 0.8,
+        maxSpeed: 3.2,
+        minLifeTicks: 14,
+        maxLifeTicks: 34,
+      },
+    },
     // ANGEL puts the ball it saved back at this height: below the deck's 276,
     // so it rises through it and reads as caught at the last instant, and clear
     // enough of the 300 death line that the very next tick cannot drain it
@@ -858,6 +934,12 @@ export const gameConfig = {
     // a wipe, which is what makes it read as a grid resolving rather than as a
     // curtain crossing the screen.
     snapGridTicks: 30,
+    // PYRE's ember wash, rolling over the deck and rolling back off it. Both
+    // ends of the capsule are this one number: the front sweeps cap to cap as
+    // the fire takes and sweeps back the way it came when the ten seconds are
+    // up, and the crowns on the balls will not light until it is half across —
+    // which is the ticket's "then", spent rather than described.
+    pyreEmberTicks: 24,
     // ERODE's wear, each way: how long the mortar takes to give and to set again.
     // Sixty rather than the thirty the field-wide pictures take, because this
     // one is not a picture — the collider shrinks with it, and a wall that

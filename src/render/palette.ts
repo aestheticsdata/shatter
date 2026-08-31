@@ -216,6 +216,43 @@ export const canvasPalette = {
   // at exactly the moment the player is looking for a lane through it.
   erodeGrain: "#8c8869",
   erodeDust: "#c4c0a0",
+  /**
+   * PYRE: the fire on the balls, the ember over the deck, and the crater.
+   *
+   * The crown is drawn **cooling upward**, which is the one thing that made it
+   * legible: a flame is hottest at its base, and the base here is the ball's own
+   * yellow. Painting a pale core over a `#ffe14a` sprite would have been a
+   * crown nobody could see, so the ball is the hot part and the licks above it
+   * run from the pill's orange to a deep red as they leave — physically right
+   * and, more to the point, the two tones on the field furthest from the thing
+   * they sit on.
+   *
+   * The smoke is the only grey in the palette, and deliberately warm and light
+   * rather than a true one: it is a wisp of 1 px specks against playfields that
+   * are all under 0.02 luminance, and anything darker would be a crown going
+   * out into nothing at all.
+   *
+   * The wash over the deck is deep enough to sit *under* the deck's blue rather
+   * than on it, by ENGLISH's rule for exactly the same reason — this is a
+   * surface the paddle is wearing, and a band brighter than the sheen above it
+   * would read as a second cap. The leading edge is the only bright one, and it
+   * is bright because it is travelling: it is the front of the fire, and it is
+   * on screen for twenty-four ticks at either end and never in between.
+   */
+  pyreFlame: "#ff8a4a",
+  pyreFlameTip: "#e0350c",
+  pyreSmoke: "#8a8290",
+  pyreWash: "#c2401c",
+  pyreWashHot: "#ff9a3c",
+  // The crater. The fireball is a shade hotter than anything the crown wears —
+  // it is the ball itself going up, not a flame standing on one — and the ring
+  // is the pill's own body, so the reach the player is being shown is drawn in
+  // the colour of the capsule that gave it to them. The white the first three
+  // frames flash is `deathFlash`, shared with every other kill on the field: a
+  // brick dying under a fireball may not flash a different white from a brick
+  // dying under a ball.
+  pyreFireball: "#ffb43c",
+  pyreRing: "#ff744a",
   // DEMAKE: the two tones the whole machine collapses onto for 8 seconds. Ink
   // is a P1 phosphor at the brightness a sprite has to hold against the ground,
   // which is the tube's black with just enough green in it to read as glass

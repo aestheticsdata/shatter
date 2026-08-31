@@ -585,6 +585,57 @@ export class SoundBank {
     this.tone({ freq: 150, dur: 0.12, vol: 0.05, delayS: 0.45 });
   }
 
+  /**
+   * PYRE: the fire taking. A short noise sweep opening upward under two notes a
+   * fifth apart — a match struck, then the deck catching.
+   *
+   * Its own sound instead of the pickup chime, because the chime says "you have
+   * a thing" and this capsule's catch is two balls arriving already alight. The
+   * sweep is `pyreEmberTicks` long to the frame, so the wash finishes rolling
+   * over the deck on the tick the noise runs out and the crowns come up into
+   * silence.
+   */
+  pyreLight(): void {
+    if (!this.allow("pyreLight")) {
+      return;
+    }
+    this.noise({ dur: 0.4, vol: 0.14, filter: { type: "bandpass", freq: 500, freqEnd: 3400, q: 1.2 } });
+    this.tone({ freq: 196, dur: 0.12, vol: 0.09, type: "sawtooth" });
+    this.tone({ freq: 294, dur: 0.16, vol: 0.07, type: "sawtooth", delayS: 0.1 });
+  }
+
+  // The crowns going out. The strike above run backwards, softer and slower —
+  // the band closing rather than opening — and no note under it, because nothing
+  // arrives at the end of this: what the player has left is whatever balls they
+  // did not spend, and they are simply balls again.
+  //
+  // Long enough to cover the stagger rather than the fade: four crowns take 54
+  // ticks to go out one after another, and a hiss that finished at the first
+  // would say the capsule ended while three balls were still visibly alight.
+  pyreGutter(): void {
+    if (!this.allow("pyreGutter")) {
+      return;
+    }
+    this.noise({ dur: 0.7, vol: 0.11, filter: { type: "bandpass", freq: 2600, freqEnd: 300, q: 1.2 } });
+  }
+
+  /**
+   * One ball spent. Bigger than BLAST's pop and well short of the nuke's, which
+   * is exactly where the crater sits between them: thirteen bricks against
+   * BLAST's eight and the nuke's whole wall.
+   *
+   * The default retrigger window is what it wants and not a longer one: two
+   * clicks are two balls and two craters, and 30 ms is under two frames — the
+   * player cannot click inside it, so nothing they actually spend goes unheard.
+   */
+  pyreDetonation(): void {
+    if (!this.allow("pyreDetonation")) {
+      return;
+    }
+    this.tone({ freq: 150, freqEnd: 42, dur: 0.4, vol: 0.11, type: "sawtooth" });
+    this.noise({ dur: 0.35, vol: 0.28, filter: { type: "lowpass", freq: 1200, freqEnd: 90 } });
+  }
+
   // BANANA: the slip itself, not the catch — the womp already covered the pill.
   // A sawtooth slide-whistle up under a noise sweep opening the same way, which
   // is the cartoon the trap is, and short enough to be over before the deck is.

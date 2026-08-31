@@ -111,6 +111,21 @@ export interface SnapMark {
   ticksLeft: number;
 }
 
+/**
+ * PYRE: one spent ball, at the spot it went up.
+ *
+ * Render-only, and — like `ChainBolt` — it outlives the damage it announced:
+ * every brick inside the crater died on the frame the player clicked, and this
+ * is the fireball and the shockwave saying so over the next twenty-four ticks.
+ * The debris was thrown on that same frame and is in the particle pool with
+ * every other chunk of wall — what is left here is the light and the ring.
+ */
+export interface PyreBlast {
+  x: number;
+  y: number;
+  ticksLeft: number;
+}
+
 // Expanding ring left where a ball stood when STASIS let go of it. Render-only:
 // it marks the release, nothing collides with it.
 export interface StasisRing {

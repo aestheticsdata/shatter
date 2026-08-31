@@ -44,6 +44,7 @@ import type {
   PaddleShard,
   Peel,
   PowerUpKind,
+  PyreBlast,
   RailMark,
   RectangleBounds,
   ScreenName,
@@ -233,6 +234,26 @@ export class ShatterGame {
    */
   private snapBlend = 0;
   private snapMarks: SnapMark[] = [];
+  /**
+   * PYRE's ember wash, 0 to 1 — the fire rolling over the deck and rolling back
+   * off it.
+   *
+   * The capsule's whole transition lives on this one number. It is spent
+   * geometrically rather than as an alpha: the front sweeps cap to cap across
+   * the deck as the blend climbs, and sweeps back the way it came as it falls,
+   * so the ten seconds start and end with something *travelling* rather than
+   * with a colour appearing. The crowns on the balls read it too — they will not
+   * light until the wash is half across, which is the ticket's "then".
+   *
+   * The crowns themselves are not here. They are per ball (`Ball.pyreCrown`),
+   * because one number for the field cannot carry nine balls lighting at
+   * different moments and guttering out one after another — the same reason
+   * HOMING's reticle is on the ball and not on the game.
+   */
+  private pyreBlend = 0;
+  // Craters, until their light runs out. Render-only and already spent: the
+  // bricks died on the frame the player clicked.
+  private pyreBlasts: PyreBlast[] = [];
   // GAMBLE's reel: how long it still turns, what it will land on, and the face
   // it is showing right now. The winner is drawn on the catch and held here
   // rather than rolled at the end, so the spin is a replay of a decision
@@ -680,6 +701,11 @@ export class ShatterGame {
         capsJammed: this.widthEaseKind === "J" && this.paddle.easingWidth,
         glueReach: this.glueReach,
         english: this.englishBlend,
+        // PYRE's wash, on the deck's own record beside the resin and the felt
+        // and for their reason: the deck is what paints it, and MIRROR's ghost
+        // gets it through the same record — a reflection of a burning deck is a
+        // burning deck.
+        ember: this.pyreBlend,
       },
       mirrorForm: this.mirrorForm,
       mirrorAfterImage: this.mirrorAfterImageTicks / gameConfig.effects.mirrorAfterImageTicks,
@@ -761,6 +787,9 @@ export class ShatterGame {
       // and the marks are its history.
       snapGrid: this.snapBlend,
       snapMarks: this.snapMarks,
+      // PYRE's craters. The crowns are not here: they ride `Ball.pyreCrown` and
+      // the renderer reads them off the balls it is already drawing.
+      pyreBlasts: this.pyreBlasts,
       drops: this.dropPool.drops,
       shots: this.shotPool.shots,
       flashes: this.brickFlashes,
@@ -852,6 +881,16 @@ export class ShatterGame {
     // marks are a record of something that already happened, and a bracket held
     // still behind a detonation is pointing at a ball that has long gone.
     this.snapMarks = this.snapMarks.filter((mark) => --mark.ticksLeft > 0);
+    // The wash and the crowns, above the gates with every other picture: a fire
+    // frozen halfway over the deck behind a shockwave is a deck someone spilled
+    // paint on. The crowns follow it in the same call, because which ball is the
+    // reserve is a fact about where the balls are right now.
+    this.pyreBlend = stepBlend(this.pyreBlend, this.timers.isActive("PY"), gameConfig.effects.pyreEmberTicks);
+    this.stepPyreCrowns();
+    // Beside the snap marks and for their reason: a crater is a record of
+    // something that already happened, and a shockwave held still behind a
+    // freeze is a ring around bricks that have been gone for a second.
+    this.pyreBlasts = this.pyreBlasts.filter((blast) => --blast.ticksLeft > 0);
     // One number, read by the hitbox and by everything painted in wall
     // coordinates. Assigned here rather than in `Quake` so the grid keeps
     // knowing nothing about the capsule that moved it — and above the freeze
@@ -1145,6 +1184,15 @@ export class ShatterGame {
     // the moment they stopped being there.
     if (expired.includes("ER")) {
       this.deps.sfx.mortarSet();
+    }
+    // The fires going out, one ball at a time. Nothing has to be undone — a
+    // click after this is simply a click again — so the crowns guttering are the
+    // whole of the ending, and they are owed one: the standing cue is on the
+    // balls, and a cue that vanished on a frame would leave the player unsure
+    // whether they had just missed their last shot.
+    if (expired.includes("PY")) {
+      this.gutterPyreCrowns();
+      this.deps.sfx.pyreGutter();
     }
     // The cloth coming off, and the one ending here that is *not* the whole of
     // it: a ball already curving keeps curving until its own spin runs out. The
@@ -3046,6 +3094,8 @@ export class ShatterGame {
     this.meteors.reset();
     this.snapBlend = 0;
     this.snapMarks = [];
+    this.pyreBlend = 0;
+    this.pyreBlasts = [];
     this.erodeBlend = 0;
     this.erosion.reset();
     this.ghostBlend = 0;
@@ -3428,6 +3478,16 @@ export class ShatterGame {
     if (kind === "ER") {
       this.timers.activate("ER", durations.ER);
     }
+    if (kind === "PY") {
+      this.timers.activate("PY", durations.PY);
+      // The ammunition, and the reason this capsule is not a dud. Through
+      // `topUpBalls` rather than around it, so a swarm or a stacked MULTI
+      // already over three is left exactly alone: PYRE tops the field up, it
+      // never caps it. The ladder itself is untouched — a MULTI caught after
+      // this still starts at its own first rung, because the balls on the field
+      // are not the ladder's count of them.
+      this.topUpBalls(gameConfig.powerUps.pyre.ballCount, gameConfig.powerUps.multiBirthTicks);
+    }
     if (kind === "XR") {
       this.timers.activate("XR", durations.XR);
     }
@@ -3502,6 +3562,10 @@ export class ShatterGame {
       // caught over a live one is the same tick again, which is right — the
       // setting was already on and has been turned on again.
       this.deps.sfx.snapGridOn();
+    } else if (kind === "PY") {
+      // Its own strike instead of the pickup chime: what happened is two balls
+      // arriving already alight, and the chime says "you have a thing".
+      this.deps.sfx.pyreLight();
     } else if (kind === "ER") {
       this.deps.sfx.mortarGive();
     } else if (kind === "V") {
@@ -3769,6 +3833,193 @@ export class ShatterGame {
     }
   }
 
+  /**
+   * PYRE: the ball that may never burn.
+   *
+   * The lowest ball on the field, which is the one nearest the deck — and with
+   * one ball left it is that ball, so a single-ball field has a reserve and no
+   * ammunition, exactly as the rule says.
+   *
+   * Read off position rather than stored, and read every tick, so two balls
+   * crossing genuinely hand the reserve over: the fire moves to whichever is now
+   * further from your deck, which is the same ball `pyreFuse` would spend. The
+   * cue and the click can never disagree because they are the same sort.
+   *
+   * `>=` and not `>`, and it is load-bearing: `pyreFuse` keeps the *first* ball
+   * of a tie and this keeps the **last**, so a field of clones stamped at one
+   * spot — which is every MULTI for its first two ticks — still has a fuse and a
+   * reserve that are two different balls.
+   */
+  private pyreReserve(): Ball | null {
+    let reserve: Ball | null = null;
+    for (const ball of this.balls) {
+      if (ball.active && (reserve === null || ball.y >= reserve.y)) {
+        reserve = ball;
+      }
+    }
+    return reserve;
+  }
+
+  // The ball a click spends: the highest one, which is the one nearest the brick
+  // wall. Null while there is nothing to spend — one ball on the field, or none.
+  private pyreFuse(): Ball | null {
+    let fuse: Ball | null = null;
+    let live = 0;
+    for (const ball of this.balls) {
+      if (!ball.active) {
+        continue;
+      }
+      live++;
+      if (fuse === null || ball.y < fuse.y) {
+        fuse = ball;
+      }
+    }
+    return live >= 2 ? fuse : null;
+  }
+
+  /**
+   * One tick of every crown, and the whole of PYRE's arrival and departure on
+   * the balls.
+   *
+   * The counter runs `0 .. crownTicks + smokeTicks` and the picture is read off
+   * where in that range it stands: the top band is fire and the bottom is smoke,
+   * so a crown coming up passes through a wisp before it catches and a crown
+   * going down falls back into one. One number, two ends, and neither of them
+   * can be the other's opposite by accident.
+   *
+   * `pyreBlend >= 0.5` is the ticket's "then": the wash has to be half across
+   * the deck before the balls take. It costs the first twelve ticks of the
+   * catch, which is what buys the arrival its order.
+   */
+  private stepPyreCrowns(): void {
+    const { crownTicks, smokeTicks } = gameConfig.powerUps.pyre;
+    const full = crownTicks + smokeTicks;
+    const lit = this.timers.isActive("PY") && this.pyreBlend >= 0.5;
+    const reserve = this.pyreReserve();
+    for (const ball of this.balls) {
+      if (!ball.active) {
+        // Not decremented: a ball that has left the field has no crown to put
+        // out, and a counter still walking down in a dead slot would be a
+        // wisp of smoke on the next ball stamped into it.
+        ball.pyreCrown = 0;
+      } else if (lit && ball !== reserve) {
+        ball.pyreCrown = Math.min(full, ball.pyreCrown + 1);
+      } else if (ball.pyreCrown > 0) {
+        ball.pyreCrown--;
+      }
+    }
+  }
+
+  /**
+   * The expiry: the crowns still standing go out one after another.
+   *
+   * Each is bumped *past* the top of its own range by one stagger more than the
+   * last, so it holds at full fire for that long and then falls on the same
+   * clock as everything else. The whole "one by one" is that one line — no
+   * second counter, no per-ball delay to reset, and a crown lit late is in the
+   * queue with the rest because the queue is only the order the loop finds them
+   * in.
+   */
+  private gutterPyreCrowns(): void {
+    const { crownTicks, smokeTicks, gutterStaggerTicks } = gameConfig.powerUps.pyre;
+    let order = 0;
+    for (const ball of this.balls) {
+      if (ball.active && ball.pyreCrown > 0) {
+        ball.pyreCrown = crownTicks + smokeTicks + order * gutterStaggerTicks;
+        order++;
+      }
+    }
+  }
+
+  /**
+   * A click, spent: the ball nearest the wall goes up and takes the bricks
+   * around it.
+   *
+   * The kill is on this frame and all of it — the ring that runs out over the
+   * next twenty-four ticks is the announcement, exactly as CHAIN's bolts outlive
+   * the bricks they arced between. A blast that killed as it expanded would put
+   * a quarter of a second between the click and the last brick, and the player
+   * would be reading a delay where they meant to read a trade.
+   *
+   * Returns whether anything was spent, so the caller can tell an armed click
+   * from an idle one.
+   */
+  private firePyre(): boolean {
+    if (!this.timers.isActive("PY")) {
+      return false;
+    }
+    const fuse = this.pyreFuse();
+    if (!fuse) {
+      return false;
+    }
+    const { size } = gameConfig.ball;
+    const x = fuse.x + size / 2;
+    const y = fuse.y + size / 2;
+    // Out of play before the bricks, so nothing downstream can find a ball
+    // standing in the middle of its own crater — `pyreBricksWithin` is about to
+    // reopen the cells it was sitting in, and ERODE's wear reads which cells
+    // have a ball in them.
+    fuse.active = false;
+    fuse.stuckOffsetX = null;
+    fuse.clearHoming();
+    fuse.pyreCrown = 0;
+    this.pyreBricksWithin(x, y);
+    this.pyreBlasts.push({ x, y, ticksLeft: gameConfig.powerUps.pyre.blastTicks });
+    this.particles.sparkBurst(x, y, gameConfig.powerUps.pyre.fireBurst);
+    const { shakeTicks, shakeAmplitude } = gameConfig.powerUps.pyre;
+    this.quake.rattle(shakeTicks, shakeAmplitude);
+    this.deps.sfx.pyreDetonation();
+    return true;
+  }
+
+  /**
+   * The crater, in cells.
+   *
+   * The centre is the ball's, in fractional cell coordinates — a ball halfway
+   * between two columns blows a crater centred halfway between them, rather than
+   * one snapped onto whichever cell its middle pixel happened to land in. The
+   * offset is `topOffset`'s, so a crater opened while QUAKE's wall is still
+   * falling lands on the wall the player can see.
+   *
+   * Kills are of the nuke's class: full points (PAYDAY applies), silver and gold
+   * go in one, and no capsule drops, no BLAST splash and no CHAIN arc comes off
+   * them. Thirteen bricks that each dropped a pill and set off their own
+   * neighbours would make a spent ball worth more than the level, and the trade
+   * this capsule is about is a ball for a hole — not a ball for a jackpot. A
+   * seeded drop still comes out, because a seeded drop is a promise.
+   */
+  private pyreBricksWithin(x: number, y: number): void {
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    const { cellRadius } = gameConfig.powerUps.pyre;
+    const centerColumn = (x - left) / brickWidth - 0.5;
+    const centerRow = (y - top + this.grid.topOffset) / brickHeight - 0.5;
+    const radiusSquared = cellRadius * cellRadius;
+
+    this.grid.rows.forEach((row, rowIndex) => {
+      row.forEach((cell, columnIndex) => {
+        if (!cell) {
+          return;
+        }
+        const deltaRow = rowIndex - centerRow;
+        const deltaColumn = columnIndex - centerColumn;
+        if (deltaRow * deltaRow + deltaColumn * deltaColumn > radiusSquared) {
+          return;
+        }
+        const hit = { cell, row: rowIndex, column: columnIndex };
+        this.grid.destroy(hit);
+        this.releaseSeededCapsule(hit);
+        this.score += cell.points * this.scoreMultiplier();
+        this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
+      });
+    });
+
+    // The same idempotent clear trigger every other indirect kill uses: a spent
+    // ball can take the last brick on the board.
+    if (this.grid.remaining <= 0) {
+      this.clearCountdown = gameConfig.effects.clearDelayTicks;
+    }
+  }
+
   // GLUE release: every stuck ball leaves with a fresh paddle bounce, exactly
   // as if it had struck the paddle at its current spot. Returns how many it
   // freed, which is what CHARGE spends its held salvo on — this is called on
@@ -3862,17 +4113,27 @@ export class ShatterGame {
         this.launch();
         break;
       case "play":
-        // A click during play only means something while GLUE holds balls —
-        // and under CHARGE (GLUE+LASER) it means one more thing: the fire the
-        // hold has been sitting on comes out with them. Only on a real
+        // A click during play means one of two things, and never both on the
+        // same click. **The release wins.** A player under GLUE has been
+        // clicking to serve since they caught it, and a click that burned the
+        // ball they were about to launch — because a PYRE happened to be live —
+        // would be the game spending their ammunition for them. So: free what is
+        // stuck, and if nothing was stuck, spend a ball.
+        //
+        // Under CHARGE (GLUE+LASER) the release means one more thing: the fire
+        // the hold has been sitting on comes out with the balls. Only on a real
         // release, or every idle click would be a free salvo.
-        if (this.releaseStuckBalls() > 0 && this.hasCombo("CHARGE")) {
-          this.shotPool.fireFromPaddle(this.paddle);
-          this.deps.sfx.laserFire();
-          this.laserCountdown = this.hasCombo("STROBE")
-            ? gameConfig.powerUps.comboLaserCadenceTicks
-            : gameConfig.powerUps.laserCadenceTicks;
+        if (this.releaseStuckBalls() > 0) {
+          if (this.hasCombo("CHARGE")) {
+            this.shotPool.fireFromPaddle(this.paddle);
+            this.deps.sfx.laserFire();
+            this.laserCountdown = this.hasCombo("STROBE")
+              ? gameConfig.powerUps.comboLaserCadenceTicks
+              : gameConfig.powerUps.laserCadenceTicks;
+          }
+          break;
         }
+        this.firePyre();
         break;
       case "pause":
         this.setScreen("play");
@@ -3929,6 +4190,11 @@ export class ShatterGame {
       // serve drawn 4 px wide is a bug nobody would guess the cause of.
       ball.birthTicksLeft = 0;
       ball.phasing = false;
+      // And its own line again: `stepPyreCrowns` puts out the crown on any ball
+      // that is not active, but `balls[0]` is about to be, and the serve screen
+      // does not step the simulation at all. Without this the ball the player is
+      // handed for the next life is still wearing the fire of the last one.
+      ball.pyreCrown = 0;
       // Its own line for the cooldown's reason as well: spin outlives its
       // capsule by design, so nothing else would ever take it off, and a serve
       // that curved out of the deck would be the last life's shot arriving on
@@ -3971,6 +4237,8 @@ export class ShatterGame {
     this.meteors.reset();
     this.snapBlend = 0;
     this.snapMarks = [];
+    this.pyreBlend = 0;
+    this.pyreBlasts = [];
     this.erodeBlend = 0;
     this.erosion.reset();
     this.ghostBlend = 0;
@@ -4039,6 +4307,8 @@ export class ShatterGame {
     this.meteors.reset();
     this.snapBlend = 0;
     this.snapMarks = [];
+    this.pyreBlend = 0;
+    this.pyreBlasts = [];
     this.erodeBlend = 0;
     this.erosion.reset();
     this.ghostBlend = 0;
