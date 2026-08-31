@@ -212,6 +212,23 @@ export const POWER_UPS = [
   // tell from another bonus. The grid it lays over the field is drawn in this
   // green taken right down, so the effect and the pill are one colour.
   { id: "SN", name: "SNAP", color: "#60ff36", dark: true, ticks: 720, tier: "common", timed: true, blurb: "EVERY BOUNCE SNAPS TO THE GRID" },
+  // Mortar, which is the one thing on the field this capsule is about and the
+  // one colour nothing on the board had taken. 77 from QUAKE, MIRROR and GHOST
+  // alike — the widest gap left on a 44-capsule board — and 0.469 luminance
+  // against the darkest field theme, which is more room than a pale body
+  // usually gets.
+  //
+  // The khaki quarter looked full and was not. What is crowded there is the
+  // *acid* end of it: BANANA, GHOST and PAYDAY are all vivid and all above 60 %
+  // saturation, and this sits at 26 % where none of them can reach it. A body
+  // the colour of the stuff between the bricks is what the pill is for, and a
+  // saturated one would have been a lime capsule about a lime nothing.
+  //
+  // The nearest trap is GHOST at 77, which matters more here than anywhere: the
+  // two capsules do the same thing to the wall from opposite ends, and one that
+  // could be mistaken for the other while it falls would be the worst pill on
+  // the board.
+  { id: "ER", name: "ERODE", color: "#bcb88e", dark: true, ticks: 720, tier: "rare", timed: true, blurb: "MORTAR ERODES · THREAD THE WALL" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];

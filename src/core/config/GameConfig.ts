@@ -259,6 +259,64 @@ export const gameConfig = {
       dashStep: 7,
       bracketArm: 3,
     },
+    /**
+     * ERODE: how far a worn brick pulls inside its own 30x12 cell, in whole
+     * pixels off each edge, and the grains that come off it while it does.
+     *
+     * **The two axes are different numbers and the ticket's single 60 % could
+     * not be one.** A ball is 8 px across and collides on four corners inset
+     * 1 px, so it needs better than 6 px of clear air to thread anything. Take
+     * 60 % off both axes of a 30x12 cell and the lanes between columns come out
+     * at 12 px — twice what is needed — while the galleries between rows come
+     * out at 4.8, which is a channel the ball can see and cannot enter. So the
+     * cell is worn on its own terms: `insetX` opens a 10 px lane the ball
+     * genuinely threads, and `insetY` opens a 6 px gallery it does not, which is
+     * the wall reading as a lattice from a capsule that is honestly about
+     * columns.
+     *
+     * `insetY` is 3 and may not be 4, and that is a collision fact rather than a
+     * taste one: at 4 the brick is 4 px tall, thinner than the 6 px between the
+     * ball's own top and bottom corners, and a ball crossing it at any speed can
+     * have both corners outside it and pass straight through a brick that is
+     * still there. At 3 the brick is exactly 6 and the corner test cannot miss
+     * it — which is also why the sub-step loop needs nothing added for TURBO and
+     * RUSH: it already caps a sub-step at 2 px an axis.
+     *
+     * Both are spent in **whole pixels**, so the collider is always exactly the
+     * rectangle being painted. A brick worn at 3.4 px and drawn at a rounded 3
+     * is a brick with half a pixel of hitbox hanging off it, and the player
+     * bouncing off nothing is the one thing a capsule about holes may not do.
+     */
+    erode: {
+      insetX: 5,
+      insetY: 3,
+      // Grains per brick, per seam. Three is enough to read as a trickle at a
+      // glance across a 60-brick wall and few enough that the wall does not
+      // disappear behind its own dust.
+      grains: 3,
+      // How far a grain falls below its seam before it is recycled, and how fast
+      // it goes. The fall is a hair over a brick's own height so the trickle
+      // reaches the brick beneath it — the mortar is going somewhere — and the
+      // speed is under a pixel a tick so it reads as sifting rather than as rain.
+      grainFall: 14,
+      grainSpeed: 0.55,
+      // The puff a ball knocks off a brick it has worn thin, and the one thing
+      // the capsule adds to a bounce that was not already there. A clip inside
+      // the wall sounds exactly like a clip on the front of it — the clank is
+      // the brick's, not the lane's — so this is what says the ball is in
+      // there. Four chunks and half a second, well under the six a kill throws:
+      // a rally down a lane is a dozen of these, and a death's worth of debris
+      // each time would bury the wall the player is trying to read.
+      clipBurst: {
+        chunkCount: 4,
+        minChunkSize: 1,
+        maxChunkSize: 2,
+        minSpeed: 0.4,
+        maxSpeed: 1.1,
+        minLifeTicks: 10,
+        maxLifeTicks: 26,
+      },
+    },
     // ANGEL puts the ball it saved back at this height: below the deck's 276,
     // so it rises through it and reads as caught at the last instant, and clear
     // enough of the 300 death line that the very next tick cannot drain it
@@ -800,6 +858,14 @@ export const gameConfig = {
     // a wipe, which is what makes it read as a grid resolving rather than as a
     // curtain crossing the screen.
     snapGridTicks: 30,
+    // ERODE's wear, each way: how long the mortar takes to give and to set again.
+    // Sixty rather than the thirty the field-wide pictures take, because this
+    // one is not a picture — the collider shrinks with it, and a wall that
+    // opened in half a second would put the ball inside itself before the player
+    // had read that there were lanes. It is also the only fade in the game spent
+    // in visible steps: the insets are whole pixels, so five of these ticks buy
+    // one pixel off each side and the grains are what fills the gap between them.
+    erodeTicks: 60,
     splitTearBurst: {
       chunkCount: 8,
       minChunkSize: 1,

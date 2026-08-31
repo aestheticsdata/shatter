@@ -17,6 +17,7 @@ import { BrickGrid } from "@entities/bricks/BrickGrid";
 import { BumperField } from "@entities/effects/BumperField";
 import { Critter } from "@entities/effects/Critter";
 import { Detonation } from "@entities/effects/Detonation";
+import { Erosion } from "@entities/effects/Erosion";
 import { MeteorField } from "@entities/effects/MeteorField";
 import { ParticleField } from "@entities/effects/ParticleField";
 import { Quake } from "@entities/effects/Quake";
@@ -285,6 +286,9 @@ export class ShatterGame {
   private resyncTicksLeft = 0;
   private readonly bumpers = new BumperField();
   private readonly quake = new Quake();
+  // ERODE's wear, cell by cell. Handed to the grid once at construction and read
+  // by its hitbox from there — this class only steps it.
+  private readonly erosion = new Erosion();
   private readonly critter = new Critter();
   private readonly meteors = new MeteorField();
   // Ticks each ball has spent inside each core's reach, indexed `[core][ball]`.
@@ -347,6 +351,21 @@ export class ShatterGame {
   // the timer: the renderer sweeps a wave across the wall as this moves, while
   // the collision stays binary on the capsule itself.
   private ghostBlend = 0;
+  /**
+   * ERODE's wear, 0 whole to 1 the mortar fully gone — and GHOST's exact
+   * opposite in the one way that matters here.
+   *
+   * The fade above is a picture over a rule that switched instantly: the wall is
+   * already intangible while it still looks solid. This one *is* the rule. The
+   * brick's collider is cut from this number, in whole pixels, so a wall halfway
+   * through wearing is a wall with half-width lanes in it and the player can see
+   * exactly how much room they have.
+   *
+   * It is the target and not the truth, mind: each cell chases it through
+   * `Erosion`, and a cell with a ball standing in it stops chasing until the
+   * ball has gone.
+   */
+  private erodeBlend = 0;
   /**
    * MAGNET's reach, 0 to 1 of the full 96 px either side of the deck.
    *
@@ -680,6 +699,19 @@ export class ShatterGame {
       xrayReading: this.timers.isActive("XR"),
       demakeBlend: this.demakeBlend,
       ghostBlend: this.ghostBlend,
+      // The wear itself goes over as the object, the way the quake and the
+      // critter do: the renderer needs the inset of the cell it is painting, and
+      // the whole point of that number being per-cell is that no single one
+      // stands for the wall.
+      erosion: this.erosion,
+      // The two numbers the trickle needs, which the wear cannot say. The first
+      // is how heavy it is; the second is which way it runs — grains fall out of
+      // the seams while the mortar is going and are drawn back up into them
+      // while it sets, and one frame of a symmetric blend looks the same either
+      // way. Read off the timer and not the blend, so the trickle turns round on
+      // the tick the capsule ends rather than a tick later.
+      erodeBlend: this.erodeBlend,
+      erodeSetting: !this.timers.isActive("ER"),
       paydayFront: this.paydayFront(),
       // The two freezes light the field by definition: a nuke is the brightest
       // thing the game does, and the last brick's shatter has to be seen. Both
@@ -1027,6 +1059,25 @@ export class ShatterGame {
     // behind one would spend its kicks on balls nobody can see move — then let
     // several land at once on the frame the field comes back.
     this.stepHaywire();
+    /**
+     * The mortar, and the one of the roster's blends stepped **below** the
+     * freeze gates rather than above them.
+     *
+     * Every other one is a picture, so a shockwave holding it still costs
+     * nothing but a frozen frame. This one is the wall's own hitbox. A
+     * detonation takes the wall apart from the top while it runs, and a wall
+     * growing back underneath it is a wall changing shape twice at once —
+     * worse, the freeze parks the balls too, so a cell would be held open by a
+     * ball that cannot leave it, which is the hold doing the opposite of its
+     * job. Frozen, the wear keeps whatever it had reached and takes up again on
+     * the tick the field is the player's again.
+     *
+     * Under `grid.topOffset` as well, which is set above the gates: a cell's
+     * hold is tested where the wall is being *painted*, and QUAKE's is still on
+     * its way down.
+     */
+    this.erodeBlend = stepBlend(this.erodeBlend, this.timers.isActive("ER"), gameConfig.effects.erodeTicks);
+    this.erosion.follow(this.erodeBlend, this.balls, this.grid.topOffset);
     for (const core of this.cores) {
       if (core.active) {
         core.step();
@@ -1087,6 +1138,13 @@ export class ShatterGame {
     // something turns it.
     if (expired.includes("SN")) {
       this.deps.sfx.snapGridOff();
+    }
+    // The mortar setting again — and the announcement only. The wall takes a
+    // full second to close and may take longer still where a ball is standing,
+    // so what this marks is the moment the lanes stopped being promised, not
+    // the moment they stopped being there.
+    if (expired.includes("ER")) {
+      this.deps.sfx.mortarSet();
     }
     // The cloth coming off, and the one ending here that is *not* the whole of
     // it: a ball already curving keeps curving until its own spin runs out. The
@@ -2475,6 +2533,18 @@ export class ShatterGame {
       if (isDirectHit(source)) {
         this.deps.sfx.brickArmored();
       }
+      // ERODE: a clip off a brick worn thin knocks the rest of it loose. Only on
+      // the survivors — a kill already throws six chunks of its own — and only
+      // while the wall is actually worn, so an ordinary rally against granite is
+      // exactly as dusty as it has always been.
+      //
+      // This is what says the ball is *inside* the wall. The clank is the
+      // brick's and sounds the same from either side of it, and without a puff
+      // at the point of contact a rally down a lane is a ball ricocheting off
+      // nothing the player can point at.
+      if (this.erosion.worn) {
+        this.emitClipDust(hit);
+      }
       return;
     }
 
@@ -2638,6 +2708,20 @@ export class ShatterGame {
 
   // White death flash on the brick footprint plus a debris burst in the
   // brick's own colors, shared by ordinary kills and NUKE kills.
+  // The clip puff, thrown from the middle of what the brick has left rather than
+  // the middle of its cell: at full wear those are 5 px apart on one axis and
+  // 3 on the other, and dust coming off the empty half of a cell would be dust
+  // coming off the lane instead of off the stone.
+  private emitClipDust(hit: BrickHit): void {
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    this.particles.burst(
+      left + hit.column * brickWidth + brickWidth / 2,
+      top + hit.row * brickHeight + brickHeight / 2 - this.grid.topOffset,
+      hit.cell.kind,
+      gameConfig.powerUps.erode.clipBurst,
+    );
+  }
+
   private emitBurst(hit: BrickHit, spec: BurstSpec): void {
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
     this.brickFlashes.push({
@@ -2962,6 +3046,8 @@ export class ShatterGame {
     this.meteors.reset();
     this.snapBlend = 0;
     this.snapMarks = [];
+    this.erodeBlend = 0;
+    this.erosion.reset();
     this.ghostBlend = 0;
     this.magnetBlend = 0;
     this.paydayBlend = 0;
@@ -3286,6 +3372,9 @@ export class ShatterGame {
       // below can never push a brick off the end of the grid.
       this.destroyBottomRow();
       this.grid.shiftDown();
+      // The cells move by reference and their wear moves with them: a brick
+      // ERODE has taken 5 px off is still that brick a row further down.
+      this.erosion.shiftDown();
       this.quake.start();
       // The catch happens below `quake.step()` in the same tick, so the wall
       // would spend its first frame drawn a row above a hitbox that had not
@@ -3335,6 +3424,9 @@ export class ShatterGame {
     }
     if (kind === "SN") {
       this.timers.activate("SN", durations.SN);
+    }
+    if (kind === "ER") {
+      this.timers.activate("ER", durations.ER);
     }
     if (kind === "XR") {
       this.timers.activate("XR", durations.XR);
@@ -3410,6 +3502,8 @@ export class ShatterGame {
       // caught over a live one is the same tick again, which is right — the
       // setting was already on and has been turned on again.
       this.deps.sfx.snapGridOn();
+    } else if (kind === "ER") {
+      this.deps.sfx.mortarGive();
     } else if (kind === "V") {
       this.deps.sfx.singularityOpen();
     } else if (kind === "VX") {
@@ -3814,6 +3908,11 @@ export class ShatterGame {
 
   private buildLevel(level: number): void {
     this.grid.load(levelAt(level), () => this.rollBrickCapsule());
+    // Sized to this wall and handed over once. The grid reads the wear out of it
+    // for the rest of the level exactly as it reads QUAKE's drop off a number —
+    // it never learns whose capsule either of them is.
+    this.erosion.load(levelAt(level).rows.length);
+    this.grid.erosion = this.erosion;
     this.resetServe();
   }
 
@@ -3872,6 +3971,8 @@ export class ShatterGame {
     this.meteors.reset();
     this.snapBlend = 0;
     this.snapMarks = [];
+    this.erodeBlend = 0;
+    this.erosion.reset();
     this.ghostBlend = 0;
     this.magnetBlend = 0;
     this.paydayBlend = 0;
@@ -3938,6 +4039,8 @@ export class ShatterGame {
     this.meteors.reset();
     this.snapBlend = 0;
     this.snapMarks = [];
+    this.erodeBlend = 0;
+    this.erosion.reset();
     this.ghostBlend = 0;
     this.magnetBlend = 0;
     this.paydayBlend = 0;

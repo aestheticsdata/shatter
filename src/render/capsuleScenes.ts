@@ -90,20 +90,29 @@ class Field {
     return { x: GRID_LEFT + column * BRICK_WIDTH, y: GRID_TOP + row * BRICK_HEIGHT };
   }
 
-  brick(column: number, row: number, kind: BrickKind, fade = 0): void {
+  // `worn` is ERODE's wear, 0 to 1, threaded down from `wall` for the one scene
+  // that needs it: the insets it becomes are the config's, so a retuned lane is
+  // a retuned picture with no second edit.
+  brick(column: number, row: number, kind: BrickKind, fade = 0, worn = 0): void {
     const { x, y } = this.brickAt(column, row);
-    drawBrick(this.ctx, x, y, cell(kind, row * COLUMNS + column), 1, { fade, demade: this.demade });
+    const { insetX, insetY } = gameConfig.powerUps.erode;
+    drawBrick(this.ctx, x, y, cell(kind, row * COLUMNS + column), 1, {
+      fade,
+      demade: this.demade,
+      erodeX: Math.round(worn * insetX),
+      erodeY: Math.round(worn * insetY),
+    });
   }
 
   // One full row of the wall, the width of the grid.
-  row(row: number, kind: BrickKind, fade = 0): void {
+  row(row: number, kind: BrickKind, fade = 0, worn = 0): void {
     for (let column = 0; column < COLUMNS; column++) {
-      this.brick(column, row, kind, fade);
+      this.brick(column, row, kind, fade, worn);
     }
   }
 
-  wall(kinds: readonly BrickKind[] = DEFAULT_WALL, fade = 0, top = 0): void {
-    kinds.forEach((kind, index) => this.row(top + index, kind, fade));
+  wall(kinds: readonly BrickKind[] = DEFAULT_WALL, fade = 0, top = 0, worn = 0): void {
+    kinds.forEach((kind, index) => this.row(top + index, kind, fade, worn));
   }
 
   // A brick lit the way the field lights one that has just been killed.
@@ -768,6 +777,36 @@ const SCENES: Record<PowerUpKind, Painter> = {
     }
     field.ball(hit.x + 26, hit.y - 30);
     field.deck(gameConfig.paddle.baseWidth, 96);
+  },
+  // The wall fully worn, and a ball already inside it. The lane it is threading
+  // is the real one — the deck is where it always is, the wall is the default
+  // four rows, and the only staging is that both were painted at full wear —
+  // so the picture answers the one question a player has about this capsule,
+  // which is whether the ball actually fits.
+  //
+  // The ball sits on a column boundary rather than in a brick's middle for the
+  // same reason: it is the geometry that has to be legible, and there is exactly
+  // one place a threading ball can be.
+  ER: (field) => {
+    field.wall(DEFAULT_WALL, 0, 0, 1);
+    // The seams still giving. Spread from the second row down to well under the
+    // wall, so the trickle reads as coming out of the whole thing rather than
+    // off its bottom edge.
+    for (let index = 0; index < 26; index++) {
+      const hash = (index * 2654435761) >>> 8;
+      field.rect(
+        GRID_LEFT + (hash % (COLUMNS * BRICK_WIDTH)),
+        GRID_TOP + BRICK_HEIGHT + ((hash >>> 9) % 40),
+        1,
+        1,
+        index % 2 === 0 ? canvasPalette.erodeGrain : canvasPalette.erodeDust,
+      );
+    }
+    // Dead centre of the sixth column boundary, which is where a 10 px lane puts
+    // an 8 px ball, and deep enough into the wall to read as threading it rather
+    // than as arriving at it.
+    field.ball(GRID_LEFT + 6 * BRICK_WIDTH - gameConfig.ball.size / 2, GRID_TOP + BRICK_HEIGHT + 6);
+    field.deck();
   },
   // The default staging, upside down — the only scene that needs no staging of
   // its own, because the capsule does nothing but turn the field over.

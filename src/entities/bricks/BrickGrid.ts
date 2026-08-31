@@ -3,11 +3,30 @@ import { gameConfig } from "@core/config/GameConfig";
 
 import type { BrickCell, BrickHit, LevelDefinition, PowerUpKind } from "@interfaces/types";
 
+/**
+ * ERODE's wear, as much of it as the wall needs to know: how far the brick in a
+ * cell has pulled inside it, in whole pixels off each edge.
+ *
+ * An interface and not the `Erosion` class, for the reason `topOffset` is a
+ * number and not a `Quake`: the wall is a wall, and what it holds is where its
+ * bricks are, never which capsule put them there.
+ */
+export interface WallErosion {
+  worn: boolean;
+  insetXAt(row: number, column: number): number;
+  insetYAt(row: number, column: number): number;
+}
+
 export class BrickGrid {
   // How far above its own index row the wall is being painted this frame, fed
   // from `Quake.dropOffset` every tick. Zero except while QUAKE's wall is still
   // falling; see `cellAt`, the only thing that reads it.
   topOffset = 0;
+  // How far the mortar has gone, or null on a wall nothing has eroded — which is
+  // every wall until an ERODE is caught. Set once by the game and read only by
+  // `cellAt`, beside the offset above and for the same reason: this is the other
+  // way the hitbox stops being the plain grid it is indexed on.
+  erosion: WallErosion | null = null;
   private grid: Array<Array<BrickCell | null>> = [];
   private remainingCount = 0;
 
@@ -98,7 +117,30 @@ export class BrickGrid {
    */
   cellAt(x: number, y: number): BrickHit | null {
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
-    return this.hitAtCell(Math.floor((y - top + this.topOffset) / brickHeight), Math.floor((x - left) / brickWidth));
+    const withinX = x - left;
+    const withinY = y - top + this.topOffset;
+    const row = Math.floor(withinY / brickHeight);
+    const column = Math.floor(withinX / brickWidth);
+    const hit = this.hitAtCell(row, column);
+    if (hit === null || this.erosion === null || !this.erosion.worn) {
+      return hit;
+    }
+
+    // ERODE: the brick no longer fills its cell, so landing in the cell is no
+    // longer landing on the brick. The margin the wear opened belongs to the
+    // field — a ball in it is threading a lane, a laser bolt in it is going up
+    // one, and neither has hit anything.
+    //
+    // Whole pixels either side, which is what makes this rectangle the exact one
+    // being painted: the brick a ball bounces off is the brick the player can
+    // see, at every step of the wear rather than only at its two ends.
+    const insetX = this.erosion.insetXAt(row, column);
+    const insetY = this.erosion.insetYAt(row, column);
+    const offsetX = withinX - column * brickWidth;
+    const offsetY = withinY - row * brickHeight;
+    const inside =
+      offsetX >= insetX && offsetX < brickWidth - insetX && offsetY >= insetY && offsetY < brickHeight - insetY;
+    return inside ? hit : null;
   }
 
   hitAtCell(row: number, column: number): BrickHit | null {

@@ -207,6 +207,15 @@ export const canvasPalette = {
   // twelve ticks it exists and is drawn over the field rather than under it.
   snapGrid: "#20461a",
   snapMark: "#9cff7a",
+  // ERODE: the mortar coming out of the seams, in two tones for granite's
+  // reason — one colour trickling on its own reads as a rendering fault, and a
+  // fall that brackets its own value reads as grit. Both are the capsule's own
+  // khaki, one taken down and one taken up, and both are kept well under a
+  // brick: the dust falls *between* the bricks over whatever theme the field is
+  // wearing, and grains as bright as the wall would turn the lattice into noise
+  // at exactly the moment the player is looking for a lane through it.
+  erodeGrain: "#8c8869",
+  erodeDust: "#c4c0a0",
   // DEMAKE: the two tones the whole machine collapses onto for 8 seconds. Ink
   // is a P1 phosphor at the brightness a sprite has to hold against the ground,
   // which is the tube's black with just enough green in it to read as glass

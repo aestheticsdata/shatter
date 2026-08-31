@@ -557,6 +557,34 @@ export class SoundBank {
     this.tone({ freq: 720, dur: 0.045, vol: 0.05 });
   }
 
+  // ERODE: a second of dry stone giving way. A wide band sinking from a hiss to
+  // a rumble, with a lower body under it — the mortar going out of the seams as
+  // grit rather than the wall cracking, which is the thing GHOST's fade already
+  // does and this capsule is the opposite of.
+  //
+  // Deliberately as long as the wear itself: the lanes take a full second to
+  // open, and a catch sound that finished first would have the player looking
+  // for a hole the wall has not cut yet.
+  mortarGive(): void {
+    if (!this.allow("mortarGive")) {
+      return;
+    }
+    this.noise({ dur: 1, vol: 0.11, filter: { type: "bandpass", freq: 5200, freqEnd: 420, q: 0.9 } });
+    this.noise({ dur: 0.7, vol: 0.06, filter: { type: "lowpass", freq: 900 } });
+  }
+
+  // The same grit run the other way and shorter, which is the wall taking its
+  // mortar back — and, unlike its opposite above, only an announcement: the
+  // cells close on their own clock and a cell with a ball in it closes later
+  // still, so this is the moment the lanes stopped being promised.
+  mortarSet(): void {
+    if (!this.allow("mortarSet")) {
+      return;
+    }
+    this.noise({ dur: 0.55, vol: 0.09, filter: { type: "bandpass", freq: 380, freqEnd: 2600, q: 1 } });
+    this.tone({ freq: 150, dur: 0.12, vol: 0.05, delayS: 0.45 });
+  }
+
   // BANANA: the slip itself, not the catch — the womp already covered the pill.
   // A sawtooth slide-whistle up under a noise sweep opening the same way, which
   // is the cartoon the trap is, and short enough to be over before the deck is.

@@ -648,9 +648,13 @@ independent state have already been extracted —
 [`Quake`](../src/entities/effects/Quake.ts),
 [`Critter`](../src/entities/effects/Critter.ts),
 [`Detonation`](../src/entities/effects/Detonation.ts),
-[`ParticleField`](../src/entities/effects/ParticleField.ts). Those seven left the
+[`ParticleField`](../src/entities/effects/ParticleField.ts),
+[`Erosion`](../src/entities/effects/Erosion.ts). Those eight left the
 class cleanly because each is a simulation of its own that `ShatterGame` merely
-steps and reads. The remaining bulk is the effects that are _modifiers on shared
+steps and reads — and the last of them is the only one the wall itself reads
+back, through the `WallErosion` interface `BrickGrid` declares for it, which is
+what keeps ERODE's hitbox out of the grid's vocabulary the way `topOffset` keeps
+QUAKE's out of it. The remaining bulk is the effects that are _modifiers on shared
 state_, and the honest next cut is not "one class per capsule" but a `BlendBank`
 that owns the ~20 named blends and their step-above-the-gates rule as data,
 shrinking the field list without pretending the rules are separable.

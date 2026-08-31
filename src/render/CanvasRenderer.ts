@@ -15,6 +15,7 @@ import {
 } from "@render/palette";
 
 import type { BrickGrain } from "@core/config/bricks";
+import type { WallErosion } from "@entities/bricks/BrickGrid";
 import type { Critter } from "@entities/effects/Critter";
 import type { Detonation } from "@entities/effects/Detonation";
 import type { Meteor } from "@entities/effects/MeteorField";
@@ -518,6 +519,24 @@ export interface RenderView {
   // runs its plasma mask over the grid, each brick melting to its outline as
   // the field rises past it.
   ghostBlend: number;
+  /**
+   * ERODE's wear, and the only thing on this view the renderer asks a *question*
+   * of rather than reading a number off.
+   *
+   * Per cell, because that is the only honest answer: the wall wears as one
+   * wall but it grows back a cell at a time, holding wherever a ball is standing
+   * so a brick cannot close on one. A single number could not say that, and a
+   * wall painted off one while it was collided off forty would put the player
+   * through a brick that is on screen.
+   */
+  erosion: WallErosion;
+  // How heavy the trickle out of the seams is, and which way it runs. The wear
+  // above says how far the mortar has gone and cannot say either: it is
+  // symmetric, and a wall halfway open looks the same whether it is opening or
+  // closing. Grains fall while it gives and are drawn back up into the seams
+  // while it sets.
+  erodeBlend: number;
+  erodeSetting: boolean;
   // BLACKOUT's iris, 0 lit to 1 fully dark. A number rather than a flag because
   // the light does not switch off, it collapses: the pools open wider than the
   // field at 0 and close onto the ball at 1, which is the same journey run
@@ -665,6 +684,13 @@ export interface BrickPaint {
   // gold and nothing else does: kind colour, hurt state, dark shade and
   // silhouette all stay, so a fully gilded wall still reads as the level it is.
   gilded?: boolean;
+  // ERODE's wear, in whole pixels off each edge of the cell — the same two
+  // numbers the hitbox is cut with, so the brick the ball bounces off is the
+  // brick on screen. Every part of the sprite is measured off the body they
+  // leave rather than off the cell, which is what lets one bevel serve a 28x10
+  // brick and a 20x6 one.
+  erodeX?: number;
+  erodeY?: number;
 }
 
 export function drawBrick(
@@ -675,7 +701,17 @@ export function drawBrick(
   scale: number,
   paint: BrickPaint = {},
 ): void {
-  const { fade = 0, demade = false, gilded = false } = paint;
+  const { fade = 0, demade = false, gilded = false, erodeX = 0, erodeY = 0 } = paint;
+  // The body the whole sprite is laid out on. A whole brick is its cell inset by
+  // one, which is the mortar seam it has always been drawn with; a worn one is
+  // inset by whatever the erosion has taken, and the seam is simply the first
+  // pixel of that.
+  const padX = Math.max(1, erodeX);
+  const padY = Math.max(1, erodeY);
+  const bodyX = x + padX;
+  const bodyY = y + padY;
+  const bodyWidth = gameConfig.grid.brickWidth - padX * 2;
+  const bodyHeight = gameConfig.grid.brickHeight - padY * 2;
   const ink = inkFor(demade);
   // `CanvasRenderer.pixel`, at the scale asked for: whole game pixels, each one
   // a scale×scale block.
@@ -686,10 +722,10 @@ export function drawBrick(
 
   if (fade > 0) {
     ctx.globalAlpha = fade;
-    pixel(x + 1, y + 1, 28, 1, canvasPalette.ghostBrick);
-    pixel(x + 1, y + 10, 28, 1, canvasPalette.ghostBrick);
-    pixel(x + 1, y + 2, 1, 8, canvasPalette.ghostBrick);
-    pixel(x + 28, y + 2, 1, 8, canvasPalette.ghostBrick);
+    pixel(bodyX, bodyY, bodyWidth, 1, canvasPalette.ghostBrick);
+    pixel(bodyX, bodyY + bodyHeight - 1, bodyWidth, 1, canvasPalette.ghostBrick);
+    pixel(bodyX, bodyY + 1, 1, bodyHeight - 2, canvasPalette.ghostBrick);
+    pixel(bodyX + bodyWidth - 1, bodyY + 1, 1, bodyHeight - 2, canvasPalette.ghostBrick);
     ctx.globalAlpha = 1;
     if (fade >= 1) {
       return;
@@ -709,14 +745,14 @@ export function drawBrick(
   // tell survives the tide instead of being flattened by it.
   const sheen = gilded ? GILD_RAMP[Math.min(stage, GILD_RAMP.length - 1)] : ramp[stage];
 
-  pixel(x + 1, y + 1, 28, 10, ramp[stage + 1]);
+  pixel(bodyX, bodyY, bodyWidth, bodyHeight, ramp[stage + 1]);
   if (definition.grain) {
-    drawGrain(pixel, x, y, cell.seed, definition.grain, ramp, stage);
+    drawGrain(pixel, bodyX, bodyY, bodyWidth, bodyHeight, cell.seed, definition.grain, ramp, stage);
   }
-  pixel(x + 2, y + 1, 26, 1, sheen);
-  pixel(x + 1, y + 2, 1, 8, sheen);
-  pixel(x + 2, y + 10, 26, 1, definition.dark);
-  pixel(x + 28, y + 2, 1, 8, definition.dark);
+  pixel(bodyX + 1, bodyY, bodyWidth - 2, 1, sheen);
+  pixel(bodyX, bodyY + 1, 1, bodyHeight - 2, sheen);
+  pixel(bodyX + 1, bodyY + bodyHeight - 1, bodyWidth - 2, 1, definition.dark);
+  pixel(bodyX + bodyWidth - 1, bodyY + 1, 1, bodyHeight - 2, definition.dark);
   ctx.globalAlpha = 1;
 }
 
@@ -736,13 +772,6 @@ export function drawBrick(
  * granite brick three hits in wears gold's shade and stays there.
  */
 const GILD_RAMP = BRICK_RAMPS.G;
-
-// The body a fleck may land on: inside the sheen along the top and left and the
-// shade along the bottom and right, so the stone never eats its own frame.
-const GRAIN_LEFT = 2;
-const GRAIN_TOP = 2;
-const GRAIN_WIDTH = 26;
-const GRAIN_HEIGHT = 8;
 
 // One fleck's position, hashed rather than walked out of a generator: the
 // pattern has to be identical on every frame of a brick's life and unrelated to
@@ -768,8 +797,14 @@ function grainHash(seed: number, index: number): number {
  */
 function drawGrain(
   pixel: (left: number, top: number, width: number, height: number, color: string) => void,
-  x: number,
-  y: number,
+  // The brick's body, not its cell: a fleck may land inside the sheen along the
+  // top and left and the shade along the bottom and right, so the stone never
+  // eats its own frame — and a granite brick ERODE has worn down to 20x6 speckles
+  // over what it has left rather than over where it used to be.
+  bodyX: number,
+  bodyY: number,
+  bodyWidth: number,
+  bodyHeight: number,
   seed: number,
   grain: BrickGrain,
   ramp: readonly string[],
@@ -781,7 +816,7 @@ function drawGrain(
   for (let index = 0; index < total; index++) {
     const hash = grainHash(seed, index);
     const tone = index >= grain.count ? grain.pit : index % 2 === 0 ? pale : shade;
-    pixel(x + GRAIN_LEFT + (hash % GRAIN_WIDTH), y + GRAIN_TOP + ((hash >>> 8) % GRAIN_HEIGHT), 1, 1, tone);
+    pixel(bodyX + 1 + (hash % (bodyWidth - 2)), bodyY + 1 + ((hash >>> 8) % (bodyHeight - 2)), 1, 1, tone);
   }
 }
 
@@ -1280,11 +1315,22 @@ export class CanvasRenderer {
           const x = left + columnIndex * brickWidth;
           const y = wallY + rowIndex * brickHeight;
           const fade = ghostProgress(view.ghostBlend, rowIndex, columnIndex, this.frameCount);
+          const erodeX = view.erosion.insetXAt(rowIndex, columnIndex);
+          const erodeY = view.erosion.insetYAt(rowIndex, columnIndex);
           drawBrick(this.ctx, x, y, cell, SCALE, {
             fade,
             demade: this.demade,
             gilded: rowIndex >= view.paydayFront,
+            erodeX,
+            erodeY,
           });
+          // The seams this brick is opening, drawn from the brick itself so the
+          // trickle rides the wall through QUAKE's shake and stops the tick the
+          // brick is killed. Under the revealed pill below, which is a thing to
+          // read rather than weather.
+          if (view.erodeBlend > 0 && view.erodeBlend < 1) {
+            this.drawErodeGrains(x, y, erodeX, erodeY, view.erodeBlend, view.erodeSetting);
+          }
           // Branched rather than clipped blind. Gating on the blend alone would
           // pay a save/beginPath/rect/clip/restore on every revealed pill on
           // every one of the capsule's 300 frames, and lean on a negative-height
@@ -1316,7 +1362,18 @@ export class CanvasRenderer {
       // when it is drawn: a two-tick flash is a record of the kill, and the
       // tide moving on cannot retroactively make an earlier one gold.
       const tone = flash.gild ? canvasPalette.paydayFlash : FLASH_COLORS[flash.kind];
-      this.pixel(flash.x + 1, flashY + 1, 28, 10, tone);
+      // Cut to the brick that died rather than to its cell. A flash is the shape
+      // the brick had on the frame it was killed, and a full-cell one over a
+      // wall ERODE has worn down to 20x6 would paint a brick back into the lane
+      // the ball is still travelling up.
+      const flashPad = flash.onWall ? this.flashWear(flash, view) : { x: 1, y: 1 };
+      this.pixel(
+        flash.x + flashPad.x,
+        flashY + flashPad.y,
+        gameConfig.grid.brickWidth - flashPad.x * 2,
+        gameConfig.grid.brickHeight - flashPad.y * 2,
+        tone,
+      );
     }
     // Inside the shake and over the wall: a bracket marks a point on the field
     // where something happened, and a mark that ignored QUAKE would drift off
@@ -2398,6 +2455,76 @@ export class CanvasRenderer {
    * the same point in the fade every time the capsule is caught; a per-frame
    * random would boil.
    */
+  /**
+   * ERODE: how far in the brick that just died had been worn, recovered from
+   * where its flash was put.
+   *
+   * The flash carries a position and not a cell — it is a record of a kill and
+   * outlives the brick by two ticks — so the cell is read back out of it. Safe
+   * because the wear is positional too: `Erosion` keeps one number per cell of
+   * the wall and never clears the one under a brick that has gone, so what
+   * comes back is the size the brick was at the moment it was hit.
+   */
+  private flashWear(flash: BrickFlash, view: RenderView): { x: number; y: number } {
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    const column = Math.round((flash.x - left) / brickWidth);
+    const row = Math.round((flash.y - top) / brickHeight);
+    return {
+      x: Math.max(1, view.erosion.insetXAt(row, column)),
+      y: Math.max(1, view.erosion.insetYAt(row, column)),
+    };
+  }
+
+  /**
+   * The mortar leaving one brick's seams, or being drawn back into them.
+   *
+   * Hashed off the cell's own coordinates rather than kept as particles, for
+   * SNAP's lattice reason and one more: this runs on every brick of every wall
+   * for the two seconds the wear takes, and a pool would be sixty bricks times
+   * three grains of state to allocate, step and recycle for a picture that owns
+   * nothing. Hashed, a grain is at the same point of its fall every time the
+   * wall is at the same point of its wear, and no per-frame random can make it
+   * boil.
+   *
+   * The scatter runs across the **cell** and not the body, which is what puts
+   * grains in the lane beside the brick as well as under it: the vertical seams
+   * are the ones opening widest, and a trickle that came only off the bottom
+   * edge would say the wall was settling rather than coming apart.
+   */
+  private drawErodeGrains(x: number, y: number, erodeX: number, erodeY: number, blend: number, setting: boolean): void {
+    const { grains, grainFall, grainSpeed } = gameConfig.powerUps.erode;
+    const { brickWidth, brickHeight } = gameConfig.grid;
+    // The lip they leave from: the bottom of the body, which is the seam that
+    // is opening. It travels up the cell as the brick shrinks, so the trickle
+    // starts higher the further the wear has got.
+    const seam = y + brickHeight - Math.max(1, erodeY);
+    for (let index = 0; index < grains; index++) {
+      const hash = ((x * 73856093) ^ (y * 19349663) ^ ((index + 1) * 83492791)) >>> 4;
+      // Where in its own fall this grain is. Offset per grain so three of them
+      // never leave a seam together, and taken modulo the fall so it is a loop
+      // rather than a clock anybody has to reset.
+      const travelled = (this.frameCount * grainSpeed + (hash % grainFall)) % grainFall;
+      // Setting, the fall runs backwards: the grains climb the same distance
+      // back into the seam they came out of, which is the only picture the
+      // capsule's ending has.
+      const fallen = setting ? grainFall - travelled : travelled;
+      // Thinner as the wear settles at either end, so the trickle starts and
+      // stops instead of being switched on. `blend` is the *depth* of the wear,
+      // and this is a triangle over it: heaviest while the mortar is actually
+      // moving, gone by the time it has finished either giving or setting.
+      if ((hash >>> 12) % 100 >= Math.round(Math.min(blend, 1 - blend) * 200)) {
+        continue;
+      }
+      this.pixel(
+        x + (hash % brickWidth),
+        seam + fallen,
+        1,
+        1,
+        index % 2 === 0 ? canvasPalette.erodeGrain : canvasPalette.erodeDust,
+      );
+    }
+  }
+
   private drawSnapGrid(blend: number): void {
     const { cell } = gameConfig.powerUps.snap;
     const { width, height } = gameConfig.field;
