@@ -1,10 +1,7 @@
-import { BRICK_HIT_POINTS, BRICK_POINTS, gameConfig } from "@core/config/GameConfig";
+import { BRICK_BY_ID, isBrickKind } from "@core/config/bricks";
+import { gameConfig } from "@core/config/GameConfig";
 
-import type { BrickCell, BrickHit, BrickKind, LevelDefinition, PowerUpKind } from "@interfaces/types";
-
-function isBrickKind(char: string): char is BrickKind {
-  return char in BRICK_POINTS;
-}
+import type { BrickCell, BrickHit, LevelDefinition, PowerUpKind } from "@interfaces/types";
 
 export class BrickGrid {
   // How far above its own index row the wall is being painted this frame, fed
@@ -35,34 +32,53 @@ export class BrickGrid {
     this.remainingCount = 0;
     this.topOffset = 0;
 
-    for (const row of level.rows) {
+    const { columns } = gameConfig.grid;
+    for (const [rowIndex, row] of level.rows.entries()) {
       const line: Array<BrickCell | null> = [];
-      for (let column = 0; column < gameConfig.grid.columns; column++) {
+      for (let column = 0; column < columns; column++) {
         const char = row[column] ?? ".";
         if (!isBrickKind(char)) {
           line.push(null);
           continue;
         }
+        const definition = BRICK_BY_ID[char];
         line.push({
           kind: char,
-          hitPoints: BRICK_HIT_POINTS[char],
-          points: BRICK_POINTS[char],
-          hurt: false,
+          hitPoints: definition.hitPoints,
+          points: definition.points,
+          // Its cell, once, and it travels with the brick from here: QUAKE moves
+          // cells by reference, so a granite brick that slides down a row is
+          // still cut from the same stone.
+          seed: rowIndex * columns + column,
           capsule: rollCapsule(),
+          seeded: false,
         });
         this.remainingCount++;
       }
       this.grid.push(line);
     }
+
+    // The level's own capsules, stamped over whatever those cells rolled. Last
+    // so the roll above stays one call per brick — the odds are the level's
+    // business, and a seeded cell is not a roll at all.
+    for (const drop of level.drops ?? []) {
+      const cell = this.grid[drop.row]?.[drop.column];
+      if (cell) {
+        cell.capsule = drop.kind;
+        cell.seeded = true;
+      }
+    }
   }
 
   // Re-roll every brick still standing. The dev console's `bonus` command changes
   // the drop rate mid-level, and the wall was seeded at load: without this,
-  // `bonus 1` would only take effect on the next level.
+  // `bonus 1` would only take effect on the next level. Cells the level pinned
+  // are left out of it — a drop rate typed into the console has nothing to say
+  // about a promise.
   reseedCapsules(rollCapsule: () => PowerUpKind | null): void {
     for (const row of this.grid) {
       for (const cell of row) {
-        if (cell) {
+        if (cell && !cell.seeded) {
           cell.capsule = rollCapsule();
         }
       }
@@ -114,10 +130,13 @@ export class BrickGrid {
     return null;
   }
 
-  damage(hit: BrickHit): boolean {
-    hit.cell.hitPoints--;
+  // `amount` is what the source takes off, which is 1 for everything but a laser
+  // bolt on granite — see `laserDamage` on the roster. It is the caller's number
+  // and not the cell's on purpose: the wall knows what a brick can take, and the
+  // game knows what hit it.
+  damage(hit: BrickHit, amount = 1): boolean {
+    hit.cell.hitPoints -= amount;
     if (hit.cell.hitPoints > 0) {
-      hit.cell.hurt = true;
       return false;
     }
 

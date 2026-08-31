@@ -212,6 +212,34 @@ export const LEVELS: readonly LevelDefinition[] = [
     ],
   },
   {
+    name: "SUPER MAZE",
+    background: "grid",
+    rows: [
+      "RRRRRRRRRRRR",
+      "R..........R",
+      "R.RR.RR.RR.R",
+      "R.R......R.R",
+      "R.R.RR.R.R.R",
+      "R...R..R...R",
+      "RRR.R.RR.RRR",
+      "RR..R.RR..RR",
+    ],
+    // MAZE's big sibling: the corridors are one cell wide again, but the walls
+    // are 53 granite bricks and nothing else — 212 ball hits, or 106 laser
+    // bolts. Three mouths in the bottom face let the ball in rather than leaving
+    // it to skim the front, and every open cell is reachable from every one of
+    // them, so a ball that gets in can get anywhere.
+    //
+    // Which makes the two LASERs the level rather than a bonus on it. The first
+    // is in the bottom face between the left and middle mouths, where a ball
+    // working along the front finds it early; the second is dead centre with
+    // three open sides, deep enough that reaching it is the middle of the run.
+    drops: [
+      { row: 7, column: 4, kind: "L" },
+      { row: 4, column: 7, kind: "L" },
+    ],
+  },
+  {
     name: "FINALE",
     background: "starfield",
     rows: ["GGGGGGGGGGGG", "S5S5S5S5S5S5", "444444444444", "S3S3S3S3S3S3", "GG22222222GG", "S1S1S1S1S1S1"],

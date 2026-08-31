@@ -1,3 +1,4 @@
+import { BRICK_BY_ID, BRICK_RAMPS } from "@core/config/bricks";
 import { gameConfig, peelFlightTicks } from "@core/config/GameConfig";
 import { MALUS_KINDS, POWER_UP_GLYPHS } from "@core/config/powerUps";
 import { type Ball, paceGhost } from "@entities/ball/Ball";
@@ -13,6 +14,7 @@ import {
   DROP_COLORS,
 } from "@render/palette";
 
+import type { BrickGrain } from "@core/config/bricks";
 import type { Critter } from "@entities/effects/Critter";
 import type { Detonation } from "@entities/effects/Detonation";
 import type { Meteor } from "@entities/effects/MeteorField";
@@ -695,24 +697,92 @@ export function drawBrick(
     ctx.globalAlpha = 1 - fade;
   }
 
-  const colors = BRICK_COLORS[cell.kind];
-  const flat = cell.hurt ? colors.dark : colors.flat;
-  // Both branches, so the hurt tell survives the gild instead of being flattened
-  // by it — one step down the same gold ramp rather than the brick's own.
-  const sheen = gilded
-    ? cell.hurt
-      ? canvasPalette.paydayGildHurt
-      : canvasPalette.paydayGild
-    : cell.hurt
-      ? colors.flat
-      : colors.light;
+  const definition = BRICK_BY_ID[cell.kind];
+  const ramp = BRICK_RAMPS[cell.kind];
+  // How many hits this brick has taken, which is the whole of the damage model:
+  // the ramp holds one body tone per hit point plus the intact sheen, so silver
+  // gets two states, gold three and granite four out of the same two lines. It
+  // replaced a single `hurt` flag that made gold — a three-hit brick — show the
+  // player two.
+  const stage = ramp.length - 1 - cell.hitPoints;
+  // Both the brick's own sheen and PAYDAY's gild step with the damage, so the
+  // tell survives the tide instead of being flattened by it.
+  const sheen = gilded ? GILD_RAMP[Math.min(stage, GILD_RAMP.length - 1)] : ramp[stage];
 
-  pixel(x + 1, y + 1, 28, 10, flat);
+  pixel(x + 1, y + 1, 28, 10, ramp[stage + 1]);
+  if (definition.grain) {
+    drawGrain(pixel, x, y, cell.seed, definition.grain, ramp, stage);
+  }
   pixel(x + 2, y + 1, 26, 1, sheen);
   pixel(x + 1, y + 2, 1, 8, sheen);
-  pixel(x + 2, y + 10, 26, 1, colors.dark);
-  pixel(x + 28, y + 2, 1, 8, colors.dark);
+  pixel(x + 2, y + 10, 26, 1, definition.dark);
+  pixel(x + 28, y + 2, 1, 8, definition.dark);
   ctx.globalAlpha = 1;
+}
+
+/**
+ * PAYDAY's gild: the gold brick's own damage ramp, rather than a pair of tones
+ * of its own.
+ *
+ * The capsule's body colour (#dfae2c) is darker than every brick's `light`, so
+ * a sheen painted in it strips the highlight — the wall reads dirty and flat,
+ * which is the opposite of expensive — and it *is* gold's `flat`, which would
+ * make the gild a no-op on a damaged gold brick, on exactly the levels a player
+ * expects PAYDAY to light up. Walking gold's own ramp keeps the damage tell
+ * under the gild at every stage, and the sweep reads as the whole wall turning
+ * into the gold brick.
+ *
+ * Clamped where it is read, since the deepest brick is deeper than gold: a
+ * granite brick three hits in wears gold's shade and stays there.
+ */
+const GILD_RAMP = BRICK_RAMPS.G;
+
+// The body a fleck may land on: inside the sheen along the top and left and the
+// shade along the bottom and right, so the stone never eats its own frame.
+const GRAIN_LEFT = 2;
+const GRAIN_TOP = 2;
+const GRAIN_WIDTH = 26;
+const GRAIN_HEIGHT = 8;
+
+// One fleck's position, hashed rather than walked out of a generator: the
+// pattern has to be identical on every frame of a brick's life and unrelated to
+// its neighbour's, and a hash is both without keeping any state between frames.
+// Two rounds of mixing because one leaves `seed` and `index` visible in the low
+// bits, and a column of bricks whose specks line up is a tiling artefact.
+function grainHash(seed: number, index: number): number {
+  let hash = Math.imul(seed ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(index + 1, 0xc2b2ae35);
+  hash ^= hash >>> 15;
+  hash = Math.imul(hash, 0x2545f491);
+  return (hash ^ (hash >>> 13)) >>> 0;
+}
+
+/**
+ * Granite's stone: `count` flecks over the body, and `pitsPerHit` fractures for
+ * every hit it has taken.
+ *
+ * The flecks alternate between the sheen tone above the body and one a notch
+ * below it, so the grain brackets whatever the body currently is and is legible
+ * the whole way down the ramp. The pits come off the *end* of the same hashed
+ * sequence, which is what makes damage cumulative — stage 2 opens stage 1's
+ * holes and five more, so a brick is chipped away rather than re-speckled.
+ */
+function drawGrain(
+  pixel: (left: number, top: number, width: number, height: number, color: string) => void,
+  x: number,
+  y: number,
+  seed: number,
+  grain: BrickGrain,
+  ramp: readonly string[],
+  stage: number,
+): void {
+  const pale = ramp[stage];
+  const shade = ramp[Math.min(stage + 2, ramp.length - 1)];
+  const total = grain.count + grain.pitsPerHit * stage;
+  for (let index = 0; index < total; index++) {
+    const hash = grainHash(seed, index);
+    const tone = index >= grain.count ? grain.pit : index % 2 === 0 ? pale : shade;
+    pixel(x + GRAIN_LEFT + (hash % GRAIN_WIDTH), y + GRAIN_TOP + ((hash >>> 8) % GRAIN_HEIGHT), 1, 1, tone);
+  }
 }
 
 /**

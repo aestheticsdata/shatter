@@ -1,0 +1,128 @@
+// The brick roster: one row per brick, and the single source of truth for
+// everything the game knows about one. Adding a brick is adding a row here —
+// the `BrickKind` union, the wall's points and hit points, `BRICK_COLORS`,
+// `CHUNK_COLORS` and `DEMAKE_GROUND_TONES` in `@render/palette`, and the damage
+// ramp `drawBrick` steps down all derive from it. Nothing else needs an edit.
+//
+// This module imports nothing on purpose, exactly as the capsule roster does:
+// `@interfaces/types` re-exports `BrickKind` from here, and a cycle would put
+// half the game's types behind a partially initialised module.
+
+/**
+ * Granite's speckle, and the one brick that has it.
+ *
+ * Every other body is a flat fill, which is what 30x12 of one colour has read
+ * as since 1987. Stone cannot: a flat charcoal slab beside silver is a silver
+ * brick somebody turned the lights off on, and the whole point of the maze
+ * brick is that it is a different *material*.
+ */
+export interface BrickGrain {
+  // 1 px flecks over the body — half in the sheen tone above it, half a notch
+  // below the body's own, so the grain brackets whatever the body currently is
+  // and stays visible down the whole ramp. Positions are hashed from the cell's
+  // own seed: the same stone every frame, and no two neighbours tile.
+  count: number;
+  // Pits opened per hit taken, and cumulative — the pits a stage shows are the
+  // previous stage's plus this one's, so the four states read as one brick being
+  // chipped away rather than four different bricks.
+  pitsPerHit: number;
+  // The pit tone. Darker than every tone on the ramp, so a fracture is still
+  // legible on a brick that has already gone dark.
+  pit: string;
+}
+
+export interface BrickDefinition {
+  // `string`, not the union — the union is inferred *from* these ids, and typing
+  // it as itself would be circular. One character, because it is the character a
+  // level row is typed in: this column is what `levels.ts` looks like.
+  id: string;
+  points: number;
+  // Ball hits to kill, and the length of the damage ramp with it: a brick has
+  // one visible body tone per hit point (see `wear`).
+  hitPoints: number;
+  // What one laser bolt takes off. 1 everywhere but granite, which a bolt drills
+  // at 2: SUPER MAZE's two seeded LASER capsules are the level's way through, and
+  // the cannons have to be worth more than the ball for that to be true.
+  laserDamage: number;
+  // The sheen along the top and left edges, the body, and the shade along the
+  // bottom and right — the three tones every brick has been drawn from since the
+  // first one. Only `flat` is checked against the playfield themes by
+  // `pnpm run check:backgrounds`; the other two are 1 px bevels on it.
+  light: string;
+  flat: string;
+  dark: string;
+  // The body tones between `flat` and `dark`, one per hit point past the second:
+  // empty for the one- and two-hit bricks, one for gold, two for granite. The
+  // ramp is `[light, flat, ...wear, dark]` and every entry of it is a damage
+  // state the player can read, which is the whole reason this column exists —
+  // gold spent its first two years dying in three hits while showing two.
+  wear: readonly string[];
+  grain?: BrickGrain;
+}
+
+// One row per brick, and it must stay one row: the points/hit-points ladder and
+// the tone ramps are what this table exists to be read down, and neither can be
+// seen down a column of eight ten-line blocks. That is what the ignore is for —
+// the block is data, and there is nothing here for oxfmt to get right.
+// oxfmt-ignore
+export const BRICKS = [
+  { id: "1", points: 60, hitPoints: 1, laserDamage: 1, light: "#ff8a9c", flat: "#e8384f", dark: "#8e1220", wear: [] },
+  { id: "2", points: 70, hitPoints: 1, laserDamage: 1, light: "#ffc27a", flat: "#f07d10", dark: "#8a3d00", wear: [] },
+  { id: "3", points: 80, hitPoints: 1, laserDamage: 1, light: "#fff59a", flat: "#ffcf1c", dark: "#8a6a00", wear: [] },
+  { id: "4", points: 90, hitPoints: 1, laserDamage: 1, light: "#a6f0a6", flat: "#3fbf4f", dark: "#155c1f", wear: [] },
+  { id: "5", points: 100, hitPoints: 1, laserDamage: 1, light: "#a8d8ff", flat: "#2d7fe0", dark: "#0b3a78", wear: [] },
+  { id: "S", points: 150, hitPoints: 2, laserDamage: 1, light: "#f2f4ff", flat: "#b0b4cc", dark: "#5a5e80", wear: [] },
+  // Gold's missing middle. `#ab8118` sits between the body and the shade on
+  // gold's own ramp, which is what PAYDAY's gild has always been painted in —
+  // see `GILD_RAMP` in `@render/CanvasRenderer`.
+  { id: "G", points: 200, hitPoints: 3, laserDamage: 1, light: "#ffe9a0", flat: "#dfae2c", dark: "#7a5a08", wear: ["#ab8118"] },
+  // Granite. Warm charcoal, deliberately nowhere near silver's pale blue-gray
+  // (118 RGB from `S.flat`) and dark enough to read as stone while still holding
+  // 3.7:1 against the brightest playfield tone — the floor every brick body has
+  // to clear, and the one thing that stops this going properly black.
+  //
+  // Four hits, two laser bolts, and a body that steps down a four-tone ramp
+  // while the pits multiply: the level it was built for is 53 of these, and a
+  // player has to be able to tell a brick two hits in from one at three.
+  { id: "R", points: 250, hitPoints: 4, laserDamage: 2, light: "#b9ab98", flat: "#857a6e", dark: "#3f3931", wear: ["#6d6359", "#564e46"], grain: { count: 14, pitsPerHit: 5, pit: "#241f1b" } },
+] as const satisfies readonly BrickDefinition[];
+
+export type BrickKind = (typeof BRICKS)[number]["id"];
+
+/**
+ * Builds a `Record` keyed by brick id from one field of each definition — the
+ * same helper, and the same single assertion, as the capsule roster's `byId`:
+ * `Object.fromEntries` is typed to widen to `Record<string, T>` however precise
+ * its input keys are.
+ */
+export function byBrickId<T>(pick: (definition: BrickDefinition) => T): Record<BrickKind, T> {
+  return Object.fromEntries(BRICKS.map((definition) => [definition.id, pick(definition)])) as Record<BrickKind, T>;
+}
+
+export const BRICK_BY_ID: Record<BrickKind, BrickDefinition> = byBrickId((definition) => definition);
+
+// Whether a character in a level row is a brick at all. `.` and anything else
+// typed by accident is empty space.
+export function isBrickKind(char: string): char is BrickKind {
+  return char in BRICK_BY_ID;
+}
+
+/**
+ * The tones one brick steps down as it takes damage.
+ *
+ * At stage `n` — `n` hits taken — the sheen is `ramp[n]` and the body under it
+ * is `ramp[n + 1]`, so every hit slides the pair one notch and the last one
+ * always lands the body on `dark`. There is one entry per hit point plus the
+ * intact sheen, which makes `ramp.length - 1 - hitPoints` the stage and is the
+ * only arithmetic `drawBrick` needs to do.
+ *
+ * A one-hit brick stops at `[light, flat]`: its `dark` is the shade along its
+ * bottom edge and never a body, because it has no second state to show.
+ */
+export function brickRamp(definition: BrickDefinition): readonly string[] {
+  return definition.hitPoints === 1
+    ? [definition.light, definition.flat]
+    : [definition.light, definition.flat, ...definition.wear, definition.dark];
+}
+
+export const BRICK_RAMPS: Record<BrickKind, readonly string[]> = byBrickId(brickRamp);

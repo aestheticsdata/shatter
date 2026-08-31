@@ -1,3 +1,4 @@
+import type { BrickKind } from "@core/config/bricks";
 import type { PowerUpKind } from "@core/config/powerUps";
 
 export interface Vector2D {
@@ -24,7 +25,11 @@ export type ScreenName =
   | "levels"
   | "capsules";
 
-export type BrickKind = "1" | "2" | "3" | "4" | "5" | "S" | "G";
+// Inferred from the brick roster in `@core/config/bricks`, exactly as
+// `PowerUpKind` is from the capsule one, so a new brick widens this union by
+// itself. Re-exported here because every consumer already reaches for its
+// types through this module.
+export type { BrickKind };
 
 /**
  * What a chunk of debris is a chunk of.
@@ -40,13 +45,25 @@ export interface BrickCell {
   kind: BrickKind;
   hitPoints: number;
   points: number;
-  hurt: boolean;
+  // This brick's own stone, for the one kind that has any: the seed
+  // `drawBrick` hashes granite's speckle out of, stamped from (row, column) when
+  // the wall was built. Kept on the cell rather than recomputed from where the
+  // brick is being painted, because those are not the same thing — QUAKE gives
+  // the wall a row and slides every cell down into it, and a pattern read off
+  // the paint would reshuffle for the ten ticks that takes.
+  seed: number;
   // The capsule this brick drops when a ball or a laser kills it, or `null` —
   // which is most bricks. Rolled once when the wall was built rather than at the
   // moment of the kill, which is what gives XRAY something true to show; see
   // `rollBrickCapsule` in `ShatterGame`. Indirect kills discard it, exactly as
-  // they have always dropped nothing.
+  // they have always dropped nothing — unless it was seeded.
   capsule: PowerUpKind | null;
+  // Whether the capsule above was pinned by the level instead of rolled (see
+  // `LevelDefinition.drops`). A seeded capsule is a promise and not a chance: it
+  // comes out whatever killed the brick, splash and bomb included, it takes a
+  // slot in a full pool rather than being dropped, and the dev console's `bonus`
+  // re-roll leaves it alone.
+  seeded: boolean;
 }
 
 export interface BrickHit {
@@ -187,10 +204,22 @@ export interface BurstSpec {
 // neighbour's field.
 export type BackgroundId = "starfield" | "nebula" | "grid" | "horizon" | "planet" | "circuit" | "cathode" | "vault";
 
+// One capsule pinned to one cell of a level's wall, dropped by that brick on
+// every run whatever kills it. Rows stay pure layout: a seeded drop is a
+// property of the level, not a new character in its alphabet.
+export interface SeededDrop {
+  row: number;
+  column: number;
+  kind: PowerUpKind;
+}
+
 export interface LevelDefinition {
   name: string;
   background: BackgroundId;
   rows: readonly string[];
+  // Empty on all but SUPER MAZE, whose two LASERs are the only way through a
+  // wall of 4-hit granite in anything under a very long while.
+  drops?: readonly SeededDrop[];
 }
 
 export interface HiScoreEntry {

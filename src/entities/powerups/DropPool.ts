@@ -119,10 +119,21 @@ export class DropPool {
     active: false,
   }));
 
-  // The kind comes in rather than being rolled here: it was decided when the
-  // wall was built, and XRAY has been showing it to the player since.
-  trySpawn(kind: PowerUpKind, brickLeft: number, brickTop: number): boolean {
-    const drop = this.drops.find((candidate) => !candidate.active);
+  /**
+   * One capsule out of one dead brick.
+   *
+   * The kind comes in rather than being rolled here: it was decided when the
+   * wall was built, and XRAY has been showing it to the player since.
+   *
+   * `forced` is a capsule the level pinned to that brick rather than one it
+   * rolled — SUPER MAZE's two LASERs, which are its way through a wall of 4-hit
+   * granite. A promise cannot be refused for lack of room, so a forced spawn
+   * that finds the pool full takes the slot of whichever capsule is lowest on
+   * the field: the one about to fall out of play anyway, and never one the
+   * player still has a realistic chance at.
+   */
+  trySpawn(kind: PowerUpKind, brickLeft: number, brickTop: number, forced = false): boolean {
+    const drop = this.drops.find((candidate) => !candidate.active) ?? (forced ? this.lowest() : null);
     if (!drop) {
       return false;
     }
@@ -182,6 +193,12 @@ export class DropPool {
       spawned++;
     }
     return spawned;
+  }
+
+  // The capsule nearest the gutter, which is the one a forced spawn evicts. The
+  // pool is never empty, so this always answers.
+  private lowest(): Drop {
+    return this.drops.reduce((lowest, drop) => (drop.y > lowest.y ? drop : lowest));
   }
 
   // How many more capsules can be in the air at once. The console asks before

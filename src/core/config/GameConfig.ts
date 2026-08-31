@@ -1,4 +1,4 @@
-import type { BrickKind, BurstSpec } from "@interfaces/types";
+import type { BurstSpec } from "@interfaces/types";
 
 export const gameConfig = {
   rules: {
@@ -916,26 +916,6 @@ export const gameConfig = {
     },
   },
 } as const;
-
-export const BRICK_POINTS: Record<BrickKind, number> = {
-  "1": 60,
-  "2": 70,
-  "3": 80,
-  "4": 90,
-  "5": 100,
-  S: 150,
-  G: 200,
-};
-
-export const BRICK_HIT_POINTS: Record<BrickKind, number> = {
-  "1": 1,
-  "2": 1,
-  "3": 1,
-  "4": 1,
-  "5": 1,
-  S: 2,
-  G: 3,
-};
 
 export function ballSpeedForLevel(level: number): number {
   const { base, perLevel, max } = gameConfig.speed;

@@ -1,3 +1,4 @@
+import { BRICK_BY_ID } from "@core/config/bricks";
 import { gameConfig } from "@core/config/GameConfig";
 import { paintBackground } from "@render/backgrounds";
 import {
@@ -51,8 +52,11 @@ const BALL_HOME = { x: 182, y: 200 };
 // third of the size.
 const DEFAULT_WALL: readonly BrickKind[] = ["1", "2", "3", "4"];
 
-function cell(kind: BrickKind, hurt = false): BrickCell {
-  return { kind, hitPoints: 1, points: 0, hurt, capsule: null };
+// A brick at full health. Hit points come off the roster rather than being typed
+// as 1: `drawBrick` reads the damage stage out of them, and a silver brick one
+// short would be drawn chipped in a catalogue that never hit it.
+function cell(kind: BrickKind, seed: number): BrickCell {
+  return { kind, hitPoints: BRICK_BY_ID[kind].hitPoints, points: 0, seed, capsule: null, seeded: false };
 }
 
 /** The field, in field pixels, with the game's sprites placed on it. */
@@ -86,9 +90,9 @@ class Field {
     return { x: GRID_LEFT + column * BRICK_WIDTH, y: GRID_TOP + row * BRICK_HEIGHT };
   }
 
-  brick(column: number, row: number, kind: BrickKind, fade = 0, hurt = false): void {
+  brick(column: number, row: number, kind: BrickKind, fade = 0): void {
     const { x, y } = this.brickAt(column, row);
-    drawBrick(this.ctx, x, y, cell(kind, hurt), 1, { fade, demade: this.demade });
+    drawBrick(this.ctx, x, y, cell(kind, row * COLUMNS + column), 1, { fade, demade: this.demade });
   }
 
   // One full row of the wall, the width of the grid.

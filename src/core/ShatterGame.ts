@@ -1,3 +1,4 @@
+import { BRICK_BY_ID } from "@core/config/bricks";
 import { COMBO_GLYPHS, COMBOS, completableCombos, OVERTIME_FROZEN } from "@core/config/combos";
 import { ballSpeedForLevel, gameConfig, peelFlightTicks } from "@core/config/GameConfig";
 import {
@@ -2430,8 +2431,44 @@ export class ShatterGame {
     return offset - leftEdge < rightEdge - offset ? leftEdge : rightEdge;
   }
 
+  /**
+   * One capsule out of the brick that was holding it, and the beep for it.
+   *
+   * `forced` is the level's own capsule rather than a rolled one: it takes a
+   * slot in a full pool, since a promise that can be lost to six airborne pills
+   * is not one. Returns whether it made it out — nothing does today when the
+   * pool refuses an ordinary drop, but MAGNET's guarantee is spent on the answer.
+   */
+  private spawnCapsule(hit: BrickHit, kind: PowerUpKind, forced: boolean): boolean {
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    if (!this.dropPool.trySpawn(kind, left + hit.column * brickWidth, top + hit.row * brickHeight, forced)) {
+      return false;
+    }
+    this.deps.sfx.capsuleSpawn();
+    return true;
+  }
+
+  /**
+   * The capsule a brick removed outright still owes the level.
+   *
+   * NUKE, ZAP, the critter and a meteor all bypass `damageBrick` — full points,
+   * no drops — and that carve-out is right for a rolled capsule, which is a
+   * chance and not a debt. A seeded one is the level's difficulty valve: SUPER
+   * MAZE without its two LASERs is 53 four-hit bricks and a ball, so a bomb
+   * landing on one of them releases it rather than swallowing it.
+   */
+  private releaseSeededCapsule(hit: BrickHit): void {
+    if (hit.cell.seeded && hit.cell.capsule !== null) {
+      this.spawnCapsule(hit, hit.cell.capsule, true);
+    }
+  }
+
   private damageBrick(hit: BrickHit, source: BrickDamageSource = "ball"): void {
-    const destroyed = this.grid.damage(hit);
+    // What the source takes off. Only granite reads anything but 1 here, and
+    // only for a laser: the cannons drill stone at double the ball's rate, which
+    // is what makes SUPER MAZE's two seeded LASERs the way through it rather
+    // than a nicety. Silver and gold still die in two and three bolts.
+    const destroyed = this.grid.damage(hit, source === "laser" ? BRICK_BY_ID[hit.cell.kind].laserDamage : 1);
     if (!destroyed) {
       // A BLAST splash is covered by its one boom and a CHAIN link by its one
       // crack; only what the player aimed clanks.
@@ -2450,15 +2487,21 @@ export class ShatterGame {
     // What falls was rolled into the brick when the wall was built, so a capsule
     // XRAY showed is the capsule that comes out. MAGNET's guarantee still rolls
     // live: it promises the next kill drops something, whichever brick that is.
-    const capsule = isDirectHit(source) ? (hit.cell.capsule ?? (this.guaranteedDrop ? rollDropKind() : null)) : null;
-    if (capsule !== null) {
-      const { left, top, brickWidth, brickHeight } = gameConfig.grid;
-      if (this.dropPool.trySpawn(capsule, left + hit.column * brickWidth, top + hit.row * brickHeight)) {
-        // Spent on a capsule that actually got a slot: a full drop pool would
-        // otherwise swallow MAGNET's one guaranteed demonstration.
-        this.guaranteedDrop = false;
-        this.deps.sfx.capsuleSpawn();
-      }
+    //
+    // A seeded capsule ignores all of that. The level pinned it, so it comes out
+    // of a splash or a chain link exactly as it does out of a ball, and it does
+    // not spend MAGNET's guarantee — that was promised to the next brick the
+    // player kills, and this brick was always going to drop something.
+    const seeded = hit.cell.seeded;
+    const capsule = seeded
+      ? hit.cell.capsule
+      : isDirectHit(source)
+        ? (hit.cell.capsule ?? (this.guaranteedDrop ? rollDropKind() : null))
+        : null;
+    if (capsule !== null && this.spawnCapsule(hit, capsule, seeded) && !seeded) {
+      // Spent on a capsule that actually got a slot: a full drop pool would
+      // otherwise swallow MAGNET's one guaranteed demonstration.
+      this.guaranteedDrop = false;
     }
 
     if (source === "ball" && this.timers.isActive("B")) {
@@ -2650,6 +2693,7 @@ export class ShatterGame {
         }
         const hit = { cell, row: rowIndex, column: columnIndex };
         this.grid.destroy(hit);
+        this.releaseSeededCapsule(hit);
         this.score += cell.points * this.scoreMultiplier();
         this.emitBurst(hit, gameConfig.effects.nukeBurst);
       });
@@ -2706,6 +2750,7 @@ export class ShatterGame {
       return;
     }
     this.grid.destroy(hit);
+    this.releaseSeededCapsule(hit);
     this.score += hit.cell.points * this.scoreMultiplier();
     this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
     this.deps.sfx.critterBite();
@@ -2783,6 +2828,7 @@ export class ShatterGame {
         continue;
       }
       this.grid.destroy(hit);
+      this.releaseSeededCapsule(hit);
       this.score += hit.cell.points * this.scoreMultiplier();
       this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
       // The 30 ms guard folds rocks landing on the same tick into one beep,
@@ -3616,6 +3662,7 @@ export class ShatterGame {
       }
       for (const hit of hits) {
         this.grid.destroy(hit);
+        this.releaseSeededCapsule(hit);
         this.score += hit.cell.points * this.scoreMultiplier();
         this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
       }

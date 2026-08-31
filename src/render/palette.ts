@@ -1,3 +1,4 @@
+import { BRICK_BY_ID, byBrickId } from "@core/config/bricks";
 import { byId, POWER_UPS } from "@core/config/powerUps";
 
 import type { BrickKind, ChunkMaterial, PowerUpKind } from "@interfaces/types";
@@ -8,15 +9,16 @@ export interface BrickColorSet {
   dark: string;
 }
 
-export const BRICK_COLORS: Record<BrickKind, BrickColorSet> = {
-  "1": { flat: "#e8384f", light: "#ff8a9c", dark: "#8e1220" },
-  "2": { flat: "#f07d10", light: "#ffc27a", dark: "#8a3d00" },
-  "3": { flat: "#ffcf1c", light: "#fff59a", dark: "#8a6a00" },
-  "4": { flat: "#3fbf4f", light: "#a6f0a6", dark: "#155c1f" },
-  "5": { flat: "#2d7fe0", light: "#a8d8ff", dark: "#0b3a78" },
-  S: { flat: "#b0b4cc", light: "#f2f4ff", dark: "#5a5e80" },
-  G: { flat: "#dfae2c", light: "#ffe9a0", dark: "#7a5a08" },
-};
+// The body and its two bevels, per brick, off the roster in
+// `@core/config/bricks` — one row per brick, exactly as the capsule bodies come
+// off theirs. The damage tones *between* `flat` and `dark` live there as well
+// and stay there: this is what a sprite outside the wall needs, and a chunk of
+// debris has no hit points to be part-way through.
+export const BRICK_COLORS: Record<BrickKind, BrickColorSet> = byBrickId((definition) => ({
+  flat: definition.flat,
+  light: definition.light,
+  dark: definition.dark,
+}));
 
 // Capsule bodies and letter tones are authored per capsule in
 // `@core/config/powerUps`; both tables are derived so they can never drift out
@@ -92,16 +94,10 @@ export const canvasPalette = {
   popShadow: "#0b0b26",
   blastFlash: "#ffc27a",
   deathFlash: "#ffffff",
-  // PAYDAY's gild, and it is the gold brick's own `light` rather than the
-  // capsule's body tone. That tone (#dfae2c) is darker than every brick's
-  // light, so painting a sheen with it strips the highlight — the wall reads
-  // dirty and flat, which is the opposite of expensive — and it *is*
-  // `BRICK_COLORS.G.flat`, which would make the gild a no-op on a hurt gold
-  // brick, on exactly the levels a player expects PAYDAY to light up. So the
-  // hurt tell moves one step down the same gold ramp instead, and the sweep
-  // reads as the whole wall turning into the gold brick.
-  paydayGild: "#ffe9a0",
-  paydayGildHurt: "#dfae2c",
+  // PAYDAY's gild is not here: it is the gold brick's own damage ramp, read off
+  // the roster by `GILD_RAMP` in `@render/CanvasRenderer`. A brick behind the
+  // tide wears gold's sheen for the damage stage it is on, which is what makes
+  // the sweep read as the whole wall turning into the gold brick.
   // A brick killed behind the front. As bright as `deathFlash` so a
   // double-points kill lands at least as hard, and unmistakably gold beside it.
   paydayFlash: "#fff0b0",
@@ -265,6 +261,10 @@ export const CHUNK_COLORS: Record<ChunkMaterial, BrickColorSet> = {
  */
 export const DEMAKE_GROUND_TONES: ReadonlySet<string> = new Set([
   ...Object.values(BRICK_COLORS).map((set) => set.dark),
+  // Granite's pits, by the same rule: what says a stone brick is two hits from
+  // gone is the holes in it, and a slab of ink with the holes filled back in is
+  // an intact brick.
+  ...Object.values(BRICK_BY_ID).flatMap((definition) => (definition.grain ? [definition.grain.pit] : [])),
   canvasPalette.wallShade,
   canvasPalette.ballShade,
   canvasPalette.dropShade,

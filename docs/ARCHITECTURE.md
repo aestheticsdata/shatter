@@ -16,7 +16,7 @@ under it.
 | Framework | none — no React, no game engine, no ECS                     |
 | Build     | Vite 7 + Lightning CSS                                      |
 | Assets    | none — every sprite, letter and background is drawn in code |
-| Source    | 44 files, ~14 700 lines                                     |
+| Source    | 45 files, ~15 100 lines                                     |
 | Bundle    | 142 kB, 45 kB gzipped                                       |
 | Runtime   | one `<canvas>`, one `<aside>`, ten overlay `<div>`s         |
 | Server    | Fastify + better-sqlite3, one table, two routes             |
@@ -102,7 +102,7 @@ Path aliases (`@core`, `@entities`, `@render`, `@ui`, `@input`, `@audio`,
                                      |
                                      v
   +------------------------------------------------------------------------+
-  |  @core/ShatterGame            4 278 lines, the orchestrator             |
+  |  @core/ShatterGame            4 324 lines, the orchestrator             |
   |  Owns: the loop, the screen, score, lives, level, and one field         |
   |  cluster per capsule effect. The only module that knows all the others. |
   +------------------------------------------------------------------------+
@@ -126,11 +126,11 @@ Path aliases (`@core`, `@entities`, `@render`, `@ui`, `@input`, `@audio`,
                      |            |            |
                      v            v            v
   +------------------------------------------------------------------------+
-  |  @core/config   GameConfig  ·  powerUps  ·  combos                      |
+  |  @core/config   GameConfig  ·  powerUps  ·  bricks  ·  combos           |
   |  @core/levels   levels  ·  wordFont                                     |
   |  @interfaces    types            @shared   dom  ·  format               |
   |                                                                         |
-  |  Leaves. powerUps.ts and @shared/* import NOTHING at all.               |
+  |  Leaves. powerUps.ts, bricks.ts and @shared/* import NOTHING at all.    |
   +------------------------------------------------------------------------+
 
   @state/HiScores -> @state/ScoreApi -> fetch("/api/scores")
@@ -147,6 +147,8 @@ behind `import.meta.env.DEV` and ships in no bundle.
 **`powerUps.ts` importing nothing is deliberate**, and the file says so at the
 top: `@interfaces/types` re-exports `PowerUpKind` _from_ `powerUps`, so a cycle
 there would put half the game's types behind a partially initialised module.
+`bricks.ts` is the same shape for the same reason — `BrickKind` comes out of it
+the way `PowerUpKind` comes out of the capsule roster.
 
 ---
 
@@ -553,7 +555,7 @@ lands.
 
 ### The data-driven spine
 
-Three tables, and the rest of the game is machinery that reads them.
+Four tables, and the rest of the game is machinery that reads them.
 
 **A level is six strings.** [`levels.ts`](../src/core/levels/levels.ts):
 
@@ -563,10 +565,20 @@ Three tables, and the rest of the game is machinery that reads them.
 ```
 
 Twelve columns, one character a brick, `.` for empty, `1`–`5` for the coloured
-tiers, `S` for silver (2 hits) and `G` for gold (3). Word levels like `PLAY` and
-`1991` are generated from a 3×5 bitmap font rather than typed out. Add an entry
-and the level exists, is playable, and appears in the LEVELS gallery — the
-gallery renders the roster, it does not have a list of its own.
+tiers, `S` for silver (2 hits), `G` for gold (3) and `R` for granite (4, or two
+laser bolts). Word levels like `PLAY` and `1991` are generated from a 3×5 bitmap
+font rather than typed out. A level may also pin a capsule to a cell — `drops`,
+which SUPER MAZE uses to hand out the two LASERs that make a wall of granite
+passable — but the rows themselves stay pure layout. Add an entry and the level
+exists, is playable, and appears in the LEVELS gallery — the gallery renders the
+roster, it does not have a list of its own.
+
+**A brick is a row too.** [`bricks.ts`](../src/core/config/bricks.ts): the
+character, what it scores, how many hits it takes, what a laser bolt takes off
+it, and its tones. The `BrickKind` union, `BRICK_COLORS`, the debris palette and
+the damage ramp `drawBrick` walks all derive from it — and the ramp is why the
+table has a `wear` column: a brick shows one body tone per hit point, so gold
+finally has the third state it has been dying in since it was added.
 
 **A capsule is a row**, as section 7 lays out. Nine fields in, and the union
 type, the glyph, the duration, the drop weight, the palette entry, the timer slot
@@ -606,7 +618,7 @@ contract is those four lines in `frame()`.
 
 ### The size of ShatterGame.ts
 
-**It is 4 278 lines, and that is the first thing a reviewer will notice.** So:
+**It is 4 324 lines, and that is the first thing a reviewer will notice.** So:
 
 It is one class holding a small field cluster per capsule effect — `magnetBlend`,
 `xrayBlend`, `xraySweepSpan`, `portalBlend`, `flipTurn`, `haywireBlend`,
@@ -667,6 +679,7 @@ shrinking the field list without pretending the rules are separable.
 | You want to add    | Edit                                                                                                                  | And that is it                                                                |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | A level            | one entry in [`levels.ts`](../src/core/levels/levels.ts)                                                              | plays, and appears in the LEVELS gallery                                      |
+| A brick            | one row in [`bricks.ts`](../src/core/config/bricks.ts)                                                                | union type, points, hit points, damage ramp and debris tones all derive       |
 | A capsule          | one row in [`powerUps.ts`](../src/core/config/powerUps.ts) + its rule in `ShatterGame` + its tell in `CanvasRenderer` | union type, glyph, weight, timer, palette entry and catalogue page all derive |
 | A combo            | one pair in [`combos.ts`](../src/core/config/combos.ts)                                                               | both halves must be timed capsules                                            |
 | A background theme | a generator in [`backgrounds.ts`](../src/render/backgrounds.ts)                                                       | must pass `pnpm run check:backgrounds`                                        |
@@ -681,6 +694,7 @@ Documentation drifts. These commands re-derive the numbers in this file:
 find src -name '*.ts' | wc -l                       # file count
 find src -name '*.ts' -exec wc -l {} + | tail -1    # total lines
 grep -c 'name:' src/core/levels/levels.ts           # level count
+grep -c '^  {' src/core/config/bricks.ts            # brick count
 grep -c '^  {' src/core/config/powerUps.ts          # capsule count
 pnpm run check:backgrounds                          # prints "N levels, N themes"
 ```
