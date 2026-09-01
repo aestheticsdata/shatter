@@ -339,6 +339,54 @@ export const LEVELS: readonly LevelDefinition[] = [
       "..SSS..SSS..",
     ],
   },
+  // One eye, filling the wall, looking down the field at the deck. An eight-row
+  // almond of soft brick — red at the tips, orange where it meets the iris — a
+  // silver ring one cell thick all the way round, and a granite pupil.
+  //
+  // **The pupil is granite and not the ticket's gold, and the ticket is why.**
+  // It was written on 21 August, when gold was the hardest brick in the game;
+  // granite landed ten days later with SUPER MAZE. The line the level is named
+  // for is "the armored pupil", so it takes whatever the armour brick currently
+  // is. It is also the only body on the roster that is the colour a pupil
+  // actually is: gold against an orange sclera read as a warm blob with no
+  // centre at all, and charcoal reads as a hole. Granite chips visibly over its
+  // four states, so the pupil cracks while it is being stared at.
+  //
+  // Four columns wide because twelve columns have no middle one, and four cells
+  // by three rows is 120 x 36 — the closest to round anything gets on a grid of
+  // 30 x 12 cells. The iris sits one row below the almond's centre, which is
+  // what makes the eye look down rather than out.
+  //
+  // The white is banded by one rule and not by decoration: a soft brick touching
+  // the iris is a 2, every other one is a 1. That puts the warm tone against the
+  // silver and leaves the tips red, which is what reads as a curve rather than
+  // as a slab — and it is why the bottom tip is orange and the top tip is not,
+  // since the iris is a row nearer the bottom.
+  //
+  // **What the ticket promises and the wall cannot deliver:** "all that's left
+  // staring" is not a guarantee and no arrangement makes it one. Over six
+  // autoplayed runs the pupil is alive for 87 % of the level and is the last
+  // brick standing in two of them. Which brick is genuinely last is positional
+  // and not a matter of hit points — it is whichever one the ball has not
+  // happened to reach, and on a wall this wide that is usually a lone soft brick
+  // out at a tip. A bigger pupil, a granite iris, trimming the tips off the
+  // almond and sliding the pupil a row up or down were all measured; none of
+  // them moved it. The armour buys the reading, not the certainty.
+  // 68 bricks, 122 hits, 8180 points.
+  {
+    name: "EYE",
+    background: "nebula",
+    rows: [
+      "....1111....",
+      "..12222221..",
+      ".12SSSSSS21.",
+      "112SRRRRS211",
+      "112SRRRRS211",
+      ".12SRRRRS21.",
+      "..2SSSSSS2..",
+      "....2222....",
+    ],
+  },
   {
     name: "FINALE",
     background: "starfield",
