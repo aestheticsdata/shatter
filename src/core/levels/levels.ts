@@ -387,6 +387,45 @@ export const LEVELS: readonly LevelDefinition[] = [
       "....2222....",
     ],
   },
+  // An hourglass: two sand piles pinched at a one-brick gold neck. Each
+  // triangle grades 5-to-1 toward the waist in PYRAMID's two-tone rows — the
+  // outer tier rides the row's ends, the next one fills it — so all five tiers
+  // are present in three rows and the pinch is red-hot where it meets the gold.
+  //
+  // Twelve columns have no middle one, and a neck of one brick cannot sit on a
+  // seam. Rather than hang a lopsided neck under centred bulbs, the whole glass
+  // is centred on column 5: eleven columns of perfect symmetry and a clear
+  // shaft down the right wall, PACHINKO's lucky lane again — the one way a ball
+  // gets above the glass without going through it.
+  //
+  // The funnel is the air, not the sand. The wedges either side of the glass
+  // lose two cells of height per column and close to a one-row slot against the
+  // neck, so a ball working inward is squeezed onto the gold's flanks — and the
+  // neck is the only brick in its row, so cracking it opens a clean channel and
+  // visibly snaps the level in two, one pile drifting over the other.
+  //
+  // The ticket says TEMPO and STASIS are made for this level, so the level
+  // promises them: both pinned to the spine, bullet time in the top bulb where
+  // the sand still flows, full stop in the bottom one where it has already
+  // fallen. 43 bricks, 45 hits, 3600 points — the exhale after EYE's 122, the
+  // way PONG breathes out after SUPER MAZE.
+  {
+    name: "HOURGLASS",
+    background: "horizon",
+    rows: [
+      "54444444445.",
+      "..3222223...",
+      "....111.....",
+      ".....G......",
+      "....111.....",
+      "..3222223...",
+      "54444444445.",
+    ],
+    drops: [
+      { row: 2, column: 5, kind: "T" },
+      { row: 4, column: 5, kind: "I" },
+    ],
+  },
   {
     name: "FINALE",
     background: "starfield",
