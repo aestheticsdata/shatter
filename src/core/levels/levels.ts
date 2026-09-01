@@ -298,6 +298,47 @@ export const LEVELS: readonly LevelDefinition[] = [
     background: "vault",
     rows: ["555555555555", "G..G..G..G..", "..G..G..G..G", "G..G..G..G..", "..G..G..G..G"],
   },
+  // A padlock, gutted through its own keyhole. BUNKER's cousin and its
+  // opposite: that one packs a core of blue inside a silver shell and the shell
+  // is a lid to be broken off, this one is hollow and has a way in. The cavity
+  // *is* the keyhole — a chamber four cells wide under the body's top course,
+  // narrowing to a two-cell slot that runs down and out through the foot — and
+  // it is the only opening in the lock. Plug those two cells and the whole
+  // interior seals.
+  //
+  // The slot is two cells because twelve columns have no middle one: a single
+  // cell cannot be centred, and the pair either side of the seam is the
+  // narrowest mouth that can be. It is also 60 px against an 8 px ball, which
+  // is a mouth a player can steer for rather than one they hit by accident —
+  // and 48 px of cavity above it, so a ball that gets in has room to work.
+  //
+  // Nothing forces the trip. Every brick is reachable from outside, so the lock
+  // can be taken apart the ordinary way; threading it just puts the ball on the
+  // inner faces, where the silver is two hits deep on both sides of it at once.
+  // Autoplay finds the slot one to seven times a run, sometimes on the first
+  // serve with all 46 bricks standing.
+  //
+  // The shackle's legs are one cell, not two. Two read as a second block
+  // stacked on the body; one reads as wire, and it opens the loop to 120 x 24 —
+  // big enough to be a loop instead of a notch. That loop is the level's one
+  // sealed pocket, and no brick is in it, so nothing is lost behind it. The
+  // body's shoulders and foot are stepped in for the same reason the legs are
+  // thin: a rectangle with a slot in it is a bar, and this has to be a lock.
+  // 46 bricks, 102 hits, 7400 points.
+  {
+    name: "KEYHOLE",
+    background: "grid",
+    rows: [
+      "...GGGGGG...",
+      "...G....G...",
+      "...G....G...",
+      "..SSSSSSSS..",
+      ".SSS....SSS.",
+      ".SSSS..SSSS.",
+      ".SSSS..SSSS.",
+      "..SSS..SSS..",
+    ],
+  },
   {
     name: "FINALE",
     background: "starfield",
