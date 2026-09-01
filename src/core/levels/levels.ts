@@ -426,6 +426,40 @@ export const LEVELS: readonly LevelDefinition[] = [
       { row: 4, column: 5, kind: "I" },
     ],
   },
+  // A 3.5-inch floppy, drawn the way the save icon draws it: label up, metal
+  // shutter down. The icon is why — nobody has held one since the machines COOL
+  // and 1991 are named after, but everybody still clicks one — and the deck is
+  // why too: shutter-down puts the gold on the row the ball reaches first, so
+  // the title's promise is load-bearing. The shutter is the armour plate of the
+  // whole disk, three hits a cell across the front line, and it is still
+  // standing when the shell behind it has gone.
+  //
+  // The body is silver shell one cell thick, inset a column from either wall so
+  // the disk floats on the blueprint grid like a diskette on graph paper — and
+  // so the two side lanes are the way behind it. The chamfer is one air cell
+  // off the top-right corner, the missing corner that makes a square read as a
+  // diskette; it is also the only air inside the outline, which makes this the
+  // fullest wall in the game — 79 bricks where EYE carries 68.
+  //
+  // The label is tier 4 and not the yellow a cheerful label suggests, because
+  // yellow and orange both sit inside the gold shutter's own family and a label
+  // the colour of the shutter reads as more metal. Green is the one vivid tier
+  // that reads as paper against both silvers. 79 bricks, 138 hits, 10530
+  // points.
+  {
+    name: "FLOPPY",
+    background: "grid",
+    rows: [
+      ".SSSSSSSSS..",
+      ".S44444444S.",
+      ".S44444444S.",
+      ".S44444444S.",
+      ".S44444444S.",
+      ".SSSSSSSSSS.",
+      ".SSGGGGGGSS.",
+      ".SSGGGGGGSS.",
+    ],
+  },
   {
     name: "FINALE",
     background: "starfield",
