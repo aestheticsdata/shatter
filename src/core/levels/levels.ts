@@ -269,6 +269,35 @@ export const LEVELS: readonly LevelDefinition[] = [
       ".....5.....G",
     ],
   },
+  // A peg board, and the ball is the ball. Sixteen lone gold pegs in four
+  // staggered courses under a solid blue shelf. G is three hits, which is the
+  // whole reason the pegs are gold: a peg survives being struck, so the board
+  // thins over the run instead of falling out of it, and the ball goes on
+  // rattling off the same pegs it has already been rattling off.
+  //
+  // The stagger is a period of three offset by two, which makes every course
+  // the mirror of the one above and leaves three of each four pegs corner to
+  // corner with one in the next course down. A shared corner is a point and not
+  // a gap, so those pairs are little diagonal deflectors a climbing ball cannot
+  // slip between — the thing a peg board is for. Four courses and not five:
+  // two of them run flush to the left wall and two to the right, and an odd
+  // number would stand one more peg against one wall than the other.
+  //
+  // Columns 1, 4, 7 and 10 carry no peg at any depth, so four clear shafts run
+  // from the deck to the shelf. Kept on purpose. A board with no way through it
+  // is a wall, and a ball that leaves the deck steep enough to thread one,
+  // spend itself along the prizes and come back down the same shaft is the
+  // level's one lucky drop.
+  //
+  // The shelf is solid and sits straight on top of the pegs rather than a row
+  // above them, because it is the ceiling as much as the prize: a ball that
+  // gets up there is held in the board rather than sailing over it. 28 bricks,
+  // 60 hits, 4400 points.
+  {
+    name: "PACHINKO",
+    background: "vault",
+    rows: ["555555555555", "G..G..G..G..", "..G..G..G..G", "G..G..G..G..", "..G..G..G..G"],
+  },
   {
     name: "FINALE",
     background: "starfield",
