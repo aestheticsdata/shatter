@@ -14,12 +14,13 @@
       "@render/*": ["./src/render/*"],
       "@shared/*": ["./src/shared/*"],
       "@state/*": ["./src/state/*"],
-      "@ui/*": ["./src/ui/*"]
+      "@ui/*": ["./src/ui/*"],
+      "@e2e/*": ["./e2e/*"]
     },
     "isolatedModules": true,
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src"]
+  "include": ["src", "e2e", "playwright.demo.config.ts"]
 }

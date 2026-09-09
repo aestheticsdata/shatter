@@ -4,3 +4,7 @@ node_modules
 dist
 server/data
 .superpowers
+# The demo film harness (see e2e/demo/README.md): a take writes a gigabyte of JPEG in flight,
+# then the mp4, the chapter files and the stills. Filmed on demand, never committed.
+e2e/demo/out/
+test-results/

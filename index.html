@@ -18,10 +18,10 @@
   </head>
   <body>
     <div id="app">
-      <div id="stage">
+      <div id="stage" data-testid="stage">
         <canvas id="playfield" width="1116" height="900"></canvas>
 
-        <aside id="panel">
+        <aside id="panel" data-testid="panel">
           <div id="panelLogo">SHATTER</div>
           <div class="panel-label" id="labelScore">SCORE</div>
           <div class="panel-inset" id="insetScore"><span id="panelScore">000000</span></div>
@@ -49,15 +49,15 @@
           <div id="panelRev">REV 2.0</div>
         </aside>
 
-        <div id="screenServe" class="blink" hidden>CLICK TO LAUNCH OR PRESS SPACE</div>
+        <div id="screenServe" class="blink" data-testid="screen-serve" hidden>CLICK TO LAUNCH OR PRESS SPACE</div>
 
-        <div id="screenPause" class="field-overlay" hidden>
+        <div id="screenPause" class="field-overlay" data-testid="screen-pause" hidden>
           <div class="pause-heading">PAUSE</div>
           <div class="pause-divider"></div>
           <div class="pause-hint">CLICK OR PRESS P TO RESUME</div>
         </div>
 
-        <div id="screenClear" class="field-overlay" hidden>
+        <div id="screenClear" class="field-overlay" data-testid="screen-clear" hidden>
           <div class="clear-heading">GRID CLEARED</div>
           <div id="clearLevelName">SUNRISE</div>
           <div class="clear-divider"></div>
@@ -65,14 +65,14 @@
           <div class="continue-hint blink">CLICK TO CONTINUE</div>
         </div>
 
-        <div id="screenOver" class="field-overlay" hidden>
+        <div id="screenOver" class="field-overlay" data-testid="screen-over" hidden>
           <div class="over-heading">GAME OVER</div>
           <div class="over-divider"></div>
           <div id="overScore">SCORE 000000</div>
           <div class="continue-hint blink">CLICK TO CONTINUE</div>
         </div>
 
-        <div id="screenTitle" class="stage-screen">
+        <div id="screenTitle" class="stage-screen" data-testid="screen-title">
           <div id="titleCopper"></div>
           <div id="titleWordmark">SHATTER</div>
           <div id="titleTagline">A BRICK BREAKER FOR ONE PLAYER</div>
@@ -81,40 +81,40 @@
             <span id="titleTopScore">TOP SCORE 012500 · AMI</span>
             <span class="title-controls">MOVE THE MOUSE · CLICK OR SPACE TO LAUNCH</span>
           </div>
-          <div id="titlePlayHint" class="blink">CLICK TO PLAY OR PRESS SPACE</div>
+          <div id="titlePlayHint" class="blink" data-testid="title-play-hint">CLICK TO PLAY OR PRESS SPACE</div>
           <div id="titleMenuHints"><span>L · LEVELS</span><span>B · CAPSULES</span></div>
           <div id="titleFooter">ORIGINAL 2007 · REBUILT 2026</div>
         </div>
 
-        <div id="screenScores" class="stage-screen" hidden>
+        <div id="screenScores" class="stage-screen" data-testid="screen-scores" hidden>
           <div id="scoresHeading">HALL OF FAME</div>
           <div class="scores-divider"></div>
           <div id="scoreRows"></div>
-          <div id="entryLine" hidden><span id="entryText">TYPE YOUR INITIALS · ___</span></div>
+          <div id="entryLine" data-testid="entry-line" hidden><span id="entryText">TYPE YOUR INITIALS · ___</span></div>
           <div id="returnHint" class="blink" hidden>CLICK TO RETURN</div>
         </div>
 
-        <div id="screenLevels" class="stage-screen" hidden>
+        <div id="screenLevels" class="stage-screen" data-testid="screen-levels" hidden>
           <div class="screen-heading">LEVELS</div>
           <div class="screen-divider"></div>
           <div id="levelTiles"></div>
           <div class="screen-footer" id="levelsFooter">
             <div id="levelsPages" class="screen-pages"></div>
-            <span id="levelsCount" class="screen-count"></span>
+            <span id="levelsCount" class="screen-count" data-testid="levels-count"></span>
             <span id="levelsArrows" class="screen-arrows">← →</span>
-            <span id="levelsFacts" class="screen-facts"></span>
+            <span id="levelsFacts" class="screen-facts" data-testid="levels-facts"></span>
           </div>
         </div>
 
-        <div id="screenCapsules" class="stage-screen" hidden>
+        <div id="screenCapsules" class="stage-screen" data-testid="screen-capsules" hidden>
           <div class="screen-heading">CAPSULES</div>
           <div class="screen-divider"></div>
           <div id="capsuleEntries"></div>
           <div class="screen-footer" id="capsulesFooter">
             <div id="capsulesPages" class="screen-pages"></div>
-            <span id="capsulesCount" class="screen-count"></span>
+            <span id="capsulesCount" class="screen-count" data-testid="capsules-count"></span>
             <span id="capsulesArrows" class="screen-arrows">← →</span>
-            <span id="capsulesFacts" class="screen-facts"></span>
+            <span id="capsulesFacts" class="screen-facts" data-testid="capsules-facts"></span>
           </div>
         </div>
       </div>

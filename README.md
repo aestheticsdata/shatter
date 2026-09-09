@@ -155,7 +155,7 @@ Optionally run the score API next to it (otherwise the hall of fame falls back t
 cd server && pnpm install && cd .. && pnpm run api
 ```
 
-Vite proxies `/api` to `127.0.0.1:7000` in dev, mirroring the nginx setup in production (port 7000 is shatter's Zeus registry allocation).
+Vite proxies `/api` to `127.0.0.1:7000` in dev, mirroring the nginx setup in production (port 7000 is shatter's Zeus registry allocation). The dev server itself is pinned to **port 5174** (`strictPort`): every project on this machine gets its own port, and the demo harness assumes this one.
 
 ## How-to
 
@@ -198,6 +198,14 @@ Two debug affordances work in **production builds too**, where the console does 
 - **WARP easter egg** — `Ctrl`+`Option`+`Command`+`N` (⌃⌥⌘N) during serve, play or pause instantly wins the current level, straight to the CLEARED screen. Nothing claims all three modifiers at once: Chrome binds only ⌘N and ⇧⌘N, and macOS has no ⌃⌥⌘ default. Matched on the physical key (`event.code === "KeyN"`), because Option rewrites `event.key` into the alternate glyph while the N keycap sits in the same place on AZERTY, QWERTY and QWERTZ. **A warp scores nothing** — no brick points, and the clear bonus shows `00000`: the hall of fame is shared across all players, so skipping a level must never be worth points.
 - **The bonus knob** — `gameConfig.rules.bonusSpreadAmount` (`src/core/config/GameConfig.ts`) is the chance a destroyed brick drops a capsule: crank it to `1` while debugging (every brick drops one), set it back to what players should get before deploying. It ships as-is; `deploy.sh` prints the value in the deploy log so a knob left cranked is caught by eye. In dev, the console's `bonus` command overrides it for one run without touching the file.
 
+Film the portfolio demo — one continuous Playwright take through the title, the LEVELS gallery, the CAPSULES catalogue and a rally on the dev-only autopilot, with chapter files and 4K stills beside it, for the landing page:
+
+```bash
+pnpm video:generate
+```
+
+It films `pnpm dev` (port 5174, pinned in `vite.config.ts`) and never starts it; `e2e/demo/README.md` has the prerequisites, the storyboard and the traps.
+
 Deploy to production (versioned release + auto rollback on failure):
 
 ```bash
@@ -221,6 +229,7 @@ src/
   core/
     ShatterGame.ts   # Orchestrator: state machine, fixed-timestep loop, game rules
     DevConsole.ts    # Dev-only command line (import.meta.env.DEV): jump levels, force capsules
+    DemoHook.ts      # Dev-only film hook (import.meta.env.DEV): the autopilot that plays the demo take, and its read-only snapshot
     config/          # GameConfig: geometry, speeds, timers, points · powerUps: the capsule roster · combos: the six authored fusions
     levels/          # ASCII level definitions (37 layouts) + 3×5 pixel font for word levels
     physics/         # Paddle bounce math
@@ -257,6 +266,10 @@ server/
 docs/
   ARCHITECTURE.md    # How the engine is put together, with ASCII diagrams
   superpowers/       # Design specs and implementation plans, by date
+
+e2e/
+  demo/              # The portfolio demo film: one Playwright take on the autopilot, chapters and stills (pnpm video:generate, README inside)
+playwright.demo.config.ts  # The film's Playwright config — the only Playwright config here; it never runs a spec
 
 scripts/
   deploy.sh          # Deploy the game + rollback (auto/manual)
