@@ -5,7 +5,7 @@ import { nearestCore } from "@entities/effects/Singularity";
 import type { Core } from "@entities/effects/Singularity";
 import type { PowerUpKind, RectangleBounds } from "@interfaces/types";
 
-const DROP_WIDTH = 20;
+export const DROP_WIDTH = 20;
 // Exported for the renderer's magnet tethers, which need to know when a capsule
 // has cleared the ceiling. One statement of the pill's height rather than two.
 export const DROP_HEIGHT = 8;

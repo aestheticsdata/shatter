@@ -5,6 +5,13 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   server: {
+    // 5174, pinned: 5173 is Vite's default for every project on this machine,
+    // and a second dev server there sends this one drifting to the next free
+    // port — which is how a demo take once found another app's login form at
+    // the address it was told. The demo harness (e2e/demo) assumes this port;
+    // strictPort makes the assumption hold or fail loudly, never drift.
+    port: 5174,
+    strictPort: true,
     // Same-origin /api in dev, like nginx provides in production. Start the score
     // service with `pnpm run api`; without it the game falls back to localStorage.
     proxy: {

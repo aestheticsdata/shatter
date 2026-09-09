@@ -9,6 +9,7 @@ import {
   POWER_UP_IDS,
   POWER_UP_NAMES,
 } from "@core/config/powerUps";
+import { DemoHook } from "@core/DemoHook";
 import { DevConsole } from "@core/DevConsole";
 import { levelAt, levelIndexOf } from "@core/levels/levels";
 import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/PaddleBounce";
@@ -269,6 +270,11 @@ export class ShatterGame {
   private gamblePin: PowerUpKind | null = null;
   private brickFlashes: BrickFlash[] = [];
   private catchPops: CatchPop[] = [];
+  // Capsules caught this run, and how many of them were traps. Read by the
+  // film's snapshot alone: a catch is acknowledged on the field by its pop, and
+  // these count the pops.
+  private capsulesCaught = 0;
+  private trapsCaught = 0;
   private stasisRings: StasisRing[] = [];
   private bolts: ChainBolt[] = [];
   private readonly singularity = new Singularity();
@@ -359,6 +365,32 @@ export class ShatterGame {
           this.grid.reseedCapsules(() => this.rollBrickCapsule());
         },
       })
+    : null;
+
+  // The film's hook (SHA-133): the autopilot that plays the take and the
+  // read-only snapshot its storyboard asserts against, reachable as
+  // `window.__shatter.demo` through the dev handle `main.ts` hangs on `window`.
+  // The whole branch folds away in production, like the console's above —
+  // nothing here ships.
+  readonly demo: DemoHook | null = import.meta.env.DEV
+    ? new DemoHook(() => ({
+        screen: this.screen,
+        levelNumber: this.level + 1,
+        levelName: levelAt(this.level).name,
+        score: this.score,
+        lives: this.lives,
+        ballsInPlay: this.balls.filter((ball) => ball.active).length,
+        ballsStuck: this.balls.filter((ball) => ball.active && ball.stuckOffsetX !== null).length,
+        capsulesFalling: this.dropPool.drops.filter((drop) => drop.active).length,
+        capsulesCaught: this.capsulesCaught,
+        trapsCaught: this.trapsCaught,
+        paddle: {
+          centerX: this.paddle.centerX,
+          width: this.paddle.width,
+          y: gameConfig.paddle.y,
+          pointerX: this.flipped ? gameConfig.field.width - this.paddle.centerX : this.paddle.centerX,
+        },
+      }))
     : null;
 
   private readonly paddle = new Paddle();
@@ -856,6 +888,14 @@ export class ShatterGame {
       return;
     }
 
+    // The film's autopilot (SHA-133) moves the deck here, where a mouse move
+    // arriving just before the tick would have left it: above the `paddleVx`
+    // reading below, so the skid and the english see a hand, not a jump.
+    const steered = this.demo === null ? null : this.demo.steer(this.balls, this.dropPool.drops, this.paddle);
+    if (steered !== null) {
+      this.steerTo(steered);
+    }
+
     this.brickFlashes = this.brickFlashes.filter((flash) => --flash.ticksLeft > 0);
     this.stasisRings = this.stasisRings.filter((ring) => --ring.ticksLeft > 0);
     this.bolts = this.bolts.filter((bolt) => --bolt.ticksLeft > 0);
@@ -1328,6 +1368,10 @@ export class ShatterGame {
           return false;
         }
         this.applyPowerUp(kind);
+        this.capsulesCaught++;
+        if (MALUS_KINDS.has(kind)) {
+          this.trapsCaught++;
+        }
         return true;
       });
       this.stepGravel();
@@ -3693,9 +3737,16 @@ export class ShatterGame {
    * it once the deck is the player's again.
    */
   private pointToStage(stageX: number): void {
-    // Mirrored here rather than at either use below, so the position BANANA
-    // remembers to glide back onto is already the one the deck was steering to.
-    const fieldX = this.flipped ? gameConfig.field.width - stageX : stageX;
+    // Mirrored here, before the steer, so the position BANANA remembers to
+    // glide back onto is already the one the deck was steering to.
+    this.steerTo(this.flipped ? gameConfig.field.width - stageX : stageX);
+  }
+
+  // Put the deck under a field position the way the mouse does: straight
+  // there, unless a skid or its resync owns the deck, in which case it is the
+  // spot the resync glides back onto. The film's autopilot steers through
+  // here too, so it can never do anything a mouse could not.
+  private steerTo(fieldX: number): void {
     if (this.skidTicksLeft > 0 || this.resyncTicksLeft > 0) {
       this.pointerTargetX = fieldX;
       return;
@@ -4282,6 +4333,8 @@ export class ShatterGame {
     this.score = 0;
     this.lives = gameConfig.rules.startLives;
     this.level = 0;
+    this.capsulesCaught = 0;
+    this.trapsCaught = 0;
     this.buildLevel(this.level);
     this.deps.sfx.gameStart();
   }

@@ -16,8 +16,8 @@ under it.
 | Framework | none — no React, no game engine, no ECS                     |
 | Build     | Vite 7 + Lightning CSS                                      |
 | Assets    | none — every sprite, letter and background is drawn in code |
-| Source    | 45 files, ~15 100 lines                                     |
-| Bundle    | 142 kB, 45 kB gzipped                                       |
+| Source    | 48 files, ~17 700 lines                                     |
+| Bundle    | 160 kB, 50 kB gzipped                                       |
 | Runtime   | one `<canvas>`, one `<aside>`, ten overlay `<div>`s         |
 | Server    | Fastify + better-sqlite3, one table, two routes             |
 
@@ -26,7 +26,7 @@ sync with the code, no atlas, no texture packer, no art directory. A brick is a
 few `fillRect` calls, a capsule is a rounded pill with two letters on it, and the
 3×5 font that spells `PLAY` in a level layout is an array of bitmasks in
 [`wordFont.ts`](../src/core/levels/wordFont.ts). That is why the whole game is
-142 kB, and why a level is six strings.
+160 kB, and why a level is six strings.
 
 ---
 

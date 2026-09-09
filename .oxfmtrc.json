@@ -1,7 +1,14 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "printWidth": 120,
-  "ignorePatterns": ["docs/superpowers/**"],
+  "ignorePatterns": [
+    "docs/superpowers/**",
+    "e2e/demo/chapters.ts",
+    "e2e/demo/cursor.ts",
+    "e2e/demo/fixture.ts",
+    "e2e/demo/pacing.ts",
+    "e2e/demo/recorder.ts"
+  ],
   "sortImports": {
     "customGroups": [
       {
