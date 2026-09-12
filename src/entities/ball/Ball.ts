@@ -3,11 +3,34 @@ import { gameConfig } from "@core/config/GameConfig";
 import type { Paddle } from "@entities/paddle/Paddle";
 import type { Vector2D } from "@interfaces/types";
 
+/**
+ * The diameter a ball has at a given point in GIANT's swell.
+ *
+ * **Even, always.** An odd diameter puts the sprite's centre on a pixel
+ * boundary and every row half a pixel off-centre, which reads as a ball
+ * wobbling as it grows rather than growing — see `ballRows` in
+ * `@render/ballSprite`, which is drawn from this.
+ *
+ * The blend and not the timer, so the ball is as big as it looks on every tick
+ * of both ends: the collision the player sees is the collision they get.
+ */
+export function ballSizeFor(blend: number): number {
+  const { size } = gameConfig.ball;
+  const grown = size * (1 + (gameConfig.powerUps.giant.scale - 1) * blend);
+  return Math.round(grown / 2) * 2;
+}
+
 export class Ball {
   x = 0;
   y = 0;
   velocity: Vector2D = { x: 0, y: 0 };
   active = false;
+  // GIANT: how wide this ball is right now, which is `gameConfig.ball.size`
+  // for every ball on every tick the capsule is not live. On the ball rather
+  // than read globally because the geometry that needs it is the ball's own —
+  // `centerX`, the deck it parks on, the box the grid tests — and threading a
+  // size through all of them says less than a ball knowing how big it is.
+  size: number = gameConfig.ball.size;
   // GLUE: offset from the paddle's left edge while stuck to it, null in flight.
   stuckOffsetX: number | null = null;
   // HOMING: the grid cell this ball is curving toward, and the countdown to
@@ -70,12 +93,12 @@ export class Ball {
   }
 
   get centerX(): number {
-    return this.x + gameConfig.ball.size / 2;
+    return this.x + this.size / 2;
   }
 
   followPaddle(paddle: Paddle): void {
-    this.x = paddle.centerX - gameConfig.ball.size / 2;
-    this.y = gameConfig.paddle.y - gameConfig.ball.size - 1;
+    this.x = paddle.centerX - this.size / 2;
+    this.y = gameConfig.paddle.y - this.size - 1;
   }
 
   launch(speed: number): void {
@@ -107,6 +130,11 @@ export class Ball {
     this.birthTicksLeft = birthTicks;
     this.phasing = false;
     this.tempoDebt = 0;
+    // A clone is born the size the field is running at, not the 8 px a fresh
+    // ball starts on: a MULTI fan thrown under a live GIANT is three big balls,
+    // and one that had to grow into it would spend its first ticks colliding
+    // smaller than it looks.
+    this.size = source.size;
     this.x = source.x;
     this.y = source.y;
     this.velocity = {
@@ -138,7 +166,7 @@ export function paceGhost(ball: Ball, blend: number): Vector2D | null {
   const x = ball.x + ball.velocity.x * spent;
   const y = ball.y + ball.velocity.y * spent;
   const { left, right, top, height } = gameConfig.field;
-  const size = gameConfig.ball.size;
+  const size = ball.size;
   if (x < left || x > right - size || y < top || y > height - size) {
     return null;
   }

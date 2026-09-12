@@ -157,7 +157,7 @@ function arrival(ball: Ball): Arrival | null {
   if (!ball.active || ball.stuckOffsetX !== null || ball.velocity.y <= 0) {
     return null;
   }
-  const size = gameConfig.ball.size;
+  const size = ball.size;
   const ticks = Math.max(0, (DECK_TOP - size - ball.y) / ball.velocity.y);
   // The ball's left edge runs between the two walls. A straight line unfolded
   // over twice that span and folded back is where the bounces leave it.

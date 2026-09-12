@@ -165,8 +165,8 @@ class Field {
     drawPaddleBands(this.ctx, x, gameConfig.powerUps.mirrorY, width, MIRROR_BANDS, 1, this.demade);
   }
 
-  ball(x = BALL_HOME.x, y = BALL_HOME.y): void {
-    drawBall(this.ctx, x, y, 1, this.demade);
+  ball(x = BALL_HOME.x, y = BALL_HOME.y, size: number = gameConfig.ball.size): void {
+    drawBall(this.ctx, x, y, 1, this.demade, { size });
   }
 
   capsule(x: number, y: number, kind: PowerUpKind): void {
@@ -985,6 +985,47 @@ const SCENES: Record<PowerUpKind, Painter> = {
         peak: BLACKOUT_TORCH.paddlePeak,
       },
     ]);
+  },
+  /**
+   * The ball at full weight, standing in the hole it just made.
+   *
+   * Staged from the real geometry rather than composed by eye: a 24 px ball
+   * straddling the boundary at x 144 covers columns 4 and 5, and over 24 px of
+   * a 12 px row it covers rows 1, 2 and 3 — the six cells that are cleared.
+   * The ring is those six cells' neighbours, which is what `crushRadius: 1`
+   * actually reaches, and it is flashed rather than cleared because the ring
+   * takes a hit and not necessarily a kill.
+   *
+   * Both halves have to be in the frame or the picture is the wrong capsule: a
+   * hole alone is BLAST, and a big ball alone says nothing about what it does
+   * to the wall.
+   */
+  GI: (field) => {
+    const size = gameConfig.ball.size * gameConfig.powerUps.giant.scale;
+    // The crater a 1-HP wall actually gives: the two columns the ball straddles
+    // and the row it reached, plus the ring, which on this wall dies with it.
+    const gone = [3, 4, 5];
+    const rows = [1, 2, 3];
+    field.wall();
+    // The ring that survives, flashed rather than cleared — a ring takes a hit
+    // and not necessarily a kill, and on a deeper wall this is what is left.
+    for (const row of rows) {
+      for (const column of [2, 6]) {
+        field.flash(column, row, canvasPalette.blastFlash);
+      }
+    }
+    for (const column of gone) {
+      field.flash(column, 0, canvasPalette.blastFlash);
+      for (const row of rows) {
+        field.clear(column, row);
+      }
+    }
+    // Low in the crater, so the hole reads *above* it: the ball is 24 px and a
+    // row is 12, so a ball parked in a two-row hole fills it exactly and the
+    // picture becomes a ball with no damage around it. Sitting it on the
+    // bottom two rows leaves the third open over its head.
+    field.ball(GRID_LEFT + 3 * BRICK_WIDTH + 3, GRID_TOP + 2 * BRICK_HEIGHT, size);
+    field.deck();
   },
 };
 

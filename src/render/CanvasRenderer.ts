@@ -5,6 +5,7 @@ import { type Ball, paceGhost } from "@entities/ball/Ball";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
 import { DROP_HEIGHT } from "@entities/powerups/DropPool";
 import { BackgroundLayer } from "@render/backgrounds";
+import { type BallRow, ballGlints, ballRows } from "@render/ballSprite";
 import {
   BRICK_COLORS,
   canvasPalette,
@@ -124,20 +125,9 @@ const PIERCE_SPARK_TONES: readonly string[] = [
   canvasPalette.laserCannon,
 ];
 
-const BALL_PIXEL_ROWS: ReadonlyArray<readonly [number, number]> = [
-  [2, 4],
-  [1, 6],
-  [0, 8],
-  [0, 8],
-  [0, 8],
-  [0, 8],
-  [1, 6],
-  [2, 4],
-];
-
 // Whether one row of the ball's sprite table covers a given column — the whole
 // of what `drawBallShell` needs to know about its neighbours.
-function ballRowCovers(row: readonly [number, number] | undefined, column: number): boolean {
+function ballRowCovers(row: BallRow | undefined, column: number): boolean {
   return row !== undefined && column >= row[0] && column < row[0] + row[1];
 }
 
@@ -1087,6 +1077,10 @@ export function drawPaddleBands(
 export interface BallSprite {
   // MULTI/SWARM: ticks left of this clone's birth, 0 for a full-grown ball.
   birth?: number;
+  // GIANT: the ball's diameter, defaulting to the 8 px every caller but the
+  // field itself wants — the capsule catalogue and the demo stills draw a
+  // plain ball and should not have to say so.
+  size?: number;
 }
 
 // The ball's body, without the trail behind it: the smear is the renderer's,
@@ -1101,25 +1095,36 @@ export function drawBall(
 ): void {
   const pixel = spriteBrush(ctx, scale, demade);
   const birth = birthStage(sprite.birth ?? 0);
+  const size = sprite.size ?? BALL_SIZE;
 
   // A newborn is the round sprite clipped to a centred window — and the round
   // rows clipped to 4 or 6 px are exactly a filled square, so it is drawn as
   // one. No lit edge and no shadow: the mask is smaller than the pixels they
   // sit on, and a pip this hot reads as light, not as a lit thing.
+  //
+  // The window scales with the ball: a clone born under a live GIANT is a
+  // 24 px ball, and a 4 px pip inside that footprint would read as a speck
+  // sitting in a hole rather than as something growing into itself.
   if (birth) {
     const [, width, color] = birth;
-    const inset = (BALL_SIZE - width) / 2;
-    pixel(x + inset, y + inset, width, width, color);
+    const grown = Math.max(1, Math.round((width * size) / BALL_SIZE));
+    const inset = Math.round((size - grown) / 2);
+    pixel(x + inset, y + inset, grown, grown, color);
     return;
   }
 
-  BALL_PIXEL_ROWS.forEach(([offset, span], rowIndex) => {
+  ballRows(size).forEach(([offset, span], rowIndex) => {
     pixel(x + offset, y + rowIndex, span, 1, canvasPalette.ballBody);
   });
-  pixel(x + 2, y + 1, 2, 1, canvasPalette.ballHighlight);
-  pixel(x + 1, y + 2, 1, 2, canvasPalette.ballHighlight);
-  pixel(x + 3, y + 6, 3, 1, canvasPalette.ballShade);
-  pixel(x + 6, y + 4, 1, 2, canvasPalette.ballShade);
+  for (const glint of ballGlints(size)) {
+    pixel(
+      x + glint.x,
+      y + glint.y,
+      glint.width,
+      glint.height,
+      glint.tone === "highlight" ? canvasPalette.ballHighlight : canvasPalette.ballShade,
+    );
+  }
 }
 
 // BLACKOUT's pools, in game pixels. A solo ball carries 58 px of light; each
@@ -1534,7 +1539,7 @@ export class CanvasRenderer {
       if (ball.active) {
         const ghost = paceGhost(ball, view.tempoGhost);
         if (ghost) {
-          this.drawBallShell(ghost.x, ghost.y, canvasPalette.paceGhost);
+          this.drawBallShell(ghost.x, ghost.y, canvasPalette.paceGhost, ball.size);
         }
         // GLUE: a parked ball rides on the resin rather than on the wood, with
         // a thread of it under the ball. Both settle as the film dries, so the
@@ -1542,14 +1547,14 @@ export class CanvasRenderer {
         // release itself stays instant, which is what a bounce is.
         const lift = ball.stuckOffsetX === null ? 0 : glueLift(view.paddle.glueReach);
         if (lift > 0) {
-          this.spritePixel(ball.centerX - 1, ball.y + BALL_SIZE - lift, 2, lift, canvasPalette.glueResin);
+          this.spritePixel(ball.centerX - 1, ball.y + ball.size - lift, 2, lift, canvasPalette.glueResin);
         }
         this.drawBall(ball, view.ballTrail, view.turboTrail ? TURBO_TRAIL_TONES : RUSH_TRAIL_TONES, lift);
         // Around the ball rather than in the ring pool: this one rides a ball
         // that is still coasting, while the release ring has to stay where the
         // ball stopped.
         if (view.stasisClosing > 0) {
-          const half = BALL_SIZE / 2;
+          const half = ball.size / 2;
           this.strokeStasisRing(ball.x + half, ball.y + half, 2 + (1 - view.stasisClosing) * 18);
         }
         // Over the ball and last, so the arc is the topmost thing on the sprite
@@ -1760,7 +1765,7 @@ export class CanvasRenderer {
     });
     // The eye is the ball's own sprite table: same 8 px circle, centred.
     const eye = flashing ? canvasPalette.bumperRim : canvasPalette.bumperCore;
-    BALL_PIXEL_ROWS.forEach(([offset, span], rowIndex) => {
+    ballRows(BALL_SIZE).forEach(([offset, span], rowIndex) => {
       this.pixel(left + radius - 4 + offset, top + radius - 4 + rowIndex, span, 1, eye);
     });
 
@@ -2268,19 +2273,22 @@ export class CanvasRenderer {
   // history, nothing to clear on a reset. A ball glued to the paddle keeps its
   // stored velocity and is going nowhere, so it gets no streak.
   /**
-   * The ball as a one-pixel shell: the same 8 px sprite table with its interior
-   * cut out, which is the only honest way to mark a position with the ball's own
+   * The ball as a one-pixel shell: the same sprite table with its interior cut
+   * out, which is the only honest way to mark a position with the ball's own
    * silhouette without drawing a ball.
    *
    * TEMPO's pace ghost is the one caller. A filled sprite is the game's most
    * loaded signal, and under a live SWARM twelve white ones would be TEMPO
    * saying MULTI's sentence — an outline says "where you would have been" and
-   * nothing else.
+   * nothing else. It takes the size for that reason: the mark has to be the
+   * shape of the ball that would have been there, and under GIANT that is a
+   * 24 px outline.
    */
-  private drawBallShell(x: number, y: number, color: string): void {
-    BALL_PIXEL_ROWS.forEach(([offset, span], rowIndex) => {
-      const above = BALL_PIXEL_ROWS[rowIndex - 1];
-      const below = BALL_PIXEL_ROWS[rowIndex + 1];
+  private drawBallShell(x: number, y: number, color: string, size: number): void {
+    const rows = ballRows(size);
+    rows.forEach(([offset, span], rowIndex) => {
+      const above = rows[rowIndex - 1];
+      const below = rows[rowIndex + 1];
       for (let column = offset; column < offset + span; column++) {
         // On the shell if anything beside it is off the sprite: the ends of
         // every row, and the caps at top and bottom where there is no row to
@@ -2320,7 +2328,7 @@ export class CanvasRenderer {
    * of a fault in the machine.
    */
   private drawHaywireArc(ball: Ball, index: number, strength: number, lift: number): void {
-    const half = BALL_SIZE / 2;
+    const half = ball.size / 2;
     const centerX = ball.x + half;
     const centerY = ball.y - lift + half;
     const arcs = Math.max(1, Math.round(HAYWIRE_ARCS * strength));
@@ -2358,7 +2366,7 @@ export class CanvasRenderer {
    * followed round.
    */
   private drawSpinFlecks(ball: Ball, lift: number): void {
-    const half = BALL_SIZE / 2;
+    const half = ball.size / 2;
     const centerX = ball.x + half;
     const centerY = ball.y - lift + half;
     const phase = ball.spinPhase * FLECK_GAIN;
@@ -2510,18 +2518,19 @@ export class CanvasRenderer {
   private drawBall(ball: Ball, trail: number, tones: readonly string[], lift = 0): void {
     const { x } = ball;
     const y = ball.y - lift;
+    const rows = ballRows(ball.size);
 
     if (trail > 0 && ball.stuckOffsetX === null) {
       BALL_TRAIL_STEPS.forEach((step, index) => {
         const trailX = x - ball.velocity.x * trail * step;
         const trailY = y - ball.velocity.y * trail * step;
-        BALL_PIXEL_ROWS.forEach(([offset, span], rowIndex) => {
+        rows.forEach(([offset, span], rowIndex) => {
           this.spritePixel(trailX + offset, trailY + rowIndex, span, 1, tones[index]);
         });
       });
     }
 
-    drawBall(this.ctx, x, y, SCALE, this.demade, { birth: ball.birthTicksLeft });
+    drawBall(this.ctx, x, y, SCALE, this.demade, { birth: ball.birthTicksLeft, size: ball.size });
   }
 
   private drawDrops(view: RenderView): void {

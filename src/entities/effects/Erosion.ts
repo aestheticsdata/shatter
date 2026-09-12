@@ -8,6 +8,10 @@ export interface BallBox {
   x: number;
   y: number;
   active: boolean;
+  // GIANT (SHA-135): the ball's own diameter, since it is no longer one
+  // constant. A brick may not grow back into a ball, and a 24 px one is
+  // standing on up to six cells rather than two.
+  size: number;
 }
 
 /**
@@ -120,7 +124,6 @@ export class Erosion {
    */
   private holdsBall(row: number, column: number, balls: readonly BallBox[], topOffset: number): boolean {
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
-    const size = gameConfig.ball.size;
     const cellLeft = left + column * brickWidth;
     // Where the cell is being *painted* this frame, which is where the ball is
     // standing: QUAKE's wall is up to a row above its own index while it falls,
@@ -129,9 +132,9 @@ export class Erosion {
     for (const ball of balls) {
       if (
         ball.active &&
-        ball.x + size > cellLeft &&
+        ball.x + ball.size > cellLeft &&
         ball.x < cellLeft + brickWidth &&
-        ball.y + size > cellTop &&
+        ball.y + ball.size > cellTop &&
         ball.y < cellTop + brickHeight
       ) {
         return true;

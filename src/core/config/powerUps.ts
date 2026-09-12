@@ -273,6 +273,20 @@ export const POWER_UPS = [
   // the light one keeps it in the family of everything else that is not a
   // yellow or an orange.
   { id: "GR", name: "GRAVEL", color: "#8a8c78", dark: false, ticks: 720, tier: "common", timed: true, blurb: "KILLS CRUMBLE · CATCH THE BITS" },
+  // Verdigris, which is what heavy bronze actually turns into and the one
+  // honest colour left for a capsule about weight: the warm quarter that owns
+  // impact — BLAST, BOMB, METEOR, PYRE — has been full since PYRE took its last
+  // opening, and a fifth orange would have been the demolition capsule nobody
+  // could tell from the other four.
+  //
+  // Measured rather than picked. 73 from GRAVEL and XWIDE, the nearest bodies
+  // on a 46-capsule board; 4.25:1 against the darkest field theme, which is
+  // room rather than the 3:1 floor two candidates sat on; 52 from the nearest
+  // speck. The nearest trap is 107 away, and that is the measurement that
+  // decided it over the olive and the bronze that scored similarly: this
+  // capsule takes a hole out of the wall, and one the player reads as a trap
+  // while it falls is one they let go.
+  { id: "GI", name: "GIANT", color: "#469292", dark: false, ticks: 480, tier: "rare", timed: true, blurb: "A HUGE BALL CRUSHES A PATCH" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];

@@ -106,6 +106,19 @@ export const gameConfig = {
     // NOVA (PIERCE+BLAST): the splash ring, in cells either side of the kill.
     // BLAST's own 1 is the 8 neighbours; 2 is the 5x5 block, 24 cells.
     comboBlastRadius: 2,
+    giant: {
+      // What the ball's diameter is multiplied by at full swell. 3 makes it
+      // 24 px against a 30x12 brick, so the contact patch is up to two columns
+      // and three rows — which is what makes a giant ball hit more than one
+      // brick without anything having to arrange it.
+      scale: 3,
+      // The ring the ball's weight carries past what it actually touched, in
+      // cells around the contact patch. BLAST's own splash is the same 1 and
+      // the two are deliberately the same width: one is a kill throwing its
+      // neighbours, this is a mass landing on them, and a heavier-looking
+      // number would make GIANT the better BLAST rather than a different one.
+      crushRadius: 1,
+    },
     laserFirstShotDelayTicks: 10,
     shotSpeed: 5.5,
     maxShots: 6,
@@ -872,6 +885,13 @@ export const gameConfig = {
     // 0.35 s power-down, so the sound is the switch and this is the lights
     // going with it.
     blackoutFadeTicks: 45,
+    // GIANT's swell, each way. The ball is the one object on the field the
+    // player is tracking every frame, so it may not jump size: 24 ticks takes
+    // it 8 px -> 24 px in even steps of two, which is one new sprite every
+    // three ticks and reads as growth rather than as a pop. Long enough to be
+    // seen happening, short enough that a ball is at full weight well before
+    // its first return trip (37 ticks at the quickest).
+    giantFadeTicks: 24,
     // PORTAL's door, each way: how long the mouths take to cut open from their
     // own centre line and to pinch shut again. Twenty rather than the fade's
     // thirty because a door is a mechanism and not a dissolve — 48 px at 1.2 a

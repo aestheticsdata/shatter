@@ -13,7 +13,7 @@ import { DemoHook } from "@core/DemoHook";
 import { DevConsole } from "@core/DevConsole";
 import { levelAt, levelIndexOf } from "@core/levels/levels";
 import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/PaddleBounce";
-import { Ball, paceGhost } from "@entities/ball/Ball";
+import { Ball, ballSizeFor, paceGhost } from "@entities/ball/Ball";
 import { BrickGrid } from "@entities/bricks/BrickGrid";
 import { BumperField } from "@entities/effects/BumperField";
 import { Critter } from "@entities/effects/Critter";
@@ -529,6 +529,18 @@ export class ShatterGame {
   private tempoBlend = 0;
   private rushBlend = 0;
   private stasisBlend = 0;
+  /**
+   * GIANT's swell, 0 to 1, and the only blend in the class that is a hitbox
+   * rather than a picture.
+   *
+   * The three above it scale a ball's clock; this one scales the ball. It is
+   * spent through `ballSizeFor` onto every live ball's own `size` on the tick
+   * it moves, so the sprite and the collision are read off one number and
+   * cannot disagree about how big the ball is part-way through growing — which
+   * is the whole reason the size lives on the ball rather than being derived
+   * twice.
+   */
+  private giantBlend = 0;
   /**
    * HAYWIRE's fault, 0 to 1, and the size of every kick it throws.
    *
@@ -1069,6 +1081,12 @@ export class ShatterGame {
     // that ring run backwards. Any other number would give the capsule two ring
     // speeds — one for stopping the field and one for letting it go.
     this.stasisBlend = stepBlend(this.stasisBlend, this.timers.isActive("I"), gameConfig.powerUps.stasisRingLifeTicks);
+    // Above the gates with the four clocks above it, and with a reason of its
+    // own on top of theirs: this blend is a hitbox. A ball held mid-swell
+    // behind a shockwave would be a ball whose collision box the player cannot
+    // predict, which is worse than any of the pictures the others would freeze.
+    this.giantBlend = stepBlend(this.giantBlend, this.timers.isActive("GI"), gameConfig.effects.giantFadeTicks);
+    this.resizeBalls();
     // Above the gates with the rest, and the only one of them that is two
     // things: a global ease on the turn rate, and twelve independent reticles.
     this.stepHomingMarks();
@@ -1316,8 +1334,8 @@ export class ShatterGame {
         // Glued balls ride the paddle; the offset re-clamps in case a WIDE or
         // JAMMER catch changed the width underneath them — or a SPLIT opened a
         // hole where one was parked.
-        ball.x = this.paddle.x + this.clampStuckOffset(ball.stuckOffsetX);
-        ball.y = gameConfig.paddle.y - gameConfig.ball.size;
+        ball.x = this.paddle.x + this.clampStuckOffset(ball.stuckOffsetX, ball.size);
+        ball.y = gameConfig.paddle.y - ball.size;
         ball.tempoDebt = 0;
         continue;
       }
@@ -1431,7 +1449,7 @@ export class ShatterGame {
   private heldBy(core: Singularity, ball: Ball): boolean {
     const { homingCutoff } = gameConfig.powerUps.singularity;
     const toCoreX = core.x - ball.centerX;
-    const toCoreY = core.y - (ball.y + gameConfig.ball.size / 2);
+    const toCoreY = core.y - (ball.y + ball.size / 2);
     return Math.hypot(toCoreX, toCoreY) <= core.reach(homingCutoff);
   }
 
@@ -1443,7 +1461,7 @@ export class ShatterGame {
   private bendTowardCore(ball: Ball, core: Singularity, pullScale: number): boolean {
     const { pullConstant, minDistance } = gameConfig.powerUps.singularity;
     const toCoreX = core.x - ball.centerX;
-    const toCoreY = core.y - (ball.y + gameConfig.ball.size / 2);
+    const toCoreY = core.y - (ball.y + ball.size / 2);
     const distance = Math.hypot(toCoreX, toCoreY);
     if (pullScale === 0 || distance === 0) {
       return false;
@@ -1736,16 +1754,139 @@ export class ShatterGame {
     // the kick does — the two are one event and may not disagree about how
     // strong it was.
     const { haywireSparkBurst } = gameConfig.effects;
-    this.particles.sparkBurst(ball.centerX, ball.y + gameConfig.ball.size / 2, {
+    this.particles.sparkBurst(ball.centerX, ball.y + ball.size / 2, {
       ...haywireSparkBurst,
       chunkCount: Math.max(1, Math.round(haywireSparkBurst.chunkCount * this.haywireBlend)),
     });
   }
 
+  /**
+   * GIANT: every ball to the size the swell is at, on the tick it moves.
+   *
+   * **About the centre, then back inside the frame.** A ball whose top-left
+   * corner stayed put would drift down and right as it grew, and 16 px of drift
+   * over the swell is a ball the player was not aiming. Growing about the
+   * centre spends the same pixels either side, so the ball goes on travelling
+   * the line it was on.
+   *
+   * Parked balls are resized too, and re-parked: GLUE can be holding one
+   * against the deck while this runs, and a ball that grew downward through the
+   * wood would be sitting in it.
+   */
+  private resizeBalls(): void {
+    const size = ballSizeFor(this.giantBlend);
+    const { left, right, top } = gameConfig.field;
+    for (const ball of this.balls) {
+      if (ball.size === size) {
+        continue;
+      }
+      // Even sizes throughout, so this is whole pixels and the sprite never
+      // lands on a half.
+      const half = (size - ball.size) / 2;
+      ball.size = size;
+      if (!ball.active) {
+        continue;
+      }
+      ball.x -= half;
+      ball.y -= half;
+      ball.x = Math.min(Math.max(ball.x, left), right - size);
+      ball.y = Math.max(ball.y, top);
+      if (ball.stuckOffsetX !== null) {
+        ball.stuckOffsetX = this.clampStuckOffset(ball.stuckOffsetX, size);
+        ball.x = this.paddle.x + ball.stuckOffsetX;
+        ball.y = gameConfig.paddle.y - size;
+      }
+    }
+  }
+
+  /**
+   * What one contact takes out of the wall.
+   *
+   * An ordinary ball damages the brick it struck, which is the game as it has
+   * always been. A heavy one takes the whole patch it is standing on and the
+   * ring around it — see `crushBricks`.
+   *
+   * **Gated on the ball's own size and not on the timer.** The swell runs on
+   * for `giantFadeTicks` after GIANT expires, and a 20 px ball that collided
+   * wide while crushing like an 8 px one is the kind of disagreement the
+   * player feels without being able to name.
+   */
+  private strikeBricks(ball: Ball, hit: BrickHit): void {
+    if (ball.size <= gameConfig.ball.size) {
+      this.damageBrick(hit);
+      return;
+    }
+    this.crushBricks(ball, hit);
+  }
+
+  /**
+   * GIANT's contact: every brick under the ball, plus the ring around them.
+   *
+   * The patch is the honest half — a 24 px ball is genuinely standing on up to
+   * six cells, and breaking one of them was the bounce test's answer rather
+   * than the physics'. The ring is the weight: what a mass this size lands on
+   * does not stop at the bricks it touched.
+   *
+   * The ring is collected as **coordinates and re-resolved afterwards**, never
+   * as the `BrickHit`s taken before the patch ran. A patch kill removes cells
+   * from the grid, and a hit captured earlier holds a reference to one that is
+   * already gone — damaging it would take points for a brick twice and drop a
+   * second capsule out of it.
+   *
+   * Ring bricks come in as `"splash"`, exactly as BLAST's do, which is what
+   * keeps one contact reading as one event: no chaining out of it, no capsule
+   * out of it, and no eight overlapping pops.
+   */
+  private crushBricks(ball: Ball, struck: BrickHit): void {
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    const radius = gameConfig.powerUps.giant.crushRadius;
+    const patch = this.grid.findBallOverlaps(ball.x, ball.y, ball.size);
+    // The bounce found its cell by sampling a corner, and ERODE can wear a
+    // cell out of the patch's reach that the corner still landed on. Whatever
+    // the bounce was against is part of the contact by definition.
+    if (!patch.some((cell) => cell.row === struck.row && cell.column === struck.column)) {
+      patch.push(struck);
+    }
+
+    const inPatch = new Set(patch.map((cell) => `${cell.row},${cell.column}`));
+    const ring = new Set<string>();
+    for (const cell of patch) {
+      for (let deltaRow = -radius; deltaRow <= radius; deltaRow++) {
+        for (let deltaColumn = -radius; deltaColumn <= radius; deltaColumn++) {
+          const key = `${cell.row + deltaRow},${cell.column + deltaColumn}`;
+          if (!inPatch.has(key)) {
+            ring.add(key);
+          }
+        }
+      }
+    }
+
+    for (const cell of patch) {
+      this.damageBrick(cell);
+    }
+
+    for (const key of ring) {
+      const [row, column] = key.split(",").map(Number);
+      const neighbor = this.grid.hitAtCell(row, column);
+      if (!neighbor) {
+        continue;
+      }
+      this.brickFlashes.push({
+        x: left + neighbor.column * brickWidth,
+        y: top + neighbor.row * brickHeight,
+        ticksLeft: gameConfig.powerUps.splashFlashTicks,
+        kind: "blast",
+        onWall: true,
+        gild: false,
+      });
+      this.damageBrick(neighbor, "splash");
+    }
+  }
+
   private steerBall(ball: Ball): void {
     const { homingTurnRad, homingMinVerticalFraction } = gameConfig.powerUps;
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
-    const size = gameConfig.ball.size;
+    const size = ball.size;
 
     // Below the grid on the way down there is nothing ahead to steer toward,
     // and a mark under the bricks would point at a brick this ball is leaving.
@@ -1801,7 +1942,7 @@ export class ShatterGame {
   // indices — this runs per ball whenever a lock expires, and allocates nothing.
   private lockNearestBrick(ball: Ball): void {
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
-    const size = gameConfig.ball.size;
+    const size = ball.size;
     const ballX = ball.x + size / 2;
     const ballY = ball.y + size / 2;
     const rows = this.grid.rows;
@@ -1849,7 +1990,7 @@ export class ShatterGame {
    * Returns whether a kick happened, which is what the streak counts.
    */
   private kickOffBumpers(ball: Ball): boolean {
-    const size = gameConfig.ball.size;
+    const size = ball.size;
     const contact = gameConfig.powerUps.bumpers.radius + size / 2;
     const centerY = ball.y + size / 2;
 
@@ -1915,7 +2056,7 @@ export class ShatterGame {
       ball.phasing = true;
       return true;
     }
-    if (ball.phasing && this.grid.findBallOverlap(ball.x, ball.y) === null) {
+    if (ball.phasing && this.grid.findBallOverlap(ball.x, ball.y, ball.size) === null) {
       ball.phasing = false;
     }
     return ball.phasing;
@@ -2114,7 +2255,7 @@ export class ShatterGame {
     // diagonal was decided, and that is what the bracket is pointing at.
     this.snapMarks.push({
       x: ball.centerX,
-      y: ball.y + gameConfig.ball.size / 2,
+      y: ball.y + ball.size / 2,
       dirX: lateral,
       dirY: vertical,
       ticksLeft: gameConfig.powerUps.snap.markTicks,
@@ -2153,7 +2294,7 @@ export class ShatterGame {
     const dx = stepVx / subSteps;
     const dy = stepVy / subSteps;
     const { left, right, top, height } = gameConfig.field;
-    const size = gameConfig.ball.size;
+    const size = ball.size;
     const pierce = () => this.timers.isActive("P");
     const { wallKeep } = gameConfig.powerUps.english;
     const phasing = this.ghosted(ball, this.timers.isActive("GH"));
@@ -2202,7 +2343,7 @@ export class ShatterGame {
       const wasVx = ball.velocity.x;
       const wasVy = ball.velocity.y;
       ball.x += dx;
-      let hit = phasing ? null : this.grid.findBallOverlap(ball.x, ball.y);
+      let hit = phasing ? null : this.grid.findBallOverlap(ball.x, ball.y, size);
       if (hit) {
         if (pierce()) {
           drilling = true;
@@ -2216,11 +2357,11 @@ export class ShatterGame {
         // was pointed. Above the pierce branch and not inside it: a drill that
         // kept its spin would corkscrew through the wall on a single whip.
         ball.spin = 0;
-        this.damageBrick(hit);
+        this.strikeBricks(ball, hit);
       }
 
       ball.y += dy;
-      hit = phasing ? null : this.grid.findBallOverlap(ball.x, ball.y);
+      hit = phasing ? null : this.grid.findBallOverlap(ball.x, ball.y, size);
       if (hit) {
         if (pierce()) {
           drilling = true;
@@ -2229,7 +2370,7 @@ export class ShatterGame {
           ball.velocity.y = -ball.velocity.y;
         }
         ball.spin = 0;
-        this.damageBrick(hit);
+        this.strikeBricks(ball, hit);
       }
 
       // A disc is a free-standing thing to bounce off, so it sits with the
@@ -2339,7 +2480,7 @@ export class ShatterGame {
         if (this.timers.isActive("G")) {
           // GLUE: the ball parks on the paddle; a click (or Space) releases it.
           ball.velocity = { x: 0, y: 0 };
-          ball.stuckOffsetX = this.clampStuckOffset(ball.x - this.paddle.x);
+          ball.stuckOffsetX = this.clampStuckOffset(ball.x - this.paddle.x, ball.size);
           ball.x = this.paddle.x + ball.stuckOffsetX;
           ball.y = paddleTop - size;
           this.deps.sfx.wallBounce();
@@ -2450,7 +2591,7 @@ export class ShatterGame {
     const remaining = this.timers.remaining("P");
     const elapsed = POWER_UP_DURATIONS.P - remaining;
     const intensity = Math.min(elapsed / riseTicks, remaining / fallTicks, 1);
-    this.particles.sparkBurst(ball.centerX, ball.y + gameConfig.ball.size / 2, {
+    this.particles.sparkBurst(ball.centerX, ball.y + ball.size / 2, {
       ...burst,
       chunkCount: Math.max(1, Math.round(burst.chunkCount * intensity)),
     });
@@ -2601,8 +2742,7 @@ export class ShatterGame {
    * just opened under it — slides to the inner edge of the nearer one. A ball
    * hovering in mid-air over the gap would be GLUE contradicting SPLIT.
    */
-  private clampStuckOffset(offset: number): number {
-    const size = gameConfig.ball.size;
+  private clampStuckOffset(offset: number, size: number): number {
     const rightmost = this.paddle.width - size;
     const gap = this.splitGap();
     if (gap === 0) {
@@ -3236,6 +3376,12 @@ export class ShatterGame {
     this.paddleVx = 0;
     this.paddleWasX = this.paddle.x;
     this.stasisBlend = 0;
+    // The blend and the balls together: a serve reads `ball.size` to park
+    // the ball on the deck, and it happens before the next `resizeBalls`.
+    this.giantBlend = 0;
+    for (const ball of this.balls) {
+      ball.size = gameConfig.ball.size;
+    }
     this.homingBlend = 0;
     this.glueReach = 0;
     this.mirrorForm = 0;
@@ -3395,6 +3541,12 @@ export class ShatterGame {
     }
     if (kind === "P") {
       this.timers.activate("P", durations.P);
+    }
+    // Beside PIERCE, which is the other capsule that changes what the ball does
+    // to the wall rather than what the deck does. Nothing to arm but the timer:
+    // the swell is a blend off it and the crush is read off the size.
+    if (kind === "GI") {
+      this.timers.activate("GI", durations.GI);
     }
     if (kind === "M" && !this.swarmLive) {
       // Stacking ladder: each catch climbs a tier and tops the field up to its
@@ -3932,9 +4084,9 @@ export class ShatterGame {
   // too: they were held by the paddle rather than by the freeze, but the ring
   // is the field saying it is moving again, not a per-ball claim.
   private popStasisRings(): void {
-    const half = gameConfig.ball.size / 2;
     for (const ball of this.balls) {
       if (ball.active) {
+        const half = ball.size / 2;
         this.stasisRings.push({
           x: ball.x + half,
           y: ball.y + half,
@@ -4203,7 +4355,7 @@ export class ShatterGame {
         ball.stuckOffsetX = null;
         const relativeHit = relativePaddleHit(ball.centerX, this.paddle.bounds);
         ball.velocity = computePaddleBounceVelocity(relativeHit, this.speed(), gameConfig.bounce.maxAngleRad);
-        ball.y = gameConfig.paddle.y - gameConfig.ball.size;
+        ball.y = gameConfig.paddle.y - ball.size;
         this.deps.sfx.paddleBounce(relativeHit);
       }
     }
@@ -4434,6 +4586,12 @@ export class ShatterGame {
     this.paddleVx = 0;
     this.paddleWasX = this.paddle.x;
     this.stasisBlend = 0;
+    // The blend and the balls together: a serve reads `ball.size` to park
+    // the ball on the deck, and it happens before the next `resizeBalls`.
+    this.giantBlend = 0;
+    for (const ball of this.balls) {
+      ball.size = gameConfig.ball.size;
+    }
     this.homingBlend = 0;
     this.glueReach = 0;
     this.mirrorForm = 0;
@@ -4506,6 +4664,12 @@ export class ShatterGame {
     this.paddleVx = 0;
     this.paddleWasX = this.paddle.x;
     this.stasisBlend = 0;
+    // The blend and the balls together: a serve reads `ball.size` to park
+    // the ball on the deck, and it happens before the next `resizeBalls`.
+    this.giantBlend = 0;
+    for (const ball of this.balls) {
+      ball.size = gameConfig.ball.size;
+    }
     this.homingBlend = 0;
     this.glueReach = 0;
     this.mirrorForm = 0;

@@ -152,8 +152,7 @@ export class BrickGrid {
     return cell ? { cell, row, column } : null;
   }
 
-  findBallOverlap(ballX: number, ballY: number): BrickHit | null {
-    const size = gameConfig.ball.size;
+  findBallOverlap(ballX: number, ballY: number, size: number): BrickHit | null {
     const inset = gameConfig.ball.collisionInset;
     const corners: Array<[number, number]> = [
       [ballX + inset, ballY + inset],
@@ -170,6 +169,51 @@ export class BrickGrid {
     }
 
     return null;
+  }
+
+  /**
+   * Every live brick the ball's box is standing on, not just the first corner
+   * to find one (SHA-135).
+   *
+   * The four corners are the right test for an 8 px ball, which can never span
+   * more than the two cells they already reach. A GIANT ball is 24 px against a
+   * 30x12 brick and covers up to two columns and three rows — six cells, of
+   * which the corners can only ever see four, and never the one in the middle
+   * of the patch. So this walks the cells the box actually covers instead of
+   * sampling it.
+   *
+   * `cellAt` per cell rather than a bounds test, because ERODE's worn bricks no
+   * longer fill their cells and the margin it opens is field: the same rectangle
+   * the player can see is the one that gets crushed, at every step of the wear.
+   */
+  findBallOverlaps(ballX: number, ballY: number, size: number): BrickHit[] {
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    const inset = gameConfig.ball.collisionInset;
+    const nearX = ballX + inset;
+    const farX = ballX + size - inset;
+    const nearY = ballY + inset;
+    const farY = ballY + size - inset;
+    const firstColumn = Math.floor((nearX - left) / brickWidth);
+    const lastColumn = Math.floor((farX - left) / brickWidth);
+    const firstRow = Math.floor((nearY - top + this.topOffset) / brickHeight);
+    const lastRow = Math.floor((farY - top + this.topOffset) / brickHeight);
+
+    const hits: BrickHit[] = [];
+    for (let row = firstRow; row <= lastRow; row++) {
+      for (let column = firstColumn; column <= lastColumn; column++) {
+        // The point tested inside each cell is the part of the ball's box that
+        // is actually in it — the cell's own span clamped to the box — so a
+        // cell the ball only clips at one edge is tested there rather than at
+        // a centre the ball never reached.
+        const x = Math.min(Math.max(left + column * brickWidth + brickWidth / 2, nearX), farX);
+        const y = Math.min(Math.max(top + row * brickHeight - this.topOffset + brickHeight / 2, nearY), farY);
+        const hit = this.cellAt(x, y);
+        if (hit) {
+          hits.push(hit);
+        }
+      }
+    }
+    return hits;
   }
 
   // `amount` is what the source takes off, which is 1 for everything but a laser
