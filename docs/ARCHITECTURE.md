@@ -396,8 +396,9 @@ that gate.
 
 ## 7. A capsule, end to end
 
-47 capsules, and not one of them is a special case in the drop machinery. The
-whole roster is a table.
+47 capsules, all but two of them a plain tier lookup in the drop machinery —
+DEMAKE and VORTEX are named weight exceptions, promoted a class above their
+own tier on purpose. The whole roster is still one table.
 
 ```text
   src/core/config/powerUps.ts

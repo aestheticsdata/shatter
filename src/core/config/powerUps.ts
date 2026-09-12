@@ -313,7 +313,16 @@ export const POWER_UP_NAMES: Record<PowerUpKind, string> = byId((definition) => 
  */
 export const POWER_UP_GLYPHS: Record<PowerUpKind, string> = byId((definition) => glyphFor(definition.name));
 export const POWER_UP_DURATIONS: Record<PowerUpKind, number> = byId((definition) => definition.ticks);
-export const POWER_UP_DROP_WEIGHTS: Record<PowerUpKind, number> = byId((definition) => TIER_WEIGHTS[definition.tier]);
+export const POWER_UP_DROP_WEIGHTS: Record<PowerUpKind, number> = {
+  ...byId((definition) => TIER_WEIGHTS[definition.tier]),
+  // Two named exceptions to "rarity is a tier, not a number per row": both
+  // were landing too rarely to enjoy, so each draws at the next weight class
+  // up instead of splitting its tier's number with capsules that mean it.
+  // DEMAKE is the trap that costs nothing but nerve; VORTEX is SINGULARITY's
+  // bigger, adrift cousin. The other 45 rows stay purely tier-derived.
+  D: TIER_WEIGHTS.common,
+  VX: TIER_WEIGHTS.uncommon,
+};
 
 // Roster order, which is the order the console prints, `rollDropKind` walks and
 // the POWER inset lists live effects in.
