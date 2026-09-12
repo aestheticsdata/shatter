@@ -426,6 +426,46 @@ export const LEVELS: readonly LevelDefinition[] = [
       { row: 4, column: 5, kind: "I" },
     ],
   },
+  // The arcade bug, three lanes of it, winding down the field toward the deck.
+  // Alternating green and yellow segments along a single unbroken path — tail
+  // at the top-left, gold head at the bottom-right — over a field of lone
+  // silver mushrooms.
+  //
+  // **Every turn is a mushroom's fault, which is the whole homage.** In the
+  // cabinet the centipede does not wind because winding looks nice; it walks
+  // straight until something is in the way, then drops a row and reverses. So
+  // the mushroom at the end of each lane is the reason that lane ends there:
+  // one at the right of row 0, one at the left of row 3, and one directly in
+  // front of the head, which is the turn it has not taken yet. Take those three
+  // away and the shape stops meaning anything.
+  //
+  // The lanes sit three rows apart rather than two, and that spacing is load-
+  // bearing twice over. It gives each descent two cells instead of one, so a
+  // corner is four bricks tall and reads as a bend rather than a nick; and it
+  // puts one column three segments away from itself across a turn, which is
+  // odd, so the colour flips and each lane is staggered against the one above.
+  // With a one-cell descent that distance is two, the parity comes back around,
+  // and the body lands in vertical stripes — a checkerboard, not a bug.
+  //
+  // The wink at CRITTER is on the head, not in the flavour text: the gold is
+  // seeded, and cracking it lets a grub out to eat its way across the same wall
+  // the centipede is crawling over. 48 bricks, 65 hits, 5170 points — the
+  // exhale carrying on from HOURGLASS before FLOPPY's 138.
+  {
+    name: "CENTIPEDE",
+    background: "starfield",
+    rows: [
+      ".3434343434S",
+      "..S...S...3.",
+      "....S...S.4.",
+      "S4343434343.",
+      ".3.S...S...S",
+      ".4...S...S..",
+      ".34343434GS.",
+      ".S...S...S..",
+    ],
+    drops: [{ row: 6, column: 9, kind: "CR" }],
+  },
   // A 3.5-inch floppy, drawn the way the save icon draws it: label up, metal
   // shutter down. The icon is why — nobody has held one since the machines COOL
   // and 1991 are named after, but everybody still clicks one — and the deck is
@@ -445,7 +485,7 @@ export const LEVELS: readonly LevelDefinition[] = [
   // yellow and orange both sit inside the gold shutter's own family and a label
   // the colour of the shutter reads as more metal. Green is the one vivid tier
   // that reads as paper against both silvers. 79 bricks, 138 hits, 10530
-  // points.
+  // points — the heaviest wall in the game, and the last one before FINALE.
   {
     name: "FLOPPY",
     background: "grid",

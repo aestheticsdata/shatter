@@ -232,9 +232,11 @@ export interface LevelDefinition {
   name: string;
   background: BackgroundId;
   rows: readonly string[];
-  // Empty on all but SUPER MAZE — whose two LASERs are the only way through a
-  // wall of 4-hit granite in anything under a very long while — and HOURGLASS,
-  // whose TEMPO and STASIS on the spine are the ticket's promise kept.
+  // Empty on all but three: SUPER MAZE, whose two LASERs are the only way
+  // through a wall of 4-hit granite in anything under a very long while;
+  // HOURGLASS, whose TEMPO and STASIS on the spine are the ticket's promise
+  // kept; and CENTIPEDE, whose gold head lets a CRITTER grub out onto the wall
+  // the centipede is drawn crawling over.
   drops?: readonly SeededDrop[];
 }
 
