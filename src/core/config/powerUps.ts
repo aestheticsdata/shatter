@@ -87,10 +87,24 @@ export interface PowerUpDefinition {
   // their whole acknowledgment, and BM ends the life it was caught on.
   timed: boolean;
   // The line the CAPSULES screen prints under the pill: what the player sees,
-  // present tense, in about 40 characters — `WIDER PADDLE`, `BALLS STICK ·
-  // CLICK TO RELEASE`. Required, so a capsule invented tomorrow cannot reach
-  // the catalogue without one, and measured by the DEV pass in
-  // `@render/checkCapsules`, which says whose line overflows its column.
+  // present tense — `WIDER PADDLE`, `BALLS STICK · CLICK TO FREE`. Required, so
+  // a capsule invented tomorrow cannot reach the catalogue without one.
+  //
+  // **The limit is rendered width, not a character count.** `checkCapsuleBlurbs`
+  // in `@render/checkCapsules` measures the line at `ENTRY_FONT` and wraps it
+  // against `ENTRY_COLUMN_WIDTH`, and the entry has room for `ENTRY_BLURB_LINES`
+  // — one. Silkscreen is proportional, so no character count is safe in either
+  // direction: the three widest blurbs in the roster are ENGLISH at 146.1 px,
+  // ERODE at 145.3 and SNAP at 144.4, which is 32, 31 and 30 characters landing
+  // within 1.7 px of each other.
+  //
+  // This comment said "in about 40 characters" for a long time and that number
+  // was never reachable — 40 characters of ordinary text measures about 184 px,
+  // some 36 px past the 148 px column, and a 33-character blurb already wraps at
+  // 152.3. It cost two sessions a wave of rewritten capsule specs before anyone
+  // measured it. Run the check against a new row instead of counting: a blurb
+  // that wraps shoves the whole entry down, and the DEV pass is the only thing
+  // here that knows what a glyph actually costs.
   //
   // The README's Effect column is the longer reference and the two must agree:
   // when a capsule is retuned, both move.
