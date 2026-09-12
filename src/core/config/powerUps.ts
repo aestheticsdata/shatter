@@ -343,13 +343,26 @@ export const POWER_UP_GLYPHS: Record<PowerUpKind, string> = byId((definition) =>
 export const POWER_UP_DURATIONS: Record<PowerUpKind, number> = byId((definition) => definition.ticks);
 export const POWER_UP_DROP_WEIGHTS: Record<PowerUpKind, number> = {
   ...byId((definition) => TIER_WEIGHTS[definition.tier]),
-  // Two named exceptions to "rarity is a tier, not a number per row": both
-  // were landing too rarely to enjoy, so each draws at the next weight class
-  // up instead of splitting its tier's number with capsules that mean it.
-  // DEMAKE is the trap that costs nothing but nerve; VORTEX is SINGULARITY's
-  // bigger, adrift cousin. The other 45 rows stay purely tier-derived.
+  // Three named exceptions to "rarity is a tier, not a number per row": all
+  // were landing too rarely to enjoy, so each draws above its tier instead of
+  // splitting its tier's number with capsules that mean it. DEMAKE is the trap
+  // that costs nothing but nerve; VORTEX is SINGULARITY's bigger, adrift
+  // cousin. The other 45 rows stay purely tier-derived.
   D: TIER_WEIGHTS.common,
   VX: TIER_WEIGHTS.uncommon,
+  // GIANT jumps two classes rather than one, and the numbers are why. At its
+  // own `rare` 0.35 it is 1.09 % of a roll, and a wall seeds about 32 capsules
+  // over the first three levels — so a player meets it in roughly 30 % of
+  // three-level runs and misses it in the other 70. That is not rarity, it is
+  // a capsule most people never see: it was measured after the user played
+  // three levels on the day it shipped and never met it once.
+  //
+  // At `common` it is 3.05 % a roll, 63 % over the same three levels and 28 %
+  // in any single one — met on most runs, still not routine. The tier itself
+  // stays `rare`, because the CAPSULES screen is telling the player how
+  // special the capsule is and it is; this table is telling the wall how often
+  // to hand it over, and those two have been allowed to disagree since DEMAKE.
+  GI: TIER_WEIGHTS.common,
 };
 
 // Roster order, which is the order the console prints, `rollDropKind` walks and
