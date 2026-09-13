@@ -403,6 +403,13 @@ production and a rare's single ticket would have been worse over the first four
 levels — better eventually is not better. VORTEX's old exception is retired. The
 whole roster is one table.
 
+One capsule is not left to the bag at all. **The first level always holds a
+DEMAKE**, seeded into its wall by `wallFor` in a random cell of the third, fourth
+or fifth row from the bottom — never the front two, which go in the opening
+rally, and a gag about the machine breaking down needs the machine seen working
+first. DEMAKE stays barred from that level's rolls, so the level holds that one
+and no other.
+
 ```text
   src/core/config/powerUps.ts
   +---------------------------------------------------------------+
@@ -423,6 +430,10 @@ whole roster is one table.
         |                                every capsule falls inside two passes
         v
   BrickGrid.load()  seeds cells with rollBrickCapsule()
+        |           wallFor() pins level 1's promised DEMAKE over one of
+        |           them, the way a level's own drops pin theirs — and a
+        |           pin is not a draw, so the bag is untouched and so are
+        |           the odds on every level after the first
         |
         v  brick destroyed
   DropPool.trySpawn(kind, x, y)          max 6 falling at once

@@ -12,7 +12,7 @@ import {
 } from "@core/config/powerUps";
 import { DemoHook } from "@core/DemoHook";
 import { DevConsole } from "@core/DevConsole";
-import { levelAt, levelIndexOf } from "@core/levels/levels";
+import { levelAt, levelIndexOf, wallFor } from "@core/levels/levels";
 import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/PaddleBounce";
 import { Ball, ballSizeFor, paceGhost } from "@entities/ball/Ball";
 import { BrickGrid } from "@entities/bricks/BrickGrid";
@@ -136,10 +136,12 @@ function isPaddleWidthKind(kind: PowerUpKind): kind is PaddleWidthKind {
   return Object.hasOwn(PADDLE_WIDTHS, kind);
 }
 
-// DEMAKE is barred from a run's first level: the gag only reads as the machine
-// breaking down if the player has seen the machine working first. Enforced at
-// the roll rather than at the catch, so the dev console still grants it
-// anywhere. A module constant because it is the same list every roll.
+// DEMAKE is barred from a run's first level *by chance*, because that level now
+// hands one over on purpose instead — `wallFor` seeds it, and this is what makes
+// the guarantee exact rather than a floor: one DEMAKE, in a row the rule chose,
+// and not a second one rolled into the front rows to go off on the third brick.
+// Enforced at the roll rather than at the catch, so the dev console still grants
+// it anywhere. A module constant because it is the same list every roll.
 const FIRST_LEVEL_EXCLUDES: readonly PowerUpKind[] = ["D"];
 const NO_EXCLUDES: readonly PowerUpKind[] = [];
 
@@ -759,7 +761,7 @@ export class ShatterGame {
     this.input.attach();
     this.deps.hiScores.onChange = () => this.onScoresChanged();
     this.deps.hiScores.sync();
-    this.grid.load(levelAt(0), () => this.rollBrickCapsule());
+    this.grid.load(wallFor(0), () => this.rollBrickCapsule());
     this.resetServe();
     this.lastTime = performance.now();
     this.animationFrameId = requestAnimationFrame(this.frame);
@@ -4666,7 +4668,7 @@ export class ShatterGame {
   }
 
   private buildLevel(level: number): void {
-    this.grid.load(levelAt(level), () => this.rollBrickCapsule());
+    this.grid.load(wallFor(level), () => this.rollBrickCapsule());
     // Sized to this wall and handed over once. The grid reads the wear out of it
     // for the rest of the level exactly as it reads QUAKE's drop off a number —
     // it never learns whose capsule either of them is.

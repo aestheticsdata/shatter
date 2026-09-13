@@ -15,7 +15,11 @@
 //      while the bar holds, its ticket is still in the bag afterwards, and it
 //      comes out once the bar lifts. This is what keeps level 1's DEMAKE ban
 //      from quietly spending the one ticket the pass had of it.
-//   4. The tier shares are what the config claims — in particular traps near
+//   4. The first level's DEMAKE is a promise, not a roll (SHA-154). Every wall
+//      it builds holds exactly one, always in the third, fourth or fifth row
+//      from the bottom, never in the two the opening rally eats — and the
+//      levels after it are handed back untouched.
+//   5. The tier shares are what the config claims — in particular traps near
 //      the 17 % the roster has always been aimed at.
 //
 // Run with: pnpm run check:drops
@@ -40,6 +44,9 @@ registerHooks({
 
 const { POWER_UPS, POWER_UP_DROP_TICKETS, POWER_UP_IDS, TIER_TICKETS } = await import("../src/core/config/powerUps.ts");
 const { DropBag } = await import("../src/entities/powerups/DropBag.ts");
+const { isBrickKind } = await import("../src/core/config/bricks.ts");
+const { LEVELS, levelAt, wallFor } = await import("../src/core/levels/levels.ts");
+const { BrickGrid } = await import("../src/entities/bricks/BrickGrid.ts");
 
 // Bricks per level averaged over the roster, times the chance one holds anything.
 // Only used to phrase a pass in levels; nothing is asserted against it.
@@ -155,7 +162,76 @@ for (const kind of ["D", "GI"]) {
   }
 }
 
-// ---- 4. Tier shares, and traps in particular. ------------------------------
+// ---- 4. The first level hands a DEMAKE over, and never out of the front. ----
+// The seed is the whole of SHA-154: DEMAKE draws at a common's rate and is still
+// the capsule the user says they never meet, so level 1 stops rolling for it and
+// pins one. What is asserted is the promise *and* its two edges — that it lands
+// deep enough not to fire in the opening rally, and that the rest of the run is
+// handed back exactly as it was.
+const SEED_BUILDS = 2000;
+{
+  const first = levelAt(0);
+  const rowsFromBottom = new Set();
+  const ownDemakes = (first.drops ?? []).filter((drop) => drop.kind === "D").length;
+  for (let build = 0; build < SEED_BUILDS; build++) {
+    const seeded = (wallFor(0).drops ?? []).filter((drop) => drop.kind === "D");
+    if (seeded.length !== ownDemakes + 1) {
+      failures.push(`a first-level wall held ${seeded.length} DEMAKE(s), not the one it is promised`);
+      break;
+    }
+    const [drop] = seeded;
+    const fromBottom = first.rows.length - drop.row;
+    rowsFromBottom.add(fromBottom);
+    if (fromBottom < 3 || fromBottom > 5) {
+      failures.push(`the first level's DEMAKE was seeded ${fromBottom} row(s) from the bottom, outside 3-5`);
+      break;
+    }
+    if (!isBrickKind(first.rows[drop.row]?.[drop.column] ?? ".")) {
+      failures.push(`the first level's DEMAKE was seeded on air at row ${drop.row}, column ${drop.column}`);
+      break;
+    }
+  }
+  // All three rows over that many builds, or the pick is not the uniform draw it
+  // is written as — a rule that only ever fires on one row is a hardcoded cell
+  // wearing a random one's clothes.
+  for (const fromBottom of [3, 4, 5]) {
+    if (!rowsFromBottom.has(fromBottom)) {
+      failures.push(`row ${fromBottom} from the bottom never took the seed over ${SEED_BUILDS} walls`);
+    }
+  }
+}
+
+// And the wall built from it really holds one, seeded. A drop in the definition
+// that no cell ends up carrying would be a promise kept on paper only — this is
+// the seam between `wallFor` and the grid, and the reason the assertion builds a
+// `BrickGrid` rather than trusting the list it was handed.
+{
+  const grid = new BrickGrid();
+  // Rolls nothing, so the only capsule the wall can hold is the seeded one.
+  grid.load(wallFor(0), () => null);
+  const held = grid.rows.flatMap((row, rowIndex) =>
+    row.map((cell, column) => ({ cell, row: rowIndex, column })).filter((entry) => entry.cell?.capsule === "D"),
+  );
+  if (held.length !== 1) {
+    failures.push(`the first level's wall holds ${held.length} DEMAKE cells, not the one it is promised`);
+  } else if (!held[0].cell.seeded) {
+    failures.push("the first level's DEMAKE is on the wall but not marked seeded: an indirect kill would drop nothing");
+  } else if (levelAt(0).rows.length - held[0].row < 3) {
+    failures.push(`the built wall put its DEMAKE ${levelAt(0).rows.length - held[0].row} row(s) from the bottom`);
+  }
+}
+
+// Every level after the first is handed back as authored: the guarantee is added
+// to level 1, never taken out of the run behind it.
+// `LEVELS.length` is the wrap: a long run comes back round to SUNRISE's layout,
+// and that visit is not the run's first level and gets no seed.
+for (const level of [1, 2, 7, LEVELS.length]) {
+  if (wallFor(level) !== levelAt(level)) {
+    failures.push(`level ${level + 1}'s wall was rewritten by the first level's seed`);
+  }
+}
+
+// ---- 5. Tier shares, and traps in particular. ------------------------------
 const tierRows = [];
 for (const [tier, tickets] of Object.entries(TIER_TICKETS)) {
   const rows = POWER_UPS.filter((definition) => definition.tier === tier);
@@ -204,4 +280,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("Every capsule comes out of each pass, and no drought outlasts two.");
+console.log("Every capsule comes out of each pass, no drought outlasts two, and level 1 always holds a DEMAKE.");

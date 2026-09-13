@@ -1,6 +1,8 @@
+import { isBrickKind } from "@core/config/bricks";
+import { gameConfig } from "@core/config/GameConfig";
 import { wordRows } from "@core/levels/wordFont";
 
-import type { LevelDefinition } from "@interfaces/types";
+import type { LevelDefinition, SeededDrop } from "@interfaces/types";
 
 // `background` picks the playfield theme (see `src/render/backgrounds.ts`).
 // Two rules when adding or reordering levels: never repeat a theme on adjacent
@@ -515,4 +517,80 @@ export function levelIndexOf(level: number): number {
 
 export function levelAt(level: number): LevelDefinition {
   return LEVELS[levelIndexOf(level)];
+}
+
+// Which rows a run's opening DEMAKE may be seeded in, counted from the bottom of
+// the wall. Never the front two: those go in the opening rally, and a capsule
+// meant to be the first level's showpiece may not fire before the player has a
+// machine to miss.
+const DEMAKE_SEED_ROWS_FROM_BOTTOM: readonly number[] = [3, 4, 5];
+
+/**
+ * The wall a level builds, which is `levelAt` plus the one capsule a run is
+ * promised: **the first level always holds a DEMAKE**.
+ *
+ * It draws at a common's rate and the user has still twice said they never see
+ * it, so the run opens by handing it over rather than hoping. One is pinned into
+ * level 1's wall every run, in a random cell of whichever row
+ * `DEMAKE_SEED_ROWS_FROM_BOTTOM` picks.
+ *
+ * Pinned through `drops` — the door SUPER MAZE's two LASERs already come
+ * through — rather than by reaching into the built grid, which buys the whole of
+ * what a seeded cell means for free: it comes out however the brick dies, splash
+ * and bomb included, XRAY shows the truth about it, and the console's `bonus`
+ * re-roll leaves it alone.
+ *
+ * **It costs the bag nothing.** A seeded capsule is not a draw, so the pass is
+ * untouched and every other level's odds are exactly what they were — the
+ * guarantee is added to the first level, not taken out of the rest of the run.
+ * `FIRST_LEVEL_EXCLUDES` in `ShatterGame` is the other half of the rule: DEMAKE
+ * stays barred from level 1's *rolls*, so the level holds this one and no other.
+ * Lifting that bar would let a second land in the front row and fire on the
+ * third brick, which is the thing these rows exist to prevent.
+ */
+export function wallFor(level: number): LevelDefinition {
+  const definition = levelAt(level);
+  if (level !== 0) {
+    return definition;
+  }
+  const drop = openingDemakeDrop(definition);
+  // Ours first: `BrickGrid.load` stamps drops in order, so a level that pins its
+  // own capsule on the cell this one chose keeps it.
+  return drop === null ? definition : { ...definition, drops: [drop, ...(definition.drops ?? [])] };
+}
+
+/**
+ * A cell for the opening DEMAKE: a row drawn uniformly from the ones the rule
+ * allows that actually hold a brick, then a column drawn uniformly from that
+ * row's bricks.
+ *
+ * Rows are counted off the wall's own height rather than written down, so
+ * editing SUNRISE or putting another level first still obeys the rule instead of
+ * quietly pointing at rows that moved. `null` when none of the three holds a
+ * brick, which no first level has ever been — a wall the rule cannot place in is
+ * a wall without a promise, not a crash.
+ */
+function openingDemakeDrop(definition: LevelDefinition): SeededDrop | null {
+  const candidates = DEMAKE_SEED_ROWS_FROM_BOTTOM.map((fromBottom) => definition.rows.length - fromBottom)
+    .filter((row) => row >= 0)
+    .map((row) => ({ row, columns: brickColumns(definition.rows[row]) }))
+    .filter((candidate) => candidate.columns.length > 0);
+  if (candidates.length === 0) {
+    return null;
+  }
+  const { row, columns } = candidates[Math.floor(Math.random() * candidates.length)];
+  return { row, column: columns[Math.floor(Math.random() * columns.length)], kind: "D" };
+}
+
+// Which columns of a row are bricks, over the grid's width rather than the
+// string's: `BrickGrid.load` reads a short row as air past its end, and a
+// promise placed in a cell the wall never built would be no promise at all.
+function brickColumns(row: string): number[] {
+  const columns: number[] = [];
+  for (let column = 0; column < gameConfig.grid.columns; column++) {
+    if (isBrickKind(row[column] ?? ".")) {
+      columns.push(column);
+    }
+  }
+  return columns;
 }
