@@ -16,7 +16,7 @@ import {
 } from "@render/palette";
 
 import type { BrickGrain } from "@core/config/bricks";
-import type { WallErosion } from "@entities/bricks/BrickGrid";
+import type { WallErosion, WallSheet } from "@entities/bricks/BrickGrid";
 import type { Critter } from "@entities/effects/Critter";
 import type { Detonation } from "@entities/effects/Detonation";
 import type { Pip } from "@entities/effects/GravelField";
@@ -25,6 +25,7 @@ import type { Meteor } from "@entities/effects/MeteorField";
 import type { Particle } from "@entities/effects/ParticleField";
 import type { Quake } from "@entities/effects/Quake";
 import type { Singularity } from "@entities/effects/Singularity";
+import type { Slump } from "@entities/effects/Slump";
 import type { Shot } from "@entities/laser/ShotPool";
 import type { Drop } from "@entities/powerups/DropPool";
 import type {
@@ -572,7 +573,18 @@ export interface RenderView {
    * brick that is not where they can see it. The same object answers both —
    * the renderer's `offsetAt` and the grid's are one call on one field.
    */
-  sheet: JellySheet;
+  offsets: WallSheet;
+  /**
+   * JELLY's load on the bricks' faces, which is one capsule's alone and not
+   * geometry — so it is its own field rather than a method on the object above.
+   * The wall's shape is the sum of every capsule moving it; what a brick is
+   * *made* of under strain is not.
+   */
+  jelly: JellySheet;
+  // SLUMP's two pictures: the hesitation before anything moves, and the line of
+  // mortar running up the pile as it sets. Neither is geometry either — the
+  // fall itself is already in `offsets`.
+  slump: Slump;
   /**
    * GRAVEL's fault, 0 whole wall to 1 every face split.
    *
@@ -765,6 +777,12 @@ export interface BrickPaint {
   // down the brick's own strain ramp, so a charging cell steps its tones
   // exactly as a hit one does — see `BRICK_STRAIN_RAMPS`.
   strain?: number;
+  // SLUMP's hesitation: the brick's bottom bevel steps to its own shade rather
+  // than the definition's, for the four ticks between the wall being let go of
+  // and the wall moving. One tone on one edge, and it is the whole of the
+  // arrival — what is being drawn is the shadow a brick casts on the brick
+  // underneath it going away.
+  unmoored?: boolean;
 }
 
 export function drawBrick(
@@ -775,7 +793,7 @@ export function drawBrick(
   scale: number,
   paint: BrickPaint = {},
 ): void {
-  const { fade = 0, demade = false, gilded = false, erodeX = 0, erodeY = 0, strain = 0 } = paint;
+  const { fade = 0, demade = false, gilded = false, erodeX = 0, erodeY = 0, strain = 0, unmoored = false } = paint;
   // The body the whole sprite is laid out on. A whole brick is its cell inset by
   // one, which is the mortar seam it has always been drawn with; a worn one is
   // inset by whatever the erosion has taken, and the seam is simply the first
@@ -832,7 +850,11 @@ export function drawBrick(
   }
   pixel(bodyX + 1, bodyY, bodyWidth - 2, 1, sheen);
   pixel(bodyX, bodyY + 1, 1, bodyHeight - 2, sheen);
-  pixel(bodyX + 1, bodyY + bodyHeight - 1, bodyWidth - 2, 1, definition.dark);
+  // The bottom bevel, and the one edge SLUMP's hesitation touches: a brick that
+  // has stopped being held up is lit from under as well as over for those four
+  // ticks, so the shade goes to the sheen's own tone and the wall visibly
+  // un-seats itself before a single pixel of it moves.
+  pixel(bodyX + 1, bodyY + bodyHeight - 1, bodyWidth - 2, 1, unmoored ? sheen : definition.dark);
   pixel(bodyX + bodyWidth - 1, bodyY + 1, 1, bodyHeight - 2, definition.dark);
   ctx.globalAlpha = 1;
 }
@@ -1414,7 +1436,7 @@ export class CanvasRenderer {
           // and the hitbox reads the same number off the same sheet — a brick
           // that is drawn six pixels into the row below has to be collided
           // there too, or the capsule would be a lie the player can see.
-          const y = wallY + rowIndex * brickHeight + view.sheet.offsetAt(rowIndex, columnIndex);
+          const y = wallY + rowIndex * brickHeight + view.offsets.offsetAt(rowIndex, columnIndex);
           const fade = ghostProgress(view.ghostBlend, rowIndex, columnIndex, this.frameCount);
           const erodeX = view.erosion.insetXAt(rowIndex, columnIndex);
           const erodeY = view.erosion.insetYAt(rowIndex, columnIndex);
@@ -1424,7 +1446,11 @@ export class CanvasRenderer {
             gilded: rowIndex >= view.paydayFront,
             erodeX,
             erodeY,
-            strain: view.sheet.strainAt(rowIndex, columnIndex),
+            strain: view.jelly.strainAt(rowIndex, columnIndex),
+            // SLUMP's arrival: for four ticks every brick's bottom bevel goes
+            // to its own shade, which is the picture of something that is no
+            // longer resting on anything.
+            unmoored: view.slump.hesitating,
           });
           // The seams this brick is opening, drawn from the brick itself so the
           // trickle rides the wall through QUAKE's shake and stops the tick the
@@ -1439,6 +1465,15 @@ export class CanvasRenderer {
           // a crack is on the face of whatever stone is left, so it is drawn
           // last of the two — and under the revealed pill, which is a thing to
           // read rather than weather.
+          // SLUMP setting: the line of mortar being poured back in, running up
+          // the pile from the floor. Drawn along the top edge of the row it has
+          // reached, over the brick rather than beside it — what is being shown
+          // is the seam closing, and a line in the gap between two rows would
+          // belong to neither of them.
+          if (rowIndex === view.slump.settingAt) {
+            this.pixel(x + 1, y, brickWidth - 2, 1, canvasPalette.erodeDust);
+            this.pixel(x + 3, y - 1, brickWidth - 8, 1, canvasPalette.erodeGrain);
+          }
           if (view.gravelBlend > 0) {
             this.drawGravelCracks(x, y, rowIndex, columnIndex, erodeX, erodeY, view.gravelBlend);
           }

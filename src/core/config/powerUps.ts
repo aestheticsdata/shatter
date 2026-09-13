@@ -387,6 +387,25 @@ export const POWER_UPS = [
   // trap sitting on the floor of the rule. Pale spring green at hue 114 is the
   // one point in the family that clears everything at once.
   { id: "JE", name: "JELLY", color: "#98fc8c", dark: true, ticks: 600, tier: "uncommon", timed: true, blurb: "RIPPLES CROSS · BRICKS BURST" },
+  // Cold steel, and deliberately the thing that failed rather than the mess it
+  // made: GRAVEL took stone, ERODE took mortar, and GLUE, METEOR and QUAKE hold
+  // the rest of the warm-earth quarter. A capsule about a wall losing its
+  // girders is the colour of the girders.
+  //
+  // **The binding rule here was the starfield, not the roster**, which is the
+  // opposite of the last several rows. A pale blue-grey pill is the one body on
+  // the board that a star can be mistaken for, and the family is full of them:
+  // the ticket's own `#a4b4c8` clears every capsule at 62.9 but comes within 50
+  // of `starfield`'s brightest speck, on a rule whose bar is 48. This is two
+  // and a half points nearer the roster and fifteen further from the sky —
+  // 60.3 from ERODE, 63 from SINGULARITY, 66 from WALL, and 65 from the nearest
+  // speck — which is the trade worth making for a body this pale.
+  //
+  // 8.0:1 against the darkest field theme and 75 from the nearest trap. Hue 211
+  // lands it beside WALL, and the 19 % saturation is what separates them: WALL
+  // is sky and this is galvanised. The glyph does the rest, as it does for the
+  // other six blues.
+  { id: "SL", name: "SLUMP", color: "#b0bcc9", dark: true, ticks: 480, tier: "uncommon", timed: true, blurb: "THE WALL FALLS IN ON ITSELF" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];

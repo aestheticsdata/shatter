@@ -586,6 +586,64 @@ export class SoundBank {
   }
 
   /**
+   * SLUMP: girders letting go — a low body sagging through a minor third, with
+   * a groan of filtered noise under it.
+   *
+   * Sine again, and beside JELLY's for the same reason and a different one: this
+   * is metal giving way rather than a square-wave machine event, and the two
+   * capsules are the roster's only pair that both start by a wall stopping
+   * being a wall. They are kept apart by *direction* rather than by tone —
+   * JELLY's catch sags and springs back twice, and this one sags and keeps
+   * going, because that is exactly the difference between the two effects.
+   *
+   * Scored to the hesitation plus the first of the fall, so it is still sounding
+   * when the wall actually moves.
+   */
+  slumpGive(): void {
+    if (!this.allow("slumpGive")) {
+      return;
+    }
+    this.tone({ freq: 196, freqEnd: 62, dur: 0.75, vol: 0.09, type: "sine" });
+    this.noise({ dur: 0.55, vol: 0.07, filter: { type: "lowpass", freq: 1800, freqEnd: 320 } });
+  }
+
+  /**
+   * One brick arriving, at whatever weight it arrived with.
+   *
+   * `force` is 0 for a column closing a one-row gap and 1 for a whole wall
+   * coming down from the floor's full height, and it moves the volume, the
+   * pitch and the body together — a landing is heard as mass, and a loud thin
+   * tick would read as the brick breaking rather than as the brick stopping.
+   *
+   * One call covers the whole tick however many bricks landed in it: ninety-six
+   * of these on the frame a fresh wall hits the floor is not a wall landing, it
+   * is white noise.
+   */
+  slumpLand(force: number): void {
+    if (!this.allow("slumpLand", 50)) {
+      return;
+    }
+    const weight = Math.max(0, Math.min(1, force));
+    this.tone({ freq: 150 - 40 * weight, dur: 0.07 + 0.05 * weight, vol: 0.04 + 0.05 * weight, type: "sine" });
+    this.noise({
+      dur: 0.06 + 0.06 * weight,
+      vol: 0.05 + 0.06 * weight,
+      filter: { type: "lowpass", freq: 900 - 300 * weight },
+    });
+  }
+
+  // The mortar poured back in, running up the pile from the floor. A short rise
+  // rather than the catch's fall, which is the capsule's own shape said twice:
+  // it went down, the setting goes up.
+  slumpSet(): void {
+    if (!this.allow("slumpSet")) {
+      return;
+    }
+    this.tone({ freq: 90, freqEnd: 340, dur: 0.55, vol: 0.06, type: "sine" });
+    this.noise({ dur: 0.4, vol: 0.05, filter: { type: "bandpass", freq: 420, freqEnd: 2200, q: 1.1 } });
+  }
+
+  /**
    * JELLY: the wall going slack — a soft body sagging through a fifth and
    * wobbling back, twice, which is the sheet's two decaying overshoots heard
    * rather than watched.

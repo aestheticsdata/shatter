@@ -26,6 +26,8 @@ import { MeteorField } from "@entities/effects/MeteorField";
 import { ParticleField } from "@entities/effects/ParticleField";
 import { Quake } from "@entities/effects/Quake";
 import { Singularity } from "@entities/effects/Singularity";
+import { Slump } from "@entities/effects/Slump";
+import { WallOffsets } from "@entities/effects/WallOffsets";
 import { ShotPool } from "@entities/laser/ShotPool";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
 import { Paddle } from "@entities/paddle/Paddle";
@@ -39,6 +41,7 @@ import { type HiScores, TABLE_SIZE } from "@state/HiScores";
 import type { SoundBank } from "@audio/SoundBank";
 import type { TraceRules } from "@core/ballTrace";
 import type { ComboId } from "@core/config/combos";
+import type { Landing } from "@entities/effects/Slump";
 import type { WidthCurve } from "@entities/paddle/Paddle";
 import type {
   BrickFlash,
@@ -375,6 +378,14 @@ export class ShatterGame {
   // capsule's six hundred frames; it is never read outside the one method that
   // clears it.
   private readonly jellyTears: number[] = [];
+  // SLUMP's fall, cell by cell. Beside the sheet above it and handed to the
+  // grid through the same seam — see `WallOffsets`, which is what lets both
+  // capsules move the same brick without the wall learning either one's name.
+  private readonly slump = new Slump();
+  private readonly wallOffsets = new WallOffsets(this.sheet, this.slump);
+  // The bricks that landed this tick, reused rather than allocated: a whole
+  // wall arriving at the floor is ninety-six of these in one frame.
+  private readonly landings: Landing[] = [];
   private readonly critter = new Critter();
   private readonly meteors = new MeteorField();
   // Ticks each ball has spent inside each core's reach, indexed `[core][ball]`.
@@ -868,7 +879,13 @@ export class ShatterGame {
       // needs the hang and the load of the cell it is painting, and the whole
       // point of both being per-cell is that no single number stands for the
       // wall.
-      sheet: this.sheet,
+      // Two fields where the wall has one, and each says one thing. `offsets` is
+      // the geometry — where every brick actually is, JELLY's ripple and
+      // SLUMP's fall added — and is the same object the hitbox reads. `jelly`
+      // is the load on the bricks' faces, which is one capsule's alone.
+      offsets: this.wallOffsets,
+      jelly: this.sheet,
+      slump: this.slump,
       // One number, and the pips it is about. The fault says which bricks will
       // crumble and the pool says which ones already did — the capsule's state
       // and its history, the way SNAP's lattice and its marks are two fields.
@@ -1308,6 +1325,24 @@ export class ShatterGame {
     }
     this.sheet.step(this.balls, this.grid.topOffset);
     this.tearStrainedBricks();
+    /**
+     * SLUMP's gravity, beside the sheet above it and below the freeze gates for
+     * its reason exactly: this is the wall's own hitbox and not a picture of
+     * it. The settle is armed off the timer's remaining ticks rather than off
+     * the expiry, again for the sheet's reason — a wall told to stop falling on
+     * the tick it stops being a slump would leave bricks in mid-air.
+     *
+     * Gravity runs every tick it is on, not only at the catch: the capsule's
+     * whole second half is that every brick the player kills drops the column
+     * above it onto the gap, so the wall goes on eating itself downward for the
+     * rest of the eight seconds.
+     */
+    if (this.timers.remaining("SL") > 0 && this.timers.remaining("SL") <= gameConfig.effects.slumpSetTicks) {
+      this.slump.settle();
+    }
+    this.landings.length = 0;
+    this.slump.step(this.grid, this.landings);
+    this.settleLandings();
     for (const core of this.cores) {
       if (core.active) {
         core.step();
@@ -1383,6 +1418,13 @@ export class ShatterGame {
     // is the one place this capsule's two ends deliberately differ: the arrival
     // had to be understood before it could be used, and the departure only has
     // to be noticed.
+    // The mortar poured back in. The line has been running up the pile for the
+    // last half second already — this only takes gravity off, and what the
+    // player hears is the last of it rather than the announcement of it.
+    if (expired.includes("SL")) {
+      this.slump.stop();
+      this.deps.sfx.slumpSet();
+    }
     if (expired.includes("JE")) {
       this.sheet.stop();
       this.deps.sfx.jellySet();
@@ -2175,7 +2217,7 @@ export class ShatterGame {
       }
       this.brickFlashes.push({
         x: left + neighbor.column * brickWidth,
-        y: top + neighbor.row * brickHeight,
+        y: top + neighbor.row * brickHeight + this.cellSag(neighbor.row, neighbor.column),
         ticksLeft: gameConfig.powerUps.splashFlashTicks,
         kind: "blast",
         onWall: true,
@@ -3124,6 +3166,7 @@ export class ShatterGame {
     // nothing in it is not under strain, and QUAKE slides a fresh brick into
     // this one soon enough for the difference to be visible.
     this.sheet.clearCell(hit.row, hit.column);
+    this.slump.clearCell(hit.row, hit.column);
     this.score += hit.cell.points * this.scoreMultiplier(source);
     if (isDirectHit(source)) {
       this.deps.sfx.brickDestroyed(hit.row);
@@ -3283,7 +3326,7 @@ export class ShatterGame {
         blasted = true;
         this.brickFlashes.push({
           x: left + neighbor.column * brickWidth,
-          y: top + neighbor.row * brickHeight,
+          y: top + neighbor.row * brickHeight + this.cellSag(neighbor.row, neighbor.column),
           ticksLeft: gameConfig.powerUps.splashFlashTicks,
           kind: "blast",
           onWall: true,
@@ -3309,11 +3352,68 @@ export class ShatterGame {
   // the middle of its cell: at full wear those are 5 px apart on one axis and
   // 3 on the other, and dust coming off the empty half of a cell would be dust
   // coming off the lane instead of off the stone.
+  /**
+   * Where a cell is being *painted* this frame, in field pixels.
+   *
+   * Three displacements meet here and nothing else in the game adds them up:
+   * QUAKE's wall-wide drop, JELLY's ripple and SLUMP's fall. Anything thrown
+   * *from* a brick — its death flash, its dust, its chips — has to come from
+   * where the brick is rather than from where its row index says, or a slumped
+   * wall throws its debris out of the ceiling.
+   */
+  private paintedCellY(row: number, column: number): number {
+    const { top, brickHeight } = gameConfig.grid;
+    return top + row * brickHeight - this.grid.topOffset + this.cellSag(row, column);
+  }
+
+  // Just the per-cell part of it: JELLY's ripple plus SLUMP's fall, with
+  // QUAKE's wall-wide drop left out. For the callers that are already writing
+  // in wall coordinates and whose reader subtracts the drop for them.
+  private cellSag(row: number, column: number): number {
+    return this.grid.sheet?.offsetAt(row, column) ?? 0;
+  }
+
+  /**
+   * SLUMP: the dust a landing throws out of both sides of the cell it hit.
+   *
+   * Scaled by how hard the brick came down, so a column closing a one-row gap
+   * puffs and a whole wall arriving from six rows up does not do the same
+   * thing six times over. The chunks come out of the brick's own colour, like
+   * every other burst on the wall, so a landing granite brick throws stone.
+   */
+  private settleLandings(): void {
+    if (this.landings.length === 0) {
+      return;
+    }
+    const { left, brickWidth, brickHeight } = gameConfig.grid;
+    const { slumpLandingBurst, slumpMaxSpeed } = gameConfig.effects;
+    let loudest = 0;
+    for (const landing of this.landings) {
+      const cell = this.grid.hitAtCell(landing.row, landing.column);
+      if (!cell) {
+        continue;
+      }
+      loudest = Math.max(loudest, landing.speed);
+      const weight = Math.min(1, landing.speed / slumpMaxSpeed);
+      const count = Math.max(1, Math.round(slumpLandingBurst.chunkCount * weight));
+      const y = this.paintedCellY(landing.row, landing.column) + brickHeight;
+      // Both sides of the impacted cell rather than its middle: what is being
+      // shown is the brick squeezing the air out from under itself, and dust
+      // out of the centre of a 30 px face reads as the brick breaking.
+      for (const x of [left + landing.column * brickWidth, left + (landing.column + 1) * brickWidth]) {
+        this.particles.burst(x, y, cell.cell.kind, { ...slumpLandingBurst, chunkCount: count });
+      }
+    }
+    if (loudest > 0) {
+      this.deps.sfx.slumpLand(Math.min(1, loudest / slumpMaxSpeed));
+    }
+  }
+
   private emitClipDust(hit: BrickHit): void {
-    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    const { left, brickWidth, brickHeight } = gameConfig.grid;
     this.particles.burst(
       left + hit.column * brickWidth + brickWidth / 2,
-      top + hit.row * brickHeight + brickHeight / 2 - this.grid.topOffset,
+      this.paintedCellY(hit.row, hit.column) + brickHeight / 2,
       hit.cell.kind,
       gameConfig.powerUps.erode.clipBurst,
     );
@@ -3329,20 +3429,24 @@ export class ShatterGame {
    * the one frame the player is watching the wall move.
    */
   private crumbleBrick(hit: BrickHit): void {
-    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    const { left, brickWidth, brickHeight } = gameConfig.grid;
     const { minPips, maxPips, size } = gameConfig.powerUps.gravel;
     this.gravel.burst(
       left + hit.column * brickWidth + (brickWidth - size) / 2,
-      top + hit.row * brickHeight + (brickHeight - size) / 2 - this.grid.topOffset,
+      this.paintedCellY(hit.row, hit.column) + (brickHeight - size) / 2,
       minPips + Math.floor(Math.random() * (maxPips - minPips + 1)),
     );
   }
 
   private emitBurst(hit: BrickHit, spec: BurstSpec): void {
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    const sag = this.cellSag(hit.row, hit.column);
     this.brickFlashes.push({
       x: left + hit.column * brickWidth,
-      y: top + hit.row * brickHeight,
+      // Where the brick was, not where its row is: a slumped wall's bricks sit
+      // rows below their own index, and a flash left on the index would mark
+      // the death of a brick nobody could see there.
+      y: top + hit.row * brickHeight + sag,
       ticksLeft: gameConfig.effects.deathFlashTicks,
       kind: "death",
       onWall: true,
@@ -3353,7 +3457,7 @@ export class ShatterGame {
     });
     this.particles.burst(
       left + hit.column * brickWidth + brickWidth / 2,
-      top + hit.row * brickHeight + brickHeight / 2,
+      top + hit.row * brickHeight + brickHeight / 2 + sag,
       hit.cell.kind,
       spec,
     );
@@ -3674,6 +3778,7 @@ export class ShatterGame {
     this.erodeBlend = 0;
     this.erosion.reset();
     this.sheet.reset();
+    this.slump.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;
@@ -4016,6 +4121,7 @@ export class ShatterGame {
       // ERODE has taken 5 px off is still that brick a row further down.
       this.erosion.shiftDown();
       this.sheet.shiftDown();
+      this.slump.shiftDown();
       this.quake.start();
       // The catch happens below `quake.step()` in the same tick, so the wall
       // would spend its first frame drawn a row above a hitbox that had not
@@ -4075,6 +4181,15 @@ export class ShatterGame {
     }
     if (kind === "ER") {
       this.timers.activate("ER", durations.ER);
+    }
+    if (kind === "SL") {
+      // The timer and the fall's own start, which is the hesitation: four ticks
+      // of a wall that has stopped being held up and has not yet noticed. A
+      // second SLUMP over a live one tops the eight seconds up and hesitates
+      // again, which is right — the wall is being let go of a second time, and
+      // whatever had already fallen stays exactly where it fell.
+      this.timers.activate("SL", durations.SL);
+      this.slump.start();
     }
     if (kind === "JE") {
       // The one capsule whose effect object has to be told the catch happened,
@@ -4193,6 +4308,11 @@ export class ShatterGame {
       this.deps.sfx.gravelRasp();
     } else if (kind === "ER") {
       this.deps.sfx.mortarGive();
+    } else if (kind === "SL") {
+      // Girders letting go, and it has to be its own: the chime says "you have
+      // a thing", and what the player has to hear here is the wall stopping
+      // being held up a beat before it moves.
+      this.deps.sfx.slumpGive();
     } else if (kind === "JE") {
       // The wall going slack, and it has to be its own: the chime says "you
       // have a thing", and what the player has to hear here is a wall stopping
@@ -4885,7 +5005,8 @@ export class ShatterGame {
     this.erosion.load(levelAt(level).rows.length);
     this.grid.erosion = this.erosion;
     this.sheet.load(levelAt(level).rows.length);
-    this.grid.sheet = this.sheet;
+    this.slump.load(levelAt(level).rows.length);
+    this.grid.sheet = this.wallOffsets;
     this.resetServe();
   }
 
@@ -4956,6 +5077,7 @@ export class ShatterGame {
     this.erodeBlend = 0;
     this.erosion.reset();
     this.sheet.reset();
+    this.slump.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;
@@ -5037,6 +5159,7 @@ export class ShatterGame {
     this.erodeBlend = 0;
     this.erosion.reset();
     this.sheet.reset();
+    this.slump.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;

@@ -1105,6 +1105,53 @@ const SCENES: Record<PowerUpKind, Painter> = {
    * which is the other thing this has to say: it did not break those bricks by
    * touching them. It broke them by making the wall ring.
    */
+  /**
+   * A wall that has fallen into its own holes, and the ragged skyline that
+   * leaves.
+   *
+   * **The compaction is the picture, and the top edge is where it shows.** A
+   * wall drawn simply lower would say the capsule drops the wall, which is
+   * QUAKE's job and is the thing this is most likely to be mistaken for. What
+   * says *slump* is that the columns disagree: every one of them has its bottom
+   * on the same floor and its top wherever its own losses left it, so the flat
+   * band the player built up is now a skyline.
+   *
+   * The bricks keep their own colours as they stack, which is the other half of
+   * it: a column that lost its yellow shows red over orange over green, and the
+   * reader can see these are the same bricks and not a new wall.
+   */
+  SL: (field) => {
+    // What each column has left, bottom-justified on the slump floor. Authored
+    // as a profile rather than simulated, for the reason every scene here is
+    // staged: a truthful frame needs a wall the player spent a minute eating.
+    const standing = [4, 4, 3, 4, 2, 4, 4, 1, 3, 4, 4, 2];
+    // The capsule's own floor, read off the config rather than picked: the whole
+    // point of the picture is *how far down* the wall ends up, and a staged
+    // height would be the one thing here that could quietly stop being true.
+    const floorRow = gameConfig.effects.slumpFloorRow;
+    standing.forEach((count, column) => {
+      // The kinds this column kept, taken off the bottom of the original wall
+      // so the colours it lost are the ones off the top.
+      const kinds = DEFAULT_WALL.slice(DEFAULT_WALL.length - count);
+      kinds.forEach((kind, index) => {
+        const row = floorRow - count + index + 1;
+        field.brick(column, row, kind);
+      });
+    });
+    // Two columns still settling, and the dust they squeezed out either side.
+    for (const column of [4, 7]) {
+      const { x, y } = field.brickAt(column, floorRow);
+      for (let index = 0; index < 7; index++) {
+        const hash = (index * 2654435761) >>> 9;
+        const side = index % 2 === 0 ? x : x + BRICK_WIDTH;
+        field.rect(side - 2 + (hash % 5), y + BRICK_HEIGHT - 1 - ((hash >>> 7) % 4), 1, 1, canvasPalette.erodeDust);
+      }
+    }
+    // Under the pile and close to it, which is the other half of what the
+    // picture has to say: a slumped wall is a wall that is suddenly *near*.
+    field.ball(210, 206);
+    field.deck(gameConfig.paddle.baseWidth, 168);
+  },
   JE: (field) => {
     // Two crests four columns apart, summed. The shape is a Gaussian rather
     // than the sheet's own front for the reason every scene stages rather than

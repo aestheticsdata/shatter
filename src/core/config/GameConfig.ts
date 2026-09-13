@@ -1227,6 +1227,52 @@ export const gameConfig = {
     // pays one out — and it is a *hit*, not a kill: granite still takes four of
     // them, through the same damage path a ball uses.
     jellyStrainPerHit: 3,
+    /**
+     * SLUMP's gravity. The wall stops being held up and every brick falls until
+     * it lands on the brick below it or on the floor, and stays there.
+     *
+     * The floor is **three rows below the deepest wall in the game** — walls run
+     * five to eight rows and this is row eleven — which is what buys the
+     * guaranteed first collapse the capsule is named for. On a fresh level with
+     * no holes in it at all the whole wall still comes down four to seven rows,
+     * so the catch always has something to show; on a wall the player has been
+     * eating, the columns compact into their own holes on the way.
+     */
+    // Where the lowest brick's top edge comes to rest, as a row index. Eleven
+    // puts it at y 170, which leaves 94 px of clear air over the deck and sits
+    // under BUMPERS' band rather than in it.
+    slumpFloorRow: 11,
+    // Acceleration and terminal speed, in pixels a tick. A brick reaches the
+    // ceiling in about nine ticks and the longest fall — 132 px, a full wall
+    // dropping to the floor — takes about three quarters of a second, which is
+    // the "guaranteed first second" the capsule opens with.
+    slumpGravity: 0.35,
+    slumpMaxSpeed: 3,
+    // How close to its landing a brick has to be to count as resting. Pixels,
+    // and it only exists because the fall is in floats and the rest test is an
+    // equality that would otherwise never quite hold.
+    slumpRestEpsilon: 0.01,
+    // The hesitation before anything moves: four ticks of a wall that has
+    // stopped being held up and has not yet noticed. The whole of the arrival
+    // the player is given to read it — see the bottom bevel in `drawBrick`.
+    slumpHesitateTicks: 4,
+    // The mortar being poured back in, as the ticks the line takes to run from
+    // the floor up to the top row. Thirty-six is a little over half a second
+    // for eight rows, and it is deliberately slower than the fall: going down
+    // was gravity and coming back is somebody fixing it.
+    slumpSetTicks: 36,
+    // The dust a landing throws out of both sides of the impacted cell. Scaled
+    // by how hard the brick hit, so a column closing a one-row gap puffs and a
+    // wall arriving from six rows up does not.
+    slumpLandingBurst: {
+      chunkCount: 4,
+      minChunkSize: 1,
+      maxChunkSize: 2,
+      minSpeed: 0.3,
+      maxSpeed: 1.2,
+      minLifeTicks: 8,
+      maxLifeTicks: 20,
+    } satisfies BurstSpec,
     // What the trampoline gives back, as a ceiling on the level's own speed
     // rather than a multiplier on whatever the ball happened to be doing.
     // 1.35 is a bounce the player can feel without the ball outrunning the
