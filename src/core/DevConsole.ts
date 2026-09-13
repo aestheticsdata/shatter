@@ -28,13 +28,23 @@ const MAX_INPUT_CHARS = 32;
 // Letters, digits, space and the decimal point cover every operand there is.
 const TYPABLE = /^[a-z0-9 .]$/i;
 
-// Every command is a word and its arguments. Shown as worked examples with what
-// they do, because a bare list of names reads as decoration, not as a grammar.
+// Every command is a word and its arguments, so the legend is the grammar and
+// not four lines you could type. Worked examples were the mistake they always
+// are on a list this short: with a real operand filled in, `BONUS 1` and `GAMBLE
+// NUKE` read as two more command names rather than as `BONUS` and `GAMBLE` shown
+// in use, and the reader who did not already know the command learns nothing
+// about what else it would take. A slot says there is a slot.
+//
+// `<XX>` is a capsule, and it is the same `<XX>` in both places it appears: the
+// glyph off the roster below, or the name beside it, or the id. Written as two
+// letters because that is what the pills say and what the roster's left rail is
+// almost entirely made of — the handful that run to three or four (MIR, BLAS)
+// the list itself shows better than a wider placeholder would.
 const EXAMPLES: readonly (readonly [string, string])[] = [
-  ["POWER MULTI", "DROP A CAPSULE · CATCH IT YOURSELF"],
-  ["LEVEL 12", "JUMP TO A LEVEL"],
-  ["BONUS 1", "CHANCE A BRICK DROPS A CAPSULE · 1 = ALL"],
-  ["GAMBLE NUKE", "PIN WHAT THE REEL LANDS ON · BARE = CHANCE"],
+  ["POWER <XX>", "DROP THAT CAPSULE · CATCH IT YOURSELF"],
+  ["LEVEL <N>", "JUMP TO THAT LEVEL"],
+  ["BONUS <0-1>", "CHANCE A BRICK DROPS ONE · 1 = EVERY BRICK"],
+  ["GAMBLE <XX>", "PIN WHAT GAMBLE PAYS · BARE = UNPIN"],
 ];
 // The roster is printed underneath, whole, a page at a time: fifty capsules is
 // far more than anyone keeps in their head, and it grows with the registry it is
