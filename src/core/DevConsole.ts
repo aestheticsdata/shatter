@@ -83,18 +83,21 @@ const ROSTER_NAME = `font: 400 8px/${ROSTER_LINE}px var(--font-pixel); color: va
 const ERROR = "font: 400 8px var(--font-pixel); color: var(--color-red); letter-spacing: 1px;";
 
 /**
- * Dev-only test console (Ctrl+Option+Command+K), the replacement for the
- * `?level=` / `?droprate=` / `?power=` URL params: it takes a command mid-run
- * instead of costing a reload, and its operands are separated by spaces, so a
- * two-letter capsule glyph reads as one capsule instead of two.
+ * The test console (⌃⌥⌘K on a Mac, Ctrl+Alt+Shift+K anywhere), the replacement
+ * for the `?level=` / `?droprate=` / `?power=` URL params: it takes a command
+ * mid-run instead of costing a reload, and its operands are separated by spaces,
+ * so a two-letter capsule glyph reads as one capsule instead of two.
  *
  * It is a modal over the field and the game freezes behind it, so it must never
  * be the only thing holding a run hostage: Escape, the chord again and a click
  * all close it. Escape only works because the game releases pointer lock as the
  * console opens — the browser swallows that key when it needs it to leave a lock.
  *
- * Constructed only under `import.meta.env.DEV`, which drops this whole module
- * from production bundles — markup, styles and parser with it.
+ * Constructed under `import.meta.env.DEV`, or in any build whose
+ * `gameConfig.rules.testConsole` knob is up — turning it up is how a machine
+ * that is not the developer's gets to try a capsule on the live site. With both
+ * down the whole module drops out of the bundle, markup, styles and parser with
+ * it, which is why its styles are inline and not in css/components.css.
  */
 export class DevConsole {
   private opened = false;

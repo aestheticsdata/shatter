@@ -10,6 +10,11 @@ export const gameConfig = {
     // Crank to 1 while debugging (every brick drops one), set back to what
     // players should get before deploying — deploy.sh prints the value it ships.
     bonusSpreadAmount: 0.3,
+    // The test console's knob (see DevConsole). `true` ships it to players, chord
+    // and all, which is how someone else's machine gets to try a capsule on the
+    // live site; `false` is the resting value. Read at construction, so flipping
+    // it needs a reload — deploy.sh prints the value it ships.
+    testConsole: true,
   },
   loop: {
     tickMs: 1000 / 60,

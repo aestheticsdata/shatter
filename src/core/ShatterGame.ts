@@ -196,6 +196,22 @@ function stepBlend(blend: number, rising: boolean, ticks: number): number {
   return next < step / 2 ? 0 : next;
 }
 
+// The modifier half of the two dev chords, WARP's and the test console's: Ctrl
+// and Alt held with a third modifier that is Command *or* Shift.
+//
+// Command alone was the Mac answer — nothing claims all three there, since Chrome
+// binds ⌘N and ⇧⌘N only and macOS has no ⌃⌥⌘ default. On Windows `metaKey` is the
+// Windows key, and Ctrl+Alt+Win+letter is both a knuckle-breaker and the OS's to
+// claim, so Shift stands in for it: Ctrl+Alt+Shift+letter is free in Chrome on
+// Windows, and it is the same chord to describe on both platforms.
+//
+// Either, rather than one per platform sniffed from the user agent: a Mac keeps
+// the chord its owner already has in their fingers, and a browser lying about its
+// platform cannot take the shortcut away from anyone.
+function hasDevChord(event: KeyboardEvent): boolean {
+  return event.ctrlKey && event.altKey && (event.metaKey || event.shiftKey);
+}
+
 function isDirectHit(source: BrickDamageSource): boolean {
   return source === "ball" || source === "laser";
 }
@@ -360,38 +376,40 @@ export class ShatterGame {
   // `null` until a `bonus` command sets it; see bonusSpreadAmount().
   private bonusSpreadOverride: number | null = null;
 
-  // Dev-only test console (see DevConsole). Production builds get `null`, and
-  // the module drops out of the bundle with this branch.
-  private readonly devConsole: DevConsole | null = import.meta.env.DEV
-    ? new DevConsole({
-        // Dropped, not granted: the console freezes the field, so anything it
-        // applied outright would already have happened by the time the player
-        // was looking at the game again. These land at the top of the frozen
-        // field and fall on the first live tick, and the paddle earns them.
-        dropCapsules: (kinds) => {
-          if (this.dropPool.freeSlots() < kinds.length) {
-            return false;
-          }
-          this.dropPool.spawnAcrossTop(kinds);
-          return true;
-        },
-        // `level N` is 1-based; rebuilding the grid serves at the new level.
-        jumpToLevel: (levelNumber) => {
-          this.level = levelNumber - 1;
-          this.buildLevel(this.level);
-        },
-        setGamblePin: (kind) => {
-          this.gamblePin = kind;
-        },
-        setBonusSpread: (amount) => {
-          this.bonusSpreadOverride = amount;
-          // The wall standing right now was seeded at the old rate, so re-roll
-          // it: `bonus 1` has to mean every brick from the next kill on, not
-          // every brick of the next level.
-          this.grid.reseedCapsules(() => this.rollBrickCapsule());
-        },
-      })
-    : null;
+  // The test console (see DevConsole), on in dev and in any build whose
+  // `testConsole` knob is up. With the knob down a production build gets `null`
+  // and the module drops out of the bundle with this branch.
+  private readonly devConsole: DevConsole | null =
+    import.meta.env.DEV || gameConfig.rules.testConsole
+      ? new DevConsole({
+          // Dropped, not granted: the console freezes the field, so anything it
+          // applied outright would already have happened by the time the player
+          // was looking at the game again. These land at the top of the frozen
+          // field and fall on the first live tick, and the paddle earns them.
+          dropCapsules: (kinds) => {
+            if (this.dropPool.freeSlots() < kinds.length) {
+              return false;
+            }
+            this.dropPool.spawnAcrossTop(kinds);
+            return true;
+          },
+          // `level N` is 1-based; rebuilding the grid serves at the new level.
+          jumpToLevel: (levelNumber) => {
+            this.level = levelNumber - 1;
+            this.buildLevel(this.level);
+          },
+          setGamblePin: (kind) => {
+            this.gamblePin = kind;
+          },
+          setBonusSpread: (amount) => {
+            this.bonusSpreadOverride = amount;
+            // The wall standing right now was seeded at the old rate, so re-roll
+            // it: `bonus 1` has to mean every brick from the next kill on, not
+            // every brick of the next level.
+            this.grid.reseedCapsules(() => this.rollBrickCapsule());
+          },
+        })
+      : null;
 
   // The film's hook (SHA-133): the autopilot that plays the take and the
   // read-only snapshot its storyboard asserts against, reachable as
@@ -4889,10 +4907,11 @@ export class ShatterGame {
       return;
     }
 
-    // Dev test console: Ctrl+Option+Command+K, WARP's neighbour on the keyboard
-    // and matched the same way, on the physical key. The whole branch folds away
-    // in production builds, where `import.meta.env.DEV` is a literal `false`.
-    if (import.meta.env.DEV && event.code === "KeyK" && event.ctrlKey && event.altKey && event.metaKey) {
+    // The test console: WARP's neighbour on the keyboard, and matched the same
+    // way — on the physical key, with the same three modifiers (see hasDevChord).
+    // The whole branch folds away in a production build whose `testConsole` knob
+    // is down, where both halves of this condition are a literal `false`.
+    if ((import.meta.env.DEV || gameConfig.rules.testConsole) && event.code === "KeyK" && hasDevChord(event)) {
       event.preventDefault();
       if (this.devConsole?.isOpen) {
         this.devConsole.close();
@@ -4925,15 +4944,14 @@ export class ShatterGame {
       return;
     }
 
-    // WARP easter egg: Ctrl+Option+Command+N clears the level on the spot (see
-    // warpLevel). All three modifiers together are claimed by nothing: Chrome binds
-    // ⌘N and ⇧⌘N only, and macOS has no ⌃⌥⌘ default.
+    // WARP easter egg: the chord over N clears the level on the spot (see
+    // warpLevel and hasDevChord).
     //
     // Matched on `event.code`, not `event.key`: Option rewrites `event.key` into
     // the alternate glyph (⌥N is even a dead key), while the N keycap sits at the
     // same physical spot on AZERTY, QWERTY and QWERTZ — so the physical key is the
     // layout-proof one here. Read before the plain-letter keys below.
-    if (event.code === "KeyN" && event.ctrlKey && event.altKey && event.metaKey) {
+    if (event.code === "KeyN" && hasDevChord(event)) {
       event.preventDefault();
       this.warpLevel();
       return;

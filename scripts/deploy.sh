@@ -313,6 +313,11 @@ prepare_local_build() {
   # eye before it reaches players.
   log "➡️  $(grep -o 'bonusSpreadAmount: [0-9.]*' src/core/config/GameConfig.ts | head -1) (bonus capsule chance per brick shipped to players)"
 
+  # Same deal for the test console: `true` puts DevConsole and its chord in the
+  # public bundle, which is wanted only while someone else is testing on the live
+  # site. Printed for the same reason — so a knob left up is caught by eye.
+  log "➡️  $(grep -o 'testConsole: [a-z]*' src/core/config/GameConfig.ts | head -1) (test console chord shipped to players)"
+
   log "➡️  Building production assets with base path: $BUILD_BASE_PATH"
   pnpm exec vite build --base="$BUILD_BASE_PATH"
 
