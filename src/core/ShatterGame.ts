@@ -1,3 +1,4 @@
+import { trace } from "@core/ballTrace";
 import { BRICK_BY_ID } from "@core/config/bricks";
 import { COMBO_GLYPHS, COMBOS, completableCombos, OVERTIME_FROZEN } from "@core/config/combos";
 import { ballSpeedForLevel, gameConfig, peelFlightTicks } from "@core/config/GameConfig";
@@ -35,6 +36,7 @@ import { zeroPad } from "@shared/format";
 import { type HiScores, TABLE_SIZE } from "@state/HiScores";
 
 import type { SoundBank } from "@audio/SoundBank";
+import type { TraceRules } from "@core/ballTrace";
 import type { ComboId } from "@core/config/combos";
 import type { WidthCurve } from "@entities/paddle/Paddle";
 import type {
@@ -53,6 +55,7 @@ import type {
   ScreenName,
   SnapMark,
   StasisRing,
+  TracerThread,
 } from "@interfaces/types";
 import type { CanvasRenderer } from "@render/CanvasRenderer";
 import type { CapsuleCatalogue } from "@ui/CapsuleCatalogue";
@@ -243,6 +246,22 @@ export class ShatterGame {
    */
   private snapBlend = 0;
   private snapMarks: SnapMark[] = [];
+  /**
+   * TRACER's guide, 0 to 1 — the whole thing fading in and back out.
+   *
+   * Unlike SNAP's lattice above, this one is *only* strength: the two ends have
+   * shapes of their own (the thread pays out from the ball, and lets go at the
+   * rail) and those are drawn off `payOutTicks`/`letGoTicks` in the renderer. A
+   * capsule whose promise is "this is where it lands" may not spend either end
+   * half-claiming it, so the picture eases and the claim never does.
+   */
+  private tracerBlend = 0;
+  /**
+   * The threads themselves, rebuilt every tick from the live balls rather than
+   * aged like `snapMarks`. A mark is a record and may go stale; a guide is a
+   * claim about the next second and may not.
+   */
+  private tracerThreads: TracerThread[] = [];
   /**
    * PYRE's ember wash, 0 to 1 — the fire rolling over the deck and rolling back
    * off it.
@@ -869,6 +888,15 @@ export class ShatterGame {
       // and the marks are its history.
       snapGrid: this.snapBlend,
       snapMarks: this.snapMarks,
+      // TRACER, as the strength and the threads themselves. Two fields for the
+      // reason SNAP has two: the blend is the capsule's state and the threads
+      // are this frame's claim, and only one of them is allowed to be stale.
+      tracerBlend: this.tracerBlend,
+      tracerThreads: this.tracerThreads,
+      // Off the timer rather than off the blend, the way `homingOpening` is: the
+      // timer is live exactly while the guide is arriving, and the blend spends
+      // its half second winding down after it has gone.
+      tracerArriving: this.timers.isActive("TR"),
       // PYRE's craters. The crowns are not here: they ride `Ball.pyreCrown` and
       // the renderer reads them off the balls it is already drawing.
       pyreBlasts: this.pyreBlasts,
@@ -967,6 +995,9 @@ export class ShatterGame {
     // The lattice, above the gates with every other picture: a grid frozen half
     // dithered behind a shockwave is graph paper with holes in it.
     this.snapBlend = stepBlend(this.snapBlend, this.timers.isActive("SN"), gameConfig.effects.snapGridTicks);
+    // The guide's strength, above the gates with every other picture: a thread
+    // caught half drawn behind a shockwave is a line that stops in mid-air.
+    this.tracerBlend = stepBlend(this.tracerBlend, this.timers.isActive("TR"), gameConfig.effects.tracerFadeTicks);
     // The fault, above the gates with every other picture: this one changes
     // nothing but the face of the bricks, and a wall frozen with the crack
     // halfway along it is a wall someone stopped drawing.
@@ -1198,6 +1229,11 @@ export class ShatterGame {
     // behind one would spend its kicks on balls nobody can see move — then let
     // several land at once on the frame the field comes back.
     this.stepHaywire();
+    // Below the gates, unlike the blend above: the threads are a claim about
+    // where balls are going, and balls behind a shockwave are not going
+    // anywhere. Re-walking them there would redraw the same picture at some
+    // cost; leaving them is the frozen field's own answer, held with the balls.
+    this.stepTracer();
     /**
      * The mortar, and the one of the roster's blends stepped **below** the
      * freeze gates rather than above them.
@@ -1670,6 +1706,91 @@ export class ShatterGame {
    * about ninety ticks rather than snapping to it — a curve the player can read
    * and still bounce off, not a magnet.
    */
+  /**
+   * TRACER: rebuild every ball's thread for this tick.
+   *
+   * **The honesty is all here, and it is the capsule.** A straight walk is exact
+   * in open field and a lie everywhere else, and a guide that lies once is worse
+   * than no guide: the player stops believing the next one, which leaves them
+   * worse off than if they had never caught it. So every way the walk could be
+   * wrong ends the thread early instead, and a thread that never reached the
+   * rail pins no pip.
+   *
+   * Three ways it can be wrong, and they are handled in the order they cost:
+   *
+   * 1. **Something bends the ball.** HOMING, ENGLISH, HAYWIRE and the two wells
+   *    all turn a heading mid-flight, so the walk's premise is gone before it
+   *    starts. No amount of walking recovers it — the thread is a stub for as
+   *    long as they are up, and under HOMING that is the whole ten seconds. That
+   *    is the correct picture rather than a degraded one.
+   * 2. **Something is in the way.** Live bricks and bumper discs both, sampled
+   *    along the path by `ballTrace`. The thread then ends at the face of
+   *    whatever it met, which is where the prediction honestly ends.
+   * 3. **A door is open.** PORTAL is the one case that makes the walk *better*:
+   *    inside the mouth the side walls wrap instead of reflecting, so the thread
+   *    goes through one doorway and out the other.
+   */
+  private stepTracer(): void {
+    if (this.tracerBlend === 0) {
+      if (this.tracerThreads.length > 0) {
+        this.tracerThreads = [];
+      }
+      return;
+    }
+
+    // Anything that turns a heading mid-flight. GLUE and STASIS are deliberately
+    // not here: they hold a ball rather than bending it, and `trace` already
+    // returns no arrival for a ball that is stuck or not falling.
+    const bent =
+      this.timers.isActive("H") ||
+      this.timers.isActive("EN") ||
+      this.timers.isActive("HA") ||
+      this.timers.isActive("V") ||
+      this.timers.isActive("VX");
+
+    const mouth = this.portalMouth();
+    const rules: TraceRules = {
+      portal: mouth.height > 0 ? mouth : null,
+      blocked: (x, y) => {
+        if (this.grid.cellAt(x, y) !== null) {
+          return true;
+        }
+        const { radius } = gameConfig.powerUps.bumpers;
+        return this.bumpers.discs.some((disc) => Math.hypot(disc.x - x, disc.y - y) <= radius);
+      },
+    };
+
+    // The soonest arrival is the ball the deck has to answer, and the only one
+    // that earns a whole thread.
+    let soonest = Infinity;
+    let soonestBall: Ball | null = null;
+    const traced = this.balls.map((ball) => {
+      const walk = bent ? { points: [{ x: ball.centerX, y: ball.y }], arrival: null } : trace(ball, rules);
+      if (walk.arrival !== null && walk.arrival.ticks < soonest) {
+        soonest = walk.arrival.ticks;
+        soonestBall = ball;
+      }
+      return { ball, walk };
+    });
+
+    this.tracerThreads = traced
+      .filter(({ ball }) => ball.active)
+      .map(({ ball, walk }) => ({
+        points: walk.points,
+        pipX: walk.arrival === null ? null : walk.arrival.x,
+        full: ball === soonestBall,
+        // **Slack means "no claim", and that is the whole rule.** A climbing ball
+        // has nothing to predict yet; a ball HOMING is bending has nothing that
+        // can be predicted at all. Both hang rope, because the alternative is
+        // drawing nothing — and a capsule that draws nothing for ten seconds
+        // reads as one that broke, which is the defect this roster keeps
+        // relearning. A thread that got *part* of the way down (stopped at a
+        // brick face) is not slack: it has something true to show and shows it.
+        // A stuck ball gets no rope — GLUE's resin is already its own tell.
+        slack: walk.arrival === null && walk.points.length < 2 && ball.stuckOffsetX === null,
+      }));
+  }
+
   /**
    * HAYWIRE's clock: whether this tick is a kick, for the whole field.
    *
@@ -3330,7 +3451,7 @@ export class ShatterGame {
   // The two halves are independent and stay that way: `bonusSpreadAmount` is a
   // coin per brick, and the bag decides only *which* capsule a winning coin
   // yields. A wall of 40 bricks therefore spends about 12 tickets, which is what
-  // makes a 62-ticket pass last about five levels.
+  // makes a 64-ticket pass last about five levels.
   private rollBrickCapsule(): PowerUpKind | null {
     return Math.random() < this.bonusSpreadAmount() ? this.dropBag.draw(this.dropExcludes()) : null;
   }
@@ -3374,6 +3495,8 @@ export class ShatterGame {
     this.meteors.reset();
     this.snapBlend = 0;
     this.snapMarks = [];
+    this.tracerBlend = 0;
+    this.tracerThreads = [];
     this.pyreBlend = 0;
     this.pyreBlasts = [];
     this.erodeBlend = 0;
@@ -3768,6 +3891,13 @@ export class ShatterGame {
     }
     if (kind === "SN") {
       this.timers.activate("SN", durations.SN);
+    }
+    if (kind === "TR") {
+      // The timer and nothing else, like SNAP above it. The threads are rebuilt
+      // from the live balls every tick and hold no state of their own, so there
+      // is nothing here to seed and a second TRACER over a live one is a plain
+      // top-up of the ten seconds.
+      this.timers.activate("TR", durations.TR);
     }
     if (kind === "ER") {
       this.timers.activate("ER", durations.ER);
@@ -4587,6 +4717,8 @@ export class ShatterGame {
     this.meteors.reset();
     this.snapBlend = 0;
     this.snapMarks = [];
+    this.tracerBlend = 0;
+    this.tracerThreads = [];
     this.pyreBlend = 0;
     this.pyreBlasts = [];
     this.erodeBlend = 0;
@@ -4665,6 +4797,8 @@ export class ShatterGame {
     this.meteors.reset();
     this.snapBlend = 0;
     this.snapMarks = [];
+    this.tracerBlend = 0;
+    this.tracerThreads = [];
     this.pyreBlend = 0;
     this.pyreBlasts = [];
     this.erodeBlend = 0;

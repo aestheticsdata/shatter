@@ -15,7 +15,7 @@ export type PowerUpTier = "common" | "uncommon" | "rare" | "trap";
 
 // How many tickets a tier puts in the bag — see `DropBag`, which draws without
 // replacement instead of rolling weighted odds. A tier is a count of copies, not
-// a probability, and it is almost the whole of the rarity system: 62 tickets,
+// a probability, and it is almost the whole of the rarity system: 64 tickets,
 // about five levels, every capsule out once or twice a pass. Two rows carry an
 // exception, and `POWER_UP_DROP_TICKETS` says why.
 //
@@ -343,6 +343,28 @@ export const POWER_UPS = [
   // capsule takes a hole out of the wall, and one the player reads as a trap
   // while it falls is one they let go.
   { id: "GI", name: "GIANT", color: "#469292", dark: false, ticks: 480, tier: "rare", timed: true, blurb: "A HUGE BALL CRUSHES A PATCH" },
+  // Olive drab, which is the colour ammunition comes in and the widest opening
+  // left on a board this full. Swept rather than picked: 70.2 from MULTI, 70.7
+  // from GRAVEL, 72.0 from FUSE and 74.5 from GLUE against the 58 bar, 3.88:1
+  // against the darkest field theme, and 95 from the nearest speck.
+  //
+  // **The two colours that measured better were both refused on contrast.** A
+  // true olive drab (#556b2f) reaches 91.7 from FUSE — the widest gap anywhere
+  // on the board — and reads at 2.59:1 against the darkest theme, which is under
+  // the rule and not a matter of taste; #5a6b3a reaches 85.1 and fails the same
+  // way at 2.64. This is the brightest point in that family, and the first one
+  // that clears 3:1 with room rather than sitting on the floor of it.
+  //
+  // The nearest trap is DEMAKE at 139, the widest trap margin on the board. That
+  // is the measurement that decided it over a cerise that scored similarly: this
+  // is a capsule you want reached for, and one the player reads as a trap while
+  // it falls is one they let go.
+  //
+  // A common, and the tier is the whole of what that means now — SHA-148's bag
+  // gives `uncommon` and `rare` the same single ticket, so the only frequency
+  // choice left is two tickets or one. A capsule whose job is to stop you losing
+  // a ball has to be met while you are still learning to read one.
+  { id: "TR", name: "TRACER", color: "#688a3a", dark: false, ticks: 600, tier: "common", timed: true, blurb: "THE BALL SHOWS WHERE IT LANDS" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];
@@ -383,7 +405,7 @@ export const POWER_UP_NAMES: Record<PowerUpKind, string> = byId((definition) => 
  */
 export const POWER_UP_GLYPHS: Record<PowerUpKind, string> = byId((definition) => glyphFor(definition.name));
 export const POWER_UP_DURATIONS: Record<PowerUpKind, number> = byId((definition) => definition.ticks);
-// Tickets per capsule: tier-derived for 46 of the 48 rows, and two kept back.
+// Tickets per capsule: tier-derived for 47 of the 49 rows, and two kept back.
 //
 // There were three weight exceptions — DEMAKE, VORTEX and GIANT — each promoted a
 // class because it was "landing too rarely to enjoy". The instinct was to retire

@@ -40,6 +40,7 @@ import type {
   RailMark,
   PowerUpKind,
   SnapMark,
+  TracerThread,
   StasisRing,
 } from "@interfaces/types";
 
@@ -630,6 +631,24 @@ export interface RenderView {
   // resolves on a machine that has no alpha to fade with.
   snapGrid: number;
   snapMarks: readonly SnapMark[];
+  /**
+   * TRACER's guide: how strongly it is drawn, and one thread per live ball.
+   *
+   * The threads are the simulation's, walked there this tick — the renderer is
+   * told where the ball is going rather than working it out, so the line drawn
+   * and the line predicted cannot come apart. A thread whose walk could not stay
+   * honest arrives here already short, with a null pip; there is no judgement
+   * left to make down here.
+   */
+  tracerBlend: number;
+  tracerThreads: readonly TracerThread[];
+  /**
+   * Which way the guide is going. The blend cannot say — it is symmetric, and
+   * one frame of it looks the same arriving or leaving — and the two ends differ
+   * by one thing: on the way in the pip is not stamped until the thread has
+   * actually reached the rail, and on the way out it is the first thing to go.
+   */
+  tracerArriving: boolean;
   // PYRE's craters, each already spent: the bricks went on the frame the player
   // clicked, and these are the light and the ring saying so.
   pyreBlasts: readonly PyreBlast[];
@@ -1437,6 +1456,14 @@ export class CanvasRenderer {
         gameConfig.grid.brickHeight - flashPad.y * 2,
         tone,
       );
+    }
+    // Under the balls and inside the shake: a thread is a line between a ball and
+    // the rail, and one that ignored QUAKE would point somewhere the deck is not.
+    // Drawn before the balls so the sprite always wins over its own guide.
+    if (view.tracerBlend > 0) {
+      for (const thread of view.tracerThreads) {
+        this.drawTracerThread(thread, view.tracerBlend, view.tracerArriving, view.paddle);
+      }
     }
     // Inside the shake and over the wall: a bracket marks a point on the field
     // where something happened, and a mark that ignored QUAKE would drift off
@@ -2960,6 +2987,153 @@ export class CanvasRenderer {
    * the diagonal rather than needing four cases: `fillRect` normalises a
    * negative extent, and the sign is the whole of what `dirX`/`dirY` mean.
    */
+  /**
+   * TRACER: one ball's thread, and the pip it pins on the rail.
+   *
+   * **A dotted line and never a solid one.** A solid rule from the ball to the
+   * deck is the longest mark anything in this game draws and would sit on top of
+   * the field for ten seconds; one pixel lit in two reads as a thread at this
+   * scale and costs the field half the ink. It is also what keeps it clear of
+   * SNAP, whose dashes run *along* the diagonal a ball just left on — these run
+   * *ahead* of one, and the two capsules are frequently up together.
+   *
+   * The dotting is walked in field pixels along the whole polyline rather than
+   * per segment, so the phase carries through a bounce: a thread that restarted
+   * its pattern at every wall would put a bright double pixel in the corner and
+   * read as the corner being the point.
+   *
+   * `reach` is the pay-out and the letting-go, as a fraction of the thread's
+   * total length. Arrival grows it from the ball; expiry is not its mirror — the
+   * thread comes away from the *rail* end first, so what the player keeps
+   * longest is the few pixels next to the ball, which is the half they are
+   * actually reading.
+   */
+  private drawTracerThread(thread: TracerThread, blend: number, arriving: boolean, deck: PaddleRenderState): void {
+    const { pipWidth, pipHeight, slackSag, slackWidth, dotPitch } = gameConfig.powerUps.tracer;
+    const [head] = thread.points;
+    if (head === undefined) {
+      return;
+    }
+
+    // The held cue. A ball on its way up has nothing to predict, and a capsule
+    // that draws nothing for four seconds reads as one that broke — so the rope
+    // is there, visibly slack, swinging with the ball rather than pointing.
+    if (thread.slack) {
+      const swing = Math.sin(this.frameCount / 9) * slackWidth;
+      for (let step = 1; step <= slackSag; step++) {
+        const fall = step / slackSag;
+        // A catenary is a cosh; at nine pixels a square is the same picture and
+        // costs nothing. The rope hangs off the ball and drifts behind it.
+        this.spritePixel(head.x + swing * fall * fall, head.y + step, 1, 1, canvasPalette.tracerSlack);
+      }
+      return;
+    }
+
+    if (!thread.full) {
+      // Not the ball the deck has to answer: it gets its pip and no thread.
+      this.drawTracerPip(thread, blend, pipWidth, pipHeight, deck);
+      return;
+    }
+
+    // Segment lengths once, so the pay-out can be spent evenly across the whole
+    // thread rather than racing through the short bits between bounces.
+    const lengths: number[] = [];
+    let total = 0;
+    for (let index = 1; index < thread.points.length; index++) {
+      const from = thread.points[index - 1]!;
+      const to = thread.points[index]!;
+      const length = Math.hypot(to.x - from.x, to.y - from.y);
+      lengths.push(length);
+      total += length;
+    }
+    if (total === 0) {
+      return;
+    }
+
+    // Arrival pays out from the ball; expiry lets go at the rail. Both are the
+    // same number — how much of the thread, measured from the ball, exists this
+    // frame — which is why the two ends need no second variable.
+    const reach = total * blend;
+
+    // **One walk along the whole polyline, not a loop per segment.** The dots
+    // have to keep their spacing *through* a bounce: a pattern restarted at each
+    // corner puts a double-bright pixel there and reads as the corner being the
+    // point, when the corner is just geometry. Walking one distance and finding
+    // the segment it falls in carries the phase for free.
+    let segment = 0;
+    let consumed = 0;
+    for (let walked = 0; walked <= reach; walked += dotPitch) {
+      while (segment < lengths.length && walked > consumed + lengths[segment]!) {
+        consumed += lengths[segment]!;
+        segment++;
+      }
+      if (segment >= lengths.length) {
+        break;
+      }
+      const from = thread.points[segment]!;
+      const to = thread.points[segment + 1]!;
+      const length = lengths[segment]!;
+      const at = length === 0 ? 0 : (walked - consumed) / length;
+      this.spritePixel(from.x + (to.x - from.x) * at, from.y + (to.y - from.y) * at, 1, 1, canvasPalette.tracerThread);
+    }
+
+    // The pip is the answer and is drawn whatever the thread did on the way
+    // down — it must never be lost to an early exit in the loop above, which is
+    // exactly the bug that cost this capsule its mark the first time it was
+    // drawn. On the way in it waits until the thread has actually arrived.
+    if (!arriving || blend >= 1) {
+      this.drawTracerPip(thread, blend, pipWidth, pipHeight, deck);
+    }
+  }
+
+  /**
+   * The mark on the rail: the one pixel of this capsule the player acts on.
+   *
+   * Drawn at the deck's own y and in the hot tone rather than the thread's,
+   * because it is the answer and the thread is only the working. A thread that
+   * could not stay honest all the way down has no pip at all — that absence is
+   * the capsule admitting it does not know, and it is load-bearing.
+   */
+  private drawTracerPip(
+    thread: TracerThread,
+    blend: number,
+    width: number,
+    height: number,
+    deck: PaddleRenderState,
+  ): void {
+    if (thread.pipX === null) {
+      return;
+    }
+    // Shrinks to its centre as the capsule goes, so the last thing on the rail
+    // is a single pixel over the spot rather than a bar that blinks out.
+    const span = Math.max(1, Math.round(width * blend));
+
+    // **SPLIT: is this landing on wood, or in the hole?** The single most useful
+    // thing this capsule can ever say. SPLIT breaks the deck around a gap that
+    // is the whole trap, and a ball dropping through it is a life — so the mark
+    // that means "be here" has to be able to mean "you cannot catch this from
+    // here" as well, or it is quietly lying on the one tick it matters most.
+    //
+    // Hazard pink and a blink, which is what the roster already says "trap"
+    // with: the malus pop is this exact tone, and the blinking glyph is how a
+    // falling trap tells on itself. Two-tick blocks rather than per-frame, the
+    // CHAIN bolt's device — a 7 px mark strobing every frame is a rendering
+    // fault, not a warning.
+    const gapHalf = deck.splitGap / 2;
+    const middle = deck.x + deck.width / 2;
+    const intoTheGap = gapHalf > 0 && thread.pipX > middle - gapHalf && thread.pipX < middle + gapHalf;
+    if (intoTheGap && (this.frameCount & 2) === 0) {
+      return;
+    }
+    this.pixel(
+      thread.pipX - span / 2,
+      gameConfig.paddle.y - height,
+      span,
+      height,
+      intoTheGap ? canvasPalette.popMalus : canvasPalette.tracerPip,
+    );
+  }
+
   private drawSnapMark(mark: SnapMark): void {
     const { markTicks, dashes, dashStep, bracketArm } = gameConfig.powerUps.snap;
     const life = mark.ticksLeft / markTicks;

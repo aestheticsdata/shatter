@@ -273,6 +273,35 @@ export const gameConfig = {
       bracketArm: 3,
     },
     /**
+     * TRACER: the thread a falling ball pays out, and the pip it pins on the
+     * rail.
+     *
+     * `payOutTicks` and `letGoTicks` are the capsule's two ends and are
+     * deliberately different — 15 in, 20 out. Arrival is a thread being paid out
+     * ahead of a ball the player is already tracking and wants to be quick;
+     * departure is the guide being taken away, and the slower hand is what stops
+     * it reading as the capsule having failed rather than expired.
+     *
+     * `slackSag` and `slackWidth` are the held cue: a climbing ball hangs this
+     * many pixels of rope under itself, swinging this far either side. Both are
+     * small on purpose. The cue has to say "armed, nothing to predict" from the
+     * corner of the eye and must never be mistaken for a live guide pointing
+     * somewhere — it is a shape, and the shape is "slack".
+     */
+    tracer: {
+      payOutTicks: 15,
+      letGoTicks: 20,
+      pipWidth: 7,
+      pipHeight: 2,
+      slackSag: 12,
+      slackWidth: 4,
+      // The thread is drawn as a dotted line rather than a solid one: SNAP's
+      // dashes already run *along* a diagonal, and a solid rule down the field
+      // would be the heaviest thing on it. One pixel lit in every two reads as a
+      // thread at this scale and costs the field half as much ink.
+      dotPitch: 2,
+    },
+    /**
      * ERODE: how far a worn brick pulls inside its own 30x12 cell, in whole
      * pixels off each edge, and the grains that come off it while it does.
      *
@@ -1076,6 +1105,12 @@ export const gameConfig = {
     // a wipe, which is what makes it read as a grid resolving rather than as a
     // curtain crossing the screen.
     snapGridTicks: 30,
+    // TRACER's thread, paying out and letting go. Asymmetric where every other
+    // picture on this list is symmetric, so the two ends are the capsule's own
+    // numbers in `powerUps.tracer` rather than one shared here — this holds only
+    // the strength the whole guide is drawn at, which is what a `stepBlend` can
+    // say. Half a second, like the rest of them.
+    tracerFadeTicks: 30,
     // PYRE's ember wash, rolling over the deck and rolling back off it. Both
     // ends of the capsule are this one number: the front sweeps cap to cap as
     // the fire takes and sweeps back the way it came when the ten seconds are

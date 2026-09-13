@@ -1027,6 +1027,42 @@ const SCENES: Record<PowerUpKind, Painter> = {
     field.ball(GRID_LEFT + 3 * BRICK_WIDTH + 3, GRID_TOP + 2 * BRICK_HEIGHT, size);
     field.deck();
   },
+  // A falling ball, the thread it has paid out, and the pip waiting on the rail.
+  //
+  // **The bounce is the whole reason this picture exists.** A thread drawn
+  // straight down would say the capsule draws a plumb line, which is the thing
+  // it is most likely to be mistaken for and the thing it is not: the ball is
+  // travelling left, the thread banks off the wall, and the pip is on the *other*
+  // side of the field from the ball. A player who reads only this picture should
+  // still come away knowing it predicts rather than points.
+  //
+  // The second pip is the ball the deck is not answering first — the rail says
+  // where every falling ball is going, and only the soonest one draws its line.
+  TR: (field) => {
+    const { pipWidth, pipHeight, dotPitch } = gameConfig.powerUps.tracer;
+    field.wall();
+    // Walked the way the real one is, off the same heading, so the corner lands
+    // where physics would put it rather than where it looks nice.
+    const start = { x: 232, y: 150 };
+    const bounce = { x: gameConfig.field.left + gameConfig.ball.size / 2, y: 214 };
+    const land = { x: 104, y: DECK_Y };
+    for (const [from, to] of [
+      [start, bounce],
+      [bounce, land],
+    ]) {
+      const length = Math.hypot(to.x - from.x, to.y - from.y);
+      for (let step = 0; step < length; step += dotPitch) {
+        const at = step / length;
+        field.rect(from.x + (to.x - from.x) * at, from.y + (to.y - from.y) * at, 1, 1, canvasPalette.tracerThread);
+      }
+    }
+    field.rect(land.x - pipWidth / 2, DECK_Y - pipHeight, pipWidth, pipHeight, canvasPalette.tracerPip);
+    // The other ball's landing, further along the rail and threadless.
+    field.rect(286 - pipWidth / 2, DECK_Y - pipHeight, pipWidth, pipHeight, canvasPalette.tracerPip);
+    field.ball(start.x, start.y);
+    field.ball(300, 176);
+    field.deck(gameConfig.paddle.baseWidth, 72);
+  },
 };
 
 /** Paint one capsule's field, at field size, ready to be blitted down. */

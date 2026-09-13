@@ -1,7 +1,9 @@
+import { firstArrival } from "@core/ballTrace";
 import { gameConfig } from "@core/config/GameConfig";
 import { POWER_UP_BY_ID } from "@core/config/powerUps";
 import { DROP_HEIGHT, DROP_WIDTH } from "@entities/powerups/DropPool";
 
+import type { Arrival } from "@core/ballTrace";
 import type { Ball } from "@entities/ball/Ball";
 import type { Paddle } from "@entities/paddle/Paddle";
 import type { Drop } from "@entities/powerups/DropPool";
@@ -73,13 +75,6 @@ const TRAP_CLEARANCE = 4;
 // ticks. A life lost costs more than any trap.
 const TRAP_DODGE_MIN_TICKS = 20;
 
-interface Arrival {
-  /** Where the ball's centre will be when it reaches the deck. */
-  x: number;
-  /** In how many ticks. */
-  ticks: number;
-}
-
 /**
  * The film's hook: an autopilot that plays, and a snapshot that says what
  * happened. Dev-only — constructed behind `import.meta.env.DEV` in
@@ -149,34 +144,6 @@ export class DemoHook {
     const reach = Math.max(0, paddle.width / 2 - AIM_MARGIN);
     return clamp(AIM_SWEEP * Math.sin(this.clock / AIM_PERIOD), -reach, reach);
   }
-}
-
-// Where and when a ball on its way down meets the deck, walls folded in — or
-// null for a ball parked, stuck to the deck, or still on its way up.
-function arrival(ball: Ball): Arrival | null {
-  if (!ball.active || ball.stuckOffsetX !== null || ball.velocity.y <= 0) {
-    return null;
-  }
-  const size = ball.size;
-  const ticks = Math.max(0, (DECK_TOP - size - ball.y) / ball.velocity.y);
-  // The ball's left edge runs between the two walls. A straight line unfolded
-  // over twice that span and folded back is where the bounces leave it.
-  const left = gameConfig.field.left;
-  const span = gameConfig.field.right - size - left;
-  const unfolded = (((ball.x - left + ball.velocity.x * ticks) % (2 * span)) + 2 * span) % (2 * span);
-  const folded = unfolded > span ? 2 * span - unfolded : unfolded;
-  return { x: left + folded + size / 2, ticks };
-}
-
-function firstArrival(balls: readonly Ball[]): Arrival | null {
-  let first: Arrival | null = null;
-  for (const ball of balls) {
-    const next = arrival(ball);
-    if (next !== null && (first === null || next.ticks < first.ticks)) {
-      first = next;
-    }
-  }
-  return first;
 }
 
 // The centre of the lowest capsule the deck can get under before it lands and

@@ -112,6 +112,38 @@ export interface SnapMark {
 }
 
 /**
+ * TRACER: one ball's answer to "where does this one come down".
+ *
+ * Rebuilt from scratch every tick rather than aged like a `SnapMark`, because it
+ * is not a record of something that happened — it is a claim about the next
+ * second, and a claim one frame stale is the one thing this capsule may not
+ * serve. The simulation computes it, so the path drawn and the path predicted
+ * are the same array rather than two walks that agree on a good day.
+ *
+ * `points` always holds at least the ball's own centre. A thread that could not
+ * be honest all the way down simply has fewer of them and a null `pipX`; see
+ * `@core/ballTrace`.
+ */
+export interface TracerThread {
+  /** Ball centre, a point per side-wall bounce, then the deck rail. */
+  points: readonly { x: number; y: number }[];
+  /** The rail mark, or null when the walk gave up before reaching it. */
+  pipX: number | null;
+  /**
+   * The ball arriving first, and the only one that draws its whole thread. The
+   * others pin a pip and nothing else: twelve threads under SWARM is a cat's
+   * cradle, twelve pips on a rail is a reading.
+   */
+  full: boolean;
+  /**
+   * A ball still on its way up, hanging a slack thread under itself. The held
+   * cue, and the reason the capsule does not read as broken for the seconds it
+   * has nothing to predict.
+   */
+  slack: boolean;
+}
+
+/**
  * PYRE: one spent ball, at the spot it went up.
  *
  * Render-only, and — like `ChainBolt` — it outlives the damage it announced:

@@ -207,6 +207,22 @@ export const canvasPalette = {
   // twelve ticks it exists and is drawn over the field rather than under it.
   snapGrid: "#20461a",
   snapMark: "#9cff7a",
+  // TRACER's thread and the pip it pins on the rail. **Not the capsule's olive**,
+  // which is the one obvious choice and the wrong one: the pill is the round and
+  // the thread is the burn, so it is drawn off the ball's own yellow the way
+  // PIERCE throws white sparks from a yellow body. A burn is hot, not branded.
+  //
+  // The thread is taken below the ball (`ballBody` is #ffe14a) because it is a
+  // line the player reads *past* while watching the ball — bright enough to
+  // follow across the field, never bright enough to win against the thing it is
+  // pointing at. The pip is the hot end: it is a single mark on the rail and the
+  // one pixel of this capsule the player actually acts on.
+  tracerThread: "#c9a22e",
+  tracerPip: "#fff3b0",
+  // The same thread with the tension gone, for a ball still on its way up. Kept
+  // dark enough to read as slack rope rather than as a live guide: the shape
+  // says which one it is, and the tone only has to agree with the shape.
+  tracerSlack: "#7a6320",
   // ERODE: the mortar coming out of the seams, in two tones for granite's
   // reason — one colour trickling on its own reads as a rendering fault, and a
   // fall that brackets its own value reads as grit. Both are the capsule's own
