@@ -234,7 +234,7 @@ src/
     DevConsole.ts    # Dev-only command line (import.meta.env.DEV): jump levels, force capsules
     DemoHook.ts      # Dev-only film hook (import.meta.env.DEV): the autopilot that plays the demo take, and its read-only snapshot
     config/          # GameConfig: geometry, speeds, timers, points · powerUps: the capsule roster · combos: the six authored fusions
-    levels/          # ASCII level definitions (37 layouts) + 3×5 pixel font for word levels
+    levels/          # ASCII level definitions (38 layouts) + 3×5 pixel font for word levels
     physics/         # Paddle bounce math
   entities/
     ball/            # Ball position/velocity, launch, multi-ball cloning

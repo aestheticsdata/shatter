@@ -102,7 +102,7 @@ Path aliases (`@core`, `@entities`, `@render`, `@ui`, `@input`, `@audio`,
                                      |
                                      v
   +------------------------------------------------------------------------+
-  |  @core/ShatterGame            4 324 lines, the orchestrator             |
+  |  @core/ShatterGame            5 063 lines, the orchestrator             |
   |  Owns: the loop, the screen, score, lives, level, and one field         |
   |  cluster per capsule effect. The only module that knows all the others. |
   +------------------------------------------------------------------------+
@@ -631,11 +631,11 @@ contract is those four lines in `frame()`.
 
 ### The size of ShatterGame.ts
 
-**It is 4 324 lines, and that is the first thing a reviewer will notice.** So:
+**It is 5 063 lines, and that is the first thing a reviewer will notice.** So:
 
 It is one class holding a small field cluster per capsule effect — `magnetBlend`,
 `xrayBlend`, `xraySweepSpan`, `portalBlend`, `flipTurn`, `haywireBlend`,
-`haywireKickIn`, `haywireKicking`, and so on for forty-four capsules and six
+`haywireKickIn`, `haywireKicking`, and so on for forty-eight capsules and six
 combos.
 
 The reason is that **every effect touches the same three or four objects**: the
