@@ -586,6 +586,69 @@ export class SoundBank {
   }
 
   /**
+   * JELLY: the wall going slack — a soft body sagging through a fifth and
+   * wobbling back, twice, which is the sheet's two decaying overshoots heard
+   * rather than watched.
+   *
+   * Sine and not the roster's usual square, and it is the only catch sound in
+   * the game that is. Every other capsule announces itself with an edge because
+   * the machine has edges; this one is announcing that the wall has stopped
+   * having any, and a square wave saying "soft" would be the sound arguing with
+   * the picture. The two voices are a fifth apart and the upper one is delayed
+   * by half the first overshoot, so they beat rather than chord.
+   *
+   * Scored to the arrival: the slack takes twenty ticks to run in from the
+   * frames and rings down over about as long again, and this runs out with it.
+   */
+  jellySlacken(): void {
+    if (!this.allow("jellySlacken")) {
+      return;
+    }
+    this.tone({ freq: 320, freqEnd: 96, dur: 0.62, vol: 0.09, type: "sine" });
+    this.tone({ freq: 214, freqEnd: 72, dur: 0.5, vol: 0.06, type: "sine", delayS: 0.1 });
+    this.noise({ dur: 0.3, vol: 0.04, filter: { type: "lowpass", freq: 600 } });
+  }
+
+  // The same body run the other way and half as long: the wall setting, from
+  // the outer columns inward. Short and a little higher than the slack ended,
+  // because what is being said is that the sheet has gone stiff — one small
+  // fast tremor to leave, against the long slow one that arrived.
+  jellySet(): void {
+    if (!this.allow("jellySet")) {
+      return;
+    }
+    this.tone({ freq: 110, freqEnd: 430, dur: 0.3, vol: 0.07, type: "sine" });
+    this.tone({ freq: 880, dur: 0.03, vol: 0.04, delayS: 0.3 });
+  }
+
+  // One bounce off a trampoline: a short pitched blip that bends up as it goes,
+  // which is the ball leaving faster than it arrived. Quiet, because it plays
+  // on every single wall contact for ten seconds and the brick clank it
+  // replaces was quieter still.
+  jellyBounce(): void {
+    if (!this.allow("jellyBounce", 40)) {
+      return;
+    }
+    this.tone({ freq: 180, freqEnd: 520, dur: 0.08, vol: 0.05, type: "sine" });
+  }
+
+  /**
+   * A brick bursting out of the sheet rather than off the ball.
+   *
+   * Deliberately *not* `brickDestroyed`, which fires alongside it on the same
+   * tick through the ordinary damage path: that one is a hit landing, and this
+   * is the wall failing somewhere nobody was aiming. A wet snap under it — the
+   * low sine is the sheet letting go, the noise is what it was holding.
+   */
+  jellyTear(): void {
+    if (!this.allow("jellyTear")) {
+      return;
+    }
+    this.tone({ freq: 640, freqEnd: 130, dur: 0.14, vol: 0.07, type: "sine" });
+    this.noise({ dur: 0.09, vol: 0.09, filter: { type: "bandpass", freq: 1400, freqEnd: 520, q: 1.2 } });
+  }
+
+  /**
    * GRAVEL: the dry rasp of a wall going to pieces without falling down.
    *
    * **A rasp and not a rumble**, which is the whole distance between this and

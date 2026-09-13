@@ -1,4 +1,4 @@
-import { BRICK_BY_ID, BRICK_RAMPS } from "@core/config/bricks";
+import { BRICK_BY_ID, BRICK_RAMPS, BRICK_STRAIN_RAMPS } from "@core/config/bricks";
 import { gameConfig, peelFlightTicks } from "@core/config/GameConfig";
 import { MALUS_KINDS, POWER_UP_GLYPHS } from "@core/config/powerUps";
 import { type Ball, paceGhost } from "@entities/ball/Ball";
@@ -20,6 +20,7 @@ import type { WallErosion } from "@entities/bricks/BrickGrid";
 import type { Critter } from "@entities/effects/Critter";
 import type { Detonation } from "@entities/effects/Detonation";
 import type { Pip } from "@entities/effects/GravelField";
+import type { JellySheet } from "@entities/effects/JellySheet";
 import type { Meteor } from "@entities/effects/MeteorField";
 import type { Particle } from "@entities/effects/ParticleField";
 import type { Quake } from "@entities/effects/Quake";
@@ -562,6 +563,17 @@ export interface RenderView {
   erodeBlend: number;
   erodeSetting: boolean;
   /**
+   * JELLY's sheet, and the second thing on this view the renderer asks a
+   * question of rather than reading a number off.
+   *
+   * Per cell for ERODE's reason and one harder: the wear changes how big a
+   * brick is and this changes *where it is*, so a wall painted off one number
+   * while it was collided off ninety-six would hand the player a bounce off a
+   * brick that is not where they can see it. The same object answers both —
+   * the renderer's `offsetAt` and the grid's are one call on one field.
+   */
+  sheet: JellySheet;
+  /**
    * GRAVEL's fault, 0 whole wall to 1 every face split.
    *
    * One number and no companion flag, which is where it parts company with the
@@ -749,6 +761,10 @@ export interface BrickPaint {
   // brick and a 20x6 one.
   erodeX?: number;
   erodeY?: number;
+  // JELLY's load on this cell, 0 whole to 1 about to burst. Painted as notches
+  // down the brick's own strain ramp, so a charging cell steps its tones
+  // exactly as a hit one does — see `BRICK_STRAIN_RAMPS`.
+  strain?: number;
 }
 
 export function drawBrick(
@@ -759,7 +775,7 @@ export function drawBrick(
   scale: number,
   paint: BrickPaint = {},
 ): void {
-  const { fade = 0, demade = false, gilded = false, erodeX = 0, erodeY = 0 } = paint;
+  const { fade = 0, demade = false, gilded = false, erodeX = 0, erodeY = 0, strain = 0 } = paint;
   // The body the whole sprite is laid out on. A whole brick is its cell inset by
   // one, which is the mortar seam it has always been drawn with; a worn one is
   // inset by whatever the erosion has taken, and the seam is simply the first
@@ -792,13 +808,20 @@ export function drawBrick(
   }
 
   const definition = BRICK_BY_ID[cell.kind];
-  const ramp = BRICK_RAMPS[cell.kind];
   // How many hits this brick has taken, which is the whole of the damage model:
   // the ramp holds one body tone per hit point plus the intact sheen, so silver
   // gets two states, gold three and granite four out of the same two lines. It
   // replaced a single `hurt` flag that made gold — a three-hit brick — show the
   // player two.
-  const stage = ramp.length - 1 - cell.hitPoints;
+  const hurt = BRICK_RAMPS[cell.kind].length - 1 - cell.hitPoints;
+  // JELLY's load, as however many further notches the tones left under this
+  // brick will carry. A one-hit brick has one, granite at full health has
+  // three, and a silver brick already on its last body tone has none — there
+  // is nowhere darker for it to go, and inventing a tone for it would put a
+  // colour on the wall the brick was never drawn in.
+  const ramp = BRICK_STRAIN_RAMPS[cell.kind];
+  const headroom = ramp.length - 2 - hurt;
+  const stage = hurt + (headroom > 0 ? Math.min(headroom, Math.floor(strain * (headroom + 1))) : 0);
   // Both the brick's own sheen and PAYDAY's gild step with the damage, so the
   // tell survives the tide instead of being flattened by it.
   const sheen = gilded ? GILD_RAMP[Math.min(stage, GILD_RAMP.length - 1)] : ramp[stage];
@@ -1386,7 +1409,12 @@ export class CanvasRenderer {
       row.forEach((cell, columnIndex) => {
         if (cell) {
           const x = left + columnIndex * brickWidth;
-          const y = wallY + rowIndex * brickHeight;
+          // JELLY: this cell's own hang, on top of the wall's own top edge. The
+          // one displacement in the game that is per cell rather than per wall,
+          // and the hitbox reads the same number off the same sheet — a brick
+          // that is drawn six pixels into the row below has to be collided
+          // there too, or the capsule would be a lie the player can see.
+          const y = wallY + rowIndex * brickHeight + view.sheet.offsetAt(rowIndex, columnIndex);
           const fade = ghostProgress(view.ghostBlend, rowIndex, columnIndex, this.frameCount);
           const erodeX = view.erosion.insetXAt(rowIndex, columnIndex);
           const erodeY = view.erosion.insetYAt(rowIndex, columnIndex);
@@ -1396,6 +1424,7 @@ export class CanvasRenderer {
             gilded: rowIndex >= view.paydayFront,
             erodeX,
             erodeY,
+            strain: view.sheet.strainAt(rowIndex, columnIndex),
           });
           // The seams this brick is opening, drawn from the brick itself so the
           // trickle rides the wall through QUAKE's shake and stops the tick the

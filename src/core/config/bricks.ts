@@ -126,3 +126,25 @@ export function brickRamp(definition: BrickDefinition): readonly string[] {
 }
 
 export const BRICK_RAMPS: Record<BrickKind, readonly string[]> = byBrickId(brickRamp);
+
+/**
+ * The same tones with the last one always reachable as a body — what a brick
+ * steps down while JELLY is loading it rather than while it is being hit.
+ *
+ * Identical to `BRICK_RAMPS` for every brick that takes more than one hit, and
+ * one entry longer for the five that do not. That extra entry is the whole of
+ * the difference and it is deliberate: a one-hit brick has no second *damage*
+ * state to show, because it has no second hit — but it can be under load, and
+ * refusing it a tone would have left JELLY invisible on the commonest bricks
+ * in the game. The tone it gets is its own authored `dark`, which is the shade
+ * along its bottom edge; a red brick going maroon is a red brick about to go.
+ *
+ * `drawBrick` indexes this at the damage stage plus however many notches the
+ * strain has earned, so the two ramps agree exactly at zero strain.
+ */
+export const BRICK_STRAIN_RAMPS: Record<BrickKind, readonly string[]> = byBrickId((definition) => [
+  definition.light,
+  definition.flat,
+  ...definition.wear,
+  definition.dark,
+]);

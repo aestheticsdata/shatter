@@ -126,6 +126,33 @@ class Field {
     kinds.forEach((kind, index) => this.row(top + index, kind, fade, worn));
   }
 
+  /**
+   * JELLY's wall: the same rows, each brick hung by its column's own
+   * displacement and painted with its column's own load.
+   *
+   * Per column and not per cell, which is the one simplification this picture
+   * makes about the sheet: the real one is a two-dimensional membrane and rows
+   * bend against each other slightly. A still cannot show that and does not
+   * need to — what the reader has to come away knowing is that the wall is a
+   * curve now, that the curve is deepest where two of them met, and that the
+   * bricks there have gone dark and started to go.
+   */
+  sheetWall(hang: readonly number[], strain: readonly number[], gone: readonly number[]): void {
+    DEFAULT_WALL.forEach((kind, index) => {
+      const row = index;
+      for (let column = 0; column < COLUMNS; column++) {
+        if (row === DEFAULT_WALL.length - 1 && gone.includes(column)) {
+          continue;
+        }
+        const { x, y } = this.brickAt(column, row);
+        drawBrick(this.ctx, x, y + hang[column], cell(kind, row * COLUMNS + column), 1, {
+          demade: this.demade,
+          strain: strain[column],
+        });
+      }
+    });
+  }
+
   // A brick lit the way the field lights one that has just been killed.
   flash(column: number, row: number, color: string): void {
     const { x, y } = this.brickAt(column, row);
@@ -1062,6 +1089,35 @@ const SCENES: Record<PowerUpKind, Painter> = {
     field.ball(start.x, start.y);
     field.ball(300, 176);
     field.deck(gameConfig.paddle.baseWidth, 72);
+  },
+  /**
+   * Two fronts meeting, the wall gone dark where they did, and the hole they
+   * have started to tear.
+   *
+   * **The superposition is the whole picture.** A single wave rolling through
+   * the wall would say the capsule ripples it, which is the easy half and the
+   * half a player will assume anyway; what they have to learn from this is that
+   * the *crossing* is where the damage comes from. So the two shoulders are 5 px
+   * deep and the middle, where both are, is 7 — deeper than either front alone
+   * ever gets — and it is the middle that has gone.
+   *
+   * The ball is on the far side of the field from the hole and on its way up,
+   * which is the other thing this has to say: it did not break those bricks by
+   * touching them. It broke them by making the wall ring.
+   */
+  JE: (field) => {
+    // Two crests four columns apart, summed. The shape is a Gaussian rather
+    // than the sheet's own front for the reason every scene stages rather than
+    // replays: at four rows and a third of the size, a truthful frame of the
+    // simulation is a two-pixel wobble, and a picture nobody can read is not
+    // more honest than one they can.
+    const hang = [0, 0, 0, 2, 5, 7, 7, 5, 2, 0, 0, 0];
+    // The load, on the bricks' own damage ramp: full at the crossing, half on
+    // its shoulders, and nothing out where only the frames have felt anything.
+    const strain = [0, 0, 0, 0.3, 0.65, 1, 1, 0.65, 0.3, 0, 0, 0];
+    field.sheetWall(hang, strain, [5, 6]);
+    field.ball(86, 196);
+    field.deck(gameConfig.paddle.baseWidth, 58);
   },
 };
 

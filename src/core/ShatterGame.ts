@@ -21,6 +21,7 @@ import { Critter } from "@entities/effects/Critter";
 import { Detonation } from "@entities/effects/Detonation";
 import { Erosion } from "@entities/effects/Erosion";
 import { GravelField } from "@entities/effects/GravelField";
+import { JellySheet } from "@entities/effects/JellySheet";
 import { MeteorField } from "@entities/effects/MeteorField";
 import { ParticleField } from "@entities/effects/ParticleField";
 import { Quake } from "@entities/effects/Quake";
@@ -365,6 +366,15 @@ export class ShatterGame {
   // ERODE's wear, cell by cell. Handed to the grid once at construction and read
   // by its hitbox from there — this class only steps it.
   private readonly erosion = new Erosion();
+  // JELLY's sheet, cell by cell. Handed to the grid once at level load and read
+  // by its hitbox from there, exactly as the wear above it is — the wall never
+  // learns whose capsule moved its bricks.
+  private readonly sheet = new JellySheet();
+  // The cells the sheet tore this tick, as flat indices. A field rather than a
+  // local so the drain does not allocate an array on every one of the
+  // capsule's six hundred frames; it is never read outside the one method that
+  // clears it.
+  private readonly jellyTears: number[] = [];
   private readonly critter = new Critter();
   private readonly meteors = new MeteorField();
   // Ticks each ball has spent inside each core's reach, indexed `[core][ball]`.
@@ -854,6 +864,11 @@ export class ShatterGame {
       // the tick the capsule ends rather than a tick later.
       erodeBlend: this.erodeBlend,
       erodeSetting: !this.timers.isActive("ER"),
+      // The sheet itself, the way the wear above it goes over: the renderer
+      // needs the hang and the load of the cell it is painting, and the whole
+      // point of both being per-cell is that no single number stands for the
+      // wall.
+      sheet: this.sheet,
       // One number, and the pips it is about. The fault says which bricks will
       // crumble and the pool says which ones already did — the capsule's state
       // and its history, the way SNAP's lattice and its marks are two fields.
@@ -1273,6 +1288,26 @@ export class ShatterGame {
      */
     this.erodeBlend = stepBlend(this.erodeBlend, this.timers.isActive("ER"), gameConfig.effects.erodeTicks);
     this.erosion.follow(this.erodeBlend, this.balls, this.grid.topOffset);
+    /**
+     * The sheet, beside the mortar and below the freeze gates for its reason
+     * exactly: this is the wall's own hitbox and not a picture of it, and a
+     * detonation taking the wall apart from the top while ninety-six bricks
+     * swing underneath is the wall changing shape twice at once. Frozen, the
+     * wave keeps whatever it had reached and takes up again on the tick the
+     * field is the player's again.
+     *
+     * The settle is armed off the timer's own remaining ticks rather than off
+     * the expiry, and that is the whole reason `PowerUpTimers.remaining` is not
+     * only PIERCE's: a sheet told to stop on the tick it stops being a sheet
+     * would snap a wall full of hanging bricks back into line in one frame. It
+     * has to be still *before* the capsule ends, so the setting runs inside the
+     * last of the ten seconds rather than after them.
+     */
+    if (this.timers.remaining("JE") > 0 && this.timers.remaining("JE") <= gameConfig.effects.jellySettleTicks) {
+      this.sheet.settle();
+    }
+    this.sheet.step(this.balls, this.grid.topOffset);
+    this.tearStrainedBricks();
     for (const core of this.cores) {
       if (core.active) {
         core.step();
@@ -1340,6 +1375,17 @@ export class ShatterGame {
     // the moment they stopped being there.
     if (expired.includes("ER")) {
       this.deps.sfx.mortarSet();
+    }
+    // The wall setting again. The sheet has already been walked still by the
+    // settle above — that started twenty-four ticks ago — so this only takes
+    // the flag down and lets the grid back onto its fast path. The tremor the
+    // player hears is the last of it rather than the announcement of it, which
+    // is the one place this capsule's two ends deliberately differ: the arrival
+    // had to be understood before it could be used, and the departure only has
+    // to be noticed.
+    if (expired.includes("JE")) {
+      this.sheet.stop();
+      this.deps.sfx.jellySet();
     }
     // The faces closing again, and — like the mortar setting above it — the
     // announcement only: the cracks heal along the wall from the far column
@@ -1966,11 +2012,113 @@ export class ShatterGame {
    * player feels without being able to name.
    */
   private strikeBricks(ball: Ball, hit: BrickHit): void {
+    // JELLY: the wall does not break here any more, it gives. The contact is a
+    // dimple pressed into the sheet and the damage is the sheet's business from
+    // here — which is the capsule, and the one thing about it the player has to
+    // understand before it is any use to them.
+    //
+    // **The ball's own size still decides how much wall is pressed**, for the
+    // reason the branch below it exists: a 24 px ball is standing on up to six
+    // cells, and a trampoline it dimpled in one of them would be a heavy ball
+    // that hits like a light one. Gated on the size and not on GIANT's timer,
+    // again for that branch's reason — the swell runs on after the capsule.
+    //
+    // A laser bolt is deliberately not here. It goes to `damageBrick` directly
+    // and still drills stone while the wall is pudding, which is right twice
+    // over: the capsule is about what a *ball* does to a sheet, and a player who
+    // has caught a LASER over a JELLY has earned the only way left to take a
+    // brick down on demand.
+    if (this.timers.isActive("JE")) {
+      const { jellyPressDepth } = gameConfig.effects;
+      if (ball.size <= gameConfig.ball.size) {
+        this.sheet.press(hit.row, hit.column, jellyPressDepth);
+      } else {
+        for (const cell of this.grid.findBallOverlaps(ball.x, ball.y, ball.size)) {
+          this.sheet.press(cell.row, cell.column, jellyPressDepth);
+        }
+      }
+      this.reboundOffSheet(ball);
+      this.deps.sfx.jellyBounce();
+      return;
+    }
     if (ball.size <= gameConfig.ball.size) {
       this.damageBrick(hit);
       return;
     }
     this.crushBricks(ball, hit);
+  }
+
+  /**
+   * JELLY's trampoline: the ball comes off the sheet faster than it went in.
+   *
+   * **Applied at the bounce and stored nowhere**, which is HAYWIRE's rule about
+   * heading and is here for a harder reason than tidiness. A multiplier held on
+   * the ball would compound — a ball ricocheting in a pocket of the wall would
+   * be through the floor in a second and a half — so what is stored is the
+   * velocity itself, and it is clamped against the level's own speed rather
+   * than against whatever it happened to be. One bounce takes the ball to the
+   * ceiling, the next twenty hold it there, and the next paddle bounce puts it
+   * back on the level's pace with nothing to unwind.
+   *
+   * A drill is not thrown back. PIERCE goes through the brick rather than off
+   * it, and there is no rebound to be faster than.
+   */
+  private reboundOffSheet(ball: Ball): void {
+    if (this.timers.isActive("P")) {
+      return;
+    }
+    const speed = Math.hypot(ball.velocity.x, ball.velocity.y);
+    const ceiling = this.speed() * gameConfig.effects.jellyRebound;
+    if (speed === 0 || speed >= ceiling) {
+      return;
+    }
+    const scale = Math.min(gameConfig.effects.jellyRebound, ceiling / speed);
+    ball.velocity.x *= scale;
+    ball.velocity.y *= scale;
+  }
+
+  /**
+   * The cells the sheet has bent past breaking this tick, paid out through the
+   * ordinary damage path.
+   *
+   * `"ball"` is the source, and it is the right one rather than a convenient
+   * one: a ball is what put the energy into the sheet, and everything that
+   * hangs off a ball's kill has to hang off this. Points, the capsule the brick
+   * was holding, a live BLAST's splash, a live CHAIN's links and GRAVEL's chips
+   * all pay out exactly as they would have if the ball had simply broken the
+   * brick — which is what it was doing ten seconds ago and will be doing again
+   * in ten more.
+   *
+   * It is a *hit* and not a kill, so granite still takes four tears and shows
+   * its ramp going down between them.
+   */
+  private tearStrainedBricks(): void {
+    if (!this.sheet.rippling) {
+      return;
+    }
+    this.jellyTears.length = 0;
+    this.sheet.drainTears(this.jellyTears);
+    if (this.jellyTears.length === 0) {
+      return;
+    }
+    const { columns } = gameConfig.grid;
+    for (const index of this.jellyTears) {
+      const row = Math.floor(index / columns);
+      const column = index % columns;
+      const hit = this.grid.hitAtCell(row, column);
+      // A cell the wave is still working that has nothing in it any more. It
+      // costs one lookup and is cleared rather than left to recharge, so an
+      // open hole in the wall stops asking to be broken.
+      if (hit === null) {
+        this.sheet.clearCell(row, column);
+        continue;
+      }
+      this.damageBrick(hit);
+    }
+    // One tear for the tick however many cells went, which is the same bargain
+    // `brickDestroyed` strikes with its own retrigger guard: what the player
+    // has to hear is the wall coming apart, not eight of them.
+    this.deps.sfx.jellyTear();
   }
 
   /**
@@ -2972,6 +3120,10 @@ export class ShatterGame {
       return;
     }
 
+    // Whatever killed it, the load it was carrying goes with it: a cell with
+    // nothing in it is not under strain, and QUAKE slides a fresh brick into
+    // this one soon enough for the difference to be visible.
+    this.sheet.clearCell(hit.row, hit.column);
     this.score += hit.cell.points * this.scoreMultiplier(source);
     if (isDirectHit(source)) {
       this.deps.sfx.brickDestroyed(hit.row);
@@ -3521,6 +3673,7 @@ export class ShatterGame {
     this.pyreBlasts = [];
     this.erodeBlend = 0;
     this.erosion.reset();
+    this.sheet.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;
@@ -3862,6 +4015,7 @@ export class ShatterGame {
       // The cells move by reference and their wear moves with them: a brick
       // ERODE has taken 5 px off is still that brick a row further down.
       this.erosion.shiftDown();
+      this.sheet.shiftDown();
       this.quake.start();
       // The catch happens below `quake.step()` in the same tick, so the wall
       // would spend its first frame drawn a row above a hitbox that had not
@@ -3921,6 +4075,20 @@ export class ShatterGame {
     }
     if (kind === "ER") {
       this.timers.activate("ER", durations.ER);
+    }
+    if (kind === "JE") {
+      // The one capsule whose effect object has to be told the catch happened,
+      // rather than chasing a timer by itself. Everything else here either is a
+      // timer or is rebuilt from the field every tick; the sheet is a
+      // simulation with its own history, and the slack running in from the
+      // frames is an event with a start.
+      //
+      // A second JELLY over a live one tops the ten seconds up and restarts the
+      // slack, which is the honest answer for a capsule whose arrival is how
+      // the player is told what the wall is made of: the wave already in the
+      // sheet is left exactly alone, so nothing in flight is interrupted.
+      this.timers.activate("JE", durations.JE);
+      this.sheet.start();
     }
     if (kind === "GR") {
       // The timer and nothing else. The cracks are the capsule's whole state
@@ -4025,6 +4193,11 @@ export class ShatterGame {
       this.deps.sfx.gravelRasp();
     } else if (kind === "ER") {
       this.deps.sfx.mortarGive();
+    } else if (kind === "JE") {
+      // The wall going slack, and it has to be its own: the chime says "you
+      // have a thing", and what the player has to hear here is a wall stopping
+      // being one.
+      this.deps.sfx.jellySlacken();
     } else if (kind === "V") {
       this.deps.sfx.singularityOpen();
     } else if (kind === "VX") {
@@ -4711,6 +4884,8 @@ export class ShatterGame {
     // it never learns whose capsule either of them is.
     this.erosion.load(levelAt(level).rows.length);
     this.grid.erosion = this.erosion;
+    this.sheet.load(levelAt(level).rows.length);
+    this.grid.sheet = this.sheet;
     this.resetServe();
   }
 
@@ -4780,6 +4955,7 @@ export class ShatterGame {
     this.pyreBlasts = [];
     this.erodeBlend = 0;
     this.erosion.reset();
+    this.sheet.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;
@@ -4860,6 +5036,7 @@ export class ShatterGame {
     this.pyreBlasts = [];
     this.erodeBlend = 0;
     this.erosion.reset();
+    this.sheet.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;

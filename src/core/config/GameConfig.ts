@@ -1155,6 +1155,105 @@ export const gameConfig = {
     // in visible steps: the insets are whole pixels, so five of these ticks buy
     // one pixel off each side and the grains are what fills the gap between them.
     erodeTicks: 60,
+    /**
+     * JELLY's sheet. The shape of these numbers came off the prototype the
+     * ticket demanded be written first; the numbers themselves came off the
+     * running game, and the two disagreed by an order of magnitude — see the
+     * note on the strain pair below for what the prototype could not know.
+     *
+     * The gate was **one ball has to be able to make the wall ring**. It can: a
+     * single strike loads a dozen cells and kills none of them, and a rally
+     * bursts bricks at nodes several cells from anything the ball touched, in a
+     * pattern that is a function of where it struck. That last part is the
+     * capsule, and it survived every retune.
+     */
+    // How far the ball drives the sheet in, in pixels, at the middle of the
+    // dimple. Half a brick, which is as far as a brick can move before it stops
+    // reading as the wall and starts reading as a bug — and the same number as
+    // `jellyMaxBend` for that reason.
+    //
+    // It is what the press *sets*, not what the eye then sees off one contact:
+    // the sheet redistributes a lone dimple within a tick or two and it reads
+    // as about three pixels. A wall being worked by a real rally has several
+    // dimples in it at once and does reach the clamp.
+    jellyPressDepth: 6,
+    // The propagation term, `c^2` of the discrete wave equation: 0.25 is a cell
+    // every two ticks, so a front crosses the twelve columns in twenty-four and
+    // re-crosses its own reflection about half a second after the strike. It is
+    // also half the stability ceiling for a five-point Laplacian, which is the
+    // other reason it is not higher.
+    jellySpeed: 0.25,
+    // What the sheet keeps each tick. 0.985 spends a strike's ring over about
+    // two seconds, which is long enough for three crossings and short enough
+    // that six strikes in ten seconds do not compound into a wall that
+    // dissolves on the clock. This is the number the whole capsule is most
+    // sensitive to: at 0.995 the wall comes apart whatever the player does.
+    jellyDamping: 0.985,
+    // How far the sheet may stretch, in pixels either way. Half a brick, and
+    // the thing that actually bounds this capsule — see the note in
+    // `JellySheet.step`. It is also a collision constraint: at six a displaced
+    // brick still overlaps the row it is indexed on, so the hitbox's row band
+    // stays one row wide.
+    jellyMaxBend: 6,
+    // The bend a cell shrugs off, in pixels. A single front passing is about
+    // this tall and earns almost nothing; two fronts crossing add, clear it
+    // easily, and that difference is the entire damage model.
+    jellyStrainThreshold: 1.2,
+    // Strain earned per pixel of bend past the threshold per tick, and given
+    // back per tick regardless.
+    //
+    // **The relaxation is the load-bearing half of this pair**, and it is seven
+    // times what the first cut had. Without it a cell only has to be bent *at
+    // some point* to reach failure, so ten seconds of any ringing at all takes
+    // a wall apart on the clock — 67 % of every wall it was measured against,
+    // against the 35 % these two give. With it a cell has to be bent *and kept
+    // bent*, which is the difference between a wall that dissolves and one the
+    // player is working. It also gives the tell an ending: 0.045 a tick spends
+    // a whole hit's load in sixty-seven, so a corner of the wall that went dark
+    // and was then left alone lightens again over about a second.
+    //
+    // **Tuned against real rallies, because the obvious benchmark was wrong by
+    // an order of magnitude.** A ball that is no longer breaking bricks does
+    // not punch a hole and leave — it rattles along the wall's underside, and a
+    // jellied wall takes 30 to 130 contacts in the ten seconds where a plain
+    // one takes 4 to 11. Over eighteen measured rallies these land the average
+    // tear at about a third of the wall; the spread is wide — nothing on one
+    // rally, nearly all of it on another — and that is the feedback loop rather
+    // than the numbers, since a rally that keeps the ball in the wall keeps
+    // feeding the sheet.
+    jellyStrainGain: 0.4,
+    jellyStrainRelax: 0.045,
+    // Strain to a hit. Three, so a cell shows two notches of load before it
+    // pays one out — and it is a *hit*, not a kill: granite still takes four of
+    // them, through the same damage path a ball uses.
+    jellyStrainPerHit: 3,
+    // What the trampoline gives back, as a ceiling on the level's own speed
+    // rather than a multiplier on whatever the ball happened to be doing.
+    // 1.35 is a bounce the player can feel without the ball outrunning the
+    // deck — and it is a ceiling because a multiplier compounds: see
+    // `reboundOffSheet`.
+    jellyRebound: 1.35,
+    // How fast the painted offset chases the wave, in pixels a tick. Only
+    // binding on a cell coming out of a hold, where snapping to a wave that has
+    // moved on would fire a brick out of the wall at the ball that just left.
+    jellyCatchUp: 2,
+    // The arrival: how long the slack takes to run in from the frames to the
+    // middle, how deep it is, and the period it rings down over. Twenty ticks
+    // of travel and a twelve-tick period is two decaying overshoots per column,
+    // arriving as a rope going slack rather than as a wall dropping.
+    jellyArrivalTicks: 20,
+    jellyArrivalDepth: 5,
+    jellyArrivalPeriod: 12,
+    // The expiry: the last ticks of the capsule, over which the propagation
+    // walks to zero and the amplitude ceiling collapses from the outer columns
+    // inward. Twenty-four rather than the arrival's twenty because it has more
+    // to do — the arrival only has to be seen, and this has to actually stop a
+    // sheet that may be in full swing.
+    jellySettleTicks: 24,
+    // How soft the setting front is, as a fraction of the half-span it crosses.
+    // A quarter: wide enough that the wall stiffens as a sweep rather than as a
+    // line of columns switching off one at a time.
+    jellySetSoftness: 0.25,
     splitTearBurst: {
       chunkCount: 8,
       minChunkSize: 1,

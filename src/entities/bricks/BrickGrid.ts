@@ -17,6 +17,21 @@ export interface WallErosion {
   insetYAt(row: number, column: number): number;
 }
 
+/**
+ * JELLY's sheet, as much of it as the wall needs to know: how far below its own
+ * index row the brick in a cell is hanging, in whole pixels.
+ *
+ * An interface for the reason above it is one. `reach` is the deepest of those
+ * numbers anywhere on the wall, and it is here rather than being derived per
+ * call because it is what decides how many rows a point has to be tested
+ * against — see `cellAt`.
+ */
+export interface WallSheet {
+  rippling: boolean;
+  reach: number;
+  offsetAt(row: number, column: number): number;
+}
+
 export class BrickGrid {
   // How far above its own index row the wall is being painted this frame, fed
   // from `Quake.dropOffset` every tick. Zero except while QUAKE's wall is still
@@ -27,6 +42,11 @@ export class BrickGrid {
   // `cellAt`, beside the offset above and for the same reason: this is the other
   // way the hitbox stops being the plain grid it is indexed on.
   erosion: WallErosion | null = null;
+  // How far each cell is hanging below its index row, or null on a wall nothing
+  // has jellied. The third of the three things that stop the hitbox being the
+  // plain grid it is indexed on, and the only one that can move a brick out of
+  // its own row — which is why `cellAt` below stopped being a single lookup.
+  sheet: WallSheet | null = null;
   private grid: Array<Array<BrickCell | null>> = [];
   private remainingCount = 0;
 
@@ -114,15 +134,59 @@ export class BrickGrid {
    * Which is why `topOffset` belongs here and nowhere else. It is how far above
    * its index the wall is drawn this frame, so the hitbox follows the paint
    * instead of sitting a row below it while QUAKE's wall is still falling.
+   *
+   * **JELLY is why this is a search and no longer a lookup.** `topOffset` moves
+   * the whole wall, so dividing by the brick height still names the one row a
+   * point can be in. A sheet moves each cell by its own amount, and a brick
+   * hanging six pixels into the row below it is in a row the division cannot
+   * name — so the rows within the sheet's deepest reach are tested, each
+   * against where it is actually being painted, and the plain division is only
+   * where that search starts. Off a jellied wall the band is one row wide and
+   * this is the lookup it always was.
    */
   cellAt(x: number, y: number): BrickHit | null {
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
     const withinX = x - left;
     const withinY = y - top + this.topOffset;
-    const row = Math.floor(withinY / brickHeight);
     const column = Math.floor(withinX / brickWidth);
+    const middle = Math.floor(withinY / brickHeight);
+    const band = this.sheet !== null && this.sheet.rippling ? Math.ceil(this.sheet.reach / brickHeight) : 0;
+    // Outward from the row the point would be in on a flat wall, so a cell that
+    // has not moved still answers first: the commonest case on a rippling wall
+    // is still a brick sitting near enough its own row, and two neighbours that
+    // have bent past each other must not take a bounce off it.
+    for (let step = 0; step <= band; step++) {
+      for (const row of step === 0 ? [middle] : [middle - step, middle + step]) {
+        const hit = this.hitAtRow(row, column, withinX, withinY);
+        if (hit !== null) {
+          return hit;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * One candidate row, tested against the rectangle its brick is actually
+   * being painted in.
+   *
+   * The sheet's offset is taken off the point rather than added to the cell,
+   * which is the same arithmetic `topOffset` does a line above and keeps both
+   * displacements in one coordinate space: after this, `offsetY` is where the
+   * point lies inside the brick, whatever has moved it.
+   */
+  private hitAtRow(row: number, column: number, withinX: number, withinY: number): BrickHit | null {
+    const { brickWidth, brickHeight } = gameConfig.grid;
     const hit = this.hitAtCell(row, column);
-    if (hit === null || this.erosion === null || !this.erosion.worn) {
+    if (hit === null) {
+      return null;
+    }
+    const hang = this.sheet?.offsetAt(row, column) ?? 0;
+    const offsetY = withinY - hang - row * brickHeight;
+    if (offsetY < 0 || offsetY >= brickHeight) {
+      return null;
+    }
+    if (this.erosion === null || !this.erosion.worn) {
       return hit;
     }
 
@@ -137,7 +201,6 @@ export class BrickGrid {
     const insetX = this.erosion.insetXAt(row, column);
     const insetY = this.erosion.insetYAt(row, column);
     const offsetX = withinX - column * brickWidth;
-    const offsetY = withinY - row * brickHeight;
     const inside =
       offsetX >= insetX && offsetX < brickWidth - insetX && offsetY >= insetY && offsetY < brickHeight - insetY;
     return inside ? hit : null;
@@ -185,6 +248,11 @@ export class BrickGrid {
    * `cellAt` per cell rather than a bounds test, because ERODE's worn bricks no
    * longer fill their cells and the margin it opens is field: the same rectangle
    * the player can see is the one that gets crushed, at every step of the wear.
+   *
+   * The row band is widened by JELLY's reach for `cellAt`'s reason exactly — a
+   * brick hanging out of its own row is still under the ball — and each cell is
+   * sampled where it is being *painted*, so the point handed to `cellAt` is one
+   * the displaced brick actually occupies.
    */
   findBallOverlaps(ballX: number, ballY: number, size: number): BrickHit[] {
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
@@ -193,10 +261,11 @@ export class BrickGrid {
     const farX = ballX + size - inset;
     const nearY = ballY + inset;
     const farY = ballY + size - inset;
+    const band = this.sheet !== null && this.sheet.rippling ? Math.ceil(this.sheet.reach / brickHeight) : 0;
     const firstColumn = Math.floor((nearX - left) / brickWidth);
     const lastColumn = Math.floor((farX - left) / brickWidth);
-    const firstRow = Math.floor((nearY - top + this.topOffset) / brickHeight);
-    const lastRow = Math.floor((farY - top + this.topOffset) / brickHeight);
+    const firstRow = Math.floor((nearY - top + this.topOffset) / brickHeight) - band;
+    const lastRow = Math.floor((farY - top + this.topOffset) / brickHeight) + band;
 
     const hits: BrickHit[] = [];
     for (let row = firstRow; row <= lastRow; row++) {
@@ -205,10 +274,11 @@ export class BrickGrid {
         // is actually in it — the cell's own span clamped to the box — so a
         // cell the ball only clips at one edge is tested there rather than at
         // a centre the ball never reached.
+        const hang = this.sheet?.offsetAt(row, column) ?? 0;
         const x = Math.min(Math.max(left + column * brickWidth + brickWidth / 2, nearX), farX);
-        const y = Math.min(Math.max(top + row * brickHeight - this.topOffset + brickHeight / 2, nearY), farY);
+        const y = Math.min(Math.max(top + row * brickHeight - this.topOffset + hang + brickHeight / 2, nearY), farY);
         const hit = this.cellAt(x, y);
-        if (hit) {
+        if (hit && !hits.some((found) => found.row === hit.row && found.column === hit.column)) {
           hits.push(hit);
         }
       }

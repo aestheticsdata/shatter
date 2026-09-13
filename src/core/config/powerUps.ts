@@ -365,6 +365,28 @@ export const POWER_UPS = [
   // choice left is two tickets or one. A capsule whose job is to stop you losing
   // a ball has to be met while you are still learning to read one.
   { id: "TR", name: "TRACER", color: "#688a3a", dark: false, ticks: 600, tier: "common", timed: true, blurb: "THE BALL SHOWS WHERE IT LANDS" },
+  // Lime jelly, which is the colour the capsule is about and not a coincidence
+  // worth apologising for. The green quarter holds thirteen pills and is still
+  // open for the reason SNAP's own note gives: what is crowded there is the
+  // *hue* and not the value, and those thirteen sit at thirteen luminances.
+  // This one lands fifth from the top, under BANANA, STASIS, GHOST and NUKE and
+  // over the other eight.
+  //
+  // Measured on a 49-capsule board rather than picked, and it measures better
+  // than the crowding suggests: 72 from MAGNET, 73 from CRITTER and 74 from
+  // STASIS against the 58 bar, 12.2:1 against the darkest field theme — four
+  // times the floor — 124 from the nearest speck, and 104 from the ball. The
+  // nearest trap is BANANA at 78, and the 42 deg of hue between them does the
+  // rest: BANANA is acid yellow and this is a proper green.
+  //
+  // **The three colours that looked better all failed the 58 bar**, which is
+  // what the green quarter being crowded actually costs. A mint (#8cfcc4)
+  // lands 26 from STASIS — it *is* STASIS — and a sea green (#7cf0a0) 40 from
+  // MAGNET. A brighter spring (#a8ff7a) is the near miss worth recording: 57
+  // from CRITTER, under the bar by one, and 58 from BANANA exactly, which is a
+  // trap sitting on the floor of the rule. Pale spring green at hue 114 is the
+  // one point in the family that clears everything at once.
+  { id: "JE", name: "JELLY", color: "#98fc8c", dark: true, ticks: 600, tier: "uncommon", timed: true, blurb: "RIPPLES CROSS · BRICKS BURST" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];
