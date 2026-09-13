@@ -13,16 +13,57 @@
 // roster is a trap precisely because catching it hurts.
 export type PowerUpTier = "common" | "uncommon" | "rare" | "trap";
 
-// Relative odds per tier. Four numbers instead of one per row: weights authored
-// a capsule at a time flatten out — 9 of the first 15 sat at exactly 1, which is
-// no rarity at all. `trap` deliberately outweighs `uncommon`: a trap has to be
-// met often enough to teach its blink, and traps are meant to be roughly 18 % of
-// what drops once the roster is full.
-export const TIER_WEIGHTS: Record<PowerUpTier, number> = {
-  common: 1,
-  uncommon: 0.6,
-  rare: 0.35,
-  trap: 0.7,
+// How many tickets a tier puts in the bag — see `DropBag`, which draws without
+// replacement instead of rolling weighted odds. A tier is a count of copies, not
+// a probability, and it is almost the whole of the rarity system: 62 tickets,
+// about five levels, every capsule out once or twice a pass. Two rows carry an
+// exception, and `POWER_UP_DROP_TICKETS` says why.
+//
+// **Weighted odds were the bug, and no number in this table could have fixed
+// them.** The old spread — common 1, trap 0.7, uncommon 0.6, rare 0.35 — put its
+// commonest capsule at 3.05 % of a roll and its rarest at 1.07 %, which is 2.9x
+// end to end and reads as reasonable. It was not. With 48 rows and a level
+// seeding about 12 capsules, a specific rare averaged one appearance per 94 drops
+// — 8 levels — with nothing bounding the tail: an 8.3 % chance of going 20 levels
+// without a given one, and a 65 % chance that at least one of the twelve was
+// missing over that stretch. That is the arithmetic of a player saying they have
+// never seen a capsule, and they were right.
+//
+// Three rows had already bought their way out with per-row exceptions (DEMAKE,
+// VORTEX, GIANT), and 1-in-33 was the ceiling the roster size imposed on all of
+// them: per-row numbers could only ever redistribute underneath it. GIANT is the
+// one measured case — missed across three levels at `rare`, where missing was
+// 70 % likely. A second miss after its bump to `common` is *not* cited here: the
+// deployed HTML carries no cache header while its assets are immutable, so an
+// open tab keeps the old bundle indefinitely and nobody could confirm which
+// build was being played. A comment is not the place for a number that might be
+// a stale browser.
+//
+// A bag lifts the ceiling by construction rather than by odds. For the nine rares
+// that never had an exception this is a straight win — 1.07 % a roll becomes
+// 1.61 % a draw *and* a guarantee.
+//
+// It is **not** a straight win for a capsule that already had one, and that is
+// worth spelling out because it nearly shipped as a regression. A single ticket
+// is 1.61 % against the 3.05 % an exception bought, and a bag's advantage is all
+// in the tail: over three levels one ticket is 54 % against the exception's 63 %,
+// over four 71 % against 73 %, and it only overtakes from the fifth level on.
+// Most sessions are shorter than that. The guarantee is the fix for the 20-level
+// drought; it is not a licence to take visibility away at the horizon people
+// actually play.
+//
+// `trap` sits at parity with `uncommon` here rather than above it, which is where
+// weights had it. Integer tickets cannot land between 1 and 2: at 2 traps would
+// be 28.6 % of everything that falls, and at 1 they are 16.7 %, near the
+// "roughly 18 %" this comment has named as the intent since the roster was half
+// its size (weights had drifted to 22.3 %). Outweighing `uncommon` was how that
+// number used to be approached, never the goal — and "met often enough to teach
+// its blink" is served better by a guarantee than by a weight.
+export const TIER_TICKETS: Record<PowerUpTier, number> = {
+  common: 2,
+  uncommon: 1,
+  rare: 1,
+  trap: 1,
 };
 
 export interface PowerUpDefinition {
@@ -77,7 +118,8 @@ export interface PowerUpDefinition {
   // Rarity, and for `trap` the malus tell as well — `MALUS_KINDS` below is that
   // tier, and it drives the blinking glyph, the pink catch pop and the womp, so
   // a new trap is one word here rather than three more `=== "J"` branches.
-  // Odds are relative within a roll: whether a brick drops anything at all is
+  // It buys tickets in the bag rather than odds in a roll — see `TIER_TICKETS`.
+  // Whether a brick drops anything at all is a separate coin:
   // `gameConfig.rules.bonusSpreadAmount`.
   tier: PowerUpTier;
   // Whether `PowerUpTimers` counts it down. W (WALL) is a one-shot charge owned
@@ -341,32 +383,37 @@ export const POWER_UP_NAMES: Record<PowerUpKind, string> = byId((definition) => 
  */
 export const POWER_UP_GLYPHS: Record<PowerUpKind, string> = byId((definition) => glyphFor(definition.name));
 export const POWER_UP_DURATIONS: Record<PowerUpKind, number> = byId((definition) => definition.ticks);
-export const POWER_UP_DROP_WEIGHTS: Record<PowerUpKind, number> = {
-  ...byId((definition) => TIER_WEIGHTS[definition.tier]),
-  // Three named exceptions to "rarity is a tier, not a number per row": all
-  // were landing too rarely to enjoy, so each draws above its tier instead of
-  // splitting its tier's number with capsules that mean it. DEMAKE is the trap
-  // that costs nothing but nerve; VORTEX is SINGULARITY's bigger, adrift
-  // cousin. The other 45 rows stay purely tier-derived.
-  D: TIER_WEIGHTS.common,
-  VX: TIER_WEIGHTS.uncommon,
-  // GIANT jumps two classes rather than one, and the numbers are why. At its
-  // own `rare` 0.35 it is 1.09 % of a roll, and a wall seeds about 32 capsules
-  // over the first three levels — so a player meets it in roughly 30 % of
-  // three-level runs and misses it in the other 70. That is not rarity, it is
-  // a capsule most people never see: it was measured after the user played
-  // three levels on the day it shipped and never met it once.
-  //
-  // At `common` it is 3.05 % a roll, 63 % over the same three levels and 28 %
-  // in any single one — met on most runs, still not routine. The tier itself
-  // stays `rare`, because the CAPSULES screen is telling the player how
-  // special the capsule is and it is; this table is telling the wall how often
-  // to hand it over, and those two have been allowed to disagree since DEMAKE.
-  GI: TIER_WEIGHTS.common,
+// Tickets per capsule: tier-derived for 46 of the 48 rows, and two kept back.
+//
+// There were three weight exceptions — DEMAKE, VORTEX and GIANT — each promoted a
+// class because it was "landing too rarely to enjoy". The instinct was to retire
+// all three along with the weighted roll that made them necessary, on the grounds
+// that a guarantee beats a bigger number. For DEMAKE and GIANT that was wrong,
+// and the short-run table above is why: both already draw at a common's weight
+// *in production*, and handing them a rare's single ticket would have quietly
+// revoked visibility the player has today in exchange for a promise about level
+// ten. A capsule the user has twice said they never see is the last place to
+// spend that.
+//
+// So both keep a common's count, which puts them at 3.23 % a draw against the
+// 3.05 % they have live — better at every horizon rather than better eventually —
+// and they still inherit the cap the whole bag gets. The tier stays as authored
+// on both rows: the CAPSULES screen says how special a capsule is and this table
+// says how often the wall hands it over, and those two have been allowed to
+// disagree since DEMAKE.
+//
+// **VORTEX's exception is genuinely gone**, and it is the one that was only ever
+// arithmetic: `uncommon`'s 0.6 was 1.83 % a roll, a rare's ticket is 1.61 % a
+// draw, and two tenths of a percent is not worth a named row when the bag hands
+// it a bound no weight could.
+export const POWER_UP_DROP_TICKETS: Record<PowerUpKind, number> = {
+  ...byId((definition) => TIER_TICKETS[definition.tier]),
+  D: TIER_TICKETS.common,
+  GI: TIER_TICKETS.common,
 };
 
-// Roster order, which is the order the console prints, `rollDropKind` walks and
-// the POWER inset lists live effects in.
+// Roster order, which is the order the console prints, `DropBag` fills itself
+// from and the POWER inset lists live effects in.
 export const POWER_UP_IDS: readonly PowerUpKind[] = POWER_UPS.map((definition) => definition.id);
 
 export const TIMED_KINDS: readonly PowerUpKind[] = POWER_UPS.filter((definition) => definition.timed).map(

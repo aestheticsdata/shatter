@@ -27,7 +27,8 @@ import { Singularity } from "@entities/effects/Singularity";
 import { ShotPool } from "@entities/laser/ShotPool";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
 import { Paddle } from "@entities/paddle/Paddle";
-import { DropPool, rollDropKind } from "@entities/powerups/DropPool";
+import { DropBag } from "@entities/powerups/DropBag";
+import { DropPool } from "@entities/powerups/DropPool";
 import { PowerUpTimers } from "@entities/powerups/PowerUpTimers";
 import { InputController } from "@input/InputController";
 import { zeroPad } from "@shared/format";
@@ -147,11 +148,17 @@ type BrickDamageSource = "ball" | "laser" | "splash" | "chain";
 // A face that is not the one already showing: a reel that repeats itself for a
 // step reads as stuck rather than as spinning.
 //
-// Uniform over `GAMBLE_FACES`, deliberately: the drop weights say how often a
+// Uniform over `GAMBLE_FACES`, deliberately: the bag's tickets say how often a
 // capsule *falls*, and the point of the reel is that the rare things are on the
-// table. That also means a rare capsule turns up here several times more often
-// than it drops, and the ratio moves every time a capsule is invented; re-read
-// it, never assume a percentage.
+// table.
+//
+// Which cuts both ways now, and did not under weights. 38 faces is 2.63 % each
+// against a rare capsule's 1.67 % of a draw — so the drum is 1.58x its drop rate
+// for a rare, and 0.79x for a common, which turns up here *less* often than it
+// falls. Under the old weighted roll a rare was 2.47x and nothing was under 1x,
+// which is why this comment used to say "several times more often". Both ratios
+// move every time a capsule is invented or a tier is retuned; re-read them,
+// never assume a percentage.
 function rollFace(besides: PowerUpKind | null): PowerUpKind {
   const pool = besides === null ? GAMBLE_FACES : GAMBLE_FACES.filter((kind) => kind !== besides);
   return pool[Math.floor(Math.random() * pool.length)];
@@ -397,6 +404,12 @@ export class ShatterGame {
   private readonly grid = new BrickGrid();
   private readonly timers = new PowerUpTimers();
   private readonly dropPool = new DropPool();
+  // Which capsule comes next, for every draw in the run: the wall's seeds,
+  // MAGNET's guarantee and RAIN's shower all take tickets out of this one bag.
+  // `startRun` reshuffles it and nothing else does — a pass is meant to outlast
+  // a level, and one bag per wall would be the weighted roll's drought again
+  // with extra steps.
+  private readonly dropBag = new DropBag();
   private readonly shotPool = new ShotPool();
   private readonly balls: Ball[] = Array.from({ length: MAX_BALLS }, () => new Ball());
   private readonly particles = new ParticleField();
@@ -2840,9 +2853,14 @@ export class ShatterGame {
       this.crumbleBrick(hit);
     }
 
-    // What falls was rolled into the brick when the wall was built, so a capsule
-    // XRAY showed is the capsule that comes out. MAGNET's guarantee still rolls
+    // What falls was drawn into the brick when the wall was built, so a capsule
+    // XRAY showed is the capsule that comes out. MAGNET's guarantee still draws
     // live: it promises the next kill drops something, whichever brick that is.
+    //
+    // That live draw takes `dropExcludes()` like every other one. It did not
+    // while this was a weighted roll, which made the first level's DEMAKE ban a
+    // rule with a hole in it — the one capsule barred from level 1 could still
+    // arrive there out of a magnet.
     //
     // A seeded capsule ignores all of that. The level pinned it, so it comes out
     // of a splash or a chain link exactly as it does out of a ball, and it does
@@ -2852,7 +2870,7 @@ export class ShatterGame {
     const capsule = seeded
       ? hit.cell.capsule
       : isDirectHit(source)
-        ? (hit.cell.capsule ?? (this.guaranteedDrop ? rollDropKind() : null))
+        ? (hit.cell.capsule ?? (this.guaranteedDrop ? this.dropBag.draw(this.dropExcludes()) : null))
         : null;
     if (capsule !== null && this.spawnCapsule(hit, capsule, seeded) && !seeded) {
       // Spent on a capsule that actually got a slot: a full drop pool would
@@ -3306,16 +3324,21 @@ export class ShatterGame {
   }
 
   // One brick's worth of luck, asked for once when the wall is built: whether it
-  // holds a capsule at all, and which one. The odds are the same ones the kill
-  // used to roll — moving them here is what lets XRAY show the truth instead of
-  // a guess.
+  // holds a capsule at all, and which one. Asking here rather than at the kill is
+  // what lets XRAY show the truth instead of a guess.
+  //
+  // The two halves are independent and stay that way: `bonusSpreadAmount` is a
+  // coin per brick, and the bag decides only *which* capsule a winning coin
+  // yields. A wall of 40 bricks therefore spends about 12 tickets, which is what
+  // makes a 60-ticket pass last about five levels.
   private rollBrickCapsule(): PowerUpKind | null {
-    return Math.random() < this.bonusSpreadAmount() ? rollDropKind(this.dropExcludes()) : null;
+    return Math.random() < this.bonusSpreadAmount() ? this.dropBag.draw(this.dropExcludes()) : null;
   }
 
-  // What may not come out of a roll on this level. Every roll goes through it,
-  // the wall's and RAIN's alike — a shower is as much a drop as a brick's is,
-  // and a first-level rule that one of them ignored would not be a rule.
+  // What may not come out of a draw on this level. All three draws go through
+  // it now — the wall's seed, RAIN's shower and MAGNET's guarantee — because a
+  // shower is as much a drop as a brick's is, and a first-level rule that any of
+  // them ignored would not be a rule. The magnet was the one that ignored it.
   private dropExcludes(): readonly PowerUpKind[] {
     return this.level === 0 ? FIRST_LEVEL_EXCLUDES : NO_EXCLUDES;
   }
@@ -3608,7 +3631,7 @@ export class ShatterGame {
       this.destroyBottomRow();
     }
     if (kind === "R") {
-      this.dropPool.rainSpawn(gameConfig.powerUps.rainSpawnCount, this.dropExcludes());
+      this.dropPool.rainSpawn(this.dropBag, gameConfig.powerUps.rainSpawnCount, this.dropExcludes());
     }
     if (kind === "G") {
       this.timers.activate("G", durations.G);
@@ -4479,6 +4502,9 @@ export class ShatterGame {
 
   private startRun(): void {
     this.booted = true;
+    // A fresh pass for a fresh run. Inheriting the tail of the last one would
+    // open the game on whatever the previous player happened not to draw.
+    this.dropBag.reset();
     // The one thing `resetServe()` below will not clear, so the new run clears
     // it here: a save carries across levels, never across runs.
     this.angelCharged = false;

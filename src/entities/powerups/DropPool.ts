@@ -1,8 +1,8 @@
 import { gameConfig } from "@core/config/GameConfig";
-import { POWER_UP_DROP_WEIGHTS, POWER_UP_IDS } from "@core/config/powerUps";
 import { nearestCore } from "@entities/effects/Singularity";
 
 import type { Core } from "@entities/effects/Singularity";
+import type { DropBag } from "@entities/powerups/DropBag";
 import type { PowerUpKind, RectangleBounds } from "@interfaces/types";
 
 export const DROP_WIDTH = 20;
@@ -15,30 +15,9 @@ const NO_EXCLUSIONS: readonly PowerUpKind[] = [];
 // and a shower that dropped nothing else.
 const RAIN_EXCLUDES: readonly PowerUpKind[] = ["R", "MT"];
 
-// `exclude` is a list because capsules that spawn other capsules keep growing:
-// RAIN already bars itself, and this is the shape the ones after it use rather
-// than each widening the signature again.
-//
-// Exported for the wall: bricks are seeded with their capsule when the level is
-// built, so this same weighted roll is what fills them — see `rollBrickCapsule`
-// in `ShatterGame`.
-export function rollDropKind(exclude: readonly PowerUpKind[] = NO_EXCLUSIONS): PowerUpKind {
-  const kinds = exclude.length === 0 ? POWER_UP_IDS : POWER_UP_IDS.filter((kind) => !exclude.includes(kind));
-  const weights = POWER_UP_DROP_WEIGHTS;
-  const total = kinds.reduce((sum, kind) => sum + weights[kind], 0);
-  let roll = Math.random() * total;
-  for (const kind of kinds) {
-    roll -= weights[kind];
-    if (roll <= 0) {
-      return kind;
-    }
-  }
-  return kinds[kinds.length - 1];
-}
-
 // Everything acting on a falling capsule this tick, and what to do with one the
 // core swallows. A capsule-bending effect adds a field here rather than another
-// parameter to `step`, which is why this is a bag and not three arguments.
+// parameter to `step`, which is why this is one object and not three arguments.
 export interface DropField {
   // MAGNET's reach in px, 0 when there is none. The scaled range as a value
   // rather than a flag plus a constant, so the gate the simulation reads and
@@ -149,11 +128,16 @@ export class DropPool {
   // against `RAIN_EXCLUDES` plus whatever the level bars, so a shower can never
   // chain into another one and never smuggles in a capsule the wall could not
   // have dropped here itself.
-  rainSpawn(count: number, exclude: readonly PowerUpKind[] = NO_EXCLUSIONS): number {
-    // Rolled once for the whole shower: the caller's exclusions are a property
+  rainSpawn(bag: DropBag, count: number, exclude: readonly PowerUpKind[] = NO_EXCLUSIONS): number {
+    // Barred once for the whole shower: the caller's exclusions are a property
     // of the level, not of the individual capsule.
+    //
+    // The run's bag is handed in rather than the kinds themselves, because
+    // `RAIN_EXCLUDES` is the shower's own rule and belongs on this side of the
+    // call — the four capsules come off the same pass everything else does, so a
+    // shower spends the bag down exactly as four dead bricks would.
     const barred = exclude.length === 0 ? RAIN_EXCLUDES : [...RAIN_EXCLUDES, ...exclude];
-    return this.spawnAcrossTop(Array.from({ length: count }, () => rollDropKind(barred)));
+    return this.spawnAcrossTop(Array.from({ length: count }, () => bag.draw(barred)));
   }
 
   /**

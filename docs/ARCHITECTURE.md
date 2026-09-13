@@ -16,7 +16,7 @@ under it.
 | Framework | none — no React, no game engine, no ECS                     |
 | Build     | Vite 7 + Lightning CSS                                      |
 | Assets    | none — every sprite, letter and background is drawn in code |
-| Source    | 48 files, ~17 700 lines                                     |
+| Source    | 50 files, ~18 400 lines                                     |
 | Bundle    | 160 kB, 50 kB gzipped                                       |
 | Runtime   | one `<canvas>`, one `<aside>`, ten overlay `<div>`s         |
 | Server    | Fastify + better-sqlite3, one table, two routes             |
@@ -396,29 +396,37 @@ that gate.
 
 ## 7. A capsule, end to end
 
-47 capsules, all but two of them a plain tier lookup in the drop machinery —
-DEMAKE and VORTEX are named weight exceptions, promoted a class above their
-own tier on purpose. The whole roster is still one table.
+48 capsules, every one of them a plain tier lookup in the drop machinery: a tier
+buys tickets in a shuffled bag. 46 of the 48 rows are exactly that; DEMAKE and
+GIANT keep a common's count, because both already drew at a common's weight in
+production and a rare's single ticket would have been worse over the first four
+levels — better eventually is not better. VORTEX's old exception is retired. The
+whole roster is one table.
 
 ```text
   src/core/config/powerUps.ts
   +---------------------------------------------------------------+
-  | { id, name, color, letter, ticks, tier, timed, blurb }  x 47   |
+  | { id, name, color, letter, ticks, tier, timed, blurb }  x 48   |
   +---------------------------------------------------------------+
         |
         |  everything below DERIVES from that table:
         |    PowerUpKind (the union, inferred from the ids)
-        |    POWER_UP_NAMES / _GLYPHS / _DURATIONS / _DROP_WEIGHTS
+        |    POWER_UP_NAMES / _GLYPHS / _DURATIONS / _DROP_TICKETS
         |    TIMED_KINDS · MALUS_KINDS · GAMBLE_FACES
         |    DROP_COLORS + DARK_LETTER_DROP_KINDS in @render/palette
         |    the dev console's roster, the catalogue's entries
+        v
+  DropBag.draw(exclude)                  tickets = TIER_TICKETS[tier]
+        |                                common 2 · uncommon 1 · rare 1 · trap 1
+        |                                DEMAKE and GIANT keep a common's 2
+        |                                62 a pass, drawn without replacement, so
+        |                                every capsule falls inside two passes
         v
   BrickGrid.load()  seeds cells with rollBrickCapsule()
         |
         v  brick destroyed
   DropPool.trySpawn(kind, x, y)          max 6 falling at once
-        |                                weight = TIER_WEIGHTS[tier]
-        |                                common 1 · trap .7 · uncommon .6 · rare .35
+        |
         v
   the pill falls                          [ MAGNET bends it toward the deck ]
         |
@@ -586,7 +594,7 @@ table has a `wear` column: a brick shows one body tone per hit point, so gold
 finally has the third state it has been dying in since it was added.
 
 **A capsule is a row**, as section 7 lays out. Nine fields in, and the union
-type, the glyph, the duration, the drop weight, the palette entry, the timer slot
+type, the glyph, the duration, the drop tickets, the palette entry, the timer slot
 and the catalogue page all come out.
 
 **A background is a name plus a seed.** Eight themes, each painted once at 1× into
@@ -691,15 +699,15 @@ shrinking the field list without pretending the rules are separable.
 
 ## Where to add things
 
-| You want to add    | Edit                                                                                                                  | And that is it                                                                |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| A level            | one entry in [`levels.ts`](../src/core/levels/levels.ts)                                                              | plays, and appears in the LEVELS gallery                                      |
-| A brick            | one row in [`bricks.ts`](../src/core/config/bricks.ts)                                                                | union type, points, hit points, damage ramp and debris tones all derive       |
-| A capsule          | one row in [`powerUps.ts`](../src/core/config/powerUps.ts) + its rule in `ShatterGame` + its tell in `CanvasRenderer` | union type, glyph, weight, timer, palette entry and catalogue page all derive |
-| A combo            | one pair in [`combos.ts`](../src/core/config/combos.ts)                                                               | both halves must be timed capsules                                            |
-| A background theme | a generator in [`backgrounds.ts`](../src/render/backgrounds.ts)                                                       | must pass `pnpm run check:backgrounds`                                        |
-| A sound            | one recipe in [`SoundBank.ts`](../src/audio/SoundBank.ts)                                                             | no file, no import                                                            |
-| A tunable          | one field in [`GameConfig.ts`](../src/core/config/GameConfig.ts)                                                      | one plain knob, no debug/shipped split                                        |
+| You want to add    | Edit                                                                                                                  | And that is it                                                                 |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| A level            | one entry in [`levels.ts`](../src/core/levels/levels.ts)                                                              | plays, and appears in the LEVELS gallery                                       |
+| A brick            | one row in [`bricks.ts`](../src/core/config/bricks.ts)                                                                | union type, points, hit points, damage ramp and debris tones all derive        |
+| A capsule          | one row in [`powerUps.ts`](../src/core/config/powerUps.ts) + its rule in `ShatterGame` + its tell in `CanvasRenderer` | union type, glyph, tickets, timer, palette entry and catalogue page all derive |
+| A combo            | one pair in [`combos.ts`](../src/core/config/combos.ts)                                                               | both halves must be timed capsules                                             |
+| A background theme | a generator in [`backgrounds.ts`](../src/render/backgrounds.ts)                                                       | must pass `pnpm run check:backgrounds`                                         |
+| A sound            | one recipe in [`SoundBank.ts`](../src/audio/SoundBank.ts)                                                             | no file, no import                                                             |
+| A tunable          | one field in [`GameConfig.ts`](../src/core/config/GameConfig.ts)                                                      | one plain knob, no debug/shipped split                                         |
 
 ## Keeping this honest
 
