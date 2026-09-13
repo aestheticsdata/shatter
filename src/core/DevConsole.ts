@@ -7,6 +7,7 @@ import {
   POWER_UPS,
 } from "@core/config/powerUps";
 import { getElementByIdOrThrow } from "@shared/dom";
+import { renderPageIndicator } from "@ui/pagePips";
 
 import type { PowerUpKind } from "@interfaces/types";
 
@@ -35,15 +36,31 @@ const EXAMPLES: readonly (readonly [string, string])[] = [
   ["BONUS 1", "CHANCE A BRICK DROPS A CAPSULE · 1 = ALL"],
   ["GAMBLE NUKE", "PIN WHAT THE REEL LANDS ON · BARE = CHANCE"],
 ];
-const EXAMPLE_WIDTH = 12;
-// The roster is printed in full underneath: fifteen capsules is already more
-// than anyone keeps in their head, and it grows with the registry it is built
-// from. How many fit a row is derived rather than fixed, because the cell is as
-// wide as the longest name and the next capsule may be longer still.
+// The roster is printed underneath, whole, a page at a time: fifty capsules is
+// far more than anyone keeps in their head, and it grows with the registry it is
+// built from. Not one count here is written down — how many cells fit a row is
+// measured against the field, how many rows fit a page comes from the room the
+// chrome leaves, and how many pages there are follows from those two.
 //
-// The budget is the 366px field at this font: 8px Silkscreen plus its 1px
-// letter-spacing measures ~6.3px a character, so 58 is what a row holds.
-const ROSTER_ROW_CHARS = 58;
+// In pixels, and every one of them measured, because Silkscreen is proportional:
+// a space is not a unit of width in it, `SN` and `BLAS` are not two characters
+// apart on screen, and a grid laid out by padding names to a character count
+// comes out staggered in every column. Characters were the wrong unit; this
+// budget is the 366px field less a margin either side.
+const ROSTER_MAX_WIDTH = 348;
+// More than the roster will ever hold — the fit loop counts down from here.
+const MAX_ROSTER_COLUMNS = 8;
+// One gap between every rail, glyph to name and name to the next glyph alike:
+// the pairs are told apart by colour, which does it without spending width.
+const COLUMN_GAP = 7;
+// The roster line, set rather than inherited, because a page is this divided
+// into the room there is — a measured line would make that arithmetic a guess.
+const ROSTER_LINE = 10;
+const ROSTER_GAP = 3;
+// Below this a page is a peephole, not a page, and the console is worth less
+// than the field it covers. Reported rather than fixed: what to give back is a
+// judgement about this screen, and only a person looking at it can make it.
+const MIN_ROSTER_ROWS = 4;
 const CLOSE_HINT = "ENTER APPLIES · ESC OR CLICK CLOSES";
 const UNKNOWN_HINT = "UNKNOWN COMMAND";
 
@@ -58,6 +75,11 @@ const DIVIDER = "width: 210px; height: 2px; background: var(--color-orange);";
 const COMMAND = "font: 400 14px var(--font-pixel); color: var(--color-green); letter-spacing: 1px; white-space: pre;";
 const HINT = "font: 400 8px var(--font-pixel); color: var(--color-dim-text); letter-spacing: 1px;";
 const EXAMPLE = "font: 400 8px var(--font-pixel); color: var(--color-green); letter-spacing: 1px; white-space: pre;";
+// The glyph is what you type and the name is what you are looking for, so they
+// are told apart by colour as well as by column: two rails the eye can pick out
+// of the block without reading a word of it.
+const ROSTER_GLYPH = `font: 400 8px/${ROSTER_LINE}px var(--font-pixel); color: var(--color-sky); letter-spacing: 1px;`;
+const ROSTER_NAME = `font: 400 8px/${ROSTER_LINE}px var(--font-pixel); color: var(--color-green); letter-spacing: 1px;`;
 const ERROR = "font: 400 8px var(--font-pixel); color: var(--color-red); letter-spacing: 1px;";
 
 /**
@@ -79,6 +101,11 @@ export class DevConsole {
   private text = "";
   private error = "";
   private view: ConsoleView | null = null;
+  // Which page of the roster is up and how many there are: written by the render
+  // that measures the room for them, read by the arrows that turn them.
+  private page = 0;
+  private pageCount = 1;
+  private fitReported = false;
 
   constructor(private readonly host: DevConsoleHost) {}
 
@@ -112,6 +139,12 @@ export class DevConsole {
     }
     if (event.key === "Escape") {
       this.close();
+      return;
+    }
+    // The same two keys that turn the LEVELS and CAPSULES pages turn these.
+    // Neither is typable, so the command line pays nothing for them.
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      this.turnPage(event.key === "ArrowLeft" ? -1 : 1);
       return;
     }
     if (event.key === "Backspace") {
@@ -245,19 +278,99 @@ export class DevConsole {
     return null;
   }
 
+  // Wrapping both ways, as the catalogue's pages do, and kept across opens: the
+  // page you were reading is the page you closed the console to go and test.
+  private turnPage(step: number): void {
+    if (this.pageCount < 2) {
+      return;
+    }
+    this.page = (this.page + step + this.pageCount) % this.pageCount;
+    this.render();
+  }
+
   private render(): void {
     this.view ??= buildView();
-    this.view.root.hidden = !this.opened;
-    this.view.command.textContent = `>${this.text.toUpperCase()}`;
-    this.view.status.textContent = this.error || CLOSE_HINT;
-    this.view.status.style.cssText = this.error ? ERROR : HINT;
+    const view = this.view;
+    view.root.hidden = !this.opened;
+    view.command.textContent = `>${this.text.toUpperCase()}`;
+    view.status.textContent = this.error || CLOSE_HINT;
+    view.status.style.cssText = this.error ? ERROR : HINT;
+    // A hidden modal has no height to divide into pages, and nobody to show one to.
+    if (this.opened) {
+      this.renderRoster(view);
+    }
+  }
+
+  /**
+   * The roster, cut to the room the chrome left it.
+   *
+   * How many rows a page holds is the region's height divided by the line, never
+   * a number written down: the region is the only child of the modal that
+   * flexes, so a line added above it costs a roster row instead of pushing the
+   * heading off the top of the field. How many pages that makes follows from the
+   * registry's own length, so a capsule invented tomorrow files itself onto one.
+   */
+  private renderRoster(view: ConsoleView): void {
+    const capacity = Math.max(1, Math.floor((view.roster.clientHeight + ROSTER_GAP) / (ROSTER_LINE + ROSTER_GAP)));
+    const total = Math.ceil(ROSTER_CELLS.length / view.columns);
+    this.pageCount = Math.max(1, Math.ceil(total / capacity));
+    // Spread over the pages there are rather than filled to the brim and then
+    // spilled: at 49 capsules the room holds ten rows, which is one page of ten
+    // and one of three. Two pages of seven is the same two pages, and turning to
+    // the second no longer feels like walking off the end of the list.
+    const rows = Math.ceil(total / this.pageCount);
+    const perPage = rows * view.columns;
+    this.page = Math.min(this.page, this.pageCount - 1);
+    const first = this.page * perPage;
+    view.roster.replaceChildren(...rosterElements(ROSTER_CELLS.slice(first, first + perPage)));
+    renderPageIndicator(view, this.page, this.pageCount);
+    this.reportFit(view, capacity);
+  }
+
+  /**
+   * The guard this screen earned. It has outgrown the field twice, and both
+   * times the tell was a heading sliced off the top rather than anything that
+   * said so — noticed once at 40 capsules, and again at 49.
+   *
+   * Asked at the first open rather than from `main.ts`, which cannot measure a
+   * modal that does not exist yet: the console is built lazily and has no height
+   * until it is on screen. Once a session, because the answer cannot change
+   * between two keystrokes and an error a line long should not repeat itself.
+   */
+  private reportFit(view: ConsoleView, rows: number): void {
+    if (this.fitReported) {
+      return;
+    }
+    this.fitReported = true;
+
+    const overflow = view.root.scrollHeight - view.root.clientHeight;
+    if (overflow > 0) {
+      console.error(
+        `[devconsole] the chrome wants ${view.root.scrollHeight}px of a ${view.root.clientHeight}px field ` +
+          `— ${overflow}px of it has to go, and the roster has none left to give`,
+      );
+    }
+    if (rows < MIN_ROSTER_ROWS) {
+      console.error(
+        `[devconsole] ${rows} roster row(s) fit under the chrome: ` +
+          `${ROSTER_CELLS.length} capsules over ${this.pageCount} pages is a peephole, not a list`,
+      );
+    }
   }
 }
 
+// The three the shared page indicator writes into are named as it names them,
+// so the view is the thing handed to it.
 interface ConsoleView {
   root: HTMLDivElement;
   command: HTMLSpanElement;
   status: HTMLDivElement;
+  roster: HTMLDivElement;
+  // How many capsules the fitted grid puts on a row. Measured once, at build.
+  columns: number;
+  pages: HTMLDivElement;
+  count: HTMLSpanElement;
+  arrows: HTMLSpanElement;
 }
 
 // Built on first open and kept: the modal is a sibling of the game's own screens,
@@ -265,14 +378,21 @@ interface ConsoleView {
 function buildView(): ConsoleView {
   const root = styled("div", "");
   root.className = "field-overlay";
-  // 4px, not the pause screen's roomier spacing: the roster is as tall as the
-  // registry is long, and the whole modal has to stay inside the 297px overlay
-  // or its heading and its last rows hang off the field. At 10px and 40
-  // capsules it did exactly that — 318px of content in 297px of room, with the
-  // heading clipped off the top — so this and the two lists below were
-  // tightened. Measured, not guessed: 280px of content, 17px spare, which is
-  // one more roster row and so about five more capsules.
-  root.style.gap = "4px";
+  // The heading is pinned to the top of the field and the roster takes whatever
+  // is left. The overlay centres its children, so a stack that outgrew its 297px
+  // used to spill equally both ways, and the first thing over the edge was the
+  // heading — twice, at 40 capsules and at 49, each time answered by tightening
+  // a gap. Nothing below the heading can push it now, because the one child that
+  // grows with the registry is no longer allowed to grow at all: it pages.
+  //
+  // So the spacing is back to something that reads rather than something that
+  // fits, and the roster is the only thing that pays for a line added up here.
+  //
+  // `border-box` is load-bearing: the overlay is 297px of content box, so inline
+  // padding on it would hang 13px of console off the bottom of the field — and
+  // silently, because a modal that grows is not a modal that overflows and the
+  // guard below would have had nothing to report.
+  root.style.cssText = "box-sizing: border-box; justify-content: flex-start; gap: 8px; padding: 8px 0 7px;";
 
   const commandLine = styled("div", COMMAND);
   const command = document.createElement("span");
@@ -281,20 +401,44 @@ function buildView(): ConsoleView {
   caret.textContent = "_";
   commandLine.append(command, caret);
 
-  const examples = styled("div", "display: flex; flex-direction: column; gap: 4px;");
+  // A grid here too, and for the same reason the roster is one: these were
+  // padded to twelve characters, which in a proportional face started the four
+  // hints at four different places. Two tracks start them at one.
+  const examples = styled(
+    "div",
+    `display: grid; grid-template-columns: auto auto; row-gap: 6px;` +
+      ` column-gap: ${COLUMN_GAP}px; justify-items: start;`,
+  );
   for (const [example, effect] of EXAMPLES) {
-    const row = styled("div", "");
-    row.append(styled("span", EXAMPLE, example.padEnd(EXAMPLE_WIDTH)), styled("span", HINT, effect));
-    examples.append(row);
+    examples.append(styled("span", EXAMPLE, example), styled("span", HINT, effect));
   }
 
-  // `flex-start`, so the columns line up: the rows are ragged (each ends where
-  // its last cell does), and centring them one by one would stagger the grid.
-  // The roster as a block is still centred, by the overlay itself.
-  const roster = styled("div", "display: flex; flex-direction: column; gap: 3px; align-items: flex-start;");
-  for (const row of rosterRows()) {
-    roster.append(styled("div", EXAMPLE, row));
-  }
+  // Two things at once. `flex: 1` with nothing to overflow into makes the region
+  // as tall as the field minus the chrome, whatever the chrome comes to, and the
+  // rows that fit are counted at render.
+  //
+  // And a grid, rather than lines of text padded out with spaces. A capsule's
+  // glyph and its name are separate elements in tracks of their own, so they
+  // line up because the browser lays them out on a rail — not because a count of
+  // characters was hoped to be a count of pixels, which in a proportional face
+  // it is not: that is what left every column of the old roster staggered.
+  const roster = styled(
+    "div",
+    `display: grid; grid-auto-rows: ${ROSTER_LINE}px; row-gap: ${ROSTER_GAP}px; column-gap: ${COLUMN_GAP}px;` +
+      " align-content: start; justify-items: start; flex: 1; min-height: 0; overflow: hidden;",
+  );
+
+  // The indicator the paged screens share, in the order they lay it out and
+  // built from their classes — which ship already, for those screens, so the
+  // console borrows the look of the game without adding a byte to it.
+  const pages = styled("div", "");
+  pages.className = "screen-pages";
+  const count = styled("span", "");
+  count.className = "screen-count";
+  const arrows = styled("span", "", "← →");
+  arrows.className = "screen-arrows";
+  const pager = styled("div", "display: flex; align-items: center; gap: 7px;");
+  pager.append(pages, count, arrows);
 
   const status = styled("div", HINT);
   root.append(
@@ -304,11 +448,26 @@ function buildView(): ConsoleView {
     examples,
     status,
     styled("div", DIVIDER),
-    styled("div", HINT, "CAPSULES"),
+    // The count is the one fact the list itself cannot tell you at a glance,
+    // now that it is only ever a page of it.
+    styled("div", HINT, `CAPSULES · ${POWER_UPS.length}`),
     roster,
+    pager,
   );
   getElementByIdOrThrow("stage").append(root);
-  return { root, command, status };
+
+  // The whole geometry of the grid is settled here, once, with every capsule in
+  // it — the only moment the entire roster is on screen to be measured.
+  const columns = fitColumns(roster);
+  // The used track sizes, read back off the layout and written down. `auto`
+  // tracks size to what is in them, so the page holding SINGULARITY would set
+  // its columns one way and the page holding PYRE another, and the table would
+  // shift under you as you turned it. Pinned, every page is the same table.
+  roster.style.gridTemplateColumns = getComputedStyle(roster).gridTemplateColumns;
+  roster.style.width = `${roster.scrollWidth + 1}px`;
+  roster.replaceChildren();
+
+  return { root, command, status, roster, columns, pages, count, arrows };
 }
 
 function styled<K extends keyof HTMLElementTagNameMap>(
@@ -361,37 +520,46 @@ function isPowerUpKind(id: string): id is PowerUpKind {
   return Object.hasOwn(POWER_UP_BY_ID, id);
 }
 
-// "WI WIDE  MU MULTI  LA LASER  ..." — the whole roster, laid out in a grid the
-// 366px field can hold, built from the registry so a new capsule appears by
-// itself. The glyph, not the id: what is printed here is what a pill says, and
-// an id is an internal name the player has never seen.
-function rosterRows(): string[] {
-  const cells = POWER_UPS.map((definition) => `${POWER_UP_GLYPHS[definition.id]} ${definition.name}`);
-  for (let columns = cells.length; columns > 1; columns--) {
-    const rows = rosterGrid(cells, columns);
-    if (Math.max(...rows.map((row) => row.length)) <= ROSTER_ROW_CHARS) {
-      return rows;
-    }
-  }
-  return rosterGrid(cells, 1);
+// A capsule as the roster prints it. The glyph, not the id: what is printed here
+// is what a pill says, and an id is an internal name the player has never seen.
+interface RosterCell {
+  glyph: string;
+  name: string;
 }
 
-// Row-major, each column only as wide as its own longest cell: padding all of
-// them to SINGULARITY's length costs a whole column, and the roster is already
-// the tallest thing on the modal.
-function rosterGrid(cells: readonly string[], columns: number): string[] {
-  const widths = Array.from({ length: columns }, (_, column) =>
-    Math.max(...cells.filter((cell, index) => index % columns === column).map((cell) => cell.length)),
-  );
-  const rows: string[] = [];
-  for (let index = 0; index < cells.length; index += columns) {
-    rows.push(
-      cells
-        .slice(index, index + columns)
-        .map((cell, column) => cell.padEnd(widths[column]))
-        .join(" ")
-        .trimEnd(),
-    );
+// By name, not by the order the registry happens to list them in. Looking one up
+// is the only thing anybody does with this list — you come here because you know
+// there is a capsule called something like SNAP, not because you know it was the
+// forty-third one written.
+const ROSTER_CELLS: readonly RosterCell[] = POWER_UPS.map((definition) => ({
+  glyph: POWER_UP_GLYPHS[definition.id],
+  name: definition.name,
+})).toSorted((left, right) => left.name.localeCompare(right.name));
+
+// The most columns the field will hold, found by laying the whole roster out at
+// each width and measuring it. Tried widest-first and taken at the first fit.
+//
+// Measured rather than counted, and this is the lesson the screen was rebuilt
+// around: `SN SNAP` and `BLAS BLACKOUT` are two characters apart in a string and
+// nowhere near two characters apart on screen, so no amount of padding puts them
+// on the same rail. The browser knows the widths; ask it.
+function fitColumns(roster: HTMLDivElement): number {
+  for (let columns = MAX_ROSTER_COLUMNS; columns > 1; columns--) {
+    // Two tracks a capsule: the glyphs of a column share one and the names the
+    // other, each `auto` and so as wide as its own longest entry — the narrowest
+    // grid in which everything still lines up.
+    roster.style.gridTemplateColumns = `repeat(${columns}, auto auto)`;
+    roster.replaceChildren(...rosterElements(ROSTER_CELLS));
+    if (roster.scrollWidth <= ROSTER_MAX_WIDTH) {
+      return columns;
+    }
   }
-  return rows;
+  roster.style.gridTemplateColumns = "auto auto";
+  roster.replaceChildren(...rosterElements(ROSTER_CELLS));
+  return 1;
+}
+
+// A capsule is two elements, never two words in a padded string.
+function rosterElements(cells: readonly RosterCell[]): HTMLElement[] {
+  return cells.flatMap((cell) => [styled("span", ROSTER_GLYPH, cell.glyph), styled("span", ROSTER_NAME, cell.name)]);
 }
