@@ -35,16 +35,23 @@ const TYPABLE = /^[a-z0-9 .]$/i;
 // in use, and the reader who did not already know the command learns nothing
 // about what else it would take. A slot says there is a slot.
 //
-// `<XX>` is a capsule, and it is the same `<XX>` in both places it appears: the
-// glyph off the roster below, or the name beside it, or the id. Written as two
-// letters because that is what the pills say and what the roster's left rail is
-// almost entirely made of — the handful that run to three or four (MIR, BLAS)
-// the list itself shows better than a wider placeholder would.
+// `<CAPSULE>` is the same slot in both places it appears: the glyph off the
+// roster below, or the name beside it, or the id — `power MU`, `power MULTI` and
+// `power M` are one capsule. Spelled out rather than drawn as the two letters a
+// pill carries, which would be accurate for 47 of the 49 (BLAS and BLAC are the
+// exceptions) and still wrong: a slot shaped like a glyph says a glyph is the
+// only thing that goes in it, and the roster's right rail is there to be typed
+// too. It is also the word already on screen a few lines down, so the reader is
+// told where to look without a line spent saying so.
+//
+// The nineteen pixels it costs the command column come out of the BONUS hint,
+// which said `1 = EVERY BRICK` where `1 = ALWAYS` says the same thing: the hint
+// has already named the brick by then.
 const EXAMPLES: readonly (readonly [string, string])[] = [
-  ["POWER <XX>", "DROP THAT CAPSULE · CATCH IT YOURSELF"],
+  ["POWER <CAPSULE>", "DROP THAT CAPSULE · CATCH IT YOURSELF"],
   ["LEVEL <N>", "JUMP TO THAT LEVEL"],
-  ["BONUS <0-1>", "CHANCE A BRICK DROPS ONE · 1 = EVERY BRICK"],
-  ["GAMBLE <XX>", "PIN WHAT GAMBLE PAYS · BARE = UNPIN"],
+  ["BONUS <0-1>", "CHANCE A BRICK DROPS ONE · 1 = ALWAYS"],
+  ["GAMBLE <CAPSULE>", "PIN WHAT GAMBLE PAYS · BARE = UNPIN"],
 ];
 // The roster is printed underneath, whole, a page at a time: fifty capsules is
 // far more than anyone keeps in their head, and it grows with the registry it is
