@@ -13,55 +13,55 @@ How it is built — the loop, the module graph, the capsule pipeline, all drawn 
 - **Per-level backgrounds**: eight playfield themes (starfield, nebula haze, blueprint grid, sunrise horizon, gas giant, circuit board, CRT cathode, stone vault), assigned so no two consecutive levels look alike, each seeded per level so the levels sharing a theme still differ. Every theme is static and stays darker than the sprite palette — a `check:backgrounds` script enforces it.
 - **Power-ups** dropped by destroyed bricks, each catch acknowledged by a floating label at the paddle. How often a brick drops anything at all is `bonusSpreadAmount`; _which_ capsule it drops is drawn from a shuffled bag rather than rolled against weights, and the two are independent. The rarity tier below buys tickets in that bag — two for a common, one for everything else, plus DEMAKE and GIANT which keep a common's two — so a pass is 64 tickets and every capsule in the roster falls once or twice inside it. Nothing can go missing for longer than two passes, roughly five levels on average and eleven at the worst; a `check:drops` script enforces it. One capsule is not left to the bag at all: **the first level always holds a DEMAKE**, seeded into its wall rather than rolled for.
 
-  |        | Capsule     | Effect                                                                                      | Duration   | Rarity   |
-  | ------ | ----------- | ------------------------------------------------------------------------------------------- | ---------- | -------- |
-  | `WI`   | WIDE        | wider paddle                                                                                | 12 s       | common   |
-  | `MU`   | MULTI       | more balls, stacking 3 → 6 → 9                                                              | instant    | common   |
-  | `LA`   | LASER       | paddle cannons                                                                              | 12 s       | common   |
-  | `BLAS` | BLAST       | ball kills damage the 8 neighbours                                                          | 12 s       | common   |
-  | `TE`   | TEMPO       | bullet-time, balls at ×0.6                                                                  | 8 s        | common   |
-  | `GL`   | GLUE        | balls stick to the paddle; click or Space releases                                          | 12 s       | common   |
-  | `ST`   | STASIS      | every ball stops in mid-air; the paddle keeps going                                         | 1.5 s      | common   |
-  | `HO`   | HOMING      | balls curve toward the nearest live brick                                                   | 8 s        | common   |
-  | `MI`   | MIRROR      | a ghost paddle rides the top of the field                                                   | 10 s       | common   |
-  | `CH`   | CHAIN       | ball kills arc lightning to bricks they don't touch                                         | 10 s       | uncommon |
-  | `MA`   | MAGNET      | the paddle vacuums falling capsules in, traps too                                           | 12 s       | common   |
-  | `SI`   | SINGULARITY | a black hole bends every ball and eats capsules                                             | 6 s        | uncommon |
-  | `PO`   | PORTAL      | a ball leaving one side wall arrives out of the other                                       | 30 s       | uncommon |
-  | `BU`   | BUMPERS     | five pinball discs under the grid, 100 points a kick                                        | 12 s       | uncommon |
-  | `PI`   | PIERCE      | ball goes through bricks                                                                    | 8 s        | uncommon |
-  | `WA`   | WALL        | safety barrier along the bottom                                                             | one save   | uncommon |
-  | `PA`   | PAYDAY      | points ×2                                                                                   | 10 s       | uncommon |
-  | `ZA`   | ZAP         | vaporizes the bottom-most brick row                                                         | instant    | uncommon |
-  | `QU`   | QUAKE       | the bottom row dies, the rest slide down, field shakes                                      | instant    | uncommon |
-  | `RA`   | RAIN        | a shower of 4 fresh capsules from the top                                                   | instant    | uncommon |
-  | `CR`   | CRITTER     | a grub walks the grid eating a brick every 0.3 s                                            | 15 s       | uncommon |
-  | `GA`   | GAMBLE      | a one-second reel lands on a random bonus (or DEMAKE)                                       | one spin   | uncommon |
-  | `NU`   | NUKE        | a shockwave destroys every brick, full points                                               | instant    | rare     |
-  | `SW`   | SWARM       | 12 balls at once                                                                            | instant    | rare     |
-  | `1U`   | 1UP         | extra life, max 6                                                                           | instant    | rare     |
-  | `XW`   | XWIDE       | twice the WIDE deck, 144 px of paddle                                                       | 12 s       | rare     |
-  | `XR`   | XRAY        | every brick shows the capsule it is holding                                                 | 5 s        | rare     |
-  | `ME`   | METEOR      | three meteors drill three lanes through the wall                                            | instant    | rare     |
-  | `TU`   | TURBO       | every ball at ×1.5 and every point tripled                                                  | 10 s       | rare     |
-  | `AN`   | ANGEL       | catches the ball you were about to lose, once                                               | one save   | rare     |
-  | `FU`   | FUSE        | completes a combo: the missing half, or a whole pair                                        | one fusion | uncommon |
-  | `GH`   | GHOST       | **trap** — the wall goes intangible; the ball flies through                                 | 5 s        | trap     |
-  | `SP`   | SPLIT       | **trap** — the deck breaks in two, hole down the middle                                     | 6 s        | trap     |
-  | `RU`   | RUSH        | **trap** — every ball at ×1.8                                                               | 5 s        | trap     |
-  | `BO`   | BOMB        | catching it blows the paddle up: you lose a life                                            | instant    | trap     |
-  | `JA`   | JAMMER      | **trap** — shrinks the paddle                                                               | 6 s        | trap     |
-  | `BA`   | BANANA      | **trap** — throws a peel on the rail; sweeping it hands the deck to momentum for a second   | 10 s peel  | trap     |
-  | `DE`   | DEMAKE      | **trap** — the machine downgrades itself to a 1-bit green phosphor tube                     | 8 s        | trap     |
-  | `BLAC` | BLACKOUT    | **trap** — the lights go out; a pool of light travels with each ball, a dim one on the deck | 20 s       | trap     |
-  | `FL`   | FLIP        | **trap** — the whole playfield turns over, mouse and all                                    | 8 s        | trap     |
-  | `HA`   | HAYWIRE     | **trap** — the balls' guidance fails: a kick off course four times a second                 | 5 s        | trap     |
-  | `EN`   | ENGLISH     | whip the deck as it hits and the ball leaves on a curve                                     | 20 s       | rare     |
-  | `SN`   | SNAP        | every rebound leaves on one of the four 45° diagonals                                       | 12 s       | common   |
-  | `ER`   | ERODE       | the mortar goes and the wall opens into lanes the ball can thread                           | 12 s       | rare     |
-  | `PY`   | PYRE        | it lights your spare balls; a click burns one as a grenade, 13 bricks a crater              | 10 s       | uncommon |
-  | `GR`   | GRAVEL      | every brick you kill crumbles into chips the deck can catch for 30 each                     | 12 s       | common   |
-  | `GI`   | GIANT       | the ball swells to three times across and crushes every brick it lands on, plus the ring    | 8 s        | rare     |
+  |        | Capsule     | Effect                                                                                                         | Duration   | Rarity   |
+  | ------ | ----------- | -------------------------------------------------------------------------------------------------------------- | ---------- | -------- |
+  | `WI`   | WIDE        | wider paddle                                                                                                   | 12 s       | common   |
+  | `MU`   | MULTI       | more balls, stacking 3 → 6 → 9                                                                                 | instant    | common   |
+  | `LA`   | LASER       | paddle cannons                                                                                                 | 12 s       | common   |
+  | `BLAS` | BLAST       | ball kills damage the 8 neighbours                                                                             | 12 s       | common   |
+  | `TE`   | TEMPO       | bullet-time, balls at ×0.6                                                                                     | 8 s        | common   |
+  | `GL`   | GLUE        | balls stick to the paddle; click or Space releases                                                             | 12 s       | common   |
+  | `ST`   | STASIS      | every ball stops in mid-air; the paddle keeps going                                                            | 1.5 s      | common   |
+  | `HO`   | HOMING      | balls curve toward the nearest live brick                                                                      | 8 s        | common   |
+  | `MI`   | MIRROR      | a ghost paddle rides the top of the field                                                                      | 10 s       | common   |
+  | `CH`   | CHAIN       | ball kills arc lightning to bricks they don't touch                                                            | 10 s       | uncommon |
+  | `MA`   | MAGNET      | the paddle vacuums falling capsules in, traps too                                                              | 12 s       | common   |
+  | `SI`   | SINGULARITY | a black hole bends every ball and eats capsules                                                                | 6 s        | uncommon |
+  | `PO`   | PORTAL      | a ball leaving one side wall arrives out of the other                                                          | 30 s       | uncommon |
+  | `BU`   | BUMPERS     | five pinball discs under the grid, 100 points a kick                                                           | 12 s       | uncommon |
+  | `PI`   | PIERCE      | ball goes through bricks                                                                                       | 8 s        | uncommon |
+  | `WA`   | WALL        | safety barrier along the bottom                                                                                | one save   | uncommon |
+  | `PA`   | PAYDAY      | points ×2                                                                                                      | 10 s       | uncommon |
+  | `ZA`   | ZAP         | vaporizes the bottom-most brick row                                                                            | instant    | uncommon |
+  | `QU`   | QUAKE       | the bottom row dies, the rest slide down, field shakes                                                         | instant    | uncommon |
+  | `RA`   | RAIN        | a shower of 4 fresh capsules from the top                                                                      | instant    | uncommon |
+  | `CR`   | CRITTER     | a grub walks the grid eating a brick every 0.3 s                                                               | 15 s       | uncommon |
+  | `GA`   | GAMBLE      | a one-second reel lands on a random bonus (or DEMAKE)                                                          | one spin   | uncommon |
+  | `NU`   | NUKE        | a shockwave destroys every brick, full points                                                                  | instant    | rare     |
+  | `SW`   | SWARM       | 12 balls at once                                                                                               | instant    | rare     |
+  | `1U`   | 1UP         | extra life, max 6                                                                                              | instant    | rare     |
+  | `XW`   | XWIDE       | twice the WIDE deck, 144 px of paddle                                                                          | 12 s       | rare     |
+  | `XR`   | XRAY        | every brick shows the capsule it is holding                                                                    | 5 s        | rare     |
+  | `ME`   | METEOR      | three meteors drill three lanes through the wall                                                               | instant    | rare     |
+  | `TU`   | TURBO       | every ball at ×1.5 and every point tripled                                                                     | 10 s       | rare     |
+  | `AN`   | ANGEL       | catches the ball you were about to lose, once                                                                  | one save   | rare     |
+  | `FU`   | FUSE        | completes a combo: the missing half, or a whole pair                                                           | one fusion | uncommon |
+  | `GH`   | GHOST       | **trap** — the wall goes intangible; the ball flies through                                                    | 5 s        | trap     |
+  | `SP`   | SPLIT       | **trap** — the deck breaks in two, hole down the middle                                                        | 6 s        | trap     |
+  | `RU`   | RUSH        | **trap** — every ball at ×1.8                                                                                  | 5 s        | trap     |
+  | `BO`   | BOMB        | catching it blows the paddle up: you lose a life                                                               | instant    | trap     |
+  | `JA`   | JAMMER      | **trap** — shrinks the paddle                                                                                  | 6 s        | trap     |
+  | `BA`   | BANANA      | **trap** — throws two or three peels, never all one side; sweeping one hands the deck to momentum for a second | 10 s peels | trap     |
+  | `DE`   | DEMAKE      | **trap** — the machine downgrades itself to a 1-bit green phosphor tube                                        | 8 s        | trap     |
+  | `BLAC` | BLACKOUT    | **trap** — the lights go out; a pool of light travels with each ball, a dim one on the deck                    | 20 s       | trap     |
+  | `FL`   | FLIP        | **trap** — the whole playfield turns over, mouse and all                                                       | 8 s        | trap     |
+  | `HA`   | HAYWIRE     | **trap** — the balls' guidance fails: a kick off course four times a second                                    | 5 s        | trap     |
+  | `EN`   | ENGLISH     | whip the deck as it hits and the ball leaves on a curve                                                        | 20 s       | rare     |
+  | `SN`   | SNAP        | every rebound leaves on one of the four 45° diagonals                                                          | 12 s       | common   |
+  | `ER`   | ERODE       | the mortar goes and the wall opens into lanes the ball can thread                                              | 12 s       | rare     |
+  | `PY`   | PYRE        | it lights your spare balls; a click burns one as a grenade, 13 bricks a crater                                 | 10 s       | uncommon |
+  | `GR`   | GRAVEL      | every brick you kill crumbles into chips the deck can catch for 30 each                                        | 12 s       | common   |
+  | `GI`   | GIANT       | the ball swells to three times across and crushes every brick it lands on, plus the ring                       | 8 s        | rare     |
 
   **GAMBLE hands the decision to a machine.** Catching it opens a framed reel over your deck that turns ten faces in a second, lands on one, holds it for a fifth of a second, and then fires it — a NUKE, a SWARM, an extra life, anything on the roster **except itself and except the traps**. A lottery you cannot stop may not punish you for playing it: catching a capsule that shrinks your deck is a decision you made, and the same thing arriving out of a drum you had no hand in is only the game taking a turn against you. The exclusion is the `trap` tier itself, so it keeps itself current as traps are invented — with **one named exception, DEMAKE**, which stays on the drum because it is the trap that costs nothing but nerve: the machine drops to a 1-bit tube and the game underneath is untouched. BLACKOUT and FLIP are presentation-only in the same way and are not on it; both genuinely take the ball away from you while they last. The faces are **uniform over what is left**, not proportional to how often each capsule drops: the bag's tickets say how often a capsule _falls_, and the point of the reel is that the rare things are on the table. With 38 faces that is 2.6 % each against a rare capsule's 1.7 % of a draw, so the drum runs about 1.6× a rare's drop rate — and about 0.8× a common's, which turns up here _less_ often than it falls. Both ratios move every time a capsule is invented. The reel is drawn on the field rather than in the POWER inset, because the reel _is_ the effect and a player watching the panel would miss the one second it exists — and it is the one capsule with no catch pop, since the label and the drum would print over each other. A spin still turning when the level clears or the ball drains dies with the rest of the run state.
 

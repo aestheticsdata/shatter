@@ -159,7 +159,7 @@ export interface PowerUpDefinition {
   //   MULTI     3 s is how long the POWER inset names it; the balls stay
   //   SWARM     the same
   //   CRITTER   the grub lives `powerUps.critter.lifeTicks`, not `ticks`
-  //   BANANA    the catch is instant, the peel it leaves is not
+  //   BANANA    the catch is instant, the peels it leaves are not
   //
   // Authored, and the one thing on this screen that can drift: it is prose, and
   // this module imports nothing, so it cannot read the config those last three
@@ -209,7 +209,7 @@ export const POWER_UPS = [
   { id: "MT", name: "METEOR", color: "#c84b19", dark: false, ticks: 0, tier: "rare", timed: false, blurb: "THREE METEORS DRILL THE WALL" },
   { id: "SP", name: "SPLIT", color: "#e0607a", dark: false, ticks: 360, tier: "trap", timed: true, blurb: "THE DECK BREAKS AROUND A HOLE" },
   { id: "VX", name: "VORTEX", color: "#b000fc", dark: false, ticks: 720, tier: "rare", timed: true, blurb: "A BIGGER BLACK HOLE, ADRIFT" },
-  { id: "BN", name: "BANANA", color: "#e2fe74", dark: true, ticks: 0, tier: "trap", timed: false, blurb: "A PEEL SKIDS THE DECK", lasts: "10 S PEEL" },
+  { id: "BN", name: "BANANA", color: "#e2fe74", dark: true, ticks: 0, tier: "trap", timed: false, blurb: "PEELS SKID THE DECK", lasts: "10 S PEELS" },
   { id: "D", name: "DEMAKE", color: "#00d200", dark: true, ticks: 480, tier: "trap", timed: true, blurb: "THE MACHINE DROPS TO 1-BIT" },
   { id: "BK", name: "BLACKOUT", color: "#6998f7", dark: true, ticks: 1200, tier: "trap", timed: true, blurb: "LIGHTS OUT · THE BALL GLOWS" },
   { id: "F", name: "FLIP", color: "#ff1aff", dark: true, ticks: 480, tier: "trap", timed: true, blurb: "THE WHOLE FIELD TURNS OVER" },

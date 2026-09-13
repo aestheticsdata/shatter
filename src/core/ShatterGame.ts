@@ -3811,7 +3811,7 @@ export class ShatterGame {
       this.blowUpPaddle();
     }
     if (kind === "BN") {
-      this.dropPeel();
+      this.dropPeels();
     }
     if (kind === "D") {
       // The timer and nothing else: the machine sags into the tube over the
@@ -4079,37 +4079,74 @@ export class ShatterGame {
     this.paddle.moveCenterTo(fieldX);
   }
 
-  // BANANA: one peel thrown onto the rail, never under the deck standing on it.
-  // The two spans either side of the keep-out are sampled as a single range, so
-  // a paddle against a wall simply leaves one span to land in and no roll is
-  // ever rejected and retried. The field is 366 px wide against an 80 px
-  // keep-out, so the two spans can never both be empty.
-  private dropPeel(): void {
-    const { peelWidth, maxPeels, peelLifeTicks, peelBlinkTicks, peelClearX } = gameConfig.powerUps.banana;
+  // BANANA: two or three peels thrown onto the rail, never under the deck
+  // standing on it. The two spans either side of the keep-out are the free list
+  // the throw draws from, and one peel is committed to each side before the
+  // rest roll across whatever is left: a trap that can leave the deck a clear
+  // side to retreat to is luck rather than a trap. The field is 366 px wide
+  // against an 80 px keep-out, so the two spans can never both be empty, and a
+  // deck against a wall simply leaves one for them all to land in.
+  //
+  // Nothing beyond that keep-out and a 4 px gap shapes where they fall. The
+  // scatter is the point: the count changes from catch to catch and the spots
+  // are rolled flat across whatever rail is left, so two peels can land almost
+  // touching or a whole field apart, and neither is the arrangement the player
+  // comes to expect.
+  private dropPeels(): void {
+    const { peelWidth, peelsMinPerDrop, peelsMaxPerDrop, maxPeels, peelLifeTicks, peelBlinkTicks, peelClearX } =
+      gameConfig.powerUps.banana;
     const min = gameConfig.field.left;
     const max = gameConfig.field.right - peelWidth;
     const center = this.paddle.centerX;
-    const leftSpan = Math.max(0, center - peelClearX - min);
-    const rightSpan = Math.max(0, max - (center + peelClearX));
-    const roll = Math.random() * (leftSpan + rightSpan);
-    const x = roll < leftSpan ? min + roll : center + peelClearX + (roll - leftSpan);
+    // Legal left edges, as a free list that shrinks with every peel placed in
+    // it. Both halves of a split keep the side they were cut from, so a span
+    // below the deck centre is a left-hand span for as long as the throw lasts.
+    const spans: PeelSpan[] = [];
+    const leftEnd = center - peelClearX - peelWidth;
+    const rightStart = center + peelClearX;
+    if (leftEnd >= min) {
+      spans.push({ lo: min, hi: leftEnd });
+    }
+    if (rightStart <= max) {
+      spans.push({ lo: rightStart, hi: max });
+    }
     // The peel is what is left after the deck ate the banana, so it leaves the
     // deck rather than appearing at full size 150 px away at the edge of
-    // vision. The flight comes off the distance, so the eye can follow it out.
+    // vision. The flight comes off the distance, so the eye can follow it out:
+    // the peels leave the same point on the same tick and land on as many
+    // different ones, which is a spray rather than a volley.
     const fromX = center - peelWidth / 2;
 
-    this.peels.push({
-      x,
-      ticksLeft: peelLifeTicks,
-      flightTicksLeft: peelFlightTicks(Math.abs(x - fromX)),
-      fromX,
-    });
+    // Rolled per catch rather than fixed, so the rail has to be read each time.
+    const wanted = peelsMinPerDrop + Math.floor(Math.random() * (peelsMaxPerDrop - peelsMinPerDrop + 1));
+
+    for (let thrown = 0; thrown < wanted; thrown++) {
+      // The first two are owed a side each; anything past them is free. A side
+      // with no room left falls through to the whole list rather than costing
+      // the throw a peel.
+      const owed =
+        thrown === 0
+          ? spans.filter((span) => span.lo < center)
+          : thrown === 1
+            ? spans.filter((span) => span.lo > center)
+            : [];
+      const x = takePeelSpot(owed.length > 0 ? owed : spans, spans);
+      if (x === null) {
+        break;
+      }
+      this.peels.push({
+        x,
+        ticksLeft: peelLifeTicks,
+        flightTicksLeft: peelFlightTicks(Math.abs(x - fromX)),
+        fromX,
+      });
+    }
     // A fourth peel no longer deletes the oldest inside the same statement that
     // made it: the oldest is dropped into its last second instead and leaves
     // the rail through the same blink every other peel does. Clamped as many
     // times over as the cap needs, never index 0 alone — nothing is spliced
-    // here any more, so three BANANAs inside a minute would otherwise leave
-    // five or six live peels rather than the one extra the trade buys.
+    // here any more, so two BANANAs inside a minute would otherwise leave five
+    // or six live peels rather than the three the newest catch is worth.
     let fresh = this.peels.reduce((count, peel) => count + (peel.ticksLeft > peelBlinkTicks ? 1 : 0), 0);
     for (const peel of this.peels) {
       if (fresh <= maxPeels) {
@@ -5187,6 +5224,57 @@ export class ShatterGame {
     const glyph = POWER_UP_GLYPHS[kind];
     return kind === "M" && this.multiTier >= 2 ? `${glyph}${this.multiTier}` : glyph;
   }
+}
+
+// One run of rail a BANANA peel's left edge may still be thrown at. A throw
+// starts with one span either side of the deck's keep-out and cuts a peel's
+// width plus its gap out of the list as it places each one, so no roll is ever
+// rejected and retried and two peels never land in a heap that reads as one.
+interface PeelSpan {
+  lo: number;
+  hi: number;
+}
+
+// Rolls a landing spot inside `from` — either the whole free list or the one
+// side of it a peel is owed — and carves it out of `all`. Null when there is no
+// room anywhere in `from`, which is the only way a throw comes up short.
+function takePeelSpot(from: readonly PeelSpan[], all: PeelSpan[]): number | null {
+  const usable = from.filter((span) => span.hi >= span.lo);
+  if (usable.length === 0) {
+    return null;
+  }
+  // Weighted by length, so the spot is flat across the rail rather than flat
+  // across the spans: a peel is as likely to land on any px still open to it,
+  // which is what keeps the scatter from drifting toward even intervals.
+  let roll = Math.random() * usable.reduce((total, span) => total + (span.hi - span.lo), 0);
+  let picked = usable[usable.length - 1];
+  for (const span of usable) {
+    const width = span.hi - span.lo;
+    if (roll < width) {
+      picked = span;
+      break;
+    }
+    roll -= width;
+  }
+  const x = picked.lo + Math.max(0, Math.min(roll, picked.hi - picked.lo));
+  const { peelWidth, peelMinGap } = gameConfig.powerUps.banana;
+  const blocked = peelWidth + peelMinGap;
+  // Everything within a peel and a gap of the spot is off the list. Walked over
+  // the whole list rather than the span the spot came out of, and backwards
+  // because a span the spot sits inside of splits into two: a gap wide enough
+  // would reach past the end of its own span and into the next.
+  for (let index = all.length - 1; index >= 0; index--) {
+    const span = all[index];
+    const halves: PeelSpan[] = [];
+    if (x - blocked >= span.lo) {
+      halves.push({ lo: span.lo, hi: Math.min(span.hi, x - blocked) });
+    }
+    if (x + blocked <= span.hi) {
+      halves.push({ lo: Math.max(span.lo, x + blocked), hi: span.hi });
+    }
+    all.splice(index, 1, ...halves);
+  }
+  return x;
 }
 
 // A bolt from one cell centre to the other as five points, the middle three

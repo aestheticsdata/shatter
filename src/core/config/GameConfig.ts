@@ -749,11 +749,25 @@ export const gameConfig = {
       // between two discs never comes down on its own, so the set lets go.
       streakLimit: 10,
     },
-    // BANANA. The peel comes off the deck that ate the banana, arcs out and
-    // lands on the paddle rail, where it hands the deck to its own momentum for
-    // a second when it is swept over.
+    // BANANA. The peels come off the deck that ate the banana, arc out and
+    // land on the paddle rail, where they hand the deck to its own momentum for
+    // a second when one is swept over.
     banana: {
       peelWidth: 12,
+      // Two or three peels a catch, rolled fresh every time: a fixed three is a
+      // number the player learns once and then stops reading the rail for. One
+      // of them is committed to each side of the deck before the rest roll
+      // free, because a trap that can leave you a clear side to retreat to is
+      // luck rather than a trap — a deck against a wall has only the one side
+      // to be thrown at and takes them all there.
+      peelsMinPerDrop: 2,
+      peelsMaxPerDrop: 3,
+      // Rail kept clear between two peels, and deliberately small: it is there
+      // so two peels never melt into one 24 px smear, not to space them out.
+      // Anything wider starts pushing them toward even intervals, which is the
+      // one thing the scatter may not look like — at 4 px they can land almost
+      // shoulder to shoulder and still read as two.
+      peelMinGap: 4,
       // The throw. A constant speed with the flight derived from it, rather
       // than a constant flight with the speed derived from it: the landing spot
       // can be anywhere from 40 to ~350 px away, and a fixed flight would make
@@ -766,15 +780,18 @@ export const gameConfig = {
       // throw arcs higher, or it is a flat line drive. A mid-field throw runs
       // ~12 ticks and rises ~24 px; the longest rises 48.
       peelApexPerTick: 2,
-      // A fourth peel pushes the oldest off the rail rather than being refused:
-      // the newest is the one the player just earned and has to see land.
+      // One catch's worth at its biggest, so a second BANANA replaces the rail
+      // rather than adding to it: the newest peels are the ones the player just
+      // earned and has to see land, and the set they displace leaves through
+      // its blink.
       maxPeels: 3,
       peelLifeTicks: 600,
       peelBlinkTicks: 60,
       // Rail kept clear either side of the deck, so a peel is never thrown
-      // under the paddle already standing on it. It promises that only for the
-      // instant of the throw, which is half of why a peel in the air is no
-      // hazard: the deck can be standing on the landing spot 24 ticks later.
+      // under the paddle already standing on it, and the line the sides are
+      // divided along. It promises that only for the instant of the throw,
+      // which is half of why a peel in the air is no hazard: the deck can be
+      // standing on the landing spot 24 ticks later.
       peelClearX: 40,
       skidTicks: 60,
       // The slide is the paddle's own last movement, held and decayed. At the
