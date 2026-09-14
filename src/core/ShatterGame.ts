@@ -454,7 +454,7 @@ export class ShatterGame {
         paddle: {
           centerX: this.paddle.centerX,
           width: this.paddle.width,
-          y: gameConfig.paddle.y,
+          y: this.paddle.y,
           pointerX: this.flipped ? gameConfig.field.width - this.paddle.centerX : this.paddle.centerX,
         },
       }))
@@ -700,6 +700,38 @@ export class ShatterGame {
   // branch simply snapped 66 back to 46 and the hole stopped existing.
   private splitWeldTicks = 0;
   /**
+   * TIDE's sea, 0 dry field to 1 flooded to the waterline — and the blend on
+   * this list that changes the most about the game while it is up.
+   *
+   * It is not a picture. It says where the deck's top edge is, which is the
+   * catch surface for balls, capsules and gravel alike; it says which balls are
+   * under water and are therefore being pushed back out of it; and it says how
+   * fast a capsule is falling. Three hitboxes off one number, which is why the
+   * drain is spent out of the capsule's own eight seconds rather than after them
+   * — PORTAL's rule, and this blend needs it harder than PORTAL's door did.
+   *
+   * The deck is never *moved* by the capsule. The water is raised and the deck
+   * takes the higher of the rail and its own float line, so the lift is caused
+   * on screen rather than applied: the sea climbs an empty field for six ticks,
+   * then takes the deck off the rail and carries it up the remaining 96 px over
+   * the other thirty-four.
+   */
+  private tideBlend = 0;
+  /**
+   * The swell's clock, counting only while there is water to swell.
+   *
+   * Its own counter and not the frame count, for the reason every other
+   * simulation number here is: the deck's y is a catch surface, and a surface
+   * that rode the renderer's clock would move on a frame the simulation never
+   * stepped. It is read by the deck's bob and by the capsules floating in it,
+   * so one sea heaves them both.
+   */
+  private tidePhase = 0;
+  // What the deck is still shedding once it is back on the rail, 1 on the frame
+  // the water finishes draining down to 0 twelve ticks later. Render-only and
+  // already spent — the sea has gone, and this is the deck dripping after it.
+  private tideDrip = 0;
+  /**
    * MIRROR's reflection, 0 absent to 1 fully resolved onto the ceiling.
    *
    * The second blend on this list that eases the simulation rather than a
@@ -827,6 +859,11 @@ export class ShatterGame {
       grid: this.grid.rows,
       paddle: {
         x: this.paddle.x,
+        // The deck's own top edge, off the deck rather than off the config: the
+        // sprite, the cannons, the wings, the reel and the tethers all hang off
+        // this one number, so nothing on screen can be drawn at a height the
+        // ball is not caught at.
+        y: this.paddle.y,
         width: this.paddle.width,
         laserBlend: this.laserBlend,
         splitGap: this.splitGap(),
@@ -967,6 +1004,19 @@ export class ShatterGame {
       energyWallBlend: this.wallBlend,
       energyWallOriginX: this.wallOriginX,
       energyWallStrike: this.wallStrikeLeft > 0,
+      // TIDE, as the three things the renderer cannot work out for itself: how
+      // much sea there is, where its surface is, and how far through the swell
+      // it has got. The surface is passed rather than re-derived from the blend
+      // for the reason PORTAL's mouth is — the water a capsule sinks in and the
+      // water the player can see have to be one line by construction.
+      tideBlend: this.tideBlend,
+      tideWaterline: this.waterline(),
+      tidePhase: this.tidePhase,
+      // Which way it is going, which the blend cannot say: a sea half in looks
+      // the same as a sea half out, and only one of the two has a plughole in
+      // the bottom of it.
+      tideDraining: this.tideBlend > 0 && !this.tideFlooding(),
+      tideDrip: this.tideDrip,
     });
     this.deps.panel.update(this.panelView());
   };
@@ -1037,6 +1087,10 @@ export class ShatterGame {
     // caught halfway out from under a shockwave would hold there for the whole
     // detonation, and the drawn deck is the catch surface.
     this.stepDeckWidth();
+    // The sea, beside the width it sits next to and for exactly its reason: this
+    // is the other half of where the deck is, and a deck frozen halfway out of
+    // the water behind a shockwave would hold there for the whole detonation.
+    this.stepTide();
     this.railMarks = this.railMarks.filter((mark) => --mark.ticksLeft > 0);
     this.particles.step(this.cores);
     this.quake.step();
@@ -1492,7 +1546,7 @@ export class ShatterGame {
         // JAMMER catch changed the width underneath them — or a SPLIT opened a
         // hole where one was parked.
         ball.x = this.paddle.x + this.clampStuckOffset(ball.stuckOffsetX, ball.size);
-        ball.y = gameConfig.paddle.y - ball.size;
+        ball.y = this.paddle.y - ball.size;
         ball.tempoDebt = 0;
         continue;
       }
@@ -1535,6 +1589,10 @@ export class ShatterGame {
         onSwallowed: (x: number, y: number) => {
           this.particles.burst(x, y, "S", gameConfig.effects.brickDeathBurst);
         },
+        // Null on a dry field rather than a surface at the floor line, so the
+        // fall keeps its one-line fast path on every tick of every other
+        // capsule: what the pool asks is whether there is a sea at all.
+        tide: this.tideBlend > 0 ? { waterline: this.waterline(), phase: this.tidePhase } : null,
       };
       this.dropPool.step(this.paddleSegments(), field, (kind) => {
         // Two capsules can reach the paddle on one tick; nothing applies once a
@@ -1859,6 +1917,10 @@ export class ShatterGame {
     const mouth = this.portalMouth();
     const rules: TraceRules = {
       portal: mouth.height > 0 ? mouth : null,
+      // The line the thread is drawn to, off the deck rather than off the rail:
+      // TIDE floats the deck 96 px up, and a guide whose whole promise is where
+      // the ball lands may not point at a surface that has moved.
+      deckY: this.paddle.y,
       blocked: (x, y) => {
         if (this.grid.cellAt(x, y) !== null) {
           return true;
@@ -2036,7 +2098,7 @@ export class ShatterGame {
       if (ball.stuckOffsetX !== null) {
         ball.stuckOffsetX = this.clampStuckOffset(ball.stuckOffsetX, size);
         ball.x = this.paddle.x + ball.stuckOffsetX;
-        ball.y = gameConfig.paddle.y - size;
+        ball.y = this.paddle.y - size;
       }
     }
   }
@@ -2632,6 +2694,14 @@ export class ShatterGame {
     if (this.haywireKicking) {
       this.glitchBall(ball);
     }
+    // Fourth, and last of the things that act on a heading before it is walked.
+    // It is the only one of them that is a *force* — the three above bend a
+    // heading at unchanged speed, and the water pushes — which is why it is here
+    // rather than inside the sub-step loop: an acceleration applied per sub-step
+    // would be four times as strong on a fast ball as on a slow one.
+    if (this.tideBlend > 0) {
+      this.floatBall(ball);
+    }
     const stepVx = ball.velocity.x * timeScale;
     const stepVy = ball.velocity.y * timeScale;
     const subSteps = Math.max(1, Math.ceil(Math.max(Math.abs(stepVx), Math.abs(stepVy)) / 2));
@@ -2811,7 +2881,7 @@ export class ShatterGame {
         this.deps.sfx.wallBounce();
       }
 
-      const paddleTop = gameConfig.paddle.y;
+      const paddleTop = this.paddle.y;
       // Which half of the deck took it, or null. Solid, that list is one box and
       // this is the test it has always been; split, a ball down the middle finds
       // neither half and carries on into the drain — which is the whole capsule.
@@ -3066,9 +3136,145 @@ export class ShatterGame {
   // The deck, now, with no travel left in it: every reset site takes this and
   // not the ease. Beside it goes the rail it marked — a run that has ended owes
   // the next one a clean rail.
+  /**
+   * TIDE, a tick at a time: the sea in or out, the swell turning, and the deck
+   * put wherever the two of them leave it.
+   *
+   * **The drain is spent out of the capsule's own 480 ticks**, the way PORTAL's
+   * door is and for a harder version of its reason: the mouth was one hitbox and
+   * this is three. A sea still draining after the timer had expired would leave
+   * the deck floating over a field with nothing under it, and a ball in a column
+   * of water no capsule was paying for.
+   *
+   * A second TIDE over a live one tops the eight seconds up and changes nothing
+   * else. The sea is already in and the blend is already 1; there is no arrival
+   * to restart, because the arrival is the water rising and the water is here.
+   */
+  private stepTide(): void {
+    const { tideFloodTicks, tideDrainTicks, tideDripTicks } = gameConfig.effects;
+    const flooding = this.tideFlooding();
+    const was = this.tideBlend;
+    // `stepBlend` with a different count each way, which is what the two ends
+    // being different shapes costs: water arrives all at once and leaves through
+    // a hole, so the drain is the slower of the two.
+    this.tideBlend = stepBlend(this.tideBlend, flooding, flooding ? tideFloodTicks : tideDrainTicks);
+    // The swell runs while there is a sea to run in and is *not* reset until
+    // there is none, so a second TIDE caught on a draining one picks the heave
+    // up where it was rather than snapping the deck to the top of a fresh one.
+    this.tidePhase = this.tideBlend === 0 ? 0 : this.tidePhase + 1;
+    // Fired on the frame the plug is pulled rather than at the expiry, the way
+    // PORTAL's two cuts are: the gurgle is scored to the fifty ticks the sea
+    // takes to go, so it ends as the deck touches down.
+    if (was === 1 && this.tideBlend < 1) {
+      this.deps.sfx.tideDrain();
+    }
+    if (was > 0 && this.tideBlend === 0) {
+      this.tideDrip = 1;
+    } else if (this.tideDrip > 0) {
+      this.tideDrip = stepBlend(this.tideDrip, false, tideDripTicks);
+    }
+    this.paddle.y = this.deckY();
+  }
+
+  /**
+   * Whether the sea is still coming in — which is the capsule's whole clock,
+   * because the last fifty ticks of the eight seconds are the drain.
+   *
+   * Both halves of the test, exactly as PORTAL's door reads them: the second is
+   * what spends the drain out of the capsule's own 480 ticks instead of
+   * borrowing fifty it does not own, and the blends step above `timers.tick()`,
+   * so the last fall lands on the same frame the timer reaches zero.
+   */
+  private tideFlooding(): boolean {
+    return this.timers.isActive("TI") && this.timers.remaining("TI") > gameConfig.effects.tideDrainTicks;
+  }
+
+  /**
+   * Where the sea's surface is, in field pixels.
+   *
+   * It climbs from the frame's bottom line rather than appearing at its level:
+   * at blend 0 the surface *is* the floor, which is why a dry field needs no
+   * branch anywhere that reads this — nothing is ever under it. At blend 1 it is
+   * `waterline`, and the deck's own bottom edge sits exactly on it.
+   */
+  private waterline(): number {
+    const { height } = gameConfig.field;
+    return height - (height - gameConfig.powerUps.tide.waterline) * this.tideBlend;
+  }
+
+  /**
+   * The deck's top edge this tick: the rail, or the water if the water is
+   * higher.
+   *
+   * `Math.min` and not a branch on the capsule, and that is the whole design of
+   * the lift. The capsule raises the sea and the deck answers to the sea, so the
+   * deck is picked up when the water reaches it and set down when the water
+   * leaves — including the frame it is half under, which the sprite gets for
+   * free because the wash is painted over whatever is below the surface.
+   *
+   * The bob is scaled by the flood so the deck settles onto a swell rather than
+   * starting to heave the instant it floats, and it can never push the deck
+   * below the rail, because the rail is the floor of the `min`.
+   */
+  private deckY(): number {
+    const rest = gameConfig.paddle.y;
+    if (this.tideBlend === 0) {
+      return rest;
+    }
+    const { bobAmplitude, bobPeriodTicks, draft } = gameConfig.powerUps.tide;
+    const bob = Math.sin((this.tidePhase / bobPeriodTicks) * Math.PI * 2) * bobAmplitude * this.tideBlend;
+    return Math.min(rest, this.waterline() - gameConfig.paddle.height + draft + bob);
+  }
+
+  /**
+   * TIDE's buoyancy: one ball, pushed back out of the water.
+   *
+   * **A force and not a time scale.** It is deliberately outside
+   * `ballTimeScale()` — that product is TEMPO, RUSH, TURBO and STASIS arguing
+   * about the pace of the run, and the water is not an opinion about pace — so
+   * this composes with all four for nothing and stores nothing on the ball that
+   * would have to be unwound when the sea goes. A ball still rising when the
+   * water drains out from under it is simply a ball rising.
+   *
+   * **The guarantee is arithmetic, not a clamp.** The fastest the game ever runs
+   * is 4.6 px a tick; at 0.14 a tick squared that turns round inside 76 px, and
+   * the surface is 120 px above the floor. Nothing has to check for the floor
+   * because nothing can reach it — which is the difference between this and WALL
+   * or ANGEL, both of which catch a ball at a line and are spent doing it.
+   *
+   * The speed is capped rather than renormalised. A cap lets the water genuinely
+   * slow a diving ball to nothing at the turn — the soup the player cannot steer
+   * through — while keeping the run's own speed as the ceiling everything else
+   * in the game is written against.
+   */
+  private floatBall(ball: Ball): void {
+    if (ball.y + ball.size / 2 < this.waterline()) {
+      return;
+    }
+    const { lift, drag } = gameConfig.powerUps.tide;
+    ball.velocity.y -= lift;
+    ball.velocity.x *= drag;
+    const speed = Math.hypot(ball.velocity.x, ball.velocity.y);
+    const ceiling = this.speed();
+    if (speed > ceiling) {
+      ball.velocity.x = (ball.velocity.x / speed) * ceiling;
+      ball.velocity.y = (ball.velocity.y / speed) * ceiling;
+    }
+  }
+
   private snapDeck(): void {
     this.widthEaseKind = null;
     this.railMarks = [];
+    // The sea too, and with it whatever it was holding up. A serve, a cleared
+    // level and a game over all land here, and a deck left floating over a field
+    // that has been reset is the one piece of this capsule that would outlive
+    // the run it was caught in. It goes with the width rather than with the
+    // blends the three reset sites list, because where the deck is has never
+    // been anything but the deck's business.
+    this.tideBlend = 0;
+    this.tidePhase = 0;
+    this.tideDrip = 0;
+    this.paddle.y = gameConfig.paddle.y;
     // The tear too, and silently: a serve, a cleared level and a game over all
     // land here, and a deck welding itself shut behind the CLEARED overlay —
     // with the spark and the sound that go with it — is an effect outliving the
@@ -3727,7 +3933,7 @@ export class ShatterGame {
   // The two halves are independent and stay that way: `bonusSpreadAmount` is a
   // coin per brick, and the bag decides only *which* capsule a winning coin
   // yields. A wall of 40 bricks therefore spends about 12 tickets, which is what
-  // makes a 64-ticket pass last about five levels.
+  // makes a 67-ticket pass last about six levels.
   private rollBrickCapsule(): PowerUpKind | null {
     return Math.random() < this.bonusSpreadAmount() ? this.dropBag.draw(this.dropExcludes()) : null;
   }
@@ -3904,7 +4110,7 @@ export class ShatterGame {
 
   private freeCatchPopY(): number {
     const { catchPopStackGap } = gameConfig.powerUps;
-    const base = gameConfig.paddle.y - 6;
+    const base = this.paddle.y - 6;
     // Five lanes, which tops out at y 230 — still well below the deepest grid.
     // Past that the stack would climb into the bricks, and an overprint that
     // needs five catches inside 22 ticks is the lesser evil.
@@ -4015,7 +4221,7 @@ export class ShatterGame {
     }
     if (kind === "N") {
       // The shockwave ring starts where the capsule was caught: the paddle centre.
-      this.detonation.start(this.paddle.x + this.paddle.width / 2, gameConfig.paddle.y);
+      this.detonation.start(this.paddle.x + this.paddle.width / 2, this.paddle.y);
     }
     if (kind === "U") {
       // Split, because a refusal is a different sentence from an arrival and the
@@ -4182,6 +4388,13 @@ export class ShatterGame {
     if (kind === "ER") {
       this.timers.activate("ER", durations.ER);
     }
+    if (kind === "TI") {
+      // The timer and nothing else. The sea chases it by itself in `stepTide`,
+      // which is what makes a second TIDE over a live one a plain top-up: the
+      // water is already in, and there is no arrival to restart — a draining
+      // one simply stops draining and climbs back.
+      this.timers.activate("TI", durations.TI);
+    }
     if (kind === "SL") {
       // The timer and the fall's own start, which is the hesitation: four ticks
       // of a wall that has stopped being held up and has not yet noticed. A
@@ -4267,7 +4480,7 @@ export class ShatterGame {
       // The material is the deck's, not a brick's: these are pieces of paddle.
       this.particles.burst(
         this.paddle.centerX,
-        gameConfig.paddle.y + gameConfig.paddle.height / 2,
+        this.paddle.y + gameConfig.paddle.height / 2,
         "deck",
         gameConfig.effects.splitTearBurst,
       );
@@ -4318,6 +4531,13 @@ export class ShatterGame {
       // have a thing", and what the player has to hear here is a wall stopping
       // being one.
       this.deps.sfx.jellySlacken();
+    } else if (kind === "TI") {
+      // The sea coming in, and it has to be its own for the reason the two
+      // above it are: the chime says "you have a thing", and what happens here
+      // is the field filling up under the player's deck. It is scored to the
+      // forty ticks the flood takes, so the sound ends on the frame the deck
+      // lifts off the rail.
+      this.deps.sfx.tideFlood();
     } else if (kind === "V") {
       this.deps.sfx.singularityOpen();
     } else if (kind === "VX") {
@@ -4503,7 +4723,12 @@ export class ShatterGame {
 
     // Not while one is running, and not for a moment afterwards: peels come
     // three at a time, and a chained skid is a deck the player never gets back.
-    if (this.skidTicksLeft === 0 && this.skidCooldown === 0) {
+    // And not while the deck is off the rail at all — a peel lies on the wood,
+    // which is the whole reason contact here is horizontal overlap and nothing
+    // else, and a deck TIDE has floated 96 px into the air cannot step on one.
+    // The peels go on ageing and blinking underneath, so a flood that outlasts
+    // them clears the rail and a flood that does not hands it back.
+    if (this.skidTicksLeft === 0 && this.skidCooldown === 0 && this.paddle.y >= gameConfig.paddle.y) {
       const { left, right } = this.paddle.bounds;
       // Nothing in the air is a hazard: you cannot slip on a peel that has not
       // landed. It costs the player 8-24 ticks of a 600-tick life and buys back
@@ -4554,7 +4779,7 @@ export class ShatterGame {
    */
   private blowUpPaddle(): void {
     const { fuseTicks, burst, shardSpread, shardLift } = gameConfig.effects.paddleBlast;
-    const y = gameConfig.paddle.y + gameConfig.paddle.height / 2;
+    const y = this.paddle.y + gameConfig.paddle.height / 2;
     // The deck itself, cut in three and thrown. The pieces tile it exactly on
     // the frame they are cut — the same three places the bursts go off, near
     // enough — so the explosion is the paddle rather than a red flash where the
@@ -4563,7 +4788,7 @@ export class ShatterGame {
     const third = this.paddle.width / 3;
     this.paddleShards = [0, 1, 2].map((index) => ({
       x: this.paddle.x + (index + 0.5) * third,
-      y: gameConfig.paddle.y,
+      y: this.paddle.y,
       vx: (index - 1) * shardSpread,
       vy: -shardLift,
       width: third,
@@ -4574,7 +4799,7 @@ export class ShatterGame {
     }
     this.brickFlashes.push({
       x: this.paddle.centerX - 15,
-      y: gameConfig.paddle.y - 2,
+      y: this.paddle.y - 2,
       ticksLeft: gameConfig.effects.deathFlashTicks,
       kind: "death",
       onWall: false,
@@ -4858,7 +5083,7 @@ export class ShatterGame {
         ball.stuckOffsetX = null;
         const relativeHit = relativePaddleHit(ball.centerX, this.paddle.bounds);
         ball.velocity = computePaddleBounceVelocity(relativeHit, this.speed(), gameConfig.bounce.maxAngleRad);
-        ball.y = gameConfig.paddle.y - ball.size;
+        ball.y = this.paddle.y - ball.size;
         this.deps.sfx.paddleBounce(relativeHit);
       }
     }

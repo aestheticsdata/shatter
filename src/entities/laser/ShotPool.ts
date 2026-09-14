@@ -22,7 +22,7 @@ export class ShotPool {
     freeShots.forEach((shot, index) => {
       shot.active = true;
       shot.x = index === 0 ? paddle.x + 5 : paddle.x + paddle.width - 8;
-      shot.y = gameConfig.paddle.y - 9;
+      shot.y = paddle.y - 9;
     });
     return freeShots.length > 0;
   }

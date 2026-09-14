@@ -165,8 +165,33 @@ class Field {
     paintBackgroundPatch(this.ctx, x, y, BRICK_WIDTH, BRICK_HEIGHT);
   }
 
-  deck(width: number = gameConfig.paddle.baseWidth, x = (FIELD_WIDTH - width) / 2, y = DECK_Y): void {
+  // `y` is annotated rather than inferred from its default: `gameConfig` is
+  // `as const`, so `DECK_Y` is the literal 276 and an inferred parameter would
+  // accept nothing else — which was fine while the deck only ever sat there.
+  deck(width: number = gameConfig.paddle.baseWidth, x = (FIELD_WIDTH - width) / 2, y: number = DECK_Y): void {
     drawPaddleBands(this.ctx, x, y, width, PADDLE_BANDS, 1, this.demade);
+  }
+
+  /**
+   * TIDE's sea, laid over whatever has already been painted.
+   *
+   * Last in its scene and not first, so the deck and the ball are *under* it the
+   * way they are on the field — the point of the picture is things seen through
+   * water, and a wash painted before them would be a green floor with sprites
+   * standing on it.
+   */
+  water(surface: number): void {
+    const { left, right, height } = gameConfig.field;
+    this.ctx.globalAlpha = 0.34;
+    this.rect(left, surface, right - left, height - surface, canvasPalette.tideBody);
+    for (let x = left; x < right; x += 4) {
+      this.rect(x, surface - 1, 2, 1, canvasPalette.tideBody);
+    }
+    this.ctx.globalAlpha = 1;
+    this.rect(left, surface, right - left, 1, canvasPalette.tideCrest);
+    for (let x = left + 2; x < right; x += 6) {
+      this.rect(x + ((x >> 2) % 4), surface - 1, 1, 1, canvasPalette.tideFoam);
+    }
   }
 
   // GAMBLE's window over the deck, showing one face.
@@ -1151,6 +1176,32 @@ const SCENES: Record<PowerUpKind, Painter> = {
     // picture has to say: a slumped wall is a wall that is suddenly *near*.
     field.ball(210, 206);
     field.deck(gameConfig.paddle.baseWidth, 168);
+  },
+  /**
+   * TIDE: the field flooded and the deck up on the surface, in the wall's face.
+   *
+   * Staged at full flood rather than mid-arrival, because what the reader has to
+   * come away knowing is not that water moves but **where the deck ends up** —
+   * and the only way a still can say that is by showing it there, 96 px above
+   * the rail with the wall close enough to touch. The empty rail at the bottom
+   * of the picture is doing as much work as the deck is: it is where the reader
+   * expects a paddle and there is water instead.
+   *
+   * The ball is drawn under the surface, which is the other half of the
+   * sentence: a ball past the deck is not a ball lost any more.
+   *
+   * The wash, the crest and the foam are the field's own numbers read out of the
+   * config, so a retuned waterline is a retuned picture with no second edit.
+   */
+  TI: (field) => {
+    field.wall();
+    const { waterline, draft } = gameConfig.powerUps.tide;
+    field.ball(150, waterline + 34);
+    // The draft too, so the still shows the deck sitting *in* the water rather
+    // than balanced on it — which is the difference the field's own float line
+    // makes and the one thing a reader could otherwise get wrong from here.
+    field.deck(gameConfig.paddle.baseWidth, undefined, waterline - gameConfig.paddle.height + draft);
+    field.water(waterline);
   },
   JE: (field) => {
     // Two crests four columns apart, summed. The shape is a Gaussian rather

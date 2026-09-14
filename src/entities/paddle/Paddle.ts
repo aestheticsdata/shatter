@@ -18,6 +18,21 @@ export type WidthCurve = "linear" | "out";
 
 export class Paddle {
   x: number = gameConfig.paddle.initialX;
+  /**
+   * The deck's top edge, and the newest piece of state in this class.
+   *
+   * It was `gameConfig.paddle.y` read straight out of the config in thirty
+   * places for the whole of the game's life, because in forty years of this
+   * genre the paddle's Y has never moved. TIDE moves it: the field floods and
+   * the deck floats up onto the water, 96 px above the rail.
+   *
+   * Written by the game once a tick and by nothing else — the deck does not
+   * decide where it is any more than it decides how wide it is. What it owns is
+   * that there is *one* answer: the catch test, the glued ball, the cannons,
+   * the tethers, the sprite and the ghost all read this, so there is no version
+   * of the deck that can be somewhere the player cannot see it.
+   */
+  y: number = gameConfig.paddle.y;
   width: number = gameConfig.paddle.baseWidth;
 
   // The run of a width change, and nothing that outlives one: at rest
@@ -37,8 +52,8 @@ export class Paddle {
     return {
       left: this.x,
       right: this.x + this.width,
-      top: gameConfig.paddle.y,
-      bottom: gameConfig.paddle.y + gameConfig.paddle.height,
+      top: this.y,
+      bottom: this.y + gameConfig.paddle.height,
     };
   }
 

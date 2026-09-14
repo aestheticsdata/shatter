@@ -29,6 +29,17 @@ export interface DropField {
   cores: readonly Core[];
   // A swallowed capsule grants nothing; the game turns this into its debris.
   onSwallowed: (x: number, y: number) => void;
+  /**
+   * TIDE's sea: where its surface is this frame, and how far through its swell —
+   * null on every tick of every other capsule, which is what the fall reads to
+   * know it is falling through air.
+   *
+   * One object rather than two loose numbers because they are one fact, and the
+   * phase has to come from the simulation: a swell the pool clocked for itself
+   * would be a second sea running at its own speed beside the one the deck is
+   * floating on.
+   */
+  tide: { waterline: number; phase: number } | null;
 }
 
 export interface Drop {
@@ -88,6 +99,32 @@ function pullIntoCore(drop: Drop, core: Core): boolean {
   drop.x += (toCoreX / distance) * dropPull;
   drop.y += (toCoreY / distance) * dropPull;
   return false;
+}
+
+/**
+ * How far this capsule falls this tick: its own speed in air, a third of it plus
+ * the swell once it is under TIDE's surface.
+ *
+ * **The bob is bigger than the sink**, so a pill in the water visibly rises as
+ * well as falls — a capsule that only ever slowed down would read as one stuck
+ * in treacle rather than one floating. Over a whole period the sine contributes
+ * nothing, so it is still sinking, and a pill that reaches the bottom is still
+ * lost.
+ *
+ * The phase is offset by the capsule's own x so that two side by side are not
+ * heaving in lockstep, which is the difference between a sea and a lift.
+ *
+ * This is also the whole of what the flood buys the player at the deck: a
+ * capsule the deck has just missed crosses its 15 px catch band in 35 ticks
+ * instead of 11, so it can be swept up on the way past instead of being gone.
+ */
+function sinkOrFall(drop: Drop, tide: DropField["tide"]): number {
+  const { dropFallSpeed, tide: sea } = gameConfig.powerUps;
+  if (tide === null || drop.y + DROP_HEIGHT / 2 < tide.waterline) {
+    return dropFallSpeed;
+  }
+  const swell = Math.sin(((tide.phase + drop.x) / sea.bobPeriodTicks) * Math.PI * 2);
+  return dropFallSpeed * sea.sinkScale + swell * sea.bobSpeed;
 }
 
 export class DropPool {
@@ -227,7 +264,7 @@ export class DropPool {
         continue;
       }
 
-      drop.y += gameConfig.powerUps.dropFallSpeed;
+      drop.y += sinkOrFall(drop, field.tide);
       if (drop.y > gameConfig.field.height) {
         drop.active = false;
         continue;

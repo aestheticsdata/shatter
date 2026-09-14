@@ -187,6 +187,29 @@ export const canvasPalette = {
   // only warning the player gets before stepping on it.
   peelBody: "#e2fe74",
   peelShade: "#8a6a00",
+  /**
+   * TIDE: the sea, in four tones and one of them not a colour at all.
+   *
+   * `tideBody` is the wash laid over everything below the surface, and it is the
+   * capsule's own body taken right down — the pill and the water it pours are
+   * one colour, the way GRAVEL's cracks are drawn in GRAVEL's green. It is the
+   * only tone on this list painted under a `globalAlpha`, and that is the point:
+   * a sea has to be something you see *through*, or the bottom third of the
+   * field becomes a green rectangle with the ball inside it.
+   *
+   * `tideCrest` is the one opaque pixel row at the surface, so the sea has an
+   * edge whatever it is lying over, and `tideFoam` is what breaks along it —
+   * near-white, because foam is the one part of water that is not the colour of
+   * the water.
+   *
+   * `tidePlug` is the hole it goes down, and it is the darkest thing the field
+   * carries short of a black hole: what says *drain* rather than *ebb* is that
+   * the water is visibly going somewhere.
+   */
+  tideBody: "#0b5f47",
+  tideCrest: "#3ddba6",
+  tideFoam: "#d6fff0",
+  tidePlug: "#04231b",
   // JAMMER: the rail the deck has just been shut off, dying through four steps
   // of the capsule's own magenta. Authored rather than alpha-blended, because
   // everything else on this field fades in whole pixels of a named tone and a

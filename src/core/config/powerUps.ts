@@ -15,8 +15,8 @@ export type PowerUpTier = "common" | "uncommon" | "rare" | "trap";
 
 // How many tickets a tier puts in the bag — see `DropBag`, which draws without
 // replacement instead of rolling weighted odds. A tier is a count of copies, not
-// a probability, and it is almost the whole of the rarity system: 64 tickets,
-// about five levels, every capsule out once or twice a pass. Two rows carry an
+// a probability, and it is almost the whole of the rarity system: 67 tickets,
+// about six levels, every capsule out once or twice a pass. Two rows carry an
 // exception, and `POWER_UP_DROP_TICKETS` says why.
 //
 // **Weighted odds were the bug, and no number in this table could have fixed
@@ -406,6 +406,22 @@ export const POWER_UPS = [
   // is sky and this is galvanised. The glyph does the rest, as it does for the
   // other six blues.
   { id: "SL", name: "SLUMP", color: "#b0bcc9", dark: true, ticks: 480, tier: "uncommon", timed: true, blurb: "THE WALL FALLS IN ON ITSELF" },
+  // Shallow-sea green, and the water family's own colour taken from the side of
+  // it nobody had reached. **Sea petrol is gone**: GIANT shipped `#469292` into
+  // exactly that spot, so what was left was the green half of the family, and
+  // the blue half has been full since PORTAL — WIDE, XWIDE, WALL, MIRROR,
+  // BLACKOUT, RAIN, SINGULARITY and SLUMP hold it between them.
+  //
+  // Swept rather than picked, over hue 148-178 at 50 % saturation and up: this
+  // is the single best point in the family on a 52-capsule board, and the sweep
+  // found nothing measurably better anywhere in it. 63.6 from SWARM — the
+  // nearest body — against the 58 bar, 6.3:1 against the darkest field theme,
+  // 114 from the nearest speck, and 141 from the nearest trap.
+  //
+  // The two greens it could have been confused with are the two the margin is
+  // spent on: STASIS `#9effd6` is a mint and sits 91 away, MAGNET `#6fd0b4` a
+  // pale jade at 106. Both are paler than this and neither is a sea.
+  { id: "TI", name: "TIDE", color: "#14bc8c", dark: true, ticks: 480, tier: "uncommon", timed: true, blurb: "IT FLOODS · THE DECK FLOATS" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];
@@ -446,7 +462,7 @@ export const POWER_UP_NAMES: Record<PowerUpKind, string> = byId((definition) => 
  */
 export const POWER_UP_GLYPHS: Record<PowerUpKind, string> = byId((definition) => glyphFor(definition.name));
 export const POWER_UP_DURATIONS: Record<PowerUpKind, number> = byId((definition) => definition.ticks);
-// Tickets per capsule: tier-derived for 47 of the 49 rows, and two kept back.
+// Tickets per capsule: tier-derived for 50 of the 52 rows, and two kept back.
 //
 // There were three weight exceptions — DEMAKE, VORTEX and GIANT — each promoted a
 // class because it was "landing too rarely to enjoy". The instinct was to retire

@@ -667,6 +667,47 @@ export class SoundBank {
     this.noise({ dur: 0.3, vol: 0.04, filter: { type: "lowpass", freq: 600 } });
   }
 
+  /**
+   * TIDE: the field filling up — a long band of noise opening from a rumble to
+   * a wash as the water climbs, under a tone that *rises* while it does.
+   *
+   * Almost all of it is noise, which is the only honest voice for water: a
+   * pitched oscillator in a rushing sound reads as a beep however it is dressed,
+   * and the one tone here is doing a different job — it rises through two thirds
+   * of an octave and gets out of the way, which is the sea being seen to arrive
+   * rather than the sea itself.
+   *
+   * Scored to the flood: 0.66 s is the forty ticks the water takes, so the wash
+   * tops out on the frame the deck lifts off the rail.
+   */
+  tideFlood(): void {
+    if (!this.allow("tideFlood")) {
+      return;
+    }
+    this.noise({ dur: 0.66, vol: 0.1, filter: { type: "lowpass", freq: 280, freqEnd: 3200 } });
+    this.tone({ freq: 140, freqEnd: 232, dur: 0.6, vol: 0.05, type: "sine" });
+  }
+
+  /**
+   * And the field emptying — the same wash run the other way, with a gurgle
+   * under it.
+   *
+   * The drain is longer than the flood and it is meant to be heard as a
+   * *different event* rather than the arrival reversed: the band closes from the
+   * top down while a low sine falls through a fifth, which is the sound of a
+   * volume of water leaving through a hole rather than a level being lowered.
+   * Scored to the fifty ticks, so it ends as the deck touches down and starts
+   * dripping.
+   */
+  tideDrain(): void {
+    if (!this.allow("tideDrain")) {
+      return;
+    }
+    this.noise({ dur: 0.82, vol: 0.08, filter: { type: "lowpass", freq: 3000, freqEnd: 180 } });
+    this.tone({ freq: 210, freqEnd: 70, dur: 0.8, vol: 0.06, type: "sine" });
+    this.tone({ freq: 96, freqEnd: 48, dur: 0.3, vol: 0.05, type: "sine", delayS: 0.55 });
+  }
+
   // The same body run the other way and half as long: the wall setting, from
   // the outer columns inward. Short and a little higher than the slack ended,
   // because what is being said is that the sheet has gone stiff — one small

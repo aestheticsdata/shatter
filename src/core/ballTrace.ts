@@ -71,6 +71,20 @@ export interface TraceRules {
    * capsule makes.
    */
   portal?: { top: number; height: number } | null;
+  /**
+   * Where the deck's top edge is, which is the line the walk is walking *to*.
+   *
+   * A rule and not a constant since TIDE: the deck floats 96 px up while the
+   * field is flooded, and a thread drawn to the rail it is no longer on would
+   * be the one lie this prediction may not tell. Absent means the rail, which
+   * is where the deck is for all but eight seconds of a run.
+   *
+   * The water below the deck is deliberately *not* modelled here, and does not
+   * need to be: the waterline is the deck's own bottom edge, so a ball still
+   * falling toward the deck is falling through air the whole way. Buoyancy only
+   * ever acts on a ball that has already missed it.
+   */
+  deckY?: number;
 }
 
 /**
@@ -110,8 +124,7 @@ export function trace(ball: Ball, rules: TraceRules = {}): Trace {
   }
 
   const { left, right } = gameConfig.field;
-  const deckY = gameConfig.paddle.y;
-  const { blocked, portal } = rules;
+  const { blocked, portal, deckY = gameConfig.paddle.y } = rules;
   const wall = right - size;
 
   let x = ball.x;
@@ -192,15 +205,15 @@ export function trace(ball: Ball, rules: TraceRules = {}): Trace {
  * or null for one that is not on its way. Derived from the walk so the deck and
  * the thread cannot disagree.
  */
-export function arrival(ball: Ball): Arrival | null {
-  return trace(ball).arrival;
+export function arrival(ball: Ball, deckY?: number): Arrival | null {
+  return trace(ball, { deckY }).arrival;
 }
 
 /** The soonest of them, which is the ball the deck has to answer first. */
-export function firstArrival(balls: readonly Ball[]): Arrival | null {
+export function firstArrival(balls: readonly Ball[], deckY?: number): Arrival | null {
   let first: Arrival | null = null;
   for (const ball of balls) {
-    const next = arrival(ball);
+    const next = arrival(ball, deckY);
     if (next !== null && (first === null || next.ticks < first.ticks)) {
       first = next;
     }

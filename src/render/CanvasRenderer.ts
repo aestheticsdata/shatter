@@ -360,6 +360,18 @@ export interface DeckSeamState {
 
 export interface PaddleRenderState extends DeckSeamState {
   x: number;
+  /**
+   * The deck's top edge, which was `gameConfig.paddle.y` everywhere in this file
+   * until TIDE floated it.
+   *
+   * On the paddle's own record and not loose on the view, for the reason the
+   * resin and the felt are: this is the deck's, and MIRROR's ghost deliberately
+   * does *not* read it — the reflection lives on the ceiling at a fixed
+   * `mirrorY` and is a mirror of where the paddle is left to right, never up and
+   * down. A flooded field is a narrower one, with the ghost where it has always
+   * been and the deck risen to meet it.
+   */
+  y: number;
   width: number;
   /**
    * LASER's cannons coming out of the deck, 0 bare to 1 locked out.
@@ -417,6 +429,14 @@ export interface PaddleBandColors {
 
 // Game pixels between the dots of a magnet tether.
 const TETHER_DASH_SPACING = 4;
+
+// How opaque TIDE's water is over what it covers. The one alpha-blended fill on
+// the field, and the number is the whole of why: at 0.34 a green brick under the
+// surface is still a green brick and the ball is still the ball, while the field
+// below the line is unmistakably wet. Much past 0.45 the sea becomes a floor
+// with sprites lost in it; much under 0.25 it reads as a tint on the background
+// rather than as water standing in front of things.
+const TIDE_WASH_ALPHA = 0.34;
 
 // DEMAKE's scanlines: one dark backing-store row every `DEMAKE_SCANLINE_STEP`,
 // in *device* pixels rather than game ones — the ribbing is a property of the
@@ -701,6 +721,30 @@ export interface RenderView {
   energyWallBlend: number;
   energyWallOriginX: number;
   energyWallStrike: boolean;
+  /**
+   * TIDE's sea: how much of it there is, where its surface is, how far through
+   * its swell, which way it is going, and what the deck is still shedding once
+   * it has gone.
+   *
+   * Five fields where most capsules have one, and every one of them says
+   * something the others cannot. The **blend** is how flooded the field is and
+   * is what the wash is drawn at. The **waterline** is where the sea actually
+   * is, passed rather than re-derived: capsules sink against this line and the
+   * deck floats on it, so a surface the renderer worked out for itself would be
+   * a second sea half a pixel from the real one. The **phase** is the swell's
+   * own clock, which the frame count cannot stand in for — the foam has to
+   * travel with the water the deck is riding, and a picture on the renderer's
+   * clock would drift out of step with it the first time the game skipped a
+   * frame. **Draining** is the one thing a symmetric blend can never say: a sea
+   * half in looks exactly like a sea half out, and only one of the two has a
+   * plughole in the bottom of it. And the **drip** outlives all four — it is
+   * what runs off the deck's caps for twelve ticks after the water has gone.
+   */
+  tideBlend: number;
+  tideWaterline: number;
+  tidePhase: number;
+  tideDraining: boolean;
+  tideDrip: number;
 }
 
 // A palette filter: what a colour becomes on the machine it is being painted on.
@@ -1611,19 +1655,11 @@ export class CanvasRenderer {
     if (!view.paddleHidden) {
       this.drawPaddle(view.paddle);
       if (view.angelArmed) {
-        drawAngelWings(
-          this.ctx,
-          view.paddle.x,
-          view.paddle.width,
-          gameConfig.paddle.y,
-          SCALE,
-          this.frameCount,
-          this.demade,
-        );
+        drawAngelWings(this.ctx, view.paddle.x, view.paddle.width, view.paddle.y, SCALE, this.frameCount, this.demade);
       }
       if (view.gambleFace) {
         const center = view.paddle.x + view.paddle.width / 2;
-        drawGambleReel(this.ctx, center, gameConfig.paddle.y, view.gambleFace, SCALE, this.frameCount, this.demade);
+        drawGambleReel(this.ctx, center, view.paddle.y, view.gambleFace, SCALE, this.frameCount, this.demade);
       }
     }
     view.balls.forEach((ball, index) => {
@@ -1696,6 +1732,21 @@ export class CanvasRenderer {
 
     this.drawDetonation(view.detonation);
     this.ctx.restore();
+
+    // The sea, over everything standing in it and under the frame around it.
+    //
+    // Outside QUAKE's shake and inside FLIP's turn, which is the same pair of
+    // decisions SNAP's lattice and the frame itself make: water does not ride a
+    // wall rattling, and a field turned over takes its contents with it.
+    //
+    // Over the deck and the balls rather than under them, deliberately. The
+    // wash is what makes something *submerged* — the half of the deck below the
+    // surface goes green on the frame the water reaches it, with no second
+    // sprite and no clip — and drawing the sea underneath them would be drawing
+    // a green floor with the field standing on top of it.
+    if (view.tideBlend > 0 || view.tideDrip > 0) {
+      this.drawTide(view);
+    }
 
     // Inside the turn with the field: the frame is closed at the top and open
     // at the bottom, so which edge kills is drawn rather than remembered.
@@ -1973,7 +2024,7 @@ export class CanvasRenderer {
   }
 
   private drawPaddle(paddle: PaddleRenderState): void {
-    const y = gameConfig.paddle.y;
+    const { y } = paddle;
     // The tint is resolved here and nowhere else. MIRROR's ghost draws the same
     // sprite through `MIRROR_BANDS`, whose whole point is that every tone is
     // desaturated enough to read as a reflection — a full-strength magenta cap
@@ -2018,7 +2069,7 @@ export class CanvasRenderer {
     }
     if (view.paddleBreak === 1) {
       const { paddle } = view;
-      this.drawDeck(paddle.x, gameConfig.paddle.y, paddle.width, paddle.splitGap, BLAST_BANDS, NO_SEAM);
+      this.drawDeck(paddle.x, paddle.y, paddle.width, paddle.splitGap, BLAST_BANDS, NO_SEAM);
       return;
     }
     for (const shard of view.paddleShards) {
@@ -2702,7 +2753,7 @@ export class CanvasRenderer {
   // every four frames, which reads as a crawl toward the paddle.
   private drawMagnetTethers(paddle: PaddleRenderState, drops: readonly Drop[], reach: number): void {
     const toX = paddle.x + paddle.width / 2;
-    const toY = gameConfig.paddle.y;
+    const toY = paddle.y;
     const phase = (this.frameCount >> 2) % TETHER_DASH_SPACING;
 
     // The two edges of the band, on the rail. Without them the whole transition
@@ -2717,7 +2768,7 @@ export class CanvasRenderer {
       // pinned to the wall would claim the reach ends there, which is a lie
       // about the only thing these marks exist to say.
       if (edge >= left && edge < right) {
-        this.pixel(edge, gameConfig.paddle.y + 2, 1, 3, canvasPalette.magnetTether);
+        this.pixel(edge, paddle.y + 2, 1, 3, canvasPalette.magnetTether);
       }
     }
 
@@ -3191,7 +3242,7 @@ export class CanvasRenderer {
     }
     this.pixel(
       thread.pipX - span / 2,
-      gameConfig.paddle.y - height,
+      deck.y - height,
       span,
       height,
       intoTheGap ? canvasPalette.popMalus : canvasPalette.tracerPip,
@@ -3402,6 +3453,147 @@ export class CanvasRenderer {
       const color = onLip ? canvasPalette.bumperRim : PORTAL_STRIPES[(row + offset) % PORTAL_STRIPES.length];
       this.pixel(0, top + row, 3, 1, color);
       this.pixel(width - 3, top + row, 3, 1, color);
+    }
+  }
+
+  /**
+   * TIDE's sea, in columns.
+   *
+   * **Columns and not one rectangle**, because the surface is only level on the
+   * way in. Draining, it sags over the plughole — a sea leaving down a drain
+   * rather than being lowered on a lift — and a per-column surface is what makes
+   * that one line of arithmetic instead of a clipped second rectangle. Two game
+   * pixels a column is also the dither step the crest needs, so the loop pays
+   * for itself twice.
+   *
+   * The dip is **render-only** and stays that way. The water is a region with a
+   * force in it, not a surface anything bounces off, so nothing is owed a
+   * reading of where the crest is to the pixel — and a buoyancy that changed
+   * strength depending on how near the plughole a ball was would be a mechanic
+   * nobody could see well enough to play.
+   *
+   * Everything below a column's surface is one alpha-blended fill: the field,
+   * the wall's bottom rows, the discs, the sinking capsules and whatever part of
+   * the deck is under water all go green together, which is what makes the
+   * arrival read as the sea covering them rather than as a shape being drawn
+   * over the top.
+   */
+  private drawTide(view: RenderView): void {
+    // The drips outlive the sea by twelve ticks, so they are drawn on their own
+    // and the water is skipped once there is none. Without the gate the surface
+    // sits on `field.height`, and the crest and its foam are painted along the
+    // open bottom edge of the frame — a line of sea left behind by a sea that
+    // has gone.
+    if (view.tideBlend === 0) {
+      this.drawTideDrips(view.paddle, view.tideDrip);
+      return;
+    }
+    const { left, right, height } = gameConfig.field;
+    const { plugDip, plugSpan } = gameConfig.powerUps.tide;
+    const center = gameConfig.field.width / 2;
+    // The dip is at full depth only once the drain is properly under way, so the
+    // surface does not jump out of level on the frame the plug is pulled.
+    const dip = view.tideDraining ? plugDip * (1 - view.tideBlend) : 0;
+
+    this.ctx.globalAlpha = TIDE_WASH_ALPHA;
+    for (let x = left; x < right; x += 2) {
+      const width = Math.min(2, right - x);
+      const surface = view.tideWaterline + dip * Math.max(0, 1 - Math.abs(x + 1 - center) / plugSpan);
+      const top = Math.round(surface);
+      this.pixel(x, top, width, height - top, canvasPalette.tideBody);
+      // The crest, half a row of it: the sea climbs in whole pixel rows and a
+      // ruled edge on the top one would read as a lid. The parity is the
+      // column's own, so the dither is a fixed checker on the water rather than
+      // a pattern crawling along it.
+      if ((x & 2) === 0) {
+        this.pixel(x, top - 1, width, 1, canvasPalette.tideBody);
+      }
+    }
+    this.ctx.globalAlpha = 1;
+
+    // The surface itself, opaque, so the sea has one legible edge whatever it is
+    // lying over — and the foam on it, one pixel per 6 px of width, travelling
+    // on the swell's own clock so the water the deck is riding and the water the
+    // player is watching are moving together.
+    for (let x = left; x < right; x += 2) {
+      const width = Math.min(2, right - x);
+      const surface = view.tideWaterline + dip * Math.max(0, 1 - Math.abs(x + 1 - center) / plugSpan);
+      this.pixel(x, Math.round(surface), width, 1, canvasPalette.tideCrest);
+    }
+    const foamStep = 6;
+    for (let x = left; x < right; x += foamStep) {
+      // A cheap hash off the column, so the flecks sit at irregular places
+      // inside their own 6 px lanes instead of on a grid, and drift with the
+      // swell rather than blinking in place.
+      const seed = (x * 2654435761) >>> 11;
+      const lane = (x + ((seed + (view.tidePhase >> 1)) % foamStep)) % (right - left);
+      const at = left + lane;
+      const surface = view.tideWaterline + dip * Math.max(0, 1 - Math.abs(at - center) / plugSpan);
+      this.pixel(at, Math.round(surface) - 1, 1, 1, canvasPalette.tideFoam);
+    }
+
+    if (dip > 0) {
+      this.drawTidePlug(view.tideBlend);
+    }
+    if (view.tideDrip > 0) {
+      this.drawTideDrips(view.paddle, view.tideDrip);
+    }
+  }
+
+  /**
+   * The plughole, at the bottom of the field's centre line.
+   *
+   * A dark ellipse with a ring of dither turning around it, and the turn is the
+   * whole of what it says: a still dark patch is a stain, and one that rotates
+   * is water going down something. It opens as the sea falls, so the hole is
+   * widest at the end — the last of the water visibly leaving rather than a hole
+   * that was always there.
+   */
+  private drawTidePlug(blend: number): void {
+    const open = 1 - blend;
+    const x = gameConfig.field.width / 2;
+    const y = gameConfig.field.height - 10;
+    const radiusX = 16 * open;
+    const radiusY = 5 * open;
+    this.ctx.fillStyle = this.ink(canvasPalette.tidePlug);
+    this.ctx.beginPath();
+    this.ctx.ellipse(x * SCALE, y * SCALE, radiusX * SCALE, radiusY * SCALE, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+    // Eight marks on the rim, turning. Whole pixels of a named tone rather than
+    // a stroked arc, because everything else on this field that spins is drawn
+    // that way and a smooth ring would be the one thing on screen that is not.
+    for (let index = 0; index < 8; index++) {
+      const angle = (index / 8) * Math.PI * 2 + this.frameCount * 0.14;
+      this.spritePixel(
+        x + Math.cos(angle) * (radiusX + 2) - 0.5,
+        y + Math.sin(angle) * (radiusY + 1.5) - 0.5,
+        1,
+        1,
+        canvasPalette.tideCrest,
+      );
+    }
+  }
+
+  /**
+   * What runs off the deck once it is back on the rail: three streaks from the
+   * caps and the middle, shortening as they go.
+   *
+   * The last thing this capsule does, and the only part of it the player sees
+   * after the water has gone — which is what stops the departure being a sea
+   * that simply stopped existing. They fall as they thin, so the deck is
+   * visibly shedding rather than wearing a fringe for twelve ticks.
+   */
+  private drawTideDrips(paddle: PaddleRenderState, drip: number): void {
+    const length = Math.max(1, Math.round(4 * drip));
+    const fall = Math.round((1 - drip) * 5);
+    for (const at of [0.1, 0.5, 0.9]) {
+      this.spritePixel(
+        paddle.x + paddle.width * at,
+        paddle.y + gameConfig.paddle.height + fall,
+        1,
+        length,
+        canvasPalette.tideCrest,
+      );
     }
   }
 

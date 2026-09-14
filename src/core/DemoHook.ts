@@ -56,8 +56,6 @@ const MAX_STEP = 6;
 // A ball this close to the deck wins over any capsule: three quarters of a
 // second, about what a capsule chase and the way back cost.
 const THREAT_TICKS = 45;
-// The catch surface every prediction aims at.
-const DECK_TOP = gameConfig.paddle.y;
 // How far the ball's landing spot sweeps either side of the deck's centre and
 // how slowly, and how much deck stays outside the sweep so a peak can never
 // carry the ball past a cap.
@@ -119,7 +117,7 @@ export class DemoHook {
   }
 
   private target(balls: readonly Ball[], drops: readonly Drop[], paddle: Paddle): number {
-    const threat = firstArrival(balls);
+    const threat = firstArrival(balls, paddle.y);
     return dodgeTraps(this.wanted(balls, drops, paddle, threat), drops, paddle, threat);
   }
 
@@ -155,7 +153,7 @@ function catchableCapsule(drops: readonly Drop[], paddle: Paddle, threat: Arriva
     if (!drop.active || POWER_UP_BY_ID[drop.kind].tier === "trap" || drop.y <= bestY) {
       continue;
     }
-    const ticks = (DECK_TOP - DROP_HEIGHT - drop.y) / gameConfig.powerUps.dropFallSpeed;
+    const ticks = (paddle.y - DROP_HEIGHT - drop.y) / gameConfig.powerUps.dropFallSpeed;
     if (ticks < 0) {
       continue;
     }
@@ -191,7 +189,7 @@ function dodgeTraps(target: number, drops: readonly Drop[], paddle: Paddle, thre
     if (!drop.active || POWER_UP_BY_ID[drop.kind].tier !== "trap") {
       continue;
     }
-    const ticks = (DECK_TOP - DROP_HEIGHT - drop.y) / gameConfig.powerUps.dropFallSpeed;
+    const ticks = (paddle.y - DROP_HEIGHT - drop.y) / gameConfig.powerUps.dropFallSpeed;
     if (ticks < -5 || ticks > TRAP_TICKS) {
       continue;
     }

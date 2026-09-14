@@ -33,6 +33,13 @@ export const gameConfig = {
     top: 3,
   },
   paddle: {
+    // **The rail, not the deck.** Where the deck sits when nothing is holding
+    // it up, and for the first forty years of this genre that was the same
+    // sentence. TIDE floats it, so the live position is `Paddle.y` — state the
+    // deck owns — and this is what it rests on and returns to. Anything that
+    // means "where the paddle is" reads the paddle; only the things that mean
+    // "the wood along the bottom of the field" read this one, which is BANANA's
+    // peels and the marks JAMMER leaves.
     y: 276,
     height: 7,
     baseWidth: 46,
@@ -749,6 +756,65 @@ export const gameConfig = {
       // between two discs never comes down on its own, so the set lets go.
       streakLimit: 10,
     },
+    // TIDE. The field floods, the deck floats up on the surface, and everything
+    // under the water is pushed back out of it.
+    tide: {
+      // Where the sea tops out. 180 puts the floated deck's top edge at 173 —
+      // 96 px above the rail and 39 px under the deepest wall in the game,
+      // which bottoms out at 134 — so the wall is genuinely in the deck's face
+      // without the two ever touching. It clears SINGULARITY's core (y 150,
+      // 12 px across) by design. It does **not** clear BUMPERS' band, whose
+      // lowest disc sits at 240: a rack caught under a flood is five discs
+      // under water, which is a picture the capsule can carry and a hazard the
+      // buoyancy already bounds. The sea is a region, not a collider.
+      waterline: 180,
+      // Buoyancy, in px a tick squared. The whole promise of the capsule is
+      // read off this number: a ball entering the water at the fastest speed
+      // the game reaches (4.6) turns round after 21.16 / (2 x 0.14) = 76 px, so
+      // the deepest anything can dive is y 256 against a floor at 300. There is
+      // nothing to clamp and nothing to guard — the arithmetic is the guarantee.
+      lift: 0.14,
+      // And the horizontal, per tick while submerged. Not a stop: 0.97 over the
+      // ~44 ticks a full dive takes keeps about 40 % of the sideways speed, so
+      // a ball comes out of the water *steeper* than it went in rather than
+      // vertical. A damp that took all of it would stand every returned ball in
+      // a column between the water and the ceiling, which is a rally nobody is
+      // playing.
+      drag: 0.97,
+      // A capsule in the water sinks at a third of its fall and rides the
+      // swell on top of that. The bob is bigger than the sink on purpose — a
+      // pill that only ever slowed down is a pill in treacle, and one that
+      // visibly rises and falls is floating. The sine integrates to nothing
+      // over a period, so it is still sinking.
+      sinkScale: 1 / 3,
+      bobSpeed: 0.55,
+      // How deep the deck sits in the water, in px of its 7 px body.
+      //
+      // **Not zero, and this is the whole of the arrival reading as a lift.**
+      // Floated with its bottom exactly on the surface, the deck is never once
+      // seen wet: the sea comes up under it and starts carrying it on the same
+      // tick, which is a paddle being raised by a lift rather than a paddle
+      // finding its own level. At a 2 px draft the water climbs the deck's side
+      // first and only then picks it up, foam breaks along its flank for the
+      // whole eight seconds instead of for one frame, and the bob makes the
+      // draft itself breathe between 1 and 3 px — which is what a thing
+      // floating looks like and what a thing being held up does not.
+      draft: 2,
+      // The swell itself: how far the deck rides either side of the waterline
+      // and how long one heave takes. 1 px each way is the 2 px bob, which is
+      // the most a 7 px deck can move without reading as a stutter — and it is
+      // scaled by the flood, so the deck comes to rest on the water rather than
+      // starting to bounce the instant it lifts. 96 ticks is a slow swell: a
+      // second and a half a heave, about five over the capsule's eight seconds.
+      bobAmplitude: 1,
+      bobPeriodTicks: 96,
+      // The drain's dip, in px and in px either side of the plughole. What the
+      // surface does over the hole on the way out, so the sea leaves down a
+      // drain instead of being lowered by a lift: the crest sags 7 px at the
+      // centre line and is level again 60 px out.
+      plugDip: 7,
+      plugSpan: 60,
+    },
     // BANANA. The peels come off the deck that ate the banana, arc out and
     // land on the paddle rail, where they hand the deck to its own momentum for
     // a second when one is swept over.
@@ -953,6 +1019,32 @@ export const gameConfig = {
     // the mouth is a hitbox, and a hitbox that outlives its timer would be the
     // first in the game.
     portalFadeTicks: 20,
+    /**
+     * TIDE's sea coming in, and going out — and the one pair on this list where
+     * the two ends are different *shapes* rather than two readings of one
+     * counter.
+     *
+     * The flood climbs from the frame's bottom line to the waterline in 40
+     * ticks: 3 px a tick, which is a row of pixels every frame and reads as
+     * water rather than as a rectangle growing. The deck is on the rail for the
+     * first six of them — the sea has 17 px of empty field to cross before it
+     * is even touching the wood — and is carried the remaining 96 px over the
+     * other thirty-four.
+     *
+     * The drain is longer and is **spent out of the capsule's own 480 ticks**,
+     * PORTAL's rule for PORTAL's reason and then some: this blend says where
+     * the deck is and which balls are in the water, so it is a hitbox twice
+     * over, and a hitbox that outlived its timer would leave the deck floating
+     * over a field with nothing holding it up. 50 ticks is slower than the
+     * flood on purpose — water arrives all at once and leaves through a hole.
+     */
+    tideFloodTicks: 40,
+    tideDrainTicks: 50,
+    // The deck shedding what it was standing in, once it is back on the rail.
+    // Twelve ticks of three streaks running off the caps — the last thing the
+    // capsule does, and the only part of it the player sees after the water has
+    // gone.
+    tideDripTicks: 12,
     // WALL's bar writing itself out of the deck, and being spent. A charge is
     // deliberate and spending is not, so the two are different lengths: 366 px
     // of field either way from the origin means 24.4 px a tick going out and

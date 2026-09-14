@@ -98,7 +98,7 @@ export class Ball {
 
   followPaddle(paddle: Paddle): void {
     this.x = paddle.centerX - this.size / 2;
-    this.y = gameConfig.paddle.y - this.size - 1;
+    this.y = paddle.y - this.size - 1;
   }
 
   launch(speed: number): void {
