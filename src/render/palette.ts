@@ -233,6 +233,34 @@ export const canvasPalette = {
    * of this capsule that is drawn brighter than anything around it on purpose.
    */
   umbraCast: "#000000",
+  /**
+   * And the one pixel of it that is not black: the lit field showing along the
+   * shadow's own silhouette.
+   *
+   * **A flat black shadow is invisible on half the playfield themes.** The rule
+   * the backgrounds are held to is that their `area` tones stay dark — `circuit`
+   * is `#05130d`, `cathode` `#14100a`, `vault` `#0e0e13` — so black on black is
+   * not a corner case here, it is four of the eight rooms the game ships. The
+   * wedge was legible on `starfield` and gone on the rest, which is the
+   * invisible collider this capsule retires BLACKOUT to avoid, arriving from the
+   * one direction nobody was watching: not another capsule, the room.
+   *
+   * So one pixel of this runs down inside the wedge's right flank and the fill
+   * stays flat black — a liseré rather than a lighter body, because what has to
+   * be read is the *shape*, and a grey wedge would be a pane of glass.
+   *
+   * **Grey and not white**, at 5.0:1 against the shadow it sits in against a
+   * white's 16.7 — a shadow is the darkest thing the field carries short of a
+   * black hole, and a line at full value beside it stops reading as a shadow's
+   * own edge and starts reading as a wire laid over one. It still clears 4.5:1
+   * against the darkest playfield theme, which is inside the 3:1 rule the
+   * backgrounds are held to rather than sitting on its floor.
+   *
+   * Cool and neutral, so it is never mistaken for the band a hit sends home:
+   * that one is `umbraSurge`, it is warm, near-white, and it fills the wedge's
+   * whole width instead of tracing it.
+   */
+  umbraEdge: "#767c88",
   umbraSun: "#ffeaa0",
   umbraRim: "#c9a13c",
   umbraSurge: "#fff6d8",

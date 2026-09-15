@@ -52,6 +52,24 @@ const BALL_HOME = { x: 182, y: 200 };
 // third of the size.
 const DEFAULT_WALL: readonly BrickKind[] = ["1", "2", "3", "4"];
 
+/**
+ * UMBRA's shadow outline, in field pixels, against the field's own 1.
+ *
+ * **Three, because these pictures are blitted to a third.** The live silhouette
+ * is a single pixel and it is the right width there; sampled every third pixel
+ * by a nearest-neighbour downscale it survives intermittently and twelve
+ * outlined wedges come out as twelve columns of dots — the exact failure
+ * `ghostWall` below documents for `drawBrick`'s 1 px fade. Widened to three it
+ * lands on exactly one sample whatever its phase, so the miniature carries one
+ * miniature pixel of edge: the same picture at the size it is actually seen,
+ * which is what every scene in this file is for.
+ */
+const EDGE = 3;
+// And the dark it leaves outside itself, the field's own two pixels at the same
+// scale: a liseré sitting on the flank is a border, which is the thing it is
+// deliberately not.
+const INSET = 2 * EDGE;
+
 // A brick at full health. Hit points come off the roster rather than being typed
 // as 1: `drawBrick` reads the damage stage out of them, and a silver brick one
 // short would be drawn chipped in a catalogue that never hit it.
@@ -225,15 +243,32 @@ class Field {
     const mouthHalf = BRICK_WIDTH / 2;
     const tipHalf = tipWidth / 2;
     const last = rows === 0 ? reach : Math.min(reach, from + rows);
+    // The silhouette is outlined only when the wedge is being painted as a
+    // shadow. The same helper draws the band a hit sends home, and that one is
+    // already the brightest thing in the frame.
+    const outline = tone === canvasPalette.umbraCast;
     for (let down = from; down < last; down++) {
       const at = down / reach;
       const centre = mouthCx + shear * (down + 0.5);
       const half = mouthHalf + (tipHalf - mouthHalf) * at;
       const edgeLeft = Math.max(left, Math.round(centre - half));
       const edgeRight = Math.min(right, Math.round(centre + half));
-      if (edgeRight > edgeLeft) {
-        this.rect(edgeLeft, mouthY + down, edgeRight - edgeLeft, 1, tone);
+      if (edgeRight <= edgeLeft) {
+        continue;
       }
+      const y = mouthY + down;
+      this.rect(edgeLeft, y, edgeRight - edgeLeft, 1, tone);
+      if (!outline || edgeRight - edgeLeft < INSET + EDGE * 2) {
+        continue;
+      }
+      // The field's own liseré, at the size this picture is actually seen —
+      // right flank, dark outside it, and both the line and its inset scaled by
+      // `EDGE` so the third-size blit lands one miniature pixel of each rather
+      // than sampling past them.
+      if (edgeRight >= right) {
+        continue;
+      }
+      this.rect(edgeRight - EDGE - INSET, y, EDGE, 1, canvasPalette.umbraEdge);
     }
   }
 

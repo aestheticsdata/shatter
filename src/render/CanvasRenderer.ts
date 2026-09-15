@@ -340,6 +340,21 @@ function widestSizeThatFits(glyph: string): number {
   return chosen;
 }
 
+/**
+ * How far inside its own flank UMBRA's liseré runs, in game pixels.
+ *
+ * **A liseré, not a border**, and the difference is the whole of what makes it
+ * read as a shadow rather than as a cut-out: the outer two pixels stay black,
+ * so the shape still ends in darkness and the line sits *within* it. Outlining
+ * the silhouette instead gives every wedge a hard contour and the field turns
+ * into twelve stickers.
+ *
+ * Two rather than one, because at one the line and the edge touch at this
+ * scale and the pair reads as a single thick edge; and rather than three,
+ * because the tip of a wedge is only twelve pixels across.
+ */
+const UMBRA_INSET = 2;
+
 const FLASH_COLORS: Record<BrickFlashKind, string> = {
   death: canvasPalette.deathFlash,
   blast: canvasPalette.blastFlash,
@@ -1880,15 +1895,43 @@ export class CanvasRenderer {
    */
   private drawShadows(shadows: ShadowCast): void {
     const { columns } = gameConfig.grid;
-    this.ctx.fillStyle = this.demade ? this.halftone() : canvasPalette.umbraCast;
+    const fill = this.demade ? this.halftone() : canvasPalette.umbraCast;
+    const edge = this.ink(canvasPalette.umbraEdge);
+    const field = gameConfig.field;
     for (let column = 0; column < columns; column++) {
       const wedge = shadows.wedgeAt(column);
       for (let index = 0; index < wedge.count; index++) {
         const left = shadows.leftAt(column, index);
         const right = shadows.rightAt(column, index);
-        if (right > left) {
-          this.ctx.fillRect(left * SCALE, (wedge.top + index) * SCALE, (right - left) * SCALE, SCALE);
+        if (right <= left) {
+          continue;
         }
+        const y = (wedge.top + index) * SCALE;
+        this.ctx.fillStyle = fill;
+        this.ctx.fillRect(left * SCALE, y, (right - left) * SCALE, SCALE);
+        // The liseré needs shadow on both sides of it to be a liseré. Under
+        // four pixels a row cannot hold an inset, a line and a pixel of dark
+        // inboard of it — which is the arrival's first dark pixel and the
+        // sunset's last, and both are supposed to leave dark.
+        if (right - left < UMBRA_INSET + 2) {
+          continue;
+        }
+        // The right flank, always — not whichever one the sun happens to be
+        // facing. A liseré that changed sides mid-run would be twelve wedges
+        // flipping together as the shear passes zero, which reads as a fault
+        // rather than as light; one fixed side is a house style, and the sun's
+        // position is already said by the mark on the frame and by the rake of
+        // the shadows themselves.
+        //
+        // Never against the frame: a raking wedge is clipped at the field's own
+        // margin, so its clipped flank is not an edge of the shadow at all and
+        // a line measured off it would be a rule painted up the inside of the
+        // wall.
+        if (right >= field.right) {
+          continue;
+        }
+        this.ctx.fillStyle = edge;
+        this.ctx.fillRect((right - 1 - UMBRA_INSET) * SCALE, y, SCALE, SCALE);
       }
     }
     this.drawUmbraSurges(shadows);
