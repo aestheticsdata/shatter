@@ -215,6 +215,55 @@ class Field {
   }
 
   /**
+   * TWIN's thread: the hairline between two paired cell centres.
+   *
+   * Three pixels wide where the field draws one, which is `EDGE`'s rule for
+   * `EDGE`'s reason — these pictures are blitted to a third, and a single pixel
+   * sampled every third comes out as a row of dots with gaps where the capsule
+   * has a line. The pitch is widened in step so the miniature keeps the
+   * *dotted* look the field has rather than turning into a solid rule, since
+   * being dotted is half of what says thread rather than laser.
+   *
+   * `phase` is the travelling shiver frozen wherever the still wants it: a
+   * catalogue entry has no frame counter behind it, and a thread drawn dead
+   * straight would be the one part of this picture that is not what the field
+   * paints.
+   */
+  thread(
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    phase = 0,
+    color = canvasPalette.twinThread,
+  ): void {
+    const { shiverAmplitude, shiverWavelength } = gameConfig.powerUps.twin;
+    const alongX = to.x - from.x;
+    const alongY = to.y - from.y;
+    const length = Math.hypot(alongX, alongY);
+    if (length === 0) {
+      return;
+    }
+    const unitX = alongX / length;
+    const unitY = alongY / length;
+    for (let walked = 0; walked <= length; walked += EDGE * 2) {
+      const envelope = Math.sin((Math.PI * walked) / length);
+      const wave = Math.sin(((walked - phase) / shiverWavelength) * Math.PI * 2) * shiverAmplitude * envelope;
+      this.rect(
+        from.x + unitX * walked - unitY * wave - EDGE / 2,
+        from.y + unitY * walked + unitX * wave - EDGE / 2,
+        EDGE,
+        EDGE,
+        color,
+      );
+    }
+  }
+
+  /** The middle of a cell, which is where a thread is tied on. */
+  cellCenter(column: number, row: number): { x: number; y: number } {
+    const { x, y } = this.brickAt(column, row);
+    return { x: x + BRICK_WIDTH / 2, y: y + BRICK_HEIGHT / 2 };
+  }
+
+  /**
    * COLLAPSE's fog: a brick out of focus, pulled inside its own cell with its
    * edge coming apart into the gap.
    *
@@ -1567,6 +1616,48 @@ const SCENES: Record<PowerUpKind, Painter> = {
     }
     // Through the hole and climbing: the shot the fence leaves you, taken.
     field.ball(GRID_LEFT + (gap * stride + 0.5) * BRICK_WIDTH - 4, GRID_TOP + row * BRICK_HEIGHT - 22);
+    field.deck();
+  },
+  /**
+   * TWIN: one couple at opposite corners of the wall, and the far half dying.
+   *
+   * **One thread and not twelve**, which is the whole of the staging decision.
+   * The field carries a dozen at once, and a dozen in a 124 px tile is a cat's
+   * cradle: what a reader has to come away knowing is that *these two bricks
+   * are one brick*, and a picture of a mesh cannot say which end goes with
+   * which. A second, shorter couple was drawn in and taken out again for the
+   * same reason — at tile size it was invisible, so it taught nothing and cost
+   * clarity.
+   *
+   * The wall is eaten rather than whole, for the reason UMBRA's scene paints a
+   * full one: the subject here is *distance*, and distance needs open field to
+   * be seen across. A thread laid over ninety-six intact bricks is a line on a
+   * texture.
+   *
+   * And the far end is mid-flash, which is what makes the frame a mechanic
+   * rather than decoration: a brick lit by a hit it never took. The ball is on
+   * the near anchor, so the reader can follow the whole sentence in one glance
+   * — *this* was struck, *that* died.
+   */
+  TW: (field) => {
+    const kinds: readonly BrickKind[] = ["1", "2", "3", "4", "5", "S"];
+    // A wall part way through being taken apart: the middle is gone below the
+    // top two courses, which is what opens the field the thread has to cross.
+    kinds.forEach((kind, row) => {
+      for (let column = 0; column < COLUMNS; column++) {
+        if (row >= 2 && column > 1 && column < 10) {
+          continue;
+        }
+        field.brick(column, row, kind);
+      }
+    });
+    const struck = field.cellCenter(0, 5);
+    const far = field.cellCenter(11, 0);
+    field.thread(struck, far, 20);
+    field.flash(11, 0, canvasPalette.twinFlash);
+    // On the near anchor and under the thread, so the picture reads as one
+    // sentence travelling rather than as two lit bricks.
+    field.ball(struck.x - 4, struck.y + 12);
     field.deck();
   },
 };

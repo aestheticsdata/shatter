@@ -396,8 +396,8 @@ that gate.
 
 ## 7. A capsule, end to end
 
-54 capsules, every one of them a plain tier lookup in the drop machinery: a tier
-buys tickets in a shuffled bag. 52 of the 54 rows are exactly that; DEMAKE and
+57 capsules, every one of them a plain tier lookup in the drop machinery: a tier
+buys tickets in a shuffled bag. 55 of the 57 rows are exactly that; DEMAKE and
 GIANT keep a common's count, because both already drew at a common's weight in
 production and a rare's single ticket would have been worse over the first four
 levels — better eventually is not better. VORTEX's old exception is retired. The
@@ -413,7 +413,7 @@ and no other.
 ```text
   src/core/config/powerUps.ts
   +---------------------------------------------------------------+
-  | { id, name, color, letter, ticks, tier, timed, blurb }  x 54   |
+  | { id, name, color, letter, ticks, tier, timed, blurb }  x 57   |
   +---------------------------------------------------------------+
         |
         |  everything below DERIVES from that table:
@@ -426,7 +426,7 @@ and no other.
   DropBag.draw(exclude)                  tickets = TIER_TICKETS[tier]
         |                                common 2 · uncommon 1 · rare 1 · trap 1
         |                                DEMAKE and GIANT keep a common's 2
-        |                                68 a pass, drawn without replacement, so
+        |                                72 a pass, drawn without replacement, so
         |                                every capsule falls inside two passes
         v
   BrickGrid.load()  seeds cells with rollBrickCapsule()
@@ -642,11 +642,11 @@ contract is those four lines in `frame()`.
 
 ### The size of ShatterGame.ts
 
-**It is 6 158 lines, and that is the first thing a reviewer will notice.** So:
+**It is 6 509 lines, and that is the first thing a reviewer will notice.** So:
 
 It is one class holding a small field cluster per capsule effect — `magnetBlend`,
 `xrayBlend`, `xraySweepSpan`, `portalBlend`, `flipTurn`, `haywireBlend`,
-`haywireKickIn`, `haywireKicking`, and so on for fifty-four capsules and six
+`haywireKickIn`, `haywireKicking`, and so on for fifty-seven capsules and six
 combos.
 
 The reason is that **every effect touches the same three or four objects**: the

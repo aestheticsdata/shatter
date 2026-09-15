@@ -871,6 +871,66 @@ export class SoundBank {
     this.tone({ freq: 430, freqEnd: 660, dur: 0.04, vol: 0.03, type: "triangle" });
   }
 
+  /**
+   * TWIN arriving: the wall wiring itself up.
+   *
+   * Two voices a fifth apart sliding *toward* each other and landing on the
+   * same note — the threads growing from both ends and meeting in the middle,
+   * stated in sound. It is close enough to `superposeSplit` to be worth saying
+   * why it is not the same: that one is one voice becoming two and beating
+   * against itself, and this is two becoming one. They are opposite shapes, and
+   * the capsules are opposite claims — one wall in two places against two
+   * bricks in one fate.
+   *
+   * Scored to the fifteen ticks the threads take to close, so the note lands
+   * about when the field finishes being drawn.
+   */
+  twinWeave(): void {
+    if (!this.allow("twinWeave")) {
+      return;
+    }
+    this.tone({ freq: 262, freqEnd: 349, dur: 0.26, vol: 0.05, type: "sine" });
+    this.tone({ freq: 466, freqEnd: 349, dur: 0.26, vol: 0.045, type: "sine" });
+    this.noise({ dur: 0.18, vol: 0.025, filter: { type: "highpass", freq: 1200, freqEnd: 3200 } });
+  }
+
+  /**
+   * One link discharging: the damage crossing the field.
+   *
+   * **Two blips, the second a beat behind the first**, which is the only thing
+   * in this bank that is a *distance* rather than an event. The brick's own hit
+   * is already playing under the first of them — the struck half went through
+   * `damageBrick` like any other contact — so what this adds is the answer
+   * arriving somewhere else, and the gap is what says somewhere else.
+   *
+   * The window is tight because a NUKE under a live TWIN can spend four couples
+   * on one tick, and four of these at the roster's default retrigger would be a
+   * rattle rather than four links.
+   */
+  twinStrike(): void {
+    if (!this.allow("twinStrike", 30)) {
+      return;
+    }
+    this.tone({ freq: 740, freqEnd: 620, dur: 0.045, vol: 0.035, type: "triangle" });
+    this.tone({ freq: 620, freqEnd: 740, dur: 0.045, vol: 0.035, type: "triangle", delayS: 0.07 });
+  }
+
+  /**
+   * And the threads letting go: the tension coming off.
+   *
+   * One voice sliding *down* with nothing under it — deliberately not the
+   * arrival reversed, for the reason `superposeMerge` is not: the arrival is
+   * two ends finding each other and this is a rope going slack, and both have
+   * to be heard as their own event. The slide is the whole of it, because the
+   * picture is a fall and a fall has no attack.
+   */
+  twinSlack(): void {
+    if (!this.allow("twinSlack")) {
+      return;
+    }
+    this.tone({ freq: 349, freqEnd: 131, dur: 0.34, vol: 0.045, type: "sine" });
+  }
+
   // The same body run the other way and half as long: the wall setting, from
   // the outer columns inward. Short and a little higher than the slack ended,
   // because what is being said is that the sheet has gone stiff — one small

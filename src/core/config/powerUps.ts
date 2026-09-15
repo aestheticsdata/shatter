@@ -15,7 +15,7 @@ export type PowerUpTier = "common" | "uncommon" | "rare" | "trap";
 
 // How many tickets a tier puts in the bag — see `DropBag`, which draws without
 // replacement instead of rolling weighted odds. A tier is a count of copies, not
-// a probability, and it is almost the whole of the rarity system: 69 tickets,
+// a probability, and it is almost the whole of the rarity system: 72 tickets,
 // about six levels, every capsule out once or twice a pass. Two rows carry an
 // exception, and `POWER_UP_DROP_TICKETS` says why.
 //
@@ -511,6 +511,26 @@ export const POWER_UPS = [
   // Clearance is the one that has been binding lately: SUPERPOSE above landed
   // on 58.0 exactly.
   { id: "CO", name: "COLLAPSE", color: "#0064fe", dark: false, ticks: 480, tier: "trap", timed: true, blurb: "THE WALL IS FOG TILL YOU PASS IT" },
+  // Coral, and **a light body on purpose** where the two rows above it are
+  // saturated mid-tones. What this capsule puts on the field is a 1 px thread
+  // taken a step down off its own pill (`twinThread`), and a hairline is the one
+  // sprite on this board that cannot afford a dark body: a step down off
+  // COLLAPSE's blue is a line nobody finds on a dark theme. So the pill is read
+  // backwards from the thread rather than the other way round.
+  //
+  // The pale warm corner is the tightest quarter left and the sweep says so:
+  // constrained to luminance >= 0.45 and saturation >= 0.5, **the whole of hue
+  // 340-35 tops out at 60.4** and this is one of the points that reaches it. The
+  // three neighbours are ANGEL at 60.4, QUAKE at 60.7 and GHOST at 61.0 — the
+  // spread is what was actually chosen, since the corner has three pills in it
+  // and a body 59.6 from one of them while 61.3 from another is leaning on the
+  // floor for no gain. 9.60:1 against the darkest playfield theme and 139 from
+  // the nearest speck, which is the widest speck margin in the warm quarter.
+  //
+  // The ticket proposed #fcbca4 and it is still legal today — 59.6 from QUAKE,
+  // 1.6 over the bar. This is the same rose one step out, and it buys the
+  // clearance back off the binding neighbour rather than off the others.
+  { id: "TW", name: "TWIN", color: "#ffbda5", dark: true, ticks: 540, tier: "rare", timed: true, blurb: "THREADED BRICKS DIE IN PAIRS" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];
@@ -551,7 +571,7 @@ export const POWER_UP_NAMES: Record<PowerUpKind, string> = byId((definition) => 
  */
 export const POWER_UP_GLYPHS: Record<PowerUpKind, string> = byId((definition) => glyphFor(definition.name));
 export const POWER_UP_DURATIONS: Record<PowerUpKind, number> = byId((definition) => definition.ticks);
-// Tickets per capsule: tier-derived for 52 of the 54 rows, and two kept back.
+// Tickets per capsule: tier-derived for 55 of the 57 rows, and two kept back.
 //
 // There were three weight exceptions — DEMAKE, VORTEX and GIANT — each promoted a
 // class because it was "landing too rarely to enjoy". The instinct was to retire

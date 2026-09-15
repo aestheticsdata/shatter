@@ -295,6 +295,26 @@ export const canvasPalette = {
    * rectangle on the field, and this one takes the rectangle away.
    */
   collapseGrain: "#9fb4d8",
+  /**
+   * TWIN: the thread between two paired bricks, and the flash that runs down it
+   * when the pair is spent.
+   *
+   * `twinThread` is the capsule's own coral taken one step down, which is the
+   * rule this board has used since SNAP's lattice: what a capsule draws on the
+   * field is drawn in the colour of the pill that put it there. One step and
+   * not SNAP's several — that one is graph paper the ball is read *against* and
+   * has to lose, while this is the held cue and has to be findable from across
+   * the field for nine seconds. It clears 6.85:1 on the darkest playfield theme
+   * and still sits well under the pill, so a thread never competes with the
+   * capsule falling.
+   *
+   * `twinFlash` is the hot end, and it is near-white rather than a brighter
+   * coral for PIERCE's reason: a discharge is hot, not branded. It is also the
+   * one tone here the player has a fraction of a second to read, and the
+   * thread it is running along is still drawn underneath it.
+   */
+  twinThread: "#e89a78",
+  twinFlash: "#ffe2d4",
   // JAMMER: the rail the deck has just been shut off, dying through four steps
   // of the capsule's own magenta. Authored rather than alpha-blended, because
   // everything else on this field fades in whole pixels of a named tone and a

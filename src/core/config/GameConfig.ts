@@ -1135,6 +1135,111 @@ export const gameConfig = {
       fogInsetY: 1,
       fogGrains: 6,
     },
+    /**
+     * TWIN. The wall pairs itself up: twelve couples drawn at random out of the
+     * live bricks and joined by a hairline that crosses the whole field. Break
+     * one and its partner takes the same damage on the same tick, wherever it
+     * is standing.
+     */
+    twin: {
+      /**
+       * How many couples stand at once.
+       *
+       * Twelve against a full wall of ninety-six is a quarter of the bricks
+       * wired, which is the number this had to land on from both ends. Fewer
+       * and a thread is a curiosity the player never happens to hit; many more
+       * and the field is a cat's cradle nobody can read a shot through — and
+       * the capsule's claim is that you *read the wiring before choosing*, so
+       * the wiring has to stay readable.
+       */
+      couples: 12,
+      /**
+       * The arrival: a thread grows from both of its ends at once and meets in
+       * the middle.
+       *
+       * From both ends and not from one, because a thread paid out from a
+       * single anchor reads as something being *thrown* at the far brick —
+       * which is CHAIN's picture, and this capsule's whole argument is that it
+       * is not CHAIN. Two ends closing is a link being *declared*, and it names
+       * both bricks at once instead of a source and a target.
+       *
+       * Fifteen ticks is a quarter-second and it is the arrival of the couple
+       * rather than of the capsule: the refill clock draws new ones all the way
+       * through the nine seconds and each of those grows in the same way, so a
+       * thread appearing at full length is never the picture.
+       */
+      drawTicks: 15,
+      /**
+       * The expiry: the threads go slack, sag out of their anchors and fall
+       * through the field, fading as they drop.
+       *
+       * The idiom is the capsule's own and deliberately not an opacity fade
+       * (SHA-59): what a thread does when nothing is holding it is *fall*. It
+       * is also the honest tell for the couples themselves — the pairing stops
+       * paying the tick the slack begins, so the player watching the threads
+       * let go is watching the thing that actually happened.
+       *
+       * Twenty ticks against the arrival's fifteen, for UMBRA's and
+       * SUPERPOSE's reason: the two ends of a capsule are two events and a
+       * departure that is the arrival reversed is neither of them.
+       */
+      slackTicks: 20,
+      // How far a slack thread has fallen by the time it is gone, in px, and
+      // how deep it bows out of its anchors on the way. The fall is squared
+      // against the blend so it accelerates — a rope let go does — and the sag
+      // is what says the line went limp before it dropped rather than simply
+      // sliding down the screen.
+      slackFall: 40,
+      slackSag: 9,
+      /**
+       * How often the pairing tops back up, in ticks.
+       *
+       * **Without this the capsule spends itself in the first two seconds and
+       * stands there for seven more.** Twelve couples against a wall being
+       * actively eaten is about two seconds of play, and a rare capsule whose
+       * whole visible life is its opening two seconds is one the player
+       * remembers as having done nothing. A second and a half between refills
+       * keeps the wall re-threading as fast as it is being taken apart without
+       * the pairing looking like it never changes.
+       */
+      refillTicks: 90,
+      // The thread itself: one pixel every four along its length, rather than a
+      // solid rule. Spaced because a hairline drawn solid across 300 px of
+      // field competes with the ball for the eye, and because a pattern is the
+      // one thing DEMAKE cannot flatten — the tube takes the tone away and
+      // leaves the dots and the wave, which is what SHA-142 says a 1 px line
+      // owes itself on a 1-bit field.
+      dotPitch: 4,
+      // The shiver: how far a dot is pushed off the line, how long a wave is
+      // along it, and how many ticks a wave takes to travel one wavelength.
+      //
+      // Two pixels and thirty-four is a slow ripple rather than a zigzag, and it
+      // travels rather than pulsing in place — a thread breathing on the spot
+      // reads as a rendering artefact, and one with something running along it
+      // reads as under tension. It is the only thing on the field that says the
+      // link is live while nothing is happening to it.
+      shiverAmplitude: 2,
+      shiverWavelength: 34,
+      shiverTicks: 50,
+      /**
+       * A broken couple: how long the two flashes are drawn for.
+       *
+       * **A break is an event, not a fade**, so this is the one part of the
+       * capsule that does not ease: the thread is gone on the tick one half
+       * dies and what is left is the report of it — a bright head running out
+       * from the struck brick and another running back from its partner, so the
+       * discharge is seen going both ways rather than travelling one.
+       *
+       * Ten ticks is a sixth of a second, which is long enough to cross the
+       * field at a readable speed and short enough that four couples spent in
+       * one NUKE do not leave the field lit.
+       */
+      snapTicks: 10,
+      // How long the flash head is, in px of thread behind it. Short: what is
+      // being read is a thing moving, and a streak long enough to see the whole
+      // of at once is not moving, it is a line.
+      snapHead: 14,
+    },
     // BANANA. The peels come off the deck that ate the banana, arc out and
     // land on the paddle rail, where they hand the deck to its own momentum for
     // a second when one is swept over.

@@ -20,6 +20,7 @@ import type { WallErosion, WallSheet } from "@entities/bricks/BrickGrid";
 import type { Critter } from "@entities/effects/Critter";
 import type { Decoherence } from "@entities/effects/Decoherence";
 import type { Detonation } from "@entities/effects/Detonation";
+import type { Entanglement } from "@entities/effects/Entanglement";
 import type { Fence } from "@entities/effects/Fence";
 import type { Pip } from "@entities/effects/GravelField";
 import type { JellySheet } from "@entities/effects/JellySheet";
@@ -661,6 +662,13 @@ export interface RenderView {
    * reads it per cell and decides nothing.
    */
   fog: Decoherence;
+  /**
+   * TWIN's couples, handed over whole for the two above it: the effect has
+   * already placed both anchors of every thread this tick, against the same
+   * displacements the wall is painted with, and the renderer walks that list
+   * and decides nothing but how a hairline is inked.
+   */
+  twin: Entanglement;
   /**
    * GRAVEL's fault, 0 whole wall to 1 every face split.
    *
@@ -1633,6 +1641,14 @@ export class CanvasRenderer {
       this.drawEchoes(view.superpose);
     }
 
+    // TWIN's threads, over the wall for the echoes' reason and inside the shake
+    // for theirs: a thread is tied to two bricks and crosses everything between
+    // them, so one drawn under the wall would be a wire the player can only see
+    // in the gaps. It rides the quake because both of its anchors do.
+    if (view.twin.active) {
+      this.drawThreads(view.twin);
+    }
+
     // FENCE's posts, after the wall and in coordinates of their own: they ride
     // the shake, because a fence planted in a field that is shaking shakes, and
     // they take none of `wallY` — the drop is the *wall* falling into the row
@@ -2034,6 +2050,131 @@ export class CanvasRenderer {
         pop.height + grow * 2,
         canvasPalette.superposeEdge,
       );
+    }
+    this.ctx.globalAlpha = 1;
+  }
+
+  /**
+   * TWIN's threads, and the flashes running down the ones just spent.
+   *
+   * **Spaced pixels and not a rule**, which is two decisions at once. A solid
+   * hairline across 300 px of field competes with the ball for the eye, and
+   * twelve of them would be a cat's cradle laid over the thing the player is
+   * actually tracking. And a pattern is the one thing DEMAKE cannot take away:
+   * the tube flattens every tone on the field to one ink, so a line that said
+   * *thread* by being coral would say nothing at all down there — this one says
+   * it by being dotted and by moving, which survives the demake exactly as
+   * MOULD's fur has to (SHA-142).
+   *
+   * The shiver is a travelling wave under a standing envelope: the offset is
+   * zero at both anchors and widest in the middle, because the thread is *tied*
+   * at each end, and the wave runs along it rather than pulsing in place. A
+   * thread breathing on the spot reads as a rendering fault; one with something
+   * running down it reads as under tension, and tension is the whole of what
+   * this capsule has to say while nothing is happening.
+   *
+   * **Under the blackout veil, and that is the ruling the ticket asked for.**
+   * A thread is drawn here, with the wall, so the torch finds it near the ball
+   * and loses it everywhere else — which costs nothing and is the honest
+   * answer. The carve-out that redraws capsules *above* the veil exists so a
+   * trap cannot be caught blind; there is no such thing as a thread you regret
+   * not seeing, and a field of hairlines glowing through the dark would be a
+   * better picture than this capsule has earned.
+   */
+  private drawThreads(twin: Entanglement): void {
+    const { dotPitch, shiverAmplitude, shiverWavelength, shiverTicks, slackFall, slackSag, snapTicks, snapHead } =
+      gameConfig.powerUps.twin;
+    const slack = twin.slack;
+    // The wave's own travel, in pixels along a thread, so every thread on the
+    // field shivers in step: they are all one capsule, and twelve independent
+    // phases would read as twelve things rather than as one wall wired up.
+    const travel = (twin.phase / shiverTicks) * shiverWavelength;
+    this.ctx.globalAlpha = 1 - slack;
+    for (const thread of twin.threads) {
+      const alongX = thread.bx - thread.ax;
+      const alongY = thread.by - thread.ay;
+      const length = Math.hypot(alongX, alongY);
+      if (length === 0) {
+        continue;
+      }
+      // Both ends at once: a dot exists once the nearer anchor has paid out to
+      // it, so the two halves close on the middle. `drawn` is per couple, since
+      // the refill clock keeps adding them all the way through the nine seconds.
+      const reach = (length / 2) * thread.drawn;
+      const unitX = alongX / length;
+      const unitY = alongY / length;
+      // Where one pixel of this thread lands, at a distance along it. Written
+      // into two locals rather than returned as a point: a 300 px thread is 75
+      // dots and there are twelve of them on the field, so a fresh object per
+      // pixel would be nine hundred allocations a frame for nine seconds.
+      let dotX = 0;
+      let dotY = 0;
+      const at = (walked: number): void => {
+        const envelope = Math.sin((Math.PI * walked) / length);
+        const wave = Math.sin(((walked - travel) / shiverWavelength) * Math.PI * 2) * shiverAmplitude * envelope;
+        // The expiry, in the thread's own idiom: it bows out of its anchors and
+        // then falls, squared so the drop accelerates the way a rope let go
+        // does. The bow rides the same envelope the shiver does, because it is
+        // the same string — and the two add rather than replacing each other,
+        // so a thread goes limp before it goes.
+        const sag = slack * (slackSag * envelope + slackFall * slack);
+        dotX = thread.ax + unitX * walked - unitY * wave;
+        dotY = thread.ay + unitY * walked + unitX * wave + sag;
+      };
+      for (let walked = 0; walked <= length; walked += dotPitch) {
+        if (Math.min(walked, length - walked) > reach) {
+          continue;
+        }
+        at(walked);
+        this.spritePixel(dotX, dotY, 1, 1, canvasPalette.twinThread);
+        // **DEMAKE, and the one thing a 1 px line owes itself on a 1-bit tube.**
+        // The demake flattens every tone on the field to one ink, so a thread
+        // laid over a brick is the brick's own colour and simply is not there —
+        // which is MOULD's fur problem (SHA-142) and takes MOULD's answer:
+        // density and pattern, never tone. The gap between two dots is painted
+        // in the *ground* here, so the thread alternates ink and hole all the
+        // way along. Over bare field the ink half reads and the hole is
+        // invisible; over a brick the hole reads and the ink half is invisible.
+        // Exactly one of the pair lands wherever it is, which is what makes the
+        // line survive a wall it crosses rather than only the mortar.
+        //
+        // Not through `ink()`: that maps a tone to ink or ground by a set
+        // membership, and what is wanted here is the ground itself.
+        if (this.demade) {
+          at(walked + dotPitch / 2);
+          this.ctx.fillStyle = canvasPalette.demakeGround;
+          this.ctx.fillRect(Math.round(dotX * SCALE), Math.round(dotY * SCALE), SCALE, SCALE);
+        }
+      }
+    }
+    this.ctx.globalAlpha = 1;
+
+    // A spent couple: two hot heads, one running out from the brick the player
+    // struck and one running back from its partner. **A break is an event and
+    // not a fade** — the thread itself is already gone, and what is left is the
+    // report that the damage went both ways rather than travelling one.
+    for (const snap of twin.snaps) {
+      const alongX = snap.bx - snap.ax;
+      const alongY = snap.by - snap.ay;
+      const length = Math.hypot(alongX, alongY);
+      if (length === 0) {
+        continue;
+      }
+      const gone = (snapTicks - snap.ticksLeft) / snapTicks;
+      const unitX = alongX / length;
+      const unitY = alongY / length;
+      const head = length * gone;
+      for (let back = 0; back < snapHead; back += 1) {
+        const at = head - back;
+        if (at < 0 || at > length) {
+          continue;
+        }
+        // Brightest at the head and dimming behind it, so the flash reads as
+        // something arriving rather than as a bar sliding along the line.
+        this.ctx.globalAlpha = (1 - back / snapHead) * (1 - gone * gone);
+        this.spritePixel(snap.ax + unitX * at, snap.ay + unitY * at, 1, 1, canvasPalette.twinFlash);
+        this.spritePixel(snap.bx - unitX * at, snap.by - unitY * at, 1, 1, canvasPalette.twinFlash);
+      }
     }
     this.ctx.globalAlpha = 1;
   }

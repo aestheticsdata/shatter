@@ -20,6 +20,7 @@ import { BumperField } from "@entities/effects/BumperField";
 import { Critter } from "@entities/effects/Critter";
 import { Decoherence } from "@entities/effects/Decoherence";
 import { Detonation } from "@entities/effects/Detonation";
+import { Entanglement } from "@entities/effects/Entanglement";
 import { Erosion } from "@entities/effects/Erosion";
 import { Fence } from "@entities/effects/Fence";
 import { GravelField } from "@entities/effects/GravelField";
@@ -157,7 +158,14 @@ const NO_EXCLUDES: readonly PowerUpKind[] = [];
 // What dealt the damage. Only the first two are things the player did: the rest
 // are consequences of one, and the game stays quiet about them so a single kill
 // is acknowledged once however far it spreads.
-type BrickDamageSource = "ball" | "laser" | "splash" | "chain";
+//
+// `twin` is the newest and the one that is not a consequence of a *hit* — it is
+// a consequence of a grid write, whatever made it, which is why it is reachable
+// from a nuke and a grub as well as from a ball. It pays exactly what `chain`
+// pays and it exists as its own word rather than borrowing that one so the one
+// rule this capsule has cannot be lost: a `twin` write never fires a second
+// `strikeTwin`. See `strikeTwin`.
+type BrickDamageSource = "ball" | "laser" | "splash" | "chain" | "twin";
 
 // A face that is not the one already showing: a reel that repeats itself for a
 // step reads as stuck rather than as spinning.
@@ -415,6 +423,13 @@ export class ShatterGame {
   // fogged brick is still a brick to the gild front, to XRAY's span, to HOMING's
   // targets, to ZAP's bottom row and to `remaining`. See `WallFog`.
   private readonly decoherence = new Decoherence();
+  // TWIN's couples. The cheapest of the wall capsules to hold, and the odd one
+  // out among the six above it: it is handed neither to the grid nor a surface
+  // of its own, because a thread is not a thing the ball can touch. What it
+  // owns is a pairing over cell indices, and the only question anything asks it
+  // is `partnerOf` — at the two places a brick is written to the grid, never at
+  // a collision. See `strikeTwin`.
+  private readonly entanglement = new Entanglement();
   // The bricks that landed this tick, reused rather than allocated: a whole
   // wall arriving at the floor is ninety-six of these in one frame.
   private readonly landings: Landing[] = [];
@@ -966,6 +981,10 @@ export class ShatterGame {
       // of focus every cell is, and the renderer reads that rather than
       // re-deriving a picture the collision has an opinion about.
       fog: this.decoherence,
+      // And the couples, for the echoes' reason exactly: the effect has already
+      // walked the wall this tick to place every thread, and the renderer reads
+      // that list rather than asking the wall the same question twice.
+      twin: this.entanglement,
       // One number, and the pips it is about. The fault says which bricks will
       // crumble and the pool says which ones already did — the capsule's state
       // and its history, the way SNAP's lattice and its marks are two fields.
@@ -1503,6 +1522,18 @@ export class ShatterGame {
     // ball having *left* it, which is a fact about the end of a tick and not
     // about any one sub-step inside it.
     this.decoherence.step(this.grid, this.balls);
+    // The threads going slack, scored where the sunset and the merge above are
+    // and for their reason: the twenty ticks they take to fall are what the
+    // sound is over, so the field is bare on the tick the room goes quiet.
+    if (this.timers.remaining("TW") === gameConfig.powerUps.twin.slackTicks) {
+      this.deps.sfx.twinSlack();
+    }
+    // TWIN's couples, beside the echoes and below the same gates — though for a
+    // milder reason than theirs. A thread is not a hitbox, so a detonation
+    // holding the field still is not holding a collider still; what the gates
+    // buy here is that the refill clock does not spend the capsule's nine
+    // seconds while the wall is frozen behind a clear.
+    this.entanglement.step(this.grid);
     this.lightCasters();
     for (const core of this.cores) {
       if (core.active) {
@@ -1621,6 +1652,14 @@ export class ShatterGame {
     // tick there is nothing out of focus and nothing to walk through. `reset`
     // is the bookkeeping catching up with a picture that has finished, and the
     // sound played when the wall started coming back rather than here.
+    // The threads already down: they stopped paying twenty ticks ago and have
+    // spent them falling through the field, so by this tick there is nothing on
+    // screen and nothing wired. `reset` is the bookkeeping catching up with a
+    // picture that has already finished, which is why the sound is not here —
+    // `twinSlack` played when they let go, not when the timer noticed.
+    if (expired.includes("TW")) {
+      this.entanglement.reset();
+    }
     if (expired.includes("CO")) {
       this.decoherence.reset();
     }
@@ -3729,12 +3768,28 @@ export class ShatterGame {
     }
   }
 
-  private damageBrick(hit: BrickHit, source: BrickDamageSource = "ball"): void {
+  /**
+   * `amount` is what comes off, and it is a parameter for one caller only:
+   * TWIN's partner, which owes *the same damage* the struck brick took rather
+   * than the damage its own kind would have taken from the same source. A laser
+   * drilling a granite for two and its plain partner chipping for one would be
+   * the capsule quietly not meaning what it says, and it is reachable — the
+   * cannons are the one thing on the board whose damage depends on what it hit.
+   */
+  private damageBrick(hit: BrickHit, source: BrickDamageSource = "ball", amount?: number): void {
     // What the source takes off. Only granite reads anything but 1 here, and
     // only for a laser: the cannons drill stone at double the ball's rate, which
     // is what makes SUPER MAZE's two seeded LASERs the way through it rather
     // than a nicety. Silver and gold still die in two and three bolts.
-    const destroyed = this.grid.damage(hit, source === "laser" ? BRICK_BY_ID[hit.cell.kind].laserDamage : 1);
+    const taken = amount ?? (source === "laser" ? BRICK_BY_ID[hit.cell.kind].laserDamage : 1);
+    const destroyed = this.grid.damage(hit, taken);
+    // TWIN, at the grid write and before anything else this method does: the
+    // partner takes the same damage on the same tick, and a chip is damage — a
+    // granite partner chips exactly as the struck brick chips, and the thread
+    // stays until one of them actually dies.
+    if (source !== "twin") {
+      this.strikeTwin(hit, taken);
+    }
     if (!destroyed) {
       // A BLAST splash is covered by its one boom and a CHAIN link by its one
       // crack; only what the player aimed clanks.
@@ -3831,6 +3886,94 @@ export class ShatterGame {
     // the old direct onLevelCleared() call double-scored the clear bonus.
     if (this.grid.remaining <= 0) {
       this.clearCountdown = gameConfig.effects.clearDelayTicks;
+    }
+  }
+
+  /**
+   * A brick taken out of the wall by something that is not a hit — a nuke, a
+   * ZAP sweep, a grub's bite, a meteor, a PYRE crater — and TWIN's partner
+   * paid for it.
+   *
+   * **This exists so the capsule is routed once rather than five times.**
+   * `BrickGrid.damage` and `BrickGrid.destroy` are the only two ways a brick
+   * leaves the wall, and `damageBrick` has always been the single wrapper round
+   * the first; this is the single wrapper round the second. The five callers
+   * that used to reach `destroy` directly go through here now, so "the partner
+   * has to be paid whichever of those did the killing" is one line in one place
+   * instead of an enumeration that is wrong the day a sixth killer is added.
+   *
+   * The payout itself stays each caller's business: they disagree about the
+   * burst and about whether anything is heard, and folding those in would make
+   * this a fourth thing the nuke and the grub had to agree on.
+   */
+  private destroyBrick(hit: BrickHit): void {
+    this.grid.destroy(hit);
+    this.strikeTwin(hit, null);
+  }
+
+  /**
+   * TWIN: the partner of a cell just written to the grid, paid the same damage
+   * on the same tick.
+   *
+   * `amount` is the hit points that came off, or null for an outright destroy —
+   * a partner of a brick a nuke took is a brick the nuke took, and a granite
+   * that survived on paper while its twin was vaporised would be the capsule
+   * arguing with the thing that killed it.
+   *
+   * **The payout is `chainFrom`'s and not a ball's**, which is this ticket's one
+   * ruling worth writing down. The spec's prose says the partner rolls its own
+   * capsule and its instruction says to reuse the chain's path; those two
+   * disagree, because `damageBrick(_, "chain")` deliberately drops nothing. The
+   * instruction wins. Every indirect kill in the game already settles this the
+   * same way — a chain link, a BLAST splash, a nuke, a ZAP sweep, a bite, a
+   * drill and a crater all pay full points and roll nothing — and a partner
+   * paying like a ball would be the only brick on the board that dropped loot
+   * for a hit it never took. A *seeded* capsule still comes out, because a
+   * seeded capsule is the level's promise and not a roll.
+   *
+   * **One hop, and the at-most-one rule is what makes that structural.** The
+   * partner has no pairing of its own to fire, so there is no cascade to guard
+   * against — and the `source !== "twin"` gate above is belt to that braces,
+   * covering the one case the pairing cannot: a couple broken by the write that
+   * is itself paying a couple.
+   *
+   * PIERCE through a couple takes both halves of two different couples in one
+   * pass, and that is the best thing this capsule can do. Nothing here guards
+   * against it.
+   */
+  private strikeTwin(hit: BrickHit, amount: number | null): void {
+    const partner = this.entanglement.partnerOf(hit.row, hit.column);
+    if (partner === null) {
+      return;
+    }
+    const target = this.grid.hitAtCell(partner.row, partner.column);
+    if (target === null) {
+      // Nothing left to pay, and a thread with one anchor is not a thread. The
+      // wall's own tick would retire this couple anyway; snapping it here means
+      // the pairing is never a frame out of date with the wall.
+      this.entanglement.snap(hit.row, hit.column, this.grid);
+      return;
+    }
+    if (amount === null) {
+      this.grid.destroy(target);
+      this.releaseSeededCapsule(target);
+      this.score += target.cell.points * this.scoreMultiplier("twin");
+      this.emitBurst(target, gameConfig.effects.brickDeathBurst);
+    } else {
+      this.damageBrick(target, "twin", amount);
+    }
+    // The hop, whether or not it killed: what the player has to hear is that
+    // the damage crossed the field, which is the capsule's whole event and is
+    // just as true of a chip as of a kill.
+    this.deps.sfx.twinStrike();
+
+    // The thread stays until one of them *actually* dies: two granites wired
+    // together are a couple that survives its own first exchange, which is the
+    // capsule paying a chip forward rather than a kill.
+    const struckGone = this.grid.hitAtCell(hit.row, hit.column) === null;
+    const partnerGone = this.grid.hitAtCell(partner.row, partner.column) === null;
+    if (struckGone || partnerGone) {
+      this.entanglement.snap(hit.row, hit.column, this.grid);
     }
   }
 
@@ -4151,7 +4294,7 @@ export class ShatterGame {
           return;
         }
         const hit = { cell, row: rowIndex, column: columnIndex };
-        this.grid.destroy(hit);
+        this.destroyBrick(hit);
         this.releaseSeededCapsule(hit);
         this.score += cell.points * this.scoreMultiplier();
         this.emitBurst(hit, gameConfig.effects.nukeBurst);
@@ -4208,7 +4351,7 @@ export class ShatterGame {
     if (!hit) {
       return;
     }
-    this.grid.destroy(hit);
+    this.destroyBrick(hit);
     this.releaseSeededCapsule(hit);
     this.score += hit.cell.points * this.scoreMultiplier();
     this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
@@ -4286,7 +4429,7 @@ export class ShatterGame {
       if (!hit) {
         continue;
       }
-      this.grid.destroy(hit);
+      this.destroyBrick(hit);
       this.releaseSeededCapsule(hit);
       this.score += hit.cell.points * this.scoreMultiplier();
       this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
@@ -4438,6 +4581,7 @@ export class ShatterGame {
     this.shadows.reset();
     this.superposition.reset();
     this.decoherence.reset();
+    this.entanglement.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;
@@ -4790,6 +4934,14 @@ export class ShatterGame {
       this.superposition.start(this.grid, durations.SU);
       this.deps.sfx.superposeSplit();
     }
+    if (kind === "TW") {
+      // The wall as it stands on the catch frame, and a second TWIN redraws the
+      // pairing rather than topping the nine seconds up — `Entanglement.start`
+      // has the argument, which is SUPERPOSE's above it.
+      this.timers.activate("TW", durations.TW);
+      this.entanglement.start(this.grid, durations.TW);
+      this.deps.sfx.twinWeave();
+    }
     if (kind === "GB") {
       const { reelTicks, holdTicks } = gameConfig.powerUps.gamble;
       // A second GAMBLE over a reel still turning resolves that one first: the
@@ -4826,6 +4978,10 @@ export class ShatterGame {
       this.erosion.shiftDown();
       this.sheet.shiftDown();
       this.slump.shiftDown();
+      // TWIN's couples are cell indices, so they ride the slide the way the wear
+      // above them does — a quake that moved the wall out from under the pairing
+      // would leave every thread on the field pointing at the wrong brick.
+      this.entanglement.shiftDown();
       this.quake.start();
       // The catch happens below `quake.step()` in the same tick, so the wall
       // would spend its first frame drawn a row above a hitbox that had not
@@ -5346,7 +5502,7 @@ export class ShatterGame {
         continue;
       }
       for (const hit of hits) {
-        this.grid.destroy(hit);
+        this.destroyBrick(hit);
         this.releaseSeededCapsule(hit);
         this.score += hit.cell.points * this.scoreMultiplier();
         this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
@@ -5533,7 +5689,7 @@ export class ShatterGame {
           return;
         }
         const hit = { cell, row: rowIndex, column: columnIndex };
-        this.grid.destroy(hit);
+        this.destroyBrick(hit);
         this.releaseSeededCapsule(hit);
         this.score += cell.points * this.scoreMultiplier();
         this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
@@ -5741,6 +5897,7 @@ export class ShatterGame {
     this.slump.load(levelAt(level).rows.length);
     this.superposition.load(levelAt(level).rows.length);
     this.decoherence.load(levelAt(level).rows.length);
+    this.entanglement.load(levelAt(level).rows.length);
     this.grid.fog = this.decoherence;
     this.grid.sheet = this.wallOffsets;
     this.grid.fence = this.fence;
@@ -5819,6 +5976,7 @@ export class ShatterGame {
     this.shadows.reset();
     this.superposition.reset();
     this.decoherence.reset();
+    this.entanglement.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;
@@ -5905,6 +6063,7 @@ export class ShatterGame {
     this.shadows.reset();
     this.superposition.reset();
     this.decoherence.reset();
+    this.entanglement.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;
