@@ -56,6 +56,23 @@ export interface WallFence {
   remove(column: number): void;
 }
 
+/**
+ * COLLAPSE's fog, as much of it as the wall needs to know: whether the ball
+ * goes through the brick in a cell, and a way to say that one just did.
+ *
+ * An interface for the reason the three above it are ones. **It is read in
+ * exactly two places** — `findBallOverlap` and `findBallOverlaps`, the two ball
+ * lookups — and deliberately nowhere else: a laser bolt, a meteor and TRACER's
+ * probe all come through `cellAt`, and the capsule's own claim is that the fog
+ * is about the ball and nothing else. A fogged cell is a live brick to `rows`,
+ * to `remaining`, to `hitAtCell` and therefore to every capsule that reaches
+ * the wall by index.
+ */
+export interface WallFog {
+  fogged(row: number, column: number): boolean;
+  touch(row: number, column: number): void;
+}
+
 export class BrickGrid {
   // How far above its own index row the wall is being painted this frame, fed
   // from `Quake.dropOffset` every tick. Zero except while QUAKE's wall is still
@@ -76,6 +93,12 @@ export class BrickGrid {
   // below, and deliberately *not* by anything that iterates `rows`: a post is
   // a wall cell to the ball and is not the wall to anything else.
   fence: WallFence | null = null;
+  // COLLAPSE's fog, or null on a wall nobody has decohered — which is every
+  // wall until one is caught. The fourth thing that stops the hitbox being the
+  // plain grid it is indexed on, and the only one of the four that is *not*
+  // read by `cellAt`: the other three move a brick, and this one only decides
+  // whether the ball is allowed to notice it. See `WallFog`.
+  fog: WallFog | null = null;
   private grid: Array<Array<BrickCell | null>> = [];
   private remainingCount = 0;
 
@@ -304,12 +327,31 @@ export class BrickGrid {
 
     for (const [x, y] of corners) {
       const hit = this.cellAt(x, y);
-      if (hit) {
+      if (hit && !this.ballPassesThrough(hit)) {
         return hit;
       }
     }
 
     return null;
+  }
+
+  /**
+   * Whether COLLAPSE lets the ball through this brick, recording the pass.
+   *
+   * Two things at once because they are one event: the ball asked about a cell
+   * and is being told nothing is there, and that is precisely the moment the
+   * cell has to be marked as passed through. Splitting them would mean a second
+   * walk of the box somewhere else to find out what this one already knows.
+   *
+   * A fence post is never fogged — the fog is sized to the wall's own rows and
+   * a post's row is sixteen — so no branch is needed for it here.
+   */
+  private ballPassesThrough(hit: BrickHit): boolean {
+    if (this.fog === null || !this.fog.fogged(hit.row, hit.column)) {
+      return false;
+    }
+    this.fog.touch(hit.row, hit.column);
+    return true;
   }
 
   /**
@@ -356,7 +398,11 @@ export class BrickGrid {
         const x = Math.min(Math.max(left + column * brickWidth + brickWidth / 2, nearX), farX);
         const y = Math.min(Math.max(top + row * brickHeight - this.topOffset + hang + brickHeight / 2, nearY), farY);
         const hit = this.cellAt(x, y);
-        if (hit && !hits.some((found) => found.row === hit.row && found.column === hit.column)) {
+        if (
+          hit &&
+          !this.ballPassesThrough(hit) &&
+          !hits.some((found) => found.row === hit.row && found.column === hit.column)
+        ) {
           hits.push(hit);
         }
       }

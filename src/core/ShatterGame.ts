@@ -18,6 +18,7 @@ import { Ball, ballSizeFor, paceGhost } from "@entities/ball/Ball";
 import { BrickGrid } from "@entities/bricks/BrickGrid";
 import { BumperField } from "@entities/effects/BumperField";
 import { Critter } from "@entities/effects/Critter";
+import { Decoherence } from "@entities/effects/Decoherence";
 import { Detonation } from "@entities/effects/Detonation";
 import { Erosion } from "@entities/effects/Erosion";
 import { Fence } from "@entities/effects/Fence";
@@ -29,6 +30,7 @@ import { Quake } from "@entities/effects/Quake";
 import { ShadowCast } from "@entities/effects/ShadowCast";
 import { Singularity } from "@entities/effects/Singularity";
 import { Slump } from "@entities/effects/Slump";
+import { Superposition } from "@entities/effects/Superposition";
 import { WallOffsets } from "@entities/effects/WallOffsets";
 import { ShotPool } from "@entities/laser/ShotPool";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
@@ -44,6 +46,7 @@ import type { SoundBank } from "@audio/SoundBank";
 import type { TraceRules } from "@core/ballTrace";
 import type { ComboId } from "@core/config/combos";
 import type { Landing } from "@entities/effects/Slump";
+import type { EchoContact } from "@entities/effects/Superposition";
 import type { WidthCurve } from "@entities/paddle/Paddle";
 import type {
   BrickFlash,
@@ -400,6 +403,18 @@ export class ShatterGame {
   // surface hanging in the empty band that no brick occupies. It is rebuilt
   // from the wall every tick and owns nothing the wall would have to know about.
   private readonly shadows = new ShadowCast();
+  // SUPERPOSE's echoes. Handed the grid rather than holding a reference to it,
+  // the way the shadows are: an echo is a second surface standing off a brick
+  // and the wall's hitbox is still exactly where its bricks are. What it owns
+  // that a shadow does not is the bit saying whether a pair has been collapsed
+  // yet, which is the only part of the capsule the wall cannot be asked for.
+  private readonly superposition = new Superposition();
+  // COLLAPSE's fog. Unlike the echoes above it this one *is* handed to the
+  // grid, because what it changes is the wall's own answer to the ball — but
+  // only to the ball: it is read in `findBallOverlap` and nowhere else, so a
+  // fogged brick is still a brick to the gild front, to XRAY's span, to HOMING's
+  // targets, to ZAP's bottom row and to `remaining`. See `WallFog`.
+  private readonly decoherence = new Decoherence();
   // The bricks that landed this tick, reused rather than allocated: a whole
   // wall arriving at the floor is ninety-six of these in one frame.
   private readonly landings: Landing[] = [];
@@ -942,6 +957,15 @@ export class ShatterGame {
       slump: this.slump,
       fence: this.fence,
       shadows: this.shadows,
+      // The echo field itself, the way the sheet above it goes over: the
+      // renderer needs the rect every echo is standing in this frame and the
+      // effect has just built exactly that list for the collision test. One
+      // walk of the wall a tick, read twice.
+      superpose: this.superposition,
+      // And the fog, for the echoes' reason exactly: it already holds how out
+      // of focus every cell is, and the renderer reads that rather than
+      // re-deriving a picture the collision has an opinion about.
+      fog: this.decoherence,
       // One number, and the pips it is about. The fault says which bricks will
       // crumble and the pool says which ones already did — the capsule's state
       // and its history, the way SNAP's lattice and its marks are two fields.
@@ -1457,6 +1481,28 @@ export class ShatterGame {
       this.deps.sfx.umbraSet();
     }
     this.shadows.step(this.grid, this.paddle.y);
+    // The echoes starting for home, scored where the sunset above it is: the
+    // twelve ticks they take to travel are what the sound is over, so the wall
+    // is whole again on the tick the room goes quiet.
+    if (this.timers.remaining("SU") === gameConfig.powerUps.superpose.mergeTicks) {
+      this.deps.sfx.superposeMerge();
+    }
+    // The wall coming back, scored over the fifteen ticks it takes rather than
+    // announced when the timer notices — the sunset's rule, two capsules up.
+    if (this.timers.remaining("CO") === gameConfig.powerUps.collapse.condenseTicks) {
+      this.deps.sfx.collapseCondense();
+    }
+    // SUPERPOSE's echoes, beside the shadows and below the same gates for the
+    // same reason: an echo is a hitbox. It is stepped after them and after the
+    // wall has settled, so the rect an echo is placed at this tick is taken off
+    // a brick that has already finished moving.
+    this.superposition.step(this.grid);
+    // COLLAPSE's fog, stepped after the balls have been moved and below the
+    // same gates: the exit test asks where every ball finished this tick, so it
+    // has to run once the tick's movement is over. A cell is condensed by the
+    // ball having *left* it, which is a fact about the end of a tick and not
+    // about any one sub-step inside it.
+    this.decoherence.step(this.grid, this.balls);
     this.lightCasters();
     for (const core of this.cores) {
       if (core.active) {
@@ -1561,6 +1607,23 @@ export class ShatterGame {
     if (expired.includes("FE")) {
       this.fence.reset();
     }
+    // The echoes already home: they stopped being surfaces twelve ticks ago and
+    // have spent them travelling back into their bricks, so by this tick the
+    // wall is a wall again and there is nothing on screen and nothing in the
+    // way. `reset` is the bookkeeping catching up with a picture that has
+    // already finished, which is why the sound is not here — `superposeMerge`
+    // played when the echoes started for home, not when the timer noticed.
+    if (expired.includes("SU")) {
+      this.superposition.reset();
+    }
+    // The wall already back: it stopped letting the ball through fifteen ticks
+    // ago and has spent them condensing from the bottom course up, so by this
+    // tick there is nothing out of focus and nothing to walk through. `reset`
+    // is the bookkeeping catching up with a picture that has finished, and the
+    // sound played when the wall started coming back rather than here.
+    if (expired.includes("CO")) {
+      this.decoherence.reset();
+    }
     // The faces closing again, and — like the mortar setting above it — the
     // announcement only: the cracks heal along the wall from the far column
     // back over the next half second, and a kill landing inside that half
@@ -1604,7 +1667,7 @@ export class ShatterGame {
     this.shotPool.step(
       this.grid,
       this.timers.isActive("GH"),
-      (hit) => this.damageBrick(hit, "laser"),
+      (hit) => this.strikeWithShot(hit),
       this.hasCombo("LANCE"),
     );
     this.stepCritter();
@@ -2000,7 +2063,15 @@ export class ShatterGame {
       // the ball lands may not point at a surface that has moved.
       deckY: this.paddle.y,
       blocked: (x, y) => {
-        if (this.grid.cellAt(x, y) !== null) {
+        const cell = this.grid.cellAt(x, y);
+        // COLLAPSE: a fogged brick is not in the ball's way, so it may not be in
+        // the guide's either. TRACER's whole promise is where the ball lands,
+        // and a line that stopped against a wall the ball flies straight through
+        // would be the one capsule on the board actively lying to the player.
+        // Read without touching: this is a probe and not a pass, and a
+        // prediction that solved the cell it predicted through would hand the
+        // wall back for free from the deck.
+        if (cell !== null && !(this.decoherence.fogged(cell.row, cell.column) && !this.timers.isActive("GH"))) {
           return true;
         }
         const { radius } = gameConfig.powerUps.bumpers;
@@ -2527,6 +2598,68 @@ export class ShatterGame {
   }
 
   /**
+   * A laser bolt reaching a brick — and, under COLLAPSE, the one thing on the
+   * board that can hand a hitbox back without flying through it.
+   *
+   * **The bolt is spent on the fog and the brick takes no damage.** That is the
+   * whole trade and it is the capsule's counter-play: the ball can only solve
+   * the wall at the speed it can cross it, and a bolt solves a cell instantly
+   * from the deck. Eight seconds of COLLAPSE is the strongest argument the
+   * roster has for chasing a LASER.
+   *
+   * Under LANCE the bolt pierces, so one shot can solve a whole column — which
+   * is the fusion doing what a fusion is for, and is left alone.
+   */
+  private strikeWithShot(hit: BrickHit): void {
+    if (this.decoherence.solve(hit.row, hit.column)) {
+      this.deps.sfx.collapseSolve();
+      return;
+    }
+    this.damageBrick(hit, "laser");
+  }
+
+  /**
+   * SUPERPOSE: a ball meeting an echo, into the brick that cast it.
+   *
+   * **The pair collapses and the brick pays**, which is the whole capsule in
+   * one line: an echo is a second place to hit a brick from, so the hit is
+   * routed through `damageBrick` on the ordinary `"ball"` path and points, the
+   * capsule the brick was holding, a live BLAST's splash, a live CHAIN's links
+   * and GRAVEL's chips all fall out of it with no new branches. UMBRA's
+   * `strikeShadow` below reaches the same conclusion from the same place, and
+   * for the same reason: a surface standing in for a brick is not a new kind of
+   * event, it is a brick hit taken somewhere else.
+   *
+   * It is a *hit* and not a kill, so granite still takes four — and a granite
+   * brick whose echo is spent on the first of them is a brick with three hits
+   * left and only one place left to take them, which is the capsule paying
+   * itself back down to a plain wall.
+   *
+   * **The echo pays nothing of its own.** No points, no capsule, no chip: it is
+   * not a brick, it is a second face of one, and a double that dropped its own
+   * loot would be the wall handing over twice for a wall it only has once.
+   *
+   * The collapse is taken before the lookup rather than after it, so a cell the
+   * grid can no longer answer for still loses its echo. A surface with nothing
+   * behind it is the one thing this may not leave standing.
+   *
+   * No cooldown, unlike the shadow below — and none is needed. A wedge is
+   * pushed out of and stays there for several sub-steps, which is what
+   * `umbraCooldown` is paying for; an echo is bounced out of on the axis it was
+   * entered on and is gone from the field on the same tick, so there is nothing
+   * left to graze.
+   */
+  private strikeEcho(echo: EchoContact): void {
+    this.superposition.collapse(echo.row, echo.column);
+    this.deps.sfx.superposeCollapse();
+    const brick = this.grid.hitAtCell(echo.row, echo.column);
+    if (brick === null) {
+      return;
+    }
+    this.damageBrick(brick);
+  }
+
+  /**
    * UMBRA: a ball meeting a shadow, off its face and into its caster.
    *
    * **The wedge damages the brick that threw it**, which is the whole capsule
@@ -2970,6 +3103,28 @@ export class ShatterGame {
       const wasVy = ball.velocity.y;
       ball.x += dx;
       let hit = phasing ? null : this.grid.findBallOverlap(ball.x, ball.y, size);
+      // SUPERPOSE's echo, tested on the axis the brick was tested on and only
+      // where the brick missed: a ball already turned by a brick on this
+      // sub-step cannot be turned again by that brick's own double, which is
+      // what `hit` being live rules out — UMBRA's guard, for UMBRA's reason.
+      //
+      // **And only on an axis the ball actually moved along.** Unlike a brick,
+      // an echo is spent by the contact that finds it, so a test on a zero
+      // delta is not the harmless double-check it is above: a ball running
+      // flat along a rally has `dy` of 0, and testing y anyway would collapse
+      // the pair against a velocity there is nothing to reverse — the player
+      // pays for a double they never hit and the bounce lands on neither axis.
+      let echo = dx !== 0 && hit === null && !phasing ? this.superposition.overlap(ball.x, ball.y, size) : null;
+      if (echo !== null) {
+        if (pierce()) {
+          drilling = true;
+        } else {
+          ball.x -= dx;
+          ball.velocity.x = -ball.velocity.x;
+        }
+        ball.spin = 0;
+        this.strikeEcho(echo);
+      }
       if (hit) {
         if (pierce()) {
           drilling = true;
@@ -2988,6 +3143,17 @@ export class ShatterGame {
 
       ball.y += dy;
       hit = phasing ? null : this.grid.findBallOverlap(ball.x, ball.y, size);
+      echo = dy !== 0 && hit === null && !phasing ? this.superposition.overlap(ball.x, ball.y, size) : null;
+      if (echo !== null) {
+        if (pierce()) {
+          drilling = true;
+        } else {
+          ball.y -= dy;
+          ball.velocity.y = -ball.velocity.y;
+        }
+        ball.spin = 0;
+        this.strikeEcho(echo);
+      }
       if (hit) {
         if (pierce()) {
           drilling = true;
@@ -4270,6 +4436,8 @@ export class ShatterGame {
     this.slump.reset();
     this.fence.reset();
     this.shadows.reset();
+    this.superposition.reset();
+    this.decoherence.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;
@@ -4604,6 +4772,23 @@ export class ShatterGame {
       this.timers.activate("UM", durations.UM);
       this.shadows.start(durations.UM);
       this.deps.sfx.umbraRise();
+    }
+    if (kind === "CO") {
+      // The wall as it stands on the catch frame. A second COLLAPSE re-fogs
+      // everything, the cells already solved included — see `Decoherence.start`
+      // for why a trap is allowed to charge twice where a bonus is not.
+      this.timers.activate("CO", durations.CO);
+      this.decoherence.start(this.grid, durations.CO);
+      this.deps.sfx.collapseFog();
+    }
+    if (kind === "SU") {
+      // The wall as it stands on the catch frame, which is the whole of the
+      // capsule's state: every brick alive right now gets a double, and one
+      // caught over a live SUPERPOSE re-echoes rather than tops up. See
+      // `Superposition.start` for why that is the only honest answer.
+      this.timers.activate("SU", durations.SU);
+      this.superposition.start(this.grid, durations.SU);
+      this.deps.sfx.superposeSplit();
     }
     if (kind === "GB") {
       const { reelTicks, holdTicks } = gameConfig.powerUps.gamble;
@@ -5554,6 +5739,9 @@ export class ShatterGame {
     this.grid.erosion = this.erosion;
     this.sheet.load(levelAt(level).rows.length);
     this.slump.load(levelAt(level).rows.length);
+    this.superposition.load(levelAt(level).rows.length);
+    this.decoherence.load(levelAt(level).rows.length);
+    this.grid.fog = this.decoherence;
     this.grid.sheet = this.wallOffsets;
     this.grid.fence = this.fence;
     this.resetServe();
@@ -5629,6 +5817,8 @@ export class ShatterGame {
     this.slump.reset();
     this.fence.reset();
     this.shadows.reset();
+    this.superposition.reset();
+    this.decoherence.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;
@@ -5713,6 +5903,8 @@ export class ShatterGame {
     this.slump.reset();
     this.fence.reset();
     this.shadows.reset();
+    this.superposition.reset();
+    this.decoherence.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;

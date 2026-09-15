@@ -1018,6 +1018,123 @@ export const gameConfig = {
       // grazed a shadow would pay four hit points for it.
       contactCooldownTicks: 8,
     },
+    /**
+     * SUPERPOSE. Every live brick stands in two places at once: itself, and an
+     * echo half a cell off it. Both are surfaces, a hit on either collapses the
+     * pair into the brick, and the wall resolves itself back to one wall over
+     * the ten seconds.
+     */
+    superpose: {
+      // Half a cell, diagonally. Not a whole one — an echo on the next cell's
+      // footprint is a wall drawn one column to the right, which is a picture
+      // with no double in it. At half, every echo lands on the mortar cross
+      // between four bricks and the wall reads as interleaved.
+      offsetX: 15,
+      offsetY: 6,
+      /**
+       * The split, in ticks, and how far behind its neighbour each cell starts.
+       *
+       * Staggered on `row + column` so the wall comes apart as a diagonal wave
+       * running with the offset, rather than every brick budding at once —
+       * which at 96 cells is not an arrival, it is a second wall appearing.
+       * Twelve columns and eight rows is 19 ticks of stagger over a 10 tick
+       * split, so the far corner has finished inside half a second.
+       */
+      splitTicks: 10,
+      splitStaggerTicks: 1,
+      /**
+       * The merge, and the one asymmetry with the split: the echoes come home
+       * together rather than in a wave. A departure staggered the same way
+       * would leave the last corner holding a surface for nineteen ticks after
+       * the player has watched the capsule end, and that corner is exactly
+       * where they have stopped looking.
+       */
+      mergeTicks: 12,
+      /**
+       * The shimmer: one full trade of brightness between a brick and its echo
+       * and back, in ticks.
+       *
+       * **It is the whole tell and it may never settle.** The capsule's claim
+       * is that neither of the two is the real one, and a static ghost beside a
+       * static brick says the opposite — the bright one is the brick and the
+       * faint one is decoration. At 40 ticks the trade is slow enough to read
+       * as breathing rather than flicker, and long enough that a rally crosses
+       * the wall at several different points in it.
+       */
+      shimmerTicks: 40,
+      // What the echo's alpha swings between. The floor is what keeps it
+      // findable on a dark theme with the liseré; the ceiling stays under 1 so
+      // the brick is never fully hidden behind its own double.
+      alphaFrom: 0.34,
+      alphaTo: 0.66,
+      // How long a collapsed pair's pop is drawn for. Six ticks is the same
+      // tenth of a second UMBRA gives its flash — long enough to be read as
+      // the echo being spent rather than as a brick blinking.
+      popTicks: 6,
+    },
+    /**
+     * COLLAPSE. The wall stops colliding with the ball and goes to fog; a brick
+     * a ball has passed *through* condenses back to solid and stays solid, so
+     * the eight seconds are spent carving the wall back into existence in the
+     * shape of where the ball has been.
+     */
+    collapse: {
+      /**
+       * The wall decohering, in ticks, and the stagger that makes it a wave.
+       *
+       * On `row + column` like SUPERPOSE's split, and the same argument: 96
+       * cells losing definition on one frame is not an arrival, it is the wall
+       * being swapped for a different wall. Twenty ticks plus nineteen of
+       * stagger is about two thirds of a second, which is long enough to be
+       * read as something spreading and short enough that the trap has started
+       * before the player has finished reading it.
+       */
+      fogTicks: 20,
+      fogStaggerTicks: 1,
+      /**
+       * The wall condensing again at the end, in ticks, **from the bottom
+       * course up**.
+       *
+       * Not a stagger on `row + column` this time: what the player cares about
+       * at the end of a trap is the row nearest their deck, so the picture
+       * starts there and runs away from them. It is also the honest order for
+       * a capsule whose whole cost was measured in bricks they could not hit —
+       * the first thing handed back is the first thing they will hit.
+       */
+      condenseTicks: 15,
+      /**
+       * How long a brick takes to snap solid once a ball has left it.
+       *
+       * Short, because this is the capsule's reward and a reward that eases in
+       * over half a second is a reward the player cannot connect to the pass
+       * that earned it. Six ticks is a tenth of a second — the same window
+       * UMBRA gives its flash, and for the same reason.
+       */
+      solveTicks: 6,
+      /**
+       * What is left of a fogged brick's body.
+       *
+       * **Not zero, and this is the one number that separates this trap from
+       * GHOST.** GHOST draws a hollow outline: the wall is gone and there is
+       * nothing to plan against. Here the player is choosing *what to carve*,
+       * which means they have to be able to read a granite from a red at a
+       * glance while it is fogged — so the brick keeps its own body tone and
+       * loses only its solidity. A quarter is where a brick stops reading as
+       * something you can hit and still reads as what it is.
+       */
+      fogAlpha: 0.28,
+      // How far the fog eats into the cell, in px, and how many grains it
+      // throws outside it. The inset is what makes a fogged brick visibly
+      // smaller than the space it is standing in — the gap is the tell that the
+      // ball will go through, before the player has tried it.
+      //
+      // Two on x and one on y because the cell is 30 by 12: two off each edge
+      // of the height would leave a body 6 px tall wearing a 1 px sheen and a
+      // 1 px bevel, which is a brick with no face left to read the damage on.
+      fogInsetX: 2,
+      fogInsetY: 1,
+      fogGrains: 6,
+    },
     // BANANA. The peels come off the deck that ate the banana, arc out and
     // land on the paddle rail, where they hand the deck to its own momentum for
     // a second when one is swept over.

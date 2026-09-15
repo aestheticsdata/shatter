@@ -172,6 +172,96 @@ class Field {
   }
 
   // A brick lit the way the field lights one that has just been killed.
+  /**
+   * SUPERPOSE's echo: a brick's double, half a cell off it.
+   *
+   * The body is the caster's own flat tone at the alpha the field draws it at,
+   * and the edge is the capsule's violet — the same two decisions the renderer
+   * makes, so the miniature and the field are one picture. `alpha` is the
+   * shimmer frozen wherever the still wants it, since a catalogue entry has no
+   * frame counter behind it.
+   */
+  echo(column: number, row: number, kind: BrickKind, alpha = 0.5): void {
+    const { offsetX, offsetY } = gameConfig.powerUps.superpose;
+    const { x, y } = this.brickAt(column, row);
+    const { brickWidth, brickHeight } = gameConfig.grid;
+    this.ctx.globalAlpha = alpha;
+    this.rect(x + offsetX, y + offsetY, brickWidth, brickHeight, BRICK_COLORS[kind].flat);
+    this.ctx.globalAlpha = 1;
+    this.outline(x + offsetX, y + offsetY, brickWidth, brickHeight, canvasPalette.superposeEdge);
+  }
+
+  /**
+   * A collapsed pair: the ring alone, opened a couple of pixels off every side.
+   *
+   * Closed here where the standing echo's edge is an L, and deliberately: this
+   * one is a shape *leaving*, which is a ring opening outward, and there is
+   * only ever one or two of them in a frame — the mesh the L exists to prevent
+   * needs ninety-six of them to happen.
+   */
+  echoPop(column: number, row: number, grow = 2): void {
+    const { offsetX, offsetY } = gameConfig.powerUps.superpose;
+    const { x, y } = this.brickAt(column, row);
+    const { brickWidth, brickHeight } = gameConfig.grid;
+    this.ctx.globalAlpha = 0.6;
+    this.ring4(
+      x + offsetX - grow,
+      y + offsetY - grow,
+      brickWidth + grow * 2,
+      brickHeight + grow * 2,
+      canvasPalette.superposeEdge,
+    );
+    this.ctx.globalAlpha = 1;
+  }
+
+  /**
+   * COLLAPSE's fog: a brick out of focus, pulled inside its own cell with its
+   * edge coming apart into the gap.
+   *
+   * The two decisions the field makes, made the same way here — the body keeps
+   * its own colours and only loses weight, and the grain lands on the rim
+   * rather than on the face. `fog` is the same 0-to-1 the effect hands the
+   * renderer, frozen wherever the still wants it.
+   */
+  fogBrick(column: number, row: number, kind: BrickKind, fog: number): void {
+    const { fogAlpha, fogInsetX, fogInsetY, fogGrains } = gameConfig.powerUps.collapse;
+    const { x, y } = this.brickAt(column, row);
+    const { brickWidth, brickHeight } = gameConfig.grid;
+    this.ctx.globalAlpha = 1 - fog * (1 - fogAlpha);
+    drawBrick(this.ctx, x, y, cell(kind, row * COLUMNS + column), 1, {
+      demade: this.demade,
+      erodeX: Math.round(fog * fogInsetX),
+      erodeY: Math.round(fog * fogInsetY),
+    });
+    this.ctx.globalAlpha = fog;
+    // Spread evenly round the rim rather than hashed: a still has one frame to
+    // say "this edge is coming apart", and six pixels that happened to cluster
+    // on one side would read as a chipped brick instead.
+    for (let index = 0; index < fogGrains; index++) {
+      const along = Math.round((index / fogGrains) * (brickWidth + brickHeight));
+      const grainX = along < brickWidth ? along : index % 2 === 0 ? 0 : brickWidth - 1;
+      const grainY = along < brickWidth ? (index % 2 === 0 ? 0 : brickHeight - 1) : along - brickWidth;
+      this.rect(x + grainX, y + grainY, 1, 1, canvasPalette.collapseGrain);
+    }
+    this.ctx.globalAlpha = 1;
+  }
+
+  private ring4(x: number, y: number, width: number, height: number, color: string): void {
+    this.rect(x, y, width, 1, color);
+    this.rect(x, y + height - 1, width, 1, color);
+    this.rect(x, y + 1, 1, height - 2, color);
+    this.rect(x + width - 1, y + 1, 1, height - 2, color);
+  }
+
+  // The bottom-right L the field draws, and for the field's reason: a closed
+  // rectangle round every echo tiles a wall into a violet mesh. See
+  // `CanvasRenderer.drawEchoes`, which this has to keep agreeing with — the
+  // catalogue and the field are one picture or the entry is a lie.
+  private outline(x: number, y: number, width: number, height: number, color: string): void {
+    this.rect(x, y + height - 1, width, 1, color);
+    this.rect(x + width - 1, y, 1, height - 1, color);
+  }
+
   flash(column: number, row: number, color: string): void {
     const { x, y } = this.brickAt(column, row);
     this.rect(x + 1, y + 1, BRICK_WIDTH - 2, BRICK_HEIGHT - 2, color);
@@ -1365,6 +1455,81 @@ const SCENES: Record<PowerUpKind, Painter> = {
     field.ball(230, 158);
     field.deck();
     field.sun(sunX);
+  },
+  /**
+   * SUPERPOSE: the wall doubled, and one pair already spent.
+   *
+   * The still has to answer the one question a reader brings to this entry —
+   * *which of the two do I hit?* — and the answer is "either", so the picture
+   * shows the shimmer caught mid-trade: the echoes at their bright end, where
+   * they are as solid-looking as the bricks they came off. A still with faint
+   * ghosts beside firm bricks would say the opposite of the capsule.
+   *
+   * Three states in one frame, which is what GRAVEL's and PYRE's scenes do:
+   * bricks with their doubles standing, one pair mid-collapse with only its
+   * edge left, and — bottom right — a brick whose echo is already spent and
+   * which stands alone the way the whole wall will by the end of the ten
+   * seconds.
+   */
+  SU: (field) => {
+    /**
+     * Four bricks and their doubles, not a wall of them.
+     *
+     * UMBRA's scene paints the whole wall because *distance* is what that
+     * capsule is about and a token row would not show it. This one is about a
+     * **pair**, and a pair is the one thing a full wall cannot show: thirty-six
+     * doubles on a 30 px pitch overlap into a slab where no reader can say
+     * which double belongs to which brick, which is the question the entry
+     * exists to answer.
+     *
+     * Three states, left to right, which is also the capsule's whole arc in one
+     * frame: two pairs standing, one collapsing, and on the right a brick whose
+     * double is already spent and which stands alone the way the entire wall
+     * will by the end of the ten seconds.
+     */
+    const row = 3;
+    const kinds: readonly BrickKind[] = ["1", "2", "3", "4"];
+    kinds.forEach((kind, index) => field.brick(4 + index, row, kind));
+    // The shimmer caught at its bright end. A still with faint ghosts beside
+    // firm bricks would say the opposite of the capsule — that one of the two
+    // is the real one — so the doubles are drawn as solid-looking as what threw
+    // them.
+    field.echo(4, row, "1", 0.66);
+    field.echo(5, row, "2", 0.66);
+    field.echoPop(6, row);
+    field.ball(BALL_HOME.x, BALL_HOME.y);
+    field.deck();
+  },
+  /**
+   * COLLAPSE: one row in three states, which is the capsule's whole arc.
+   *
+   * Left to right: bricks still in fog and pulled inside their cells with their
+   * edges coming apart, one caught halfway back as a ball leaves it, and on the
+   * right two that a pass has already solved and which stand solid and stay
+   * that way. The ball is drawn *inside* the fogged run, because "the ball goes
+   * through this" is the one fact the entry has to establish and no arrangement
+   * of bricks alone can say it.
+   *
+   * A single row rather than a wall: what a reader needs to compare is a fogged
+   * brick against a solid one, and three courses of fog is a picture of weather
+   * rather than of a rule.
+   */
+  CO: (field) => {
+    const row = 3;
+    const kinds: readonly BrickKind[] = ["1", "2", "3", "4", "5", "S"];
+    kinds.forEach((kind, index) => {
+      const column = 3 + index;
+      if (index < 3) {
+        field.fogBrick(column, row, kind, 1);
+      } else if (index === 3) {
+        field.fogBrick(column, row, kind, 0.5);
+      } else {
+        field.brick(column, row, kind);
+      }
+    });
+    const { x, y } = field.brickAt(4, row);
+    field.ball(x + 11, y + 2);
+    field.deck();
   },
   /**
    * FENCE: six posts standing over the deck, with the wall still up where it

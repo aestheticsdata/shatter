@@ -761,6 +761,116 @@ export class SoundBank {
     this.tone({ freq: 620, freqEnd: 940, dur: 0.07, vol: 0.05, type: "triangle", delayS: 0.1 });
   }
 
+  /**
+   * SUPERPOSE arriving: one voice becoming two.
+   *
+   * A single sine that splits into a pair a few cents apart and beats against
+   * itself — which is the capsule stated in sound, and is also the one thing
+   * two oscillators do that one cannot. The detune is small enough that what is
+   * heard is the beating rather than a chord: a chord is two notes, and the
+   * claim here is that it is one note in two places.
+   *
+   * Scored to the ten ticks the split takes plus the stagger across the wall,
+   * so it finishes about when the far corner does.
+   */
+  superposeSplit(): void {
+    if (!this.allow("superposeSplit")) {
+      return;
+    }
+    this.tone({ freq: 330, dur: 0.46, vol: 0.05, type: "sine" });
+    this.tone({ freq: 334, dur: 0.46, vol: 0.05, type: "sine", delayS: 0.04 });
+    this.noise({ dur: 0.2, vol: 0.03, filter: { type: "highpass", freq: 900, freqEnd: 2600 } });
+  }
+
+  /**
+   * And the echoes coming home: the beat resolving.
+   *
+   * The same two voices, the detuned one sliding onto the other so the beating
+   * slows and stops — a pair becoming a single note. Deliberately not the
+   * arrival reversed, for the reason `umbraSet` is not: the arrival opens into
+   * two and this closes into one, and both have to be heard as their own
+   * event.
+   */
+  superposeMerge(): void {
+    if (!this.allow("superposeMerge")) {
+      return;
+    }
+    this.tone({ freq: 330, dur: 0.2, vol: 0.05, type: "sine" });
+    this.tone({ freq: 336, freqEnd: 330, dur: 0.2, vol: 0.05, type: "sine" });
+  }
+
+  /**
+   * A pair collapsing: the short, dry half of the event.
+   *
+   * The brick's own hit is already playing under this — the echo routes through
+   * `damageBrick` like any other ball contact — so this is only what the *echo*
+   * costs, and it has to sit under the clank rather than beside it. A single
+   * high blip falling away, no body and no tail: something that was there
+   * stopped being there, and the brick behind it makes all the noise.
+   *
+   * The window is tight because the wall can hand over several pairs a second
+   * early in the capsule, and 96 of these at the roster's default retrigger
+   * would be a rattle.
+   */
+  superposeCollapse(): void {
+    if (!this.allow("superposeCollapse", 30)) {
+      return;
+    }
+    this.tone({ freq: 880, freqEnd: 590, dur: 0.05, vol: 0.035, type: "sine" });
+  }
+
+  /**
+   * COLLAPSE arriving: the wall losing definition.
+   *
+   * Noise with a lowpass **closing** over it and no attack at all — the opposite
+   * shape to `umbraRise`, which opens one. What is being said is that something
+   * is going out of focus, and a filter shutting on a wash is exactly that: the
+   * detail leaves first and the body of the sound stays, which is what happens
+   * to the wall.
+   *
+   * No tone under it, deliberately. Every other arrival on this board has a
+   * pitched voice somewhere in it; a trap whose subject is *loss of definition*
+   * is the one place a clean note would contradict the picture.
+   */
+  collapseFog(): void {
+    if (!this.allow("collapseFog")) {
+      return;
+    }
+    this.noise({ dur: 0.62, vol: 0.07, filter: { type: "lowpass", freq: 2600, freqEnd: 180 } });
+  }
+
+  /**
+   * And the wall condensing: the same wash with the filter opening again,
+   * shorter, with the note the arrival refused arriving at the end of it.
+   *
+   * The tone is the point — it is the only pitched thing in the capsule, and it
+   * lands as the last course comes back. A trap ending should be audible as
+   * something being handed over.
+   */
+  collapseCondense(): void {
+    if (!this.allow("collapseCondense")) {
+      return;
+    }
+    this.noise({ dur: 0.26, vol: 0.05, filter: { type: "lowpass", freq: 200, freqEnd: 3000 } });
+    this.tone({ freq: 196, freqEnd: 294, dur: 0.2, vol: 0.05, type: "triangle", delayS: 0.08 });
+  }
+
+  /**
+   * One brick snapping solid — a pass through it, or a laser bolt spent on it.
+   *
+   * The most-repeated sound in the capsule by a wide margin: a ball crossing a
+   * fogged wall solves three or four cells on the way through and comes back
+   * for more, so this is a *tick* and not an event. Short, dry, quiet and
+   * high, with a retrigger window tight enough that a fast crossing reads as a
+   * run of them rather than one smear.
+   */
+  collapseSolve(): void {
+    if (!this.allow("collapseSolve", 25)) {
+      return;
+    }
+    this.tone({ freq: 430, freqEnd: 660, dur: 0.04, vol: 0.03, type: "triangle" });
+  }
+
   // The same body run the other way and half as long: the wall setting, from
   // the outer columns inward. Short and a little higher than the slack ended,
   // because what is being said is that the sheet has gone stiff — one small

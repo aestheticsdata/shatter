@@ -18,6 +18,7 @@ import {
 import type { BrickGrain } from "@core/config/bricks";
 import type { WallErosion, WallSheet } from "@entities/bricks/BrickGrid";
 import type { Critter } from "@entities/effects/Critter";
+import type { Decoherence } from "@entities/effects/Decoherence";
 import type { Detonation } from "@entities/effects/Detonation";
 import type { Fence } from "@entities/effects/Fence";
 import type { Pip } from "@entities/effects/GravelField";
@@ -28,6 +29,7 @@ import type { Quake } from "@entities/effects/Quake";
 import type { ShadowCast } from "@entities/effects/ShadowCast";
 import type { Singularity } from "@entities/effects/Singularity";
 import type { Slump } from "@entities/effects/Slump";
+import type { Superposition } from "@entities/effects/Superposition";
 import type { Shot } from "@entities/laser/ShotPool";
 import type { Drop } from "@entities/powerups/DropPool";
 import type {
@@ -644,6 +646,21 @@ export interface RenderView {
    * effect exists to prevent.
    */
   shadows: ShadowCast;
+  /**
+   * SUPERPOSE's echo field, handed over whole for the shadows' reason exactly:
+   * the effect has already placed every echo's rect this tick for the
+   * collision test, and re-deriving them here would be two answers to where a
+   * surface is. The renderer reads the list, the shimmer and the pops off it
+   * and decides nothing.
+   */
+  superpose: Superposition;
+  /**
+   * COLLAPSE's fog, handed over whole for the echoes' reason: the effect
+   * already knows how out of focus every cell is, in one number that folds the
+   * arrival, a pass through and the closing condense together. The renderer
+   * reads it per cell and decides nothing.
+   */
+  fog: Decoherence;
   /**
    * GRAVEL's fault, 0 whole wall to 1 every face split.
    *
@@ -1533,18 +1550,39 @@ export class CanvasRenderer {
           const fade = ghostProgress(view.ghostBlend, rowIndex, columnIndex, this.frameCount);
           const erodeX = view.erosion.insetXAt(rowIndex, columnIndex);
           const erodeY = view.erosion.insetYAt(rowIndex, columnIndex);
+          // COLLAPSE: how out of focus this brick is, 0 solid to 1 full fog.
+          // It buys two things off the same number — the body goes thin and the
+          // brick pulls inside its own cell — and both run backwards over the
+          // six ticks after a ball has passed through it.
+          //
+          // **The brick keeps its own colours the whole way down.** GHOST's
+          // `fade` hollows a brick out to an outline, which is the right
+          // picture for a wall that is simply not there; this one is a wall the
+          // player is choosing what to carve out of, and a granite they cannot
+          // tell from a red is a choice they cannot make. See `fogAlpha`.
+          const fog = view.fog.fogAt(rowIndex, columnIndex);
+          const { fogAlpha, fogInsetX, fogInsetY } = gameConfig.powerUps.collapse;
+          if (fog > 0) {
+            this.ctx.globalAlpha = 1 - fog * (1 - fogAlpha);
+          }
           drawBrick(this.ctx, x, y, cell, SCALE, {
             fade,
             demade: this.demade,
             gilded: rowIndex >= view.paydayFront,
-            erodeX,
-            erodeY,
+            erodeX: erodeX + Math.round(fog * fogInsetX),
+            erodeY: erodeY + Math.round(fog * fogInsetY),
             strain: view.jelly.strainAt(rowIndex, columnIndex),
             // SLUMP's arrival: for four ticks every brick's bottom bevel goes
             // to its own shade, which is the picture of something that is no
             // longer resting on anything.
             unmoored: view.slump.hesitating,
           });
+          // The fog eating this brick's edge, drawn from the brick for the
+          // trickle's reason below: it rides the wall through QUAKE's shake and
+          // stops the tick the brick is killed.
+          if (fog > 0) {
+            this.drawFogGrain(x, y, cell.seed, fog);
+          }
           // The seams this brick is opening, drawn from the brick itself so the
           // trickle rides the wall through QUAKE's shake and stops the tick the
           // brick is killed. Under the revealed pill below, which is a thing to
@@ -1584,6 +1622,16 @@ export class CanvasRenderer {
         }
       });
     });
+
+    // SUPERPOSE's echoes, over the wall rather than under it. A double
+    // exposure is the picture, and echoes painted beneath the bricks would be
+    // hidden everywhere the wall is dense — which is everywhere that matters,
+    // and would leave a surface the ball can be turned by that the player
+    // cannot see. Over the bricks and inside the shake, because they hang off
+    // a wall that is shaking.
+    if (view.superpose.active) {
+      this.drawEchoes(view.superpose);
+    }
 
     // FENCE's posts, after the wall and in coordinates of their own: they ride
     // the shake, because a fence planted in a field that is shaking shakes, and
@@ -1893,6 +1941,113 @@ export class CanvasRenderer {
    * does not know what shape it is painting, and cannot disagree with the
    * physics about it.
    */
+  /**
+   * One echo per live pair: the brick's own body at half a breath of alpha,
+   * with the capsule's violet round it.
+   *
+   * **The fill is the brick's flat tone and not a colour of this capsule's**,
+   * because what is being claimed is that the brick is in two places — a
+   * violet rectangle beside a red brick is a violet rectangle, not a second
+   * red brick. And the alpha is what says which of the two you are looking at,
+   * except that it keeps changing its mind: the shimmer trades brightness
+   * between the pair, so the echo is faint while the brick is solid and then
+   * nearly solid while the brick is faint, and neither is ever the answer.
+   *
+   * The liseré is SHA-137's lesson taken in advance. UMBRA shipped its shadows
+   * without an edge and they could not be found on a dark field; a brick's own
+   * tone at a third of an alpha, laid over a wall made of that tone, is the
+   * same bug with better camouflage. The edge is the one pixel in the sprite
+   * that belongs to SUPERPOSE, which is exactly what makes the shape findable.
+   */
+  /**
+   * COLLAPSE's grain: the pixels a decohering brick is losing off its edge.
+   *
+   * Hashed off the cell's own seed the way `drawGrain` hashes granite's flecks,
+   * so the pattern is identical on every frame of a brick's life and unrelated
+   * to its neighbour's — a column of bricks shedding the same six pixels would
+   * read as a tiling artefact rather than as fog.
+   *
+   * Outside the body and not on it. The brick has already pulled inside its own
+   * cell by this point (see the `erodeX` the loop above adds), so the grain
+   * lands in the gap that opened — what is drawn is the brick's edge coming
+   * apart into the space it used to fill, which is also exactly the space the
+   * ball is now allowed through.
+   */
+  private drawFogGrain(x: number, y: number, seed: number, fog: number): void {
+    const { brickWidth, brickHeight } = gameConfig.grid;
+    const { fogGrains } = gameConfig.powerUps.collapse;
+    this.ctx.globalAlpha = fog;
+    for (let index = 0; index < fogGrains; index++) {
+      const hash = grainHash(seed, index + 64);
+      // Around the rim rather than anywhere in the cell: a grain in the middle
+      // of a brick is a speck on its face, which is granite's picture.
+      const along = (hash >>> 8) % (brickWidth + brickHeight);
+      const flip = (hash & 1) === 1;
+      const grainX = along < brickWidth ? along : flip ? 0 : brickWidth - 1;
+      const grainY = along < brickWidth ? (flip ? 0 : brickHeight - 1) : along - brickWidth;
+      this.pixel(x + grainX, y + grainY, 1, 1, canvasPalette.collapseGrain);
+    }
+    this.ctx.globalAlpha = 1;
+  }
+
+  private drawEchoes(superpose: Superposition): void {
+    const { alphaFrom, alphaTo, popTicks } = gameConfig.powerUps.superpose;
+    const alpha = alphaFrom + (alphaTo - alphaFrom) * superpose.shimmer;
+    for (const rect of superpose.rects) {
+      const { x, y, width, height } = rect;
+      this.ctx.globalAlpha = alpha;
+      this.pixel(x, y, width, height, BRICK_COLORS[rect.kind].flat);
+      // Full strength, over the body rather than under the same alpha it is
+      // drawn at: an edge that breathed with the fill would vanish at the
+      // bottom of every breath, and the bottom of the breath is exactly when
+      // the shape most needs an outline.
+      //
+      // **Two sides and not four**, which is the one thing about this sprite
+      // that had to be seen on a field before it could be decided. A closed
+      // rectangle round every echo tiles a dense wall into a violet mesh — a
+      // net thrown over the bricks, which is SNAP's picture and not this one,
+      // and it says *lattice* where the capsule means *double*. The bottom and
+      // the right are exactly the L that hangs clear of the caster, because
+      // that is the direction the echo is offset in: what is drawn is the part
+      // of the double that is not behind its own brick, which is also the only
+      // part with open field behind it to be read against.
+      this.ctx.globalAlpha = 1;
+      this.pixel(x, y + height - 1, width, 1, canvasPalette.superposeEdge);
+      this.pixel(x + width - 1, y, 1, height - 1, canvasPalette.superposeEdge);
+    }
+    // The pairs spent this tick: a closed ring, opening a pixel a tick off
+    // every side as it fades. What is being said is that the double was there
+    // and is not — the opposite of the brick's own death burst, which throws
+    // its body outward in chunks. An echo has no body to throw.
+    //
+    // Closed where the standing echo's edge is an L, and deliberately: this one
+    // is a shape *leaving*, which is a ring opening outward, and there are only
+    // ever a few in a frame. The mesh the L exists to prevent needs the whole
+    // wall wearing one at once.
+    for (const pop of superpose.pops) {
+      const grow = popTicks - pop.ticksLeft;
+      this.ctx.globalAlpha = pop.ticksLeft / popTicks;
+      this.outline(
+        pop.x - grow,
+        pop.y - grow,
+        pop.width + grow * 2,
+        pop.height + grow * 2,
+        canvasPalette.superposeEdge,
+      );
+    }
+    this.ctx.globalAlpha = 1;
+  }
+
+  // A closed 1 px rectangle as four fills, the way `drawBrick` draws a ghost's
+  // outline. `strokeRect` would put the line on the pixel boundary and land it
+  // a half pixel either side of where every other edge in this renderer sits.
+  private outline(x: number, y: number, width: number, height: number, color: string): void {
+    this.pixel(x, y, width, 1, color);
+    this.pixel(x, y + height - 1, width, 1, color);
+    this.pixel(x, y + 1, 1, height - 2, color);
+    this.pixel(x + width - 1, y + 1, 1, height - 2, color);
+  }
+
   private drawShadows(shadows: ShadowCast): void {
     const { columns } = gameConfig.grid;
     const fill = this.demade ? this.halftone() : canvasPalette.umbraCast;

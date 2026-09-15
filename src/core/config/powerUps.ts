@@ -469,6 +469,48 @@ export const POWER_UPS = [
   // the pill and what it plants are one colour — SNAP's lattice and GRAVEL's
   // cracks are drawn off their own pills for the same reason.
   { id: "FE", name: "FENCE", color: "#349000", dark: false, ticks: 600, tier: "trap", timed: true, blurb: "A HALF ROW OVER YOUR DECK" },
+  // Violet, and the first row on this board decided on **luminance** rather
+  // than on the widest gap. The sweep's roomiest openings are all in the magenta
+  // at hue 300 — FENCE's row above refused that family with four pills already
+  // in it, and a sixth would be worse than the fifth it turned down — and every
+  // one of them sits at a luminance of about 0.16, which is the floor FUSE's row
+  // names: a body is read against the field before it is read against the
+  // roster.
+  //
+  // This is 0.323, which is 5.48:1 against the darkest playfield theme where the
+  // whole blue quarter measures 3.1 and the magenta 3.15. The price is paid in
+  // clearance: **58.0 from MIRROR, which is the bar exactly** — 42, 0 and 40 per
+  // channel, integer arithmetic landing on 58² with nothing to round. Three
+  // pills live in this family (JAMMER, MIRROR, VORTEX) and MIRROR is 6° away in
+  // hue, so the value is what tells them apart: MIRROR is a muted violet at 33 %
+  // saturation and 0.27, this one is light and clean. Nothing in hue 262-300
+  // clears 61 from every body at any luminance worth having — the ones that do
+  // are all back in the refused magenta.
+  //
+  // The echo the capsule paints on the field wears this body's edge as a 1 px
+  // liseré (`superposeEdge`), the way SNAP's lattice and GRAVEL's cracks come
+  // off their own pills. SHA-137 is why it has an edge at all: UMBRA shipped
+  // without one and a half-transparent thing on a dark field could not be found.
+  { id: "SU", name: "SUPERPOSE", color: "#d278dc", dark: true, ticks: 600, tier: "uncommon", timed: true, blurb: "EVERY BRICK IS IN TWO PLACES" },
+  // The blue quarter, which FUSE's row above calls simply full and which the
+  // sweep agrees with: **31 legal bodies in the whole of hue 180-260, and not
+  // one of them is pale.** Every last one is a saturated electric blue sitting
+  // between 0.160 and 0.175 luminance — the floor FUSE names is 0.154 — because
+  // the pale cool end is already worn by WALL, STASIS, TEMPO, SLUMP and
+  // SINGULARITY, and a pale body is what a *fog* actually wants.
+  //
+  // So this row does not get the colour its subject asks for, and that is worth
+  // saying rather than hiding: the fog on the field is pale (`collapseGrain`),
+  // the pill is not, and the two are joined by hue instead of by value. The
+  // alternative was a sixth green or a sixth magenta, told apart from its
+  // family by the glyph alone, which FENCE's row already refused once.
+  //
+  // 60.4 from WIDE, which is the roomiest of the 31, against 3.12:1 on the
+  // darkest theme — the whole band measures 3.1 and the trade between those two
+  // numbers is a tenth of a point of contrast for two points of clearance.
+  // Clearance is the one that has been binding lately: SUPERPOSE above landed
+  // on 58.0 exactly.
+  { id: "CO", name: "COLLAPSE", color: "#0064fe", dark: false, ticks: 480, tier: "trap", timed: true, blurb: "THE WALL IS FOG TILL YOU PASS IT" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];

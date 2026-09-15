@@ -268,6 +268,33 @@ export const canvasPalette = {
   // flashes as the band arrives, in the same warm white the band is drawn in so
   // the two read as one thing travelling and landing rather than two events.
   umbraFlash: "#ffe9a8",
+  /**
+   * SUPERPOSE's echo: the 1 px edge drawn round a brick's double.
+   *
+   * The body of the echo is the brick's own flat tone at half alpha — a double
+   * exposure of the wall has to be made of the wall — which leaves it with no
+   * outline of its own on a busy field, and SHA-137 is the ticket that says
+   * what happens then. So the edge is the capsule's own violet taken up rather
+   * than a brick tone taken down: it is the one pixel in the picture that
+   * belongs to SUPERPOSE and not to the brick, and it reads on a brick face,
+   * on bare field and against every theme.
+   */
+  superposeEdge: "#f0b8f8",
+  /**
+   * COLLAPSE's fog: the grain that eats a decohered brick's edge.
+   *
+   * Pale and cool where the pill is a saturated electric blue, and the row
+   * comment in the registry says why the two cannot match — there is no pale
+   * blue body left on the board. What the field needs is the one thing the pill
+   * could not be: fog reads as *pale*, and a brick dissolving into a dark blue
+   * would read as a brick being shaded rather than one going out of focus.
+   *
+   * It is drawn as scattered pixels rather than an outline on purpose. SUPERPOSE
+   * has the clean edge on this board; an edge here would say the same thing
+   * about two capsules that mean opposite things — one puts a second solid
+   * rectangle on the field, and this one takes the rectangle away.
+   */
+  collapseGrain: "#9fb4d8",
   // JAMMER: the rail the deck has just been shut off, dying through four steps
   // of the capsule's own magenta. Authored rather than alpha-blended, because
   // everything else on this field fades in whole pixels of a named tone and a
