@@ -396,6 +396,75 @@ export const gameConfig = {
      * somewhere". At 0.97 a tick the whole horizontal budget is about 60 px and
      * a typical one is thirty: the shower lands under the brick that threw it.
      */
+    /**
+     * FENCE: the half row of posts planted over the deck.
+     *
+     * The whole capsule is here and in `@entities/effects/Fence`. Nothing about
+     * it is a brick roster question except the post's own three tones, and
+     * nothing about it is a wall question at all — see the class comment for
+     * why six cells outside the grid array cost less than nine empty rows
+     * inside it.
+     */
+    fence: {
+      /**
+       * The grid row the posts are seated on, and the one number here not to
+       * shave.
+       *
+       * `BrickGrid.cellAt` names a row by dividing by the brick height, so a
+       * fence either sits on a real grid row or none of the wall's collision
+       * applies to it. 16 is y 230-242, which leaves **34 px of air** between
+       * the posts and the rail at 276.
+       *
+       * Row 17 is tighter, reads better and is wrong: it leaves 22 px, and
+       * GIANT's ball is 24 — a player who caught both would have a ball that
+       * could not pass under its own fence. If GIANT is ever allowed to snap a
+       * post instead of wedging, 17 is the better seat and this is the note
+       * that says so.
+       */
+      row: 16,
+      // Six on alternating columns of the twelve, which is what makes the gaps
+      // a whole empty column wide — 30 px, against an 8 px ball and a 24 px
+      // giant one. Both numbers are read together: the stride is the columns
+      // over the posts, so this is a half row by construction rather than by a
+      // hand-written list of columns that could disagree with it.
+      posts: 6,
+      // One post's telescope, and the stagger between them. Eight ticks of a
+      // post coming out of the ground, started three ticks apart left to right:
+      // the last of the six seats at 23 ticks, so a fence goes up across the
+      // player's own half of the field in a bit under four tenths of a second
+      // and is watched doing it.
+      //
+      // Three and not two, which the arithmetic would also allow: the thud a
+      // post makes as it seats is its own sound, and two ticks apart is 33 ms,
+      // which is six thuds heard as one.
+      driveTicks: 8,
+      driveStaggerTicks: 3,
+      // And the other end, in the opposite motion: each post snaps *up* out of
+      // its seat over seven ticks, the two ends going first and the middle pair
+      // last, five ticks between pairs. Seventeen ticks all told, which is what
+      // `PowerUpTimers` has to arm the release at — see `fenceReleaseTicks` in
+      // `effects`, which is this span and must stay it.
+      pullTicks: 7,
+      pullStaggerTicks: 5,
+      // How far a post travels out of its seat before it bursts, in pixels. A
+      // whole brick height and a half: far enough that the post is visibly
+      // *out* of the ground rather than jittering in it, and short enough to
+      // stay clear of the empty rows above, where nothing is ever drawn.
+      pullRise: 18,
+      // The puff a post throws as it seats. Small, low and short — this is the
+      // ground closing around a post, not a brick dying, and six brick-deaths'
+      // worth of debris arriving over 23 ticks would read as the fence
+      // exploding on the way in.
+      seatBurst: {
+        chunkCount: 4,
+        minChunkSize: 1,
+        maxChunkSize: 2,
+        minSpeed: 0.3,
+        maxSpeed: 1.1,
+        minLifeTicks: 8,
+        maxLifeTicks: 14,
+      },
+    },
     gravel: {
       // Per kill, rolled per brick. The ticket's four to six, and the reason it
       // is a range rather than five: a fixed count over a row of twelve reads
@@ -1482,6 +1551,13 @@ export const gameConfig = {
     // stopped being held up and has not yet noticed. The whole of the arrival
     // the player is given to read it — see the bottom bevel in `drawBrick`.
     slumpHesitateTicks: 4,
+    // FENCE: how long before the timer runs out the posts start coming up.
+    // SLUMP's and JELLY's pattern — an extraction armed on the tick the capsule
+    // ends is an extraction nobody sees — and unlike theirs it is not a taste
+    // number: it is exactly the span the pull takes, so the last post bursts on
+    // the tick the fence stops existing. `(posts / 2 - 1) * pullStaggerTicks +
+    // pullTicks` with the numbers in `powerUps.fence`, and it moves with them.
+    fenceReleaseTicks: 17,
     // The mortar being poured back in, as the ticks the line takes to run from
     // the floor up to the top row. Thirty-six is a little over half a second
     // for eight rows, and it is deliberately slower than the fall: going down

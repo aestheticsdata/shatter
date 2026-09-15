@@ -19,6 +19,7 @@ import type { BrickGrain } from "@core/config/bricks";
 import type { WallErosion, WallSheet } from "@entities/bricks/BrickGrid";
 import type { Critter } from "@entities/effects/Critter";
 import type { Detonation } from "@entities/effects/Detonation";
+import type { Fence } from "@entities/effects/Fence";
 import type { Pip } from "@entities/effects/GravelField";
 import type { JellySheet } from "@entities/effects/JellySheet";
 import type { Meteor } from "@entities/effects/MeteorField";
@@ -607,6 +608,16 @@ export interface RenderView {
   // mortar running up the pile as it sets. Neither is geometry either — the
   // fall itself is already in `offsets`.
   slump: Slump;
+  /**
+   * FENCE's posts, the way the wall effects above it go over: the renderer asks
+   * where each one is and how much of it there is, because both are per post
+   * and no single number stands for the fence.
+   *
+   * The same object the hitbox reads, which is the point — a post is drawn at
+   * exactly the height it stops a ball at, at every tick of the telescope going
+   * in and of the snap coming out.
+   */
+  fence: Fence;
   /**
    * UMBRA's shadow field, as the object.
    *
@@ -1558,6 +1569,14 @@ export class CanvasRenderer {
         }
       });
     });
+
+    // FENCE's posts, after the wall and in coordinates of their own: they ride
+    // the shake, because a fence planted in a field that is shaking shakes, and
+    // they take none of `wallY` — the drop is the *wall* falling into the row
+    // QUAKE gave it, and the fence was never in the wall.
+    if (view.fence.standing) {
+      this.drawFence(view.fence);
+    }
 
     // Over the bricks it has just read and under everything that stands on the
     // wall — and inside the shake, so the bar rides the wall it is reading
@@ -3022,6 +3041,50 @@ export class CanvasRenderer {
    * for the two hundred and sixty in between — a line parked on the wall stops
    * being a scan and starts being a scratch on the glass.
    */
+  /**
+   * FENCE: the six posts, each at the height it actually has this frame.
+   *
+   * The two ends of the capsule are one loop, because they are one number: a
+   * post being driven in has a `depth` short of the brick height and sits at
+   * its own row, and a post being pulled out has its full depth and a negative
+   * `rise`. Both come off the same object the ball is collided against, so the
+   * post on screen is the post in the way at every tick of either.
+   *
+   * The telescope is a clip and a leading edge rather than a squashed sprite.
+   * A brick scaled to six pixels is a brick with a half-pixel bevel and reads
+   * as a rendering fault; a brick cut off at six is a brick that is only six
+   * pixels *out of the ground*, which is what is happening. The edge is the
+   * post's own shade, laid along the cut, so the thing coming down has a bottom
+   * to it — and it is skipped on a seated post, which has its real bevel back.
+   */
+  private drawFence(fence: Fence): void {
+    const { left, top, columns, brickWidth, brickHeight } = gameConfig.grid;
+    const fenceY = top + fence.row * brickHeight;
+    for (let column = 0; column < columns; column++) {
+      const cell = fence.cellAt(column);
+      if (cell === null) {
+        continue;
+      }
+      const depth = fence.depthAt(column);
+      if (depth <= 0) {
+        continue;
+      }
+      const x = left + column * brickWidth;
+      const y = fenceY + fence.riseAt(column);
+      if (depth >= brickHeight) {
+        drawBrick(this.ctx, x, y, cell, SCALE, { demade: this.demade });
+        continue;
+      }
+      this.ctx.save();
+      this.ctx.beginPath();
+      this.ctx.rect(Math.round(x) * SCALE, Math.round(y) * SCALE, brickWidth * SCALE, depth * SCALE);
+      this.ctx.clip();
+      drawBrick(this.ctx, x, y, cell, SCALE, { demade: this.demade });
+      this.ctx.restore();
+      this.pixel(x + 1, y + depth - 1, brickWidth - 2, 1, BRICK_COLORS.F.dark);
+    }
+  }
+
   private drawXrayBeam(beamY: number, descending: boolean): void {
     const { left, columns, brickWidth } = gameConfig.grid;
     const span = columns * brickWidth;

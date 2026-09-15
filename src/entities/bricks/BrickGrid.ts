@@ -32,6 +32,30 @@ export interface WallSheet {
   offsetAt(row: number, column: number): number;
 }
 
+/**
+ * FENCE's posts, as much of them as the wall needs to know: which cell of one
+ * fixed row holds one, how far it has been driven into the ground, and how far
+ * it has come back out.
+ *
+ * An interface for the reason the two above it are ones, and the split it draws
+ * is the capsule's whole design. The fence answers here, inside the *pixel*
+ * lookup, so a ball, a laser bolt and a meteor all meet it with no new branch
+ * — and it is nowhere in `rows`, so everything that walks the wall by index
+ * goes on meaning the wall: the gild front, XRAY's span, HOMING's targets,
+ * ZAP's bottom row, the critter's first row, and `remaining`.
+ *
+ * `row` is outside the grid array by construction — a level is five to eight
+ * rows and this is sixteen — so no wall cell can ever collide with a post's
+ * index, and QUAKE's shift cannot reach it.
+ */
+export interface WallFence {
+  readonly row: number;
+  cellAt(column: number): BrickCell | null;
+  riseAt(column: number): number;
+  depthAt(column: number): number;
+  remove(column: number): void;
+}
+
 export class BrickGrid {
   // How far above its own index row the wall is being painted this frame, fed
   // from `Quake.dropOffset` every tick. Zero except while QUAKE's wall is still
@@ -47,6 +71,11 @@ export class BrickGrid {
   // plain grid it is indexed on, and the only one that can move a brick out of
   // its own row — which is why `cellAt` below stopped being a single lookup.
   sheet: WallSheet | null = null;
+  // FENCE's posts, or null on a field nobody has fenced — which is every field
+  // until one is caught. Set once by the game and read by the three lookups
+  // below, and deliberately *not* by anything that iterates `rows`: a post is
+  // a wall cell to the ball and is not the wall to anything else.
+  fence: WallFence | null = null;
   private grid: Array<Array<BrickCell | null>> = [];
   private remainingCount = 0;
 
@@ -149,6 +178,15 @@ export class BrickGrid {
     const withinX = x - left;
     const withinY = y - top + this.topOffset;
     const column = Math.floor(withinX / brickWidth);
+    // The fence, first and in coordinates of its own. It is not the wall, so
+    // none of the three displacements below reaches it: QUAKE's drop does not
+    // slide it, JELLY's sheet does not hang it and ERODE's wear does not thin
+    // it. The clearance over the deck is the capsule's one hard number, and a
+    // fence a capsule could move down a row would break it silently.
+    const post = this.fenceHit(column, y - top);
+    if (post !== null) {
+      return post;
+    }
     const middle = Math.floor(withinY / brickHeight);
     const band = this.sheet !== null && this.sheet.rippling ? Math.ceil(this.sheet.reach / brickHeight) : 0;
     // Outward from the row the point would be in on a flat wall, so a cell that
@@ -177,7 +215,10 @@ export class BrickGrid {
    */
   private hitAtRow(row: number, column: number, withinX: number, withinY: number): BrickHit | null {
     const { brickWidth, brickHeight } = gameConfig.grid;
-    const hit = this.hitAtCell(row, column);
+    // The wall and only the wall: the fence was already tested in `cellAt`, in
+    // its own coordinates, and a point that missed a post vertically must not
+    // find it again here against a full-height cell it is not standing in.
+    const hit = this.wallAtCell(row, column);
     if (hit === null) {
       return null;
     }
@@ -206,7 +247,44 @@ export class BrickGrid {
     return inside ? hit : null;
   }
 
+  /**
+   * One post, tested against the rectangle it is actually being painted in.
+   *
+   * `withinY` is measured off the wall's top edge and carries no offset: see
+   * `cellAt`. The rectangle is the post's own — where its top edge has risen to
+   * while it is being pulled, and how far down from it the telescope has
+   * reached while it is being driven — so the fence a ball bounces off is the
+   * fence on screen at every step of both ends, which is `hitAtRow`'s rule for
+   * a worn brick applied to a growing one.
+   */
+  private fenceHit(column: number, withinY: number): BrickHit | null {
+    if (this.fence === null) {
+      return null;
+    }
+    const cell = this.fence.cellAt(column);
+    if (cell === null) {
+      return null;
+    }
+    const offsetY = withinY - this.fence.row * gameConfig.grid.brickHeight - this.fence.riseAt(column);
+    return offsetY >= 0 && offsetY < this.fence.depthAt(column) ? { cell, row: this.fence.row, column } : null;
+  }
+
   hitAtCell(row: number, column: number): BrickHit | null {
+    if (column < 0 || column >= gameConfig.grid.columns) {
+      return null;
+    }
+    // The fence, for the index-space callers — BLAST's eight neighbours, a
+    // CHAIN arc, HOMING's check that its lock still exists. Whole cells, with
+    // none of the pixel test above: a splash does not need to know how far out
+    // of the ground a post is, only that there is one.
+    if (this.fence !== null && row === this.fence.row) {
+      const cell = this.fence.cellAt(column);
+      return cell ? { cell, row, column } : null;
+    }
+    return this.wallAtCell(row, column);
+  }
+
+  private wallAtCell(row: number, column: number): BrickHit | null {
     if (row < 0 || column < 0 || column >= gameConfig.grid.columns || row >= this.grid.length) {
       return null;
     }
@@ -283,6 +361,22 @@ export class BrickGrid {
         }
       }
     }
+
+    // The fence, after the wall and in its own coordinates, by `cellAt`'s rule
+    // exactly — it is sixteen rows down and the loop above never reaches it.
+    // The sample point is the post's own centre clamped into the ball's box, so
+    // a box that does not span the fence row clamps to an edge outside it and
+    // finds nothing.
+    if (this.fence !== null) {
+      const fenceY = Math.min(Math.max(top + this.fence.row * brickHeight + brickHeight / 2, nearY), farY);
+      for (let column = firstColumn; column <= lastColumn; column++) {
+        const x = Math.min(Math.max(left + column * brickWidth + brickWidth / 2, nearX), farX);
+        const hit = this.fenceHit(Math.floor((x - left) / brickWidth), fenceY - top);
+        if (hit && !hits.some((found) => found.row === hit.row && found.column === hit.column)) {
+          hits.push(hit);
+        }
+      }
+    }
     return hits;
   }
 
@@ -294,6 +388,15 @@ export class BrickGrid {
     hit.cell.hitPoints -= amount;
     if (hit.cell.hitPoints > 0) {
       return false;
+    }
+
+    // **A post is not counted out of the level, because it was never counted
+    // in.** `remaining <= 0` is the clear condition and it is tested at six
+    // sites: a fence standing when the wall empties would hold the level open,
+    // and a fence expiring on its own would clear it for the player.
+    if (this.fence !== null && hit.row === this.fence.row) {
+      this.fence.remove(hit.column);
+      return true;
     }
 
     this.grid[hit.row][hit.column] = null;
@@ -338,6 +441,13 @@ export class BrickGrid {
 
   // NUKE kills: remove the cell outright, regardless of remaining hit points.
   destroy(hit: BrickHit): void {
+    // Nothing reaches a post this way today — every caller walks `rows`, which
+    // the fence is not in — but a hit is a hit, and a `destroy` that indexed
+    // the grid at row 16 would throw rather than do nothing.
+    if (this.fence !== null && hit.row === this.fence.row) {
+      this.fence.remove(hit.column);
+      return;
+    }
     if (this.grid[hit.row][hit.column] !== null) {
       this.grid[hit.row][hit.column] = null;
       this.remainingCount--;

@@ -15,7 +15,7 @@ export type PowerUpTier = "common" | "uncommon" | "rare" | "trap";
 
 // How many tickets a tier puts in the bag — see `DropBag`, which draws without
 // replacement instead of rolling weighted odds. A tier is a count of copies, not
-// a probability, and it is almost the whole of the rarity system: 67 tickets,
+// a probability, and it is almost the whole of the rarity system: 69 tickets,
 // about six levels, every capsule out once or twice a pass. Two rows carry an
 // exception, and `POWER_UP_DROP_TICKETS` says why.
 //
@@ -441,6 +441,34 @@ export const POWER_UPS = [
   // that measured wider — #8c6900 reaches 71.6 — all sit within a tenth of the
   // 3:1 field floor, which this roster has refused twice before.
   { id: "UM", name: "UMBRA", color: "#b28e00", dark: true, ticks: 600, tier: "uncommon", timed: true, blurb: "HIT A SHADOW, HIT ITS BRICK" },
+  // The widest opening left on a 53-capsule board, and the sweep says it is not
+  // close: 75.1 from ENGLISH, TRACER and FUSE against the 58 bar, where the best
+  // point in every other quarter of the wheel sits in the low sixties. The board
+  // now has exactly two openings — this yellow-green and a magenta at hue 315 —
+  // and the magenta was refused for the reason the last several rows were
+  // decided on: four pills already live there (JAMMER, FLIP, GAMBLE, BUMPERS)
+  // and a fifth would be a capsule told apart by its glyph alone.
+  //
+  // 3.77:1 against the darkest field theme, 90 from the nearest speck, and a
+  // luminance of 0.207 that puts the light letter the `dark` heuristic asks for
+  // and the light letter that measures better (4.38:1 against the dark one's
+  // 4.07) on the same side — the disagreement UMBRA's row went two RGB points
+  // out of its way to avoid.
+  //
+  // **The violet the ticket flagged in advance was right to be flagged.** A
+  // mid-value violet is the intuitive pick for a fence and MIRROR `#a878b4` is
+  // sitting in it; the sweep finds nothing in hue 240-300 that clears 58 at all.
+  //
+  // Trap distance is the one rule that does *not* apply here, and it is worth
+  // saying because every row above it cites one: those are bonuses, and a bonus
+  // the player reads as a trap while it falls is a bonus they let go. This *is*
+  // a trap. Being 90 from DEMAKE buys nothing and costing margin to reach it
+  // would have bought less.
+  //
+  // The fence posts wear this green a notch up (`F` on the brick roster), so
+  // the pill and what it plants are one colour — SNAP's lattice and GRAVEL's
+  // cracks are drawn off their own pills for the same reason.
+  { id: "FE", name: "FENCE", color: "#349000", dark: false, ticks: 600, tier: "trap", timed: true, blurb: "A HALF ROW OVER YOUR DECK" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];
@@ -481,7 +509,7 @@ export const POWER_UP_NAMES: Record<PowerUpKind, string> = byId((definition) => 
  */
 export const POWER_UP_GLYPHS: Record<PowerUpKind, string> = byId((definition) => glyphFor(definition.name));
 export const POWER_UP_DURATIONS: Record<PowerUpKind, number> = byId((definition) => definition.ticks);
-// Tickets per capsule: tier-derived for 50 of the 52 rows, and two kept back.
+// Tickets per capsule: tier-derived for 52 of the 54 rows, and two kept back.
 //
 // There were three weight exceptions — DEMAKE, VORTEX and GIANT — each promoted a
 // class because it was "landing too rarely to enjoy". The instinct was to retire

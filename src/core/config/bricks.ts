@@ -85,6 +85,26 @@ export const BRICKS = [
   // while the pits multiply: the level it was built for is 53 of these, and a
   // player has to be able to tell a brick two hits in from one at three.
   { id: "R", points: 250, hitPoints: 4, laserDamage: 2, light: "#b9ab98", flat: "#857a6e", dark: "#3f3931", wear: ["#6d6359", "#564e46"], grain: { count: 14, pitsPerHit: 5, pit: "#241f1b" } },
+  // The fence post, and **the one row here no level ever types**. Every brick
+  // above it is a character in a level's alphabet; this one is planted by
+  // FENCE, six of them on alternating columns a short hop over the deck, and
+  // `levels.ts` has no use for it — `isBrickKind` accepts "F" only because the
+  // union is inferred from this column and there is nowhere else for the fence
+  // to be. It is a `BrickKind` so that every hitbox, laser bolt, splash, arc
+  // and chip in the game already knows what to do with it.
+  //
+  // One hit, and **0 points on purpose**: a trap may not be a points pinata,
+  // and PAYDAY and TURBO have to have nothing here to multiply. It holds no
+  // capsule either, which the wall's own roll never offers it — the fence is
+  // not built by `BrickGrid.load`.
+  //
+  // Green-stained timber against eight bodies of masonry, which is the whole
+  // job of these three tones: the posts have to read as *not your wall* at the
+  // moment they arrive, while the ball is still in the air. The body is the
+  // capsule's own green a notch up, so the pill and what it plants are one
+  // colour, and it clears 4.26:1 against the brightest playfield tone — room
+  // over the 3:1 floor every brick body has to hold.
+  { id: "F", points: 0, hitPoints: 1, laserDamage: 1, light: "#8ad152", flat: "#4a9e22", dark: "#1d4a0c", wear: [] },
 ] as const satisfies readonly BrickDefinition[];
 
 export type BrickKind = (typeof BRICKS)[number]["id"];

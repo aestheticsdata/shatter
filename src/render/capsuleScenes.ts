@@ -267,6 +267,30 @@ class Field {
     drawBall(this.ctx, x, y, 1, this.demade, { size });
   }
 
+  /**
+   * FENCE: one post, at whatever depth it has reached.
+   *
+   * A `depth` short of the brick height is a post still being driven in, drawn
+   * the way the renderer draws one — clipped, with the post's own shade laid
+   * along the cut — so the catalogue's picture of an arriving fence is the same
+   * sprite the field paints rather than a second one that could drift off it.
+   */
+  post(column: number, row: number, depth: number = BRICK_HEIGHT): void {
+    const { x, y } = this.brickAt(column, row);
+    const post = cell("F", row * COLUMNS + column);
+    if (depth >= BRICK_HEIGHT) {
+      drawBrick(this.ctx, x, y, post, 1, { demade: this.demade });
+      return;
+    }
+    this.ctx.save();
+    this.ctx.beginPath();
+    this.ctx.rect(x, y, BRICK_WIDTH, depth);
+    this.ctx.clip();
+    drawBrick(this.ctx, x, y, post, 1, { demade: this.demade });
+    this.ctx.restore();
+    this.rect(x + 1, y + depth - 1, BRICK_WIDTH - 2, 1, BRICK_COLORS.F.dark);
+  }
+
   capsule(x: number, y: number, kind: PowerUpKind): void {
     drawCapsule(this.ctx, x, y, kind, 1, 0, this.demade);
   }
@@ -1306,6 +1330,44 @@ const SCENES: Record<PowerUpKind, Painter> = {
     field.ball(230, 158);
     field.deck();
     field.sun(sunX);
+  },
+  /**
+   * FENCE: six posts standing over the deck, with the wall still up where it
+   * always is.
+   *
+   * The whole picture is the **distance**, and it is why this scene draws the
+   * full wall rather than a token row of it: what the reader has to come away
+   * knowing is that the masonry they now have to get past is not up there with
+   * the level, it is down here, a short hop over their own paddle. A staged
+   * frame with only the posts in it would be a picture of six bricks.
+   *
+   * One of the six is already gone, which is the other half of the sentence — a
+   * fence is a thing with holes in it, and a hole is the shot. The ball is
+   * drawn going *up* through one rather than coming off a post: the trap is
+   * legible from the standing posts alone, and what a reader has to be told is
+   * what to do about it.
+   *
+   * The right-hand post is mid-drive, cut to the depth the telescope has
+   * reached, so the still says the fence is *driven in* rather than that it
+   * appears.
+   */
+  FE: (field) => {
+    const { row, posts } = gameConfig.powerUps.fence;
+    const stride = COLUMNS / posts;
+    const gap = 2;
+    field.wall();
+    for (let index = 0; index < posts; index++) {
+      if (index === gap) {
+        continue;
+      }
+      // The last one still coming out of the ground, at five of its twelve
+      // pixels: the arrival is a third of a second and a still cannot show it
+      // any other way.
+      field.post(index * stride, row, index === posts - 1 ? 5 : BRICK_HEIGHT);
+    }
+    // Through the hole and climbing: the shot the fence leaves you, taken.
+    field.ball(GRID_LEFT + (gap * stride + 0.5) * BRICK_WIDTH - 4, GRID_TOP + row * BRICK_HEIGHT - 22);
+    field.deck();
   },
 };
 

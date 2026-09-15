@@ -396,8 +396,8 @@ that gate.
 
 ## 7. A capsule, end to end
 
-53 capsules, every one of them a plain tier lookup in the drop machinery: a tier
-buys tickets in a shuffled bag. 51 of the 53 rows are exactly that; DEMAKE and
+54 capsules, every one of them a plain tier lookup in the drop machinery: a tier
+buys tickets in a shuffled bag. 52 of the 54 rows are exactly that; DEMAKE and
 GIANT keep a common's count, because both already drew at a common's weight in
 production and a rare's single ticket would have been worse over the first four
 levels — better eventually is not better. VORTEX's old exception is retired. The
@@ -413,7 +413,7 @@ and no other.
 ```text
   src/core/config/powerUps.ts
   +---------------------------------------------------------------+
-  | { id, name, color, letter, ticks, tier, timed, blurb }  x 53   |
+  | { id, name, color, letter, ticks, tier, timed, blurb }  x 54   |
   +---------------------------------------------------------------+
         |
         |  everything below DERIVES from that table:
@@ -642,11 +642,11 @@ contract is those four lines in `frame()`.
 
 ### The size of ShatterGame.ts
 
-**It is 5 063 lines, and that is the first thing a reviewer will notice.** So:
+**It is 6 158 lines, and that is the first thing a reviewer will notice.** So:
 
 It is one class holding a small field cluster per capsule effect — `magnetBlend`,
 `xrayBlend`, `xraySweepSpan`, `portalBlend`, `flipTurn`, `haywireBlend`,
-`haywireKickIn`, `haywireKicking`, and so on for forty-nine capsules and six
+`haywireKickIn`, `haywireKicking`, and so on for fifty-four capsules and six
 combos.
 
 The reason is that **every effect touches the same three or four objects**: the
@@ -684,7 +684,25 @@ cannot do without. Those nine left the class cleanly because each is a
 simulation of its own that `ShatterGame` merely steps and reads — and `Erosion`
 is the only one the wall itself reads back, through the `WallErosion` interface
 `BrickGrid` declares for it, which is what keeps ERODE's hitbox out of the
-grid's vocabulary the way `topOffset` keeps QUAKE's out of it. The remaining bulk is the effects that are _modifiers on shared
+grid's vocabulary the way `topOffset` keeps QUAKE's out of it. `WallSheet` and
+`WallFence` are the same seam widened twice since — JELLY and SLUMP hand the
+grid one displacement per cell through `WallOffsets`, and FENCE hands it six
+cells of a row the wall does not have.
+
+**`WallFence` is the interesting one, because it draws a line the rest of the
+grid did not know it had.** The fence is six one-hit posts on grid row 16, ten
+rows below the deepest wall in the game and a short hop over the deck, and they
+have to be wall cells to a ball, a laser bolt, a BLAST splash and a CHAIN arc
+while being nothing at all to everything else. That split falls out of _which
+lookup_ a caller uses rather than out of a flag: `cellAt` is the pixel lookup
+and the fence answers there, so every collider in the game meets it with no new
+branch; `rows` is the index walk and the fence is not in it, so PAYDAY's gild
+front, XRAY's scan span, HOMING's targets, ZAP's bottom row, the critter's first
+row, METEOR's floor, BUMPERS' band and `remaining` all go on meaning the wall.
+The obvious build — pad the grid array out to row 16 — was refused for exactly
+that: `grid.rows.length` is read in eight places as _how far down the field the
+wall reaches_, and nine empty rows would have moved every one of them on every
+level in the game to plant six bricks. The remaining bulk is the effects that are _modifiers on shared
 state_, and the honest next cut is not "one class per capsule" but a `BlendBank`
 that owns the ~20 named blends and their step-above-the-gates rule as data,
 shrinking the field list without pretending the rules are separable.

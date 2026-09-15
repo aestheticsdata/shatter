@@ -20,6 +20,7 @@ import { BumperField } from "@entities/effects/BumperField";
 import { Critter } from "@entities/effects/Critter";
 import { Detonation } from "@entities/effects/Detonation";
 import { Erosion } from "@entities/effects/Erosion";
+import { Fence } from "@entities/effects/Fence";
 import { GravelField } from "@entities/effects/GravelField";
 import { JellySheet } from "@entities/effects/JellySheet";
 import { MeteorField } from "@entities/effects/MeteorField";
@@ -384,7 +385,17 @@ export class ShatterGame {
   // capsules move the same brick without the wall learning either one's name.
   private readonly slump = new Slump();
   private readonly wallOffsets = new WallOffsets(this.sheet, this.slump);
-  // UMBRA's shadow field. Unlike the three above it this one is *not* handed to
+  // FENCE's posts, handed to the grid the way the three above it are — and
+  // through a seam of their own, because the fence is the one thing the wall
+  // holds that is not the wall: `WallFence` is read by the hitbox and by
+  // nothing that walks `rows`. See the class for why it is six cells beside the
+  // grid array rather than nine empty rows inside it.
+  private readonly fence = new Fence();
+  // The posts that finished arriving and leaving this tick, reused rather than
+  // allocated for the reason `landings` is.
+  private readonly fenceSeated: number[] = [];
+  private readonly fencePulled: number[] = [];
+  // UMBRA's shadow field. Unlike the four above it this one is *not* handed to
   // the grid: the wall's hitbox is where its bricks are, and a shadow is a
   // surface hanging in the empty band that no brick occupies. It is rebuilt
   // from the wall every tick and owns nothing the wall would have to know about.
@@ -929,6 +940,7 @@ export class ShatterGame {
       offsets: this.wallOffsets,
       jelly: this.sheet,
       slump: this.slump,
+      fence: this.fence,
       shadows: this.shadows,
       // One number, and the pips it is about. The fault says which bricks will
       // crumble and the pool says which ones already did — the capsule's state
@@ -1405,6 +1417,25 @@ export class ShatterGame {
     this.slump.step(this.grid, this.landings);
     this.settleLandings();
     /**
+     * FENCE's posts, beside the three wall effects above it and below the
+     * freeze gates for their reason: these are surfaces the ball is collided
+     * against, not a picture of them. Nothing here reads the wall — the fence
+     * is planted in the empty band over the deck and never touches it.
+     *
+     * The extraction is armed off the timer's remaining ticks, the way the
+     * sheet's settle and the slump's mortar are, and for a reason of its own on
+     * top of theirs: the pull is exactly as long as `fenceReleaseTicks`, so the
+     * last post bursts on the tick the capsule ends rather than leaving a fence
+     * standing after its timer has gone.
+     */
+    if (this.timers.remaining("FE") > 0 && this.timers.remaining("FE") <= gameConfig.effects.fenceReleaseTicks) {
+      this.fence.release();
+    }
+    this.fenceSeated.length = 0;
+    this.fencePulled.length = 0;
+    this.fence.step(this.fenceSeated, this.fencePulled);
+    this.settlePosts();
+    /**
      * UMBRA's sun, and the twelve wedges it throws.
      *
      * Last of the four wall effects and deliberately so: it reads where every
@@ -1521,6 +1552,14 @@ export class ShatterGame {
     // go, not when the timer noticed.
     if (expired.includes("UM")) {
       this.shadows.reset();
+    }
+    // The posts already out: the pull was armed seventeen ticks ago and the
+    // last of them burst on this tick, so there is nothing on screen and
+    // nothing in the way. `reset` is the bookkeeping catching up with a picture
+    // that has already finished — which is why there is no sound here either,
+    // the same as the sun above it.
+    if (expired.includes("FE")) {
+      this.fence.reset();
     }
     // The faces closing again, and — like the mortar setting above it — the
     // announcement only: the cracks heal along the wall from the far column
@@ -2321,7 +2360,9 @@ export class ShatterGame {
         y: top + neighbor.row * brickHeight + this.cellSag(neighbor.row, neighbor.column),
         ticksLeft: gameConfig.powerUps.splashFlashTicks,
         kind: "blast",
-        onWall: true,
+        // A splash off a fence post reaches the posts either side of it, and a
+        // post is not in wall coordinates — see `emitBurst`.
+        onWall: !this.isPost(neighbor.row),
         gild: false,
       });
       this.damageBrick(neighbor, "splash");
@@ -3556,7 +3597,15 @@ export class ShatterGame {
     this.slump.clearCell(hit.row, hit.column);
     this.score += hit.cell.points * this.scoreMultiplier(source);
     if (isDirectHit(source)) {
-      this.deps.sfx.brickDestroyed(hit.row);
+      // A post snapping, not a brick shattering. Its own sound and not merely
+      // its own pitch: `brickDestroyed` tunes itself off the row, and row 16 is
+      // eleven rows past the bottom of the ramp it was written for — it would
+      // arrive as a 65 Hz thud nobody can hear.
+      if (this.isPost(hit.row)) {
+        this.deps.sfx.fenceSnap();
+      } else {
+        this.deps.sfx.brickDestroyed(hit.row);
+      }
     }
     this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
     // GRAVEL: the chips, thrown alongside the brick's own dust. Here and
@@ -3716,7 +3765,7 @@ export class ShatterGame {
           y: top + neighbor.row * brickHeight + this.cellSag(neighbor.row, neighbor.column),
           ticksLeft: gameConfig.powerUps.splashFlashTicks,
           kind: "blast",
-          onWall: true,
+          onWall: !this.isPost(neighbor.row),
           // BLAST's splash keeps its own colour through a PAYDAY: the chain
           // reads as one explosion, and half of it in a different tone would
           // read as two.
@@ -3750,7 +3799,19 @@ export class ShatterGame {
    */
   private paintedCellY(row: number, column: number): number {
     const { top, brickHeight } = gameConfig.grid;
+    if (this.isPost(row)) {
+      // The fence, in its own coordinates, exactly as the hitbox reads it: no
+      // quake drop and no sag, and the post's own rise while it is being pulled.
+      return top + row * brickHeight + this.fence.riseAt(column);
+    }
     return top + row * brickHeight - this.grid.topOffset + this.cellSag(row, column);
+  }
+
+  // Whether a row index is the fence's rather than the wall's. One number, and
+  // it is asked wherever something derived from the wall would be wrong about a
+  // post — the gild front, the kill's pitch, and where a cell is painted.
+  private isPost(row: number): boolean {
+    return row === gameConfig.powerUps.fence.row;
   }
 
   // Just the per-cell part of it: JELLY's ripple plus SLUMP's fall, with
@@ -3796,6 +3857,39 @@ export class ShatterGame {
     }
   }
 
+  /**
+   * FENCE: the dust a post throws as it seats, and the debris one throws as it
+   * is pulled out.
+   *
+   * The two ends of the capsule in one method, because they are the same
+   * bookkeeping and opposite pictures: a post arriving puffs at its foot, where
+   * the ground closed around it, and a post leaving bursts at its middle in the
+   * standard chunks every brick on this field dies in.
+   */
+  private settlePosts(): void {
+    const { left, brickWidth, brickHeight } = gameConfig.grid;
+    const { top } = gameConfig.grid;
+    const fenceY = top + gameConfig.powerUps.fence.row * brickHeight;
+    for (const column of this.fenceSeated) {
+      // Both sides of the post's foot rather than its middle, by the landing
+      // dust's rule above: what is being shown is the ground taking the post,
+      // and a puff out of the centre of a 30 px face reads as the post breaking.
+      for (const x of [left + column * brickWidth, left + (column + 1) * brickWidth]) {
+        this.particles.burst(x, fenceY + brickHeight, "F", gameConfig.powerUps.fence.seatBurst);
+      }
+      this.deps.sfx.fenceDrive();
+    }
+    for (const column of this.fencePulled) {
+      this.particles.burst(
+        left + column * brickWidth + brickWidth / 2,
+        fenceY - gameConfig.powerUps.fence.pullRise + brickHeight / 2,
+        "F",
+        gameConfig.effects.brickDeathBurst,
+      );
+      this.deps.sfx.fencePull();
+    }
+  }
+
   private emitClipDust(hit: BrickHit): void {
     const { left, brickWidth, brickHeight } = gameConfig.grid;
     this.particles.burst(
@@ -3836,11 +3930,19 @@ export class ShatterGame {
       y: top + hit.row * brickHeight + sag,
       ticksLeft: gameConfig.effects.deathFlashTicks,
       kind: "death",
-      onWall: true,
+      // False for a fence post, which is what this flag is actually asking: a
+      // flash on the wall is drawn with QUAKE's drop taken off and cut to the
+      // wear ERODE has left, and a post takes neither.
+      onWall: !this.isPost(hit.row),
       // Read here rather than in the renderer, so the front is legible in the
       // destruction as well as in the standing wall: mid-sweep the bottom rows
       // are visibly already paying gold while the top ones still flash white.
-      gild: hit.row >= this.paydayFront(),
+      //
+      // Never a fence post, and the guard is load-bearing rather than tidy: the
+      // front is a count of *wall* rows, so `16 >= front` is true on every wall
+      // in the game and a post would flash gold whether or not a PAYDAY had
+      // ever been caught. A post pays nothing, and the flash may not say it did.
+      gild: !this.isPost(hit.row) && hit.row >= this.paydayFront(),
     });
     this.particles.burst(
       left + hit.column * brickWidth + brickWidth / 2,
@@ -4114,7 +4216,7 @@ export class ShatterGame {
   // The two halves are independent and stay that way: `bonusSpreadAmount` is a
   // coin per brick, and the bag decides only *which* capsule a winning coin
   // yields. A wall of 40 bricks therefore spends about 12 tickets, which is what
-  // makes a 67-ticket pass last about six levels.
+  // makes a 69-ticket pass last about six levels.
   private rollBrickCapsule(): PowerUpKind | null {
     return Math.random() < this.bonusSpreadAmount() ? this.dropBag.draw(this.dropExcludes()) : null;
   }
@@ -4166,6 +4268,7 @@ export class ShatterGame {
     this.erosion.reset();
     this.sheet.reset();
     this.slump.reset();
+    this.fence.reset();
     this.shadows.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
@@ -4613,6 +4716,16 @@ export class ShatterGame {
       // whatever had already fallen stays exactly where it fell.
       this.timers.activate("SL", durations.SL);
       this.slump.start();
+    }
+    if (kind === "FE") {
+      // The timer and the planting. A second FENCE over a live one tops the ten
+      // seconds up and **repairs** the fence it finds rather than planting a
+      // second one into its gaps: the phase is kept, only the posts the player
+      // has already smashed are driven back in, and an extraction that had
+      // started is called off. Twelve posts in a row would be a wall, and the
+      // gaps are the capsule.
+      this.timers.activate("FE", durations.FE);
+      this.fence.plant();
     }
     if (kind === "JE") {
       // The one capsule whose effect object has to be told the catch happened,
@@ -5442,6 +5555,7 @@ export class ShatterGame {
     this.sheet.load(levelAt(level).rows.length);
     this.slump.load(levelAt(level).rows.length);
     this.grid.sheet = this.wallOffsets;
+    this.grid.fence = this.fence;
     this.resetServe();
   }
 
@@ -5513,6 +5627,7 @@ export class ShatterGame {
     this.erosion.reset();
     this.sheet.reset();
     this.slump.reset();
+    this.fence.reset();
     this.shadows.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
@@ -5596,6 +5711,7 @@ export class ShatterGame {
     this.erosion.reset();
     this.sheet.reset();
     this.slump.reset();
+    this.fence.reset();
     this.shadows.reset();
     this.gravelBlend = 0;
     this.gravel.reset();

@@ -765,6 +765,61 @@ export class SoundBank {
   // the outer columns inward. Short and a little higher than the slack ended,
   // because what is being said is that the sheet has gone stiff — one small
   // fast tremor to leave, against the long slow one that arrived.
+  /**
+   * FENCE: one post seating, six of them left to right over about four tenths
+   * of a second.
+   *
+   * A mallet on timber, which is what it is: a short pitched knock with the
+   * body under it, and no tail at all. The retrigger window is deliberately
+   * shorter than the roster's — the posts are three ticks apart, which is 50
+   * ms, and the default window would swallow half of them and turn a fence
+   * going up into three knocks and a gap. Six knocks in a row *is* the sound;
+   * that is the whole reason the drive is staggered rather than simultaneous.
+   */
+  fenceDrive(): void {
+    if (!this.allow("fenceDrive", 20)) {
+      return;
+    }
+    this.tone({ freq: 210, freqEnd: 128, dur: 0.05, vol: 0.06, type: "sine" });
+    this.noise({ dur: 0.04, vol: 0.05, filter: { type: "lowpass", freq: 1400, freqEnd: 500 } });
+  }
+
+  /**
+   * One post being pulled back out of its seat, three pairs of them from the
+   * ends in.
+   *
+   * The drive's knock run backwards: the pitch bends *up* rather than down,
+   * because what is happening is a post coming out of the ground rather than
+   * going into it, and the two ends of this capsule are the same motion in
+   * opposite directions everywhere else as well. The scrape is a bandpass
+   * opening rather than a lowpass closing, for the same reason.
+   */
+  fencePull(): void {
+    if (!this.allow("fencePull", 20)) {
+      return;
+    }
+    this.tone({ freq: 140, freqEnd: 300, dur: 0.07, vol: 0.05, type: "sine" });
+    this.noise({ dur: 0.06, vol: 0.04, filter: { type: "bandpass", freq: 600, freqEnd: 2400, q: 1.2 } });
+  }
+
+  /**
+   * A post the player actually broke.
+   *
+   * Its own sound rather than the wall's `brickDestroyed`, which tunes itself
+   * off the row: the fence sits at row 16 and that ramp was written for rows 0
+   * to 5, so a post would arrive as a 65 Hz thud nobody hears. Timber cracking
+   * rather than masonry shattering — a hard snap with a splintered tail, and
+   * brighter than the mallet above it so smashing a post is plainly a different
+   * event from one arriving.
+   */
+  fenceSnap(): void {
+    if (!this.allow("fenceSnap", 30)) {
+      return;
+    }
+    this.tone({ freq: 620, freqEnd: 190, dur: 0.07, vol: 0.07 });
+    this.noise({ dur: 0.09, vol: 0.09, filter: { type: "highpass", freq: 1800 } });
+  }
+
   jellySet(): void {
     if (!this.allow("jellySet")) {
       return;
