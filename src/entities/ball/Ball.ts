@@ -51,6 +51,11 @@ export class Ball {
   // PORTAL: ticks before this ball may take another wormhole. Per ball, so a
   // swarm crossing together does not share one gate.
   portalCooldown = 0;
+  // UMBRA: ticks before this ball may charge another shadow. Per ball for the
+  // cooldown above's reason, and it exists for a different one: one contact is
+  // several sub-steps of overlap, and a ball that grazed a wedge would take
+  // four hit points off the brick for it without this.
+  umbraCooldown = 0;
   // MULTI/SWARM: ticks left of this ball's birth, 0 for a ball that was always
   // here. Purely how the ball is drawn — a clone collides at full 8 px from the
   // frame it is stamped, and the mask is always smaller than that.

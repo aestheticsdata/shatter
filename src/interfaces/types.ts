@@ -77,7 +77,10 @@ export interface BrickHit {
 // reaches for its types through this module.
 export type { PowerUpKind };
 
-export type BrickFlashKind = "death" | "blast";
+// UMBRA's is the third and the only one that is not a kill: it is the caster
+// lighting up as the band its shadow sent gets home, and it fires whether or
+// not the hit took the brick with it.
+export type BrickFlashKind = "death" | "blast" | "umbra";
 
 // Floating text acknowledging a capsule catch at the paddle.
 export interface CatchPop {

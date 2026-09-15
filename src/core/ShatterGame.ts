@@ -25,6 +25,7 @@ import { JellySheet } from "@entities/effects/JellySheet";
 import { MeteorField } from "@entities/effects/MeteorField";
 import { ParticleField } from "@entities/effects/ParticleField";
 import { Quake } from "@entities/effects/Quake";
+import { ShadowCast } from "@entities/effects/ShadowCast";
 import { Singularity } from "@entities/effects/Singularity";
 import { Slump } from "@entities/effects/Slump";
 import { WallOffsets } from "@entities/effects/WallOffsets";
@@ -383,6 +384,11 @@ export class ShatterGame {
   // capsules move the same brick without the wall learning either one's name.
   private readonly slump = new Slump();
   private readonly wallOffsets = new WallOffsets(this.sheet, this.slump);
+  // UMBRA's shadow field. Unlike the three above it this one is *not* handed to
+  // the grid: the wall's hitbox is where its bricks are, and a shadow is a
+  // surface hanging in the empty band that no brick occupies. It is rebuilt
+  // from the wall every tick and owns nothing the wall would have to know about.
+  private readonly shadows = new ShadowCast();
   // The bricks that landed this tick, reused rather than allocated: a whole
   // wall arriving at the floor is ninety-six of these in one frame.
   private readonly landings: Landing[] = [];
@@ -923,6 +929,7 @@ export class ShatterGame {
       offsets: this.wallOffsets,
       jelly: this.sheet,
       slump: this.slump,
+      shadows: this.shadows,
       // One number, and the pips it is about. The fault says which bricks will
       // crumble and the pool says which ones already did — the capsule's state
       // and its history, the way SNAP's lattice and its marks are two fields.
@@ -1397,6 +1404,29 @@ export class ShatterGame {
     this.landings.length = 0;
     this.slump.step(this.grid, this.landings);
     this.settleLandings();
+    /**
+     * UMBRA's sun, and the twelve wedges it throws.
+     *
+     * Last of the four wall effects and deliberately so: it reads where every
+     * brick is standing *after* QUAKE's drop, the sheet's ripple and the slump's
+     * fall have all had their say this tick, so a shadow always hangs off the
+     * brick as painted rather than off the brick as indexed. It writes nothing
+     * back — the wall does not know it is casting anything.
+     *
+     * Below the freeze gates with them, and for their reason: this is a hitbox
+     * and not a picture of one. A detonation holding the field still holds the
+     * sun still too, so the ten seconds a player caught are ten seconds they
+     * get to use.
+     *
+     * `paddle.y` and not `gameConfig.paddle.y`: the deck floats under TIDE, and
+     * the one invariant this capsule may not break is that a shadow never
+     * reaches it.
+     */
+    if (this.timers.remaining("UM") === gameConfig.powerUps.umbra.setTicks) {
+      this.deps.sfx.umbraSet();
+    }
+    this.shadows.step(this.grid, this.paddle.y);
+    this.lightCasters();
     for (const core of this.cores) {
       if (core.active) {
         core.step();
@@ -1482,6 +1512,15 @@ export class ShatterGame {
     if (expired.includes("JE")) {
       this.sheet.stop();
       this.deps.sfx.jellySet();
+    }
+    // The sun already set: the wedges stopped being surfaces thirty ticks ago
+    // and have spent them running off the bottom of the field, so by this tick
+    // there is nothing on screen and nothing in the way. `reset` is the
+    // bookkeeping catching up with a picture that has already finished, which is
+    // why there is no sound here — `umbraSet` played when the light started to
+    // go, not when the timer noticed.
+    if (expired.includes("UM")) {
+      this.shadows.reset();
     }
     // The faces closing again, and — like the mortar setting above it — the
     // announcement only: the cracks heal along the wall from the far column
@@ -2447,6 +2486,135 @@ export class ShatterGame {
   }
 
   /**
+   * UMBRA: a ball meeting a shadow, off its face and into its caster.
+   *
+   * **The wedge damages the brick that threw it**, which is the whole capsule
+   * in one line: the wall can be worked from 96 px below itself, and a silver
+   * or a gold ground down without the ball ever reaching the grid. Through
+   * `damageBrick` on the ordinary `"ball"` path, so points, the capsule the
+   * brick was holding, a live BLAST's splash, a live CHAIN's links and GRAVEL's
+   * chips all pay out with no new branches — a shadow hit is a ball hit taken
+   * at a distance, and everything that has ever hung off one hangs off this.
+   *
+   * It is a *hit* and not a kill, so granite still takes four.
+   *
+   * Three guards, and the middle one is the capsule's own.
+   *
+   * A ball passing through the wall is not stopped by what the wall is
+   * throwing: GHOST makes the whole grid intangible and a shadow is the grid
+   * reaching further down.
+   *
+   * **A wedge that overtook the ball pushes it clear and charges it nothing.**
+   * The sun moves every tick, so a ball sitting in a lane can have a shadow
+   * edge sweep onto it without ever having travelled into one — and swallowing
+   * it would be the ball inside a surface with no way out. This is ERODE's
+   * guard for ERODE's reason, arrived at from the opposite end: the mortar can
+   * be held back from a ball and a sunrise cannot, so the ball is moved instead.
+   *
+   * And the cooldown, which is bookkeeping rather than design: one contact is
+   * several sub-steps of overlap, and without it a graze would cost the brick
+   * four hit points.
+   *
+   * PIERCE drills a shadow exactly as it drills the brick above it — the damage
+   * is paid and the ball is not turned. A drill that bounced off the projection
+   * of a brick it would have gone straight through is the capsule contradicting
+   * itself 96 px lower down.
+   */
+  private strikeShadow(ball: Ball, phasing: boolean): void {
+    if (phasing) {
+      return;
+    }
+    const contact = this.shadows.contact(ball.x, ball.y, ball.size);
+    if (contact === null) {
+      return;
+    }
+
+    // Clear of the face either way, and half a pixel past it for the disc
+    // kick's reason: at exactly the surface the next sub-step reads as a second
+    // contact.
+    ball.x += contact.normalX * (contact.depth + 0.5);
+    ball.y += contact.normalY * (contact.depth + 0.5);
+
+    const approach = ball.velocity.x * contact.normalX + ball.velocity.y * contact.normalY;
+    if (approach >= 0) {
+      return;
+    }
+    if (!this.timers.isActive("P")) {
+      ball.velocity.x -= 2 * approach * contact.normalX;
+      ball.velocity.y -= 2 * approach * contact.normalY;
+      // A reflection preserves speed on paper, and a slanted one off a surface
+      // that moves every tick is where that stops being true. Renormalised for
+      // the disc kick's reason exactly.
+      const speed = Math.hypot(ball.velocity.x, ball.velocity.y);
+      if (speed > 0) {
+        const scale = this.speed() / speed;
+        ball.velocity.x *= scale;
+        ball.velocity.y *= scale;
+      }
+    }
+    // ENGLISH: the shot is delivered into the wall's own shadow, so it is
+    // spent — the wall is what the curve was aimed at, and this is the wall.
+    ball.spin = 0;
+
+    if (ball.umbraCooldown > 0) {
+      return;
+    }
+    ball.umbraCooldown = gameConfig.powerUps.umbra.contactCooldownTicks;
+    const caster = this.grid.hitAtCell(contact.row, contact.column);
+    if (caster === null) {
+      return;
+    }
+    this.shadows.strike(contact.column, contact.row, ball.y + ball.size / 2);
+    this.deps.sfx.umbraStrike();
+    this.damageBrick(caster);
+  }
+
+  /**
+   * The brick flashing as its band gets home.
+   *
+   * Drained after the field has been rebuilt, so a caster killed by its own
+   * shadow this tick has already been taken out of `arrivals` by the effect —
+   * the burst its death threw is a louder report than a flash, and two of them
+   * on one cell would read as two hits.
+   */
+  private lightCasters(): void {
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    for (const arrival of this.shadows.arrivals) {
+      if (this.grid.hitAtCell(arrival.row, arrival.column) === null) {
+        continue;
+      }
+      this.brickFlashes.push({
+        x: left + arrival.column * brickWidth,
+        // Wall coordinates, like every other brick flash: the renderer takes
+        // QUAKE's drop off at paint time, and the per-cell sag has to be in or
+        // a slumped wall lights the cell the brick used to be in.
+        y: top + arrival.row * brickHeight + this.cellSag(arrival.row, arrival.column),
+        ticksLeft: gameConfig.powerUps.umbra.flashTicks,
+        kind: "umbra",
+        onWall: true,
+        gild: false,
+      });
+    }
+  }
+
+  /**
+   * BLACKOUT arriving over a live UMBRA: the sun is sent down early.
+   *
+   * Through the capsule's own sunset rather than switched off — see
+   * `ShadowCast.retire`. The timer is cut to match, so the POWER inset stops
+   * claiming ten seconds of a capsule that has half a second left, and the
+   * expiry branch still fires at the end of it and does the bookkeeping.
+   */
+  private retireForUmbra(): void {
+    if (!this.timers.isActive("UM")) {
+      return;
+    }
+    this.shadows.retire();
+    this.timers.activate("UM", gameConfig.powerUps.umbra.setTicks);
+    this.deps.sfx.umbraSet();
+  }
+
+  /**
    * GHOST: whether this ball is passing through the wall on this tick.
    *
    * The capsule's timer arms the pass; the per-ball flag is what ends it. A ball
@@ -2726,6 +2894,9 @@ export class ShatterGame {
     if (ball.portalCooldown > 0) {
       ball.portalCooldown--;
     }
+    if (ball.umbraCooldown > 0) {
+      ball.umbraCooldown--;
+    }
     // Beside the cooldown, and below the same gates: a MULTI caught on the tick
     // a NUKE goes off leaves its newborns 4 px wide until the shockwave has
     // finished. Every ball on the field is frozen behind it anyway.
@@ -2785,6 +2956,16 @@ export class ShatterGame {
         }
         ball.spin = 0;
         this.strikeBricks(ball, hit);
+      }
+
+      // UMBRA's wedges, directly under the bricks they hang off and above
+      // everything free-standing: a shadow is not a thing on the field, it is
+      // the wall reaching 96 px further down than it is standing. A ball that
+      // has already been turned by the brick on this sub-step cannot be turned
+      // again by that brick's own shadow, which is what `hit` being live here
+      // rules out.
+      if (hit === null && this.shadows.solid) {
+        this.strikeShadow(ball, phasing);
       }
 
       // A disc is a free-standing thing to bounce off, so it sits with the
@@ -3985,6 +4166,7 @@ export class ShatterGame {
     this.erosion.reset();
     this.sheet.reset();
     this.slump.reset();
+    this.shadows.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;
@@ -4290,7 +4472,35 @@ export class ShatterGame {
     if (kind === "BK") {
       // The timer and nothing else: the trap is entirely in what the renderer
       // is allowed to show, and the simulation behind it plays on unaware.
+      //
+      // Except for the one capsule it cannot be shown over. See the UMBRA
+      // branch below, which retires this one for the same reason and says why.
+      this.retireForUmbra();
       this.timers.activate("BK", durations.BK);
+    }
+    if (kind === "UM") {
+      /**
+       * **UMBRA and BLACKOUT retire each other on catch.**
+       *
+       * There is no honest way to draw a black surface under a black veil.
+       * Every other pair on this roster can be held at once because each says
+       * something the other leaves alone; these two say the same thing to the
+       * same pixels and one of them is a collider. Dimmed, tinted or outlined,
+       * a shadow under the veil is a wall the player cannot see and can be
+       * turned by — which is the one defect this roster has never shipped, and
+       * not one to ship for the sake of a stack nobody asked for.
+       *
+       * Newest catch wins, both ways: the capsule the player just took is the
+       * one they get. Whichever is live simply ends, and ends the way its own
+       * expiry does, so the field is never left holding half of it.
+       */
+      if (this.timers.isActive("BK")) {
+        this.timers.deactivate("BK");
+        this.deps.sfx.blackoutPickup();
+      }
+      this.timers.activate("UM", durations.UM);
+      this.shadows.start(durations.UM);
+      this.deps.sfx.umbraRise();
     }
     if (kind === "GB") {
       const { reelTicks, holdTicks } = gameConfig.powerUps.gamble;
@@ -5303,6 +5513,7 @@ export class ShatterGame {
     this.erosion.reset();
     this.sheet.reset();
     this.slump.reset();
+    this.shadows.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;
@@ -5385,6 +5596,7 @@ export class ShatterGame {
     this.erosion.reset();
     this.sheet.reset();
     this.slump.reset();
+    this.shadows.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;

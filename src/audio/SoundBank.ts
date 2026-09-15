@@ -708,6 +708,59 @@ export class SoundBank {
     this.tone({ freq: 96, freqEnd: 48, dur: 0.3, vol: 0.05, type: "sine", delayS: 0.55 });
   }
 
+  /**
+   * UMBRA's sun coming up: a long low swell that opens rather than strikes.
+   *
+   * A rising sine under a noise wash whose filter opens, which is the one shape
+   * in this bank that has no attack at all — there is no impact to report,
+   * something is simply *there* that was not. Scored to the thirty ticks the
+   * twelve wedges take to unfold, so it finishes as the last column lands.
+   */
+  umbraRise(): void {
+    if (!this.allow("umbraRise")) {
+      return;
+    }
+    this.noise({ dur: 0.5, vol: 0.06, filter: { type: "lowpass", freq: 200, freqEnd: 1400 } });
+    this.tone({ freq: 62, freqEnd: 124, dur: 0.5, vol: 0.06, type: "sine" });
+    this.tone({ freq: 186, freqEnd: 248, dur: 0.34, vol: 0.03, type: "sine", delayS: 0.14 });
+  }
+
+  /**
+   * And the light going: the same two voices falling, half as long.
+   *
+   * Deliberately not the rise reversed. The arrival opens into the room and
+   * this one leaves it — the sine falls through an octave while the filter
+   * shuts, which is a light going out rather than a light coming on played
+   * backwards. It is scored to the sunset the shadows spend running off the
+   * bottom of the field, so the room is quiet before the wedges are gone.
+   */
+  umbraSet(): void {
+    if (!this.allow("umbraSet")) {
+      return;
+    }
+    this.noise({ dur: 0.4, vol: 0.05, filter: { type: "lowpass", freq: 1400, freqEnd: 160 } });
+    this.tone({ freq: 124, freqEnd: 58, dur: 0.44, vol: 0.06, type: "sine" });
+  }
+
+  /**
+   * A ball meeting a shadow: soft on the way in, bright on the way home.
+   *
+   * Two halves because the event is two things — the rebound, which comes off a
+   * surface that is not there in any material sense and so has no clank in it,
+   * and the band arriving at the brick a tenth of a second later, which does.
+   * The delay is `surgeTicks` in seconds, so the report lands with the flash.
+   *
+   * Quiet at the mouth, because a wedge can be worked for several contacts a
+   * second and the clank it stands in for was quieter still.
+   */
+  umbraStrike(): void {
+    if (!this.allow("umbraStrike", 40)) {
+      return;
+    }
+    this.tone({ freq: 210, freqEnd: 150, dur: 0.06, vol: 0.04, type: "sine" });
+    this.tone({ freq: 620, freqEnd: 940, dur: 0.07, vol: 0.05, type: "triangle", delayS: 0.1 });
+  }
+
   // The same body run the other way and half as long: the wall setting, from
   // the outer columns inward. Short and a little higher than the slack ended,
   // because what is being said is that the sheet has gone stiff — one small

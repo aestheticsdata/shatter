@@ -815,6 +815,140 @@ export const gameConfig = {
       plugDip: 7,
       plugSpan: 60,
     },
+    /**
+     * UMBRA. A low sun crosses the top frame and the shadows it throws are
+     * surfaces: one wedge per column, hanging off the lowest live brick, that a
+     * ball rebounds from and that costs the caster a hit point.
+     *
+     * The numbers below are the whole of the geometry, and the geometry is the
+     * whole of the capsule — the rasterizer, the renderer and the rebound all
+     * read this block, so the shape a player sees is the shape they collide
+     * with by construction rather than by two sides agreeing.
+     */
+    umbra: {
+      // Where the sun starts and where it ends, in field x. Both are off the
+      // frame — 63 px past either side — so the field is raked from one hard
+      // angle to the other rather than starting and ending overhead.
+      sunFrom: -60,
+      sunTo: 432,
+      /**
+       * How far above the field's top edge the sun hangs, which is the one
+       * number that decides what the picture looks like.
+       *
+       * **A sun on the frame itself was the ticket's reading and it does not
+       * work.** At y 0 the light is 50 px above a full wall and 411 px to the
+       * side of it, so the far column's shadow leaves at a shear of 8 — flat,
+       * off the frame within a brick's height, and nothing a ball could meet.
+       * The near column's is at 1.6 on the same tick. Twelve wedges at twelve
+       * unrelated angles is not a low sun, it is a bug.
+       *
+       * Hung at 240 the fan is still a fan — a point source close enough that
+       * the outer columns rake harder than the inner ones, which is what says
+       * *sun* rather than *stage light* — but the spread across the wall is
+       * about 5:1 of shear instead of 30:1, and every column swings through
+       * vertical at some point in the ten seconds.
+       */
+      sunHeight: 240,
+      // And the bound on it, in px of run per px of drop. 1.1 is a shade over
+      // 45 degrees, which is as flat as a surface can lie and still turn a
+      // ball that meets it: past this the wedge is a smear the ball skates
+      // along. It bites only at the two ends of the sun's travel, and only on
+      // the columns furthest from it.
+      maxShear: 1.1,
+      /**
+       * How far a shadow reaches below its caster, in px of *drop* rather than
+       * of length.
+       *
+       * Vertical because the invariant is vertical: the deepest grid the game
+       * ships bottoms out at y 134, so a 96 px drop puts the shadow floor at
+       * 230 against a deck rail at 276. Measured along the wedge instead, a
+       * raking shadow would fall 96 px at a shear of 0 and 65 px at 1.1, and
+       * the floor would move with the sun — the one number in this capsule
+       * that may not.
+       */
+      reach: 96,
+      /**
+       * Clearance kept between the lowest shadow row and the top of the deck.
+       *
+       * **The ticket proved the floor was safe and TIDE moved the deck.** A
+       * flooded field floats the paddle to y 173, which is 57 px above the
+       * shadow floor the arithmetic above guarantees — so the constant is no
+       * longer the answer and the live deck is. The wedge is cut short against
+       * whatever the paddle is standing on this tick, and under a flood that
+       * genuinely is a shorter shadow: the band it hangs in is shorter too.
+       */
+      deckGap: 6,
+      /**
+       * The width of a wedge at its far end, in px, against the caster's own
+       * collider width at its mouth.
+       *
+       * **This taper is what makes the field a forest instead of a slab**, and
+       * it is the load-bearing shape decision the way one caster per column is
+       * the load-bearing set decision. One shadow per column at the brick's
+       * full 30 px is twelve rectangles on a 30 px pitch, and on a fresh wall —
+       * where every column's lowest brick is in the same row — they tile the
+       * band edge to edge into one black slab 96 px tall. Tapered, the same
+       * twelve leave a V of open field between every pair that grows the
+       * further it gets from the wall, and the picture reads as twelve things
+       * rather than one.
+       *
+       * The mouth is the collider rect and not the cell, so ERODE's worn bricks
+       * throw narrower shadows with nothing here to know about it.
+       */
+      tipWidth: 12,
+      /**
+       * The sun rising, in ticks: how long one column's wedge takes to unfold
+       * from a single dark pixel at the foot of its caster to its full drop,
+       * and how far behind the column to its left each one starts.
+       *
+       * Twelve columns a tick apart plus nineteen to unfold is thirty ticks
+       * end to end, which is the half second the capsule's arrival is worth.
+       * Left to right because the sun comes up on the left frame.
+       *
+       * Nothing is drawn at partial strength anywhere in it: a shadow is black
+       * at whatever length it has reached, or it is not there yet.
+       */
+      riseUnfoldTicks: 19,
+      riseStaggerTicks: 1,
+      /**
+       * The sun setting, in ticks, and the two distances it runs over them.
+       *
+       * The expiry is deliberately not the arrival backwards. Shadows do not
+       * shorten — they *stretch*: the mouth leaves the brick and runs down the
+       * wedge's own vector while the tip runs further still, so the whole shape
+       * lengthens and slides off the bottom of the field at once. 330 px of
+       * mouth travel clears the field from the shallowest caster the game can
+       * have, and the extra 260 on the tip is what keeps it stretching the
+       * whole way down rather than sliding as a rigid bar.
+       *
+       * They stop being surfaces on the first tick of this, which is the honest
+       * half of the trade: a shadow the player can see running away is not one
+       * they can still be turned by.
+       */
+      setTicks: 30,
+      setMouthRun: 330,
+      setTipRun: 260,
+      // And the width over the same thirty ticks: the whole quad scales down to
+      // a twelfth, so the far end goes from `tipWidth` to the single pixel the
+      // arrival was born as. Growing out of the foot and running off the edge
+      // are the same sun and the opposite picture.
+      setThinTo: 1 / 12,
+      // The bright band that runs back up a struck wedge to its caster, and the
+      // flash waiting for it there. Six ticks is a tenth of a second — long
+      // enough to be read as travelling and short enough that the hit and the
+      // report are one event, which is what teaches the capsule on the first
+      // contact.
+      surgeTicks: 6,
+      // How many rows of the wedge the band lights at once. Five is a streak
+      // rather than a spark and short enough that a 96 px wedge is never more
+      // than a twentieth lit — what travels has to be read as travelling.
+      surgeTail: 5,
+      flashTicks: 6,
+      // Ticks a ball must wait before the same wedge can charge it again. One
+      // contact is several sub-steps of overlap, and without this a ball that
+      // grazed a shadow would pay four hit points for it.
+      contactCooldownTicks: 8,
+    },
     // BANANA. The peels come off the deck that ate the banana, arc out and
     // land on the paddle rail, where they hand the deck to its own momentum for
     // a second when one is swept over.

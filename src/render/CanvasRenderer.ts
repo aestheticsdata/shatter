@@ -24,6 +24,7 @@ import type { JellySheet } from "@entities/effects/JellySheet";
 import type { Meteor } from "@entities/effects/MeteorField";
 import type { Particle } from "@entities/effects/ParticleField";
 import type { Quake } from "@entities/effects/Quake";
+import type { ShadowCast } from "@entities/effects/ShadowCast";
 import type { Singularity } from "@entities/effects/Singularity";
 import type { Slump } from "@entities/effects/Slump";
 import type { Shot } from "@entities/laser/ShotPool";
@@ -341,6 +342,7 @@ function widestSizeThatFits(glyph: string): number {
 const FLASH_COLORS: Record<BrickFlashKind, string> = {
   death: canvasPalette.deathFlash,
   blast: canvasPalette.blastFlash,
+  umbra: canvasPalette.umbraFlash,
 };
 
 // SPLIT's two seams, split out of the paddle's state so `drawDeck` can be given
@@ -605,6 +607,17 @@ export interface RenderView {
   // mortar running up the pile as it sets. Neither is geometry either — the
   // fall itself is already in `offsets`.
   slump: Slump;
+  /**
+   * UMBRA's shadow field, as the object.
+   *
+   * The whole of it, unlike the three above: this one is not a displacement on
+   * the wall or a load on its faces, it is twelve shapes of its own hanging
+   * under it, and what the renderer needs is the rows the rasterizer already
+   * cut — the same rows the physics collides. Handing over a blend and
+   * re-deriving the quads here is precisely the two-approximations failure the
+   * effect exists to prevent.
+   */
+  shadows: ShadowCast;
   /**
    * GRAVEL's fault, 0 whole wall to 1 every face split.
    *
@@ -1345,6 +1358,8 @@ export class CanvasRenderer {
   private readonly mainCtx: CanvasRenderingContext2D;
   private ctx: CanvasRenderingContext2D;
   private fadeCtx: CanvasRenderingContext2D | null = null;
+  // UMBRA's 1-bit shadow fill, made on first use and kept: see `halftone`.
+  private halftoneFill: CanvasPattern | null = null;
   private readonly background: BackgroundLayer;
   private frameCount = 0;
   // Set once per frame from the view, and read by every colour this class
@@ -1457,6 +1472,14 @@ export class CanvasRenderer {
     // renderer is already under.
     this.ctx.save();
     this.ctx.translate(view.quake.offsetX * SCALE, view.quake.offsetY * SCALE);
+    // UMBRA's wedges, first of everything that stands on the field and
+    // therefore under all of it: a shadow is the fill and not the layer, so a
+    // drop, a disc, a singularity's core or the ball crossing the band passes
+    // over it the way it would pass over the field art. It rides the shake,
+    // because it is cast by a wall that is shaking.
+    if (view.shadows.casting) {
+      this.drawShadows(view.shadows);
+    }
     for (const core of view.cores) {
       this.drawSingularity(core);
     }
@@ -1751,6 +1774,15 @@ export class CanvasRenderer {
     // Inside the turn with the field: the frame is closed at the top and open
     // at the bottom, so which edge kills is drawn rather than remembered.
     this.drawWalls();
+    // The sun itself, on the frame and therefore over it: a light source is in
+    // front of the cabinet's own woodwork, and it is the one thing this capsule
+    // draws that is not black. Inside the turn with the frame it is painted on,
+    // so a flipped field's sun comes up along the bottom — which is the honest
+    // answer rather than a special case, because FLIP turns the arena over and
+    // the shadows it is throwing have turned over with it.
+    if (view.shadows.casting) {
+      this.drawUmbraSky(view.shadows);
+    }
     // After the frame and never instead of it: the rows outside the aperture
     // are simply not painted, so what closes the gap as the door pinches shut
     // is the real wall this call has just laid down, not a tint of it. A door
@@ -1816,6 +1848,157 @@ export class CanvasRenderer {
   // the frame clock, and a still outer rim marking how far it really reaches.
   // Painted over the background and under the bricks, so it reads as depth
   // rather than as a sprite laid on the playfield.
+  /**
+   * UMBRA's twelve wedges, as the rows the rasterizer cut.
+   *
+   * One `fillStyle` for the whole field and a bare `fillRect` per row rather
+   * than `pixel`: this is up to twelve hundred rows a frame for ten seconds,
+   * and every one of them is the same flat black. The spans are already whole
+   * pixels and already clipped to the field, so there is nothing left here to
+   * round or to bound — which is the point of rasterizing once. The renderer
+   * does not know what shape it is painting, and cannot disagree with the
+   * physics about it.
+   */
+  private drawShadows(shadows: ShadowCast): void {
+    const { columns } = gameConfig.grid;
+    this.ctx.fillStyle = this.demade ? this.halftone() : canvasPalette.umbraCast;
+    for (let column = 0; column < columns; column++) {
+      const wedge = shadows.wedgeAt(column);
+      for (let index = 0; index < wedge.count; index++) {
+        const left = shadows.leftAt(column, index);
+        const right = shadows.rightAt(column, index);
+        if (right > left) {
+          this.ctx.fillRect(left * SCALE, (wedge.top + index) * SCALE, (right - left) * SCALE, SCALE);
+        }
+      }
+    }
+    this.drawUmbraSurges(shadows);
+  }
+
+  /**
+   * A 50 % dither of ink and ground, which is what a shadow is on a 1-bit tube.
+   *
+   * **The one place in this renderer where `ink()` gives the wrong answer.**
+   * Every other tone the demake flattens is a sprite or a bevel, so ink or
+   * ground is a real choice between them. A shadow is neither: it is *darker
+   * than whatever is under it*, and a machine with two tones cannot say that.
+   * Sent through `ink()` it comes back as the bright one and the twelve wedges
+   * paint as twelve beams of light — the picture exactly inverted, and inverted
+   * in the one capsule whose whole subject is where the light is not.
+   *
+   * `demakeGround` is not the answer either: over the dark half of a field the
+   * shape would simply not be there, which is the invisible collider this
+   * capsule retires BLACKOUT to avoid.
+   *
+   * So it halftones, the way a 1-bit machine has said "shaded" since before
+   * this genre existed. Half the pixels ink and half ground reads as a region
+   * against a solid field of either tone, and reads as nothing else on screen —
+   * no sprite here is dithered. Two game pixels square, built once.
+   */
+  private halftone(): CanvasPattern {
+    if (this.halftoneFill === null) {
+      const tile = document.createElement("canvas");
+      tile.width = 2 * SCALE;
+      tile.height = 2 * SCALE;
+      const ctx = tile.getContext("2d");
+      if (!ctx) {
+        throw new Error("2D halftone context unavailable");
+      }
+      ctx.fillStyle = canvasPalette.demakeGround;
+      ctx.fillRect(0, 0, 2 * SCALE, 2 * SCALE);
+      ctx.fillStyle = canvasPalette.demakeInk;
+      ctx.fillRect(0, 0, SCALE, SCALE);
+      ctx.fillRect(SCALE, SCALE, SCALE, SCALE);
+      const pattern = this.mainCtx.createPattern(tile, "repeat");
+      if (!pattern) {
+        throw new Error("halftone pattern unavailable");
+      }
+      this.halftoneFill = pattern;
+    }
+    return this.halftoneFill;
+  }
+
+  /**
+   * The bright band a struck wedge sends home, in the wedge's own rows.
+   *
+   * It is the same spans painted a second time in a different tone, which is
+   * what keeps it *on* the shadow: a band drawn from the quad would drift off a
+   * tapering shape by a pixel at the tip, and the one thing this picture has to
+   * do is read as light travelling inside the dark rather than over it.
+   *
+   * The head climbs from the contact to the mouth over the surge's life and the
+   * tail follows it up, so what the player sees leaves the ball and arrives at
+   * the brick — the direction is the whole lesson, and it is the reverse of
+   * every other bright thing this game throws at a wall.
+   */
+  private drawUmbraSurges(shadows: ShadowCast): void {
+    const { surgeTicks, surgeTail } = gameConfig.powerUps.umbra;
+    this.ctx.fillStyle = this.ink(canvasPalette.umbraSurge);
+    for (const surge of shadows.surges) {
+      const wedge = shadows.wedgeAt(surge.column);
+      if (wedge.count === 0) {
+        continue;
+      }
+      const home = 1 - surge.ticksLeft / surgeTicks;
+      const head = surge.fromY + (wedge.mouthY - surge.fromY) * home;
+      const from = Math.max(0, Math.round(head) - wedge.top);
+      const to = Math.min(wedge.count - 1, from + surgeTail);
+      for (let index = from; index <= to; index++) {
+        const left = shadows.leftAt(surge.column, index);
+        const right = shadows.rightAt(surge.column, index);
+        if (right > left) {
+          this.ctx.fillRect(left * SCALE, (wedge.top + index) * SCALE, (right - left) * SCALE, SCALE);
+        }
+      }
+    }
+  }
+
+  /**
+   * The light: a hot mark crossing the top frame, and the rim it comes up on.
+   *
+   * The sun spends the first seventy ticks of the capsule off the left of the
+   * frame and the last seventy off the right, which is deliberate and is the
+   * whole reason the rims exist: the shadows are already on the field while the
+   * light throwing them is still behind the cabinet, and a field with no light
+   * source in it is a field with a black smear on it. So the frame it is behind
+   * lights instead — top to bottom on the left as it comes up, and on the right
+   * as it goes down, which is the same sun and the opposite end of its day.
+   *
+   * The rim narrows from the frame's full three pixels to one as the sun climbs
+   * off it, in whole pixels of two named tones: everything else on this field
+   * fades by losing pixels rather than by losing opacity, and a `globalAlpha`
+   * glow would be the one thing on screen that does not.
+   */
+  private drawUmbraSky(shadows: ShadowCast): void {
+    const { width, height } = gameConfig.field;
+    const left = shadows.leftRim;
+    if (left > 0) {
+      const thickness = Math.ceil(left * 3);
+      this.pixel(0, 0, thickness, height, thickness > 1 ? canvasPalette.umbraSun : canvasPalette.umbraRim);
+    }
+    const right = shadows.rightRim;
+    if (right > 0) {
+      const thickness = Math.ceil(right * 3);
+      this.pixel(
+        width - thickness,
+        0,
+        thickness,
+        height,
+        thickness > 1 ? canvasPalette.umbraSun : canvasPalette.umbraRim,
+      );
+    }
+    const sun = Math.round(shadows.sunX);
+    if (sun < -6 || sun > width + 6) {
+      return;
+    }
+    // Three pixels of frame, and the mark is the frame: a light on the woodwork
+    // rather than a disc floating in front of it. The warm edge either side is
+    // what stops a nine pixel block reading as a gap in the wall.
+    this.pixel(sun - 4, 0, 9, 3, canvasPalette.umbraSun);
+    this.pixel(sun - 7, 0, 3, 3, canvasPalette.umbraRim);
+    this.pixel(sun + 5, 0, 3, 3, canvasPalette.umbraRim);
+  }
+
   private drawSingularity(singularity: Singularity): void {
     if (!singularity.active) {
       return;

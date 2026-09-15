@@ -210,6 +210,36 @@ export const canvasPalette = {
   tideCrest: "#3ddba6",
   tideFoam: "#d6fff0",
   tidePlug: "#04231b",
+  /**
+   * UMBRA: the shadows, the sun that throws them, and the band that runs back
+   * up a struck one.
+   *
+   * `umbraCast` is the one tone on this list that is not a colour decision.
+   * Flat `#000000`, opaque, over the field art — a shadow is the absence of the
+   * light the field is lit by, and every other answer is worse in a way the
+   * player can feel: a dark blue reads as a pane of glass, and an alpha wash
+   * reads as weather. What makes it a *surface* rather than a tint is that the
+   * field behind it is gone. It is also the reason this capsule and BLACKOUT
+   * retire each other — black on black is an invisible collider.
+   *
+   * `umbraSun` and `umbraRim` are the light: a hot mark sliding along the top
+   * frame for the whole ten seconds, and the wash that lights the left frame
+   * top to bottom while it comes up. Pale rather than saturated, because what
+   * is on the frame is a light source and not a gold pill — the capsule's own
+   * body is the low sun and this is the sun itself.
+   *
+   * `umbraSurge` is what a hit sends home: near-white, because it travels up a
+   * black wedge and has nothing else to be read against, and it is the one part
+   * of this capsule that is drawn brighter than anything around it on purpose.
+   */
+  umbraCast: "#000000",
+  umbraSun: "#ffeaa0",
+  umbraRim: "#c9a13c",
+  umbraSurge: "#fff6d8",
+  // And the caster's own answer, one step down from the surge: the brick
+  // flashes as the band arrives, in the same warm white the band is drawn in so
+  // the two read as one thing travelling and landing rather than two events.
+  umbraFlash: "#ffe9a8",
   // JAMMER: the rail the deck has just been shut off, dying through four steps
   // of the capsule's own magenta. Authored rather than alpha-blended, because
   // everything else on this field fades in whole pixels of a named tone and a

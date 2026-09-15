@@ -199,6 +199,52 @@ class Field {
     drawGambleReel(this.ctx, x, DECK_Y, face, 1, 0, this.demade);
   }
 
+  /**
+   * UMBRA's wedge, staged from the capsule's own arithmetic.
+   *
+   * Row by row and tapering, exactly as `ShadowCast` rasterizes it, so the
+   * picture is the shape the game actually puts in front of the ball rather
+   * than a drawing of one: the mouth is the caster's cell, the tip is
+   * `tipWidth`, the drop is `reach`, and the lean is the real ray from the sun
+   * to this brick. Retune any of them and this picture moves with them.
+   */
+  shadow(
+    column: number,
+    casterRow: number,
+    sunX: number,
+    tone: string = canvasPalette.umbraCast,
+    from = 0,
+    rows = 0,
+  ): void {
+    const { sunHeight, maxShear, reach, tipWidth } = gameConfig.powerUps.umbra;
+    const { left, right } = gameConfig.field;
+    const mouthY = GRID_TOP + (casterRow + 1) * BRICK_HEIGHT;
+    const mouthCx = GRID_LEFT + column * BRICK_WIDTH + BRICK_WIDTH / 2;
+    const raw = (mouthCx - sunX) / (mouthY + sunHeight);
+    const shear = Math.max(-maxShear, Math.min(maxShear, raw));
+    const mouthHalf = BRICK_WIDTH / 2;
+    const tipHalf = tipWidth / 2;
+    const last = rows === 0 ? reach : Math.min(reach, from + rows);
+    for (let down = from; down < last; down++) {
+      const at = down / reach;
+      const centre = mouthCx + shear * (down + 0.5);
+      const half = mouthHalf + (tipHalf - mouthHalf) * at;
+      const edgeLeft = Math.max(left, Math.round(centre - half));
+      const edgeRight = Math.min(right, Math.round(centre + half));
+      if (edgeRight > edgeLeft) {
+        this.rect(edgeLeft, mouthY + down, edgeRight - edgeLeft, 1, tone);
+      }
+    }
+  }
+
+  // The sun on the top frame, which is where the light in this picture is
+  // coming from and the only thing in it that is not black.
+  sun(x: number): void {
+    this.rect(x - 4, 0, 9, 3, canvasPalette.umbraSun);
+    this.rect(x - 7, 0, 3, 3, canvasPalette.umbraRim);
+    this.rect(x + 5, 0, 3, 3, canvasPalette.umbraRim);
+  }
+
   // A face the drum has already turned past, fading as it goes.
   ghostCapsule(x: number, y: number, kind: PowerUpKind, alpha: number): void {
     this.ctx.globalAlpha = alpha;
@@ -1216,6 +1262,50 @@ const SCENES: Record<PowerUpKind, Painter> = {
     field.sheetWall(hang, strain, [5, 6]);
     field.ball(86, 196);
     field.deck(gameConfig.paddle.baseWidth, 58);
+  },
+  /**
+   * A low sun, twelve solid shadows, and a ball taking a brick from 60 px under
+   * the wall it is standing on.
+   *
+   * Three things have to be in the frame or it is the wrong capsule. **The
+   * forest**, which is why every column casts and why they taper: twelve
+   * untapered wedges on a 30 px pitch would be one black slab, and a slab says
+   * nothing a dark background does not. **The ragged floor**, which is why
+   * three columns have been eaten into — a shadow hangs off the *lowest live
+   * brick*, so a column you have worked casts from higher up and its darkness
+   * ends higher up, and the band opening as you play is the reward. And **the
+   * hit**, which is the band running back up a wedge to the brick it belongs to
+   * and that brick lit: the direction is the whole lesson, and a still that
+   * only showed black wedges would leave a reader thinking this was weather.
+   *
+   * The sun sits at x 60, a third of the way across a travel that runs from
+   * -60 to 432 — early enough that the fan is obvious and the far columns rake
+   * properly, late enough that it is on the frame to be seen.
+   */
+  UM: (field) => {
+    const sunX = 60;
+    // What each column has left. The three short ones are a wall that has been
+    // played, and they are what make the shadow floor a skyline rather than a
+    // rule.
+    const caster = [3, 3, 3, 2, 3, 3, 3, 2, 3, 1, 3, 3];
+    field.wall();
+    caster.forEach((row, column) => {
+      for (let gone = row + 1; gone < DEFAULT_WALL.length; gone++) {
+        field.clear(column, gone);
+      }
+    });
+    caster.forEach((row, column) => field.shadow(column, row, sunX));
+    // The contact, and the report, staged as far apart as the wedge allows: the
+    // ball down at the tip where it met the shadow, the band already up near the
+    // mouth, and the caster lit. Three things reading as one event travelling —
+    // and the reason the ball is not drawn beside the band is that a still with
+    // both in the same twenty pixels is a bright smudge rather than a direction.
+    const struck = 6;
+    field.shadow(struck, caster[struck], sunX, canvasPalette.umbraSurge, 24, 13);
+    field.flash(struck, caster[struck], canvasPalette.umbraFlash);
+    field.ball(230, 158);
+    field.deck();
+    field.sun(sunX);
   },
 };
 

@@ -396,8 +396,8 @@ that gate.
 
 ## 7. A capsule, end to end
 
-52 capsules, every one of them a plain tier lookup in the drop machinery: a tier
-buys tickets in a shuffled bag. 50 of the 52 rows are exactly that; DEMAKE and
+53 capsules, every one of them a plain tier lookup in the drop machinery: a tier
+buys tickets in a shuffled bag. 51 of the 53 rows are exactly that; DEMAKE and
 GIANT keep a common's count, because both already drew at a common's weight in
 production and a rare's single ticket would have been worse over the first four
 levels — better eventually is not better. VORTEX's old exception is retired. The
@@ -413,7 +413,7 @@ and no other.
 ```text
   src/core/config/powerUps.ts
   +---------------------------------------------------------------+
-  | { id, name, color, letter, ticks, tier, timed, blurb }  x 52   |
+  | { id, name, color, letter, ticks, tier, timed, blurb }  x 53   |
   +---------------------------------------------------------------+
         |
         |  everything below DERIVES from that table:
@@ -426,7 +426,7 @@ and no other.
   DropBag.draw(exclude)                  tickets = TIER_TICKETS[tier]
         |                                common 2 · uncommon 1 · rare 1 · trap 1
         |                                DEMAKE and GIANT keep a common's 2
-        |                                67 a pass, drawn without replacement, so
+        |                                68 a pass, drawn without replacement, so
         |                                every capsule falls inside two passes
         v
   BrickGrid.load()  seeds cells with rollBrickCapsule()

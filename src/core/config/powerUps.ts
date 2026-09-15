@@ -422,6 +422,25 @@ export const POWER_UPS = [
   // spent on: STASIS `#9effd6` is a mint and sits 91 away, MAGNET `#6fd0b4` a
   // pale jade at 106. Both are paler than this and neither is a sea.
   { id: "TI", name: "TIDE", color: "#14bc8c", dark: true, ticks: 480, tier: "uncommon", timed: true, blurb: "IT FLOODS · THE DECK FLOATS" },
+  // Low gold: the economy hue PAYDAY and PIERCE hold, taken down to the value a
+  // sun near the horizon actually has. The warm band was full at the bright end
+  // and open at the low end, and that is the whole of the placement — a capsule
+  // about a light nobody can see by is not a yellow pill.
+  //
+  // Measured on a 53-capsule board: 66.2 from BLAST, 67.7 from GLUE and 69.1
+  // from FUSE against the 58 bar, 4.97:1 against the darkest field theme, 153
+  // from the nearest speck, 135 from the ball, and 113 from the nearest trap.
+  //
+  // **Two RGB points off the ticket's `#b08c00`, and the two points are the
+  // point.** That body measures 0.2799 luminance, which lands a hair *under*
+  // the 0.28 the `dark` note above calls the split — so the authored dark
+  // letter (6.05:1, against the light one's 3.18) would have disagreed with the
+  // DEV pass forever and shipped the roster's first standing warning. At 0.288
+  // the better letter is also the one the heuristic asks for, the hue is
+  // unchanged at 48 deg, and nothing else in the sweep moves. The darker golds
+  // that measured wider — #8c6900 reaches 71.6 — all sit within a tenth of the
+  // 3:1 field floor, which this roster has refused twice before.
+  { id: "UM", name: "UMBRA", color: "#b28e00", dark: true, ticks: 600, tier: "uncommon", timed: true, blurb: "HIT A SHADOW, HIT ITS BRICK" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];
