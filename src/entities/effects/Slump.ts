@@ -48,7 +48,7 @@ export interface Landing {
 export class Slump {
   // How far each cell's brick has fallen, in pixels. Indexed
   // `row * columns + column`, and it outlives the capsule: a brick that fell is
-  // where the wall is now, not where the wall was for eight seconds.
+  // where the wall is now, not where the wall was for sixteen seconds.
   private offsets = new Float32Array(0);
   private speeds = new Float32Array(0);
   private rowCount = 0;

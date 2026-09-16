@@ -81,7 +81,7 @@ export class Ball {
   pyreCrown = 0;
   // ENGLISH: radians this ball's heading turns per tick, signed — the shot the
   // deck put on it, not a property of the capsule. It outlives the timer on
-  // purpose and simply decays away, so a ball still curving when the twenty
+  // purpose and simply decays away, so a ball still curving when the forty
   // seconds run out straightens out instead of snapping level.
   spin = 0;
   // ENGLISH's cue, and a real quantity rather than an animation clock: the

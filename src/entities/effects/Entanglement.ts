@@ -17,7 +17,7 @@ import type { BrickGrid } from "@entities/bricks/BrickGrid";
  *
  * **It is not CHAIN.** A chain arc is discovered at the moment of a kill and
  * lives for a few frames; a thread is declared on the catch frame, crosses
- * arbitrary distance and stands on the field for nine seconds. The player reads
+ * arbitrary distance and stands on the field for eighteen seconds. The player reads
  * the wall's wiring *before* choosing a shot, which is the opposite of a
  * surprise — and it is also why the thread is not decoration. A capsule that is
  * armed and idle for most of its life and shows nothing reads as one that broke
@@ -40,7 +40,7 @@ interface Couple {
   // When it was drawn, so a couple the refill clock added grows its thread in
   // rather than appearing at full length. The arrival is per couple and not
   // wall-wide for exactly that reason: twelve of them are drawn on the catch
-  // frame and the rest arrive over the next nine seconds.
+  // frame and the rest arrive over the next eighteen seconds.
   born: number;
 }
 
@@ -147,7 +147,7 @@ export class Entanglement {
    * The catch: the wall pairs itself up.
    *
    * A second TWIN over a live one redraws the pairing rather than topping the
-   * nine seconds up, which is `Superposition.start`'s answer for the same
+   * eighteen seconds up, which is `Superposition.start`'s answer for the same
    * reason: the couples the player has already spent are spent, and a top-up
    * would hand back a wiring they had worked through while claiming to be the
    * same capsule twice. Redrawing is also the better picture — the whole appeal
@@ -302,7 +302,7 @@ export class Entanglement {
 
     // The pairing tops back up, which is the difference between a capsule that
     // spends itself in the first two seconds and one that keeps re-threading
-    // for nine. Only while it is armed: a refill during the slack would draw a
+    // for eighteen. Only while it is armed: a refill during the slack would draw a
     // thread that is already falling.
     const { refillTicks } = gameConfig.powerUps.twin;
     if (this.armed && this.elapsed % refillTicks === 0) {

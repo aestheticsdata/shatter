@@ -176,44 +176,44 @@ export interface PowerUpDefinition {
 // right, and it would otherwise explode the roster into 350 lines.
 // oxfmt-ignore
 export const POWER_UPS = [
-  { id: "E", name: "WIDE", color: "#2d7fe0", dark: false, ticks: 720, tier: "common", timed: true, blurb: "WIDER PADDLE" },
+  { id: "E", name: "WIDE", color: "#2d7fe0", dark: false, ticks: 1440, tier: "common", timed: true, blurb: "WIDER PADDLE" },
   { id: "M", name: "MULTI", color: "#3fbf4f", dark: true, ticks: 180, tier: "common", timed: true, blurb: "MORE BALLS · 3 THEN 6 THEN 9", lasts: "INSTANT" },
-  { id: "L", name: "LASER", color: "#e8384f", dark: false, ticks: 720, tier: "common", timed: true, blurb: "THE PADDLE GROWS CANNONS" },
-  { id: "P", name: "PIERCE", color: "#ffcf1c", dark: true, ticks: 480, tier: "uncommon", timed: true, blurb: "THE BALL GOES THROUGH BRICKS" },
-  { id: "B", name: "BLAST", color: "#f07d10", dark: true, ticks: 720, tier: "common", timed: true, blurb: "KILLS DAMAGE THE 8 AROUND" },
+  { id: "L", name: "LASER", color: "#e8384f", dark: false, ticks: 1440, tier: "common", timed: true, blurb: "THE PADDLE GROWS CANNONS" },
+  { id: "P", name: "PIERCE", color: "#ffcf1c", dark: true, ticks: 960, tier: "uncommon", timed: true, blurb: "THE BALL GOES THROUGH BRICKS" },
+  { id: "B", name: "BLAST", color: "#f07d10", dark: true, ticks: 1440, tier: "common", timed: true, blurb: "KILLS DAMAGE THE 8 AROUND" },
   { id: "W", name: "WALL", color: "#8fd0ff", dark: true, ticks: 0, tier: "uncommon", timed: false, blurb: "A BARRIER CATCHES ONE BALL", lasts: "ONE SAVE" },
-  { id: "T", name: "TEMPO", color: "#f2f4ff", dark: true, ticks: 480, tier: "common", timed: true, blurb: "BULLET TIME · BALLS AT 0.6" },
-  { id: "X", name: "PAYDAY", color: "#dfae2c", dark: true, ticks: 600, tier: "uncommon", timed: true, blurb: "DOUBLE POINTS" },
+  { id: "T", name: "TEMPO", color: "#f2f4ff", dark: true, ticks: 960, tier: "common", timed: true, blurb: "BULLET TIME · BALLS AT 0.6" },
+  { id: "X", name: "PAYDAY", color: "#dfae2c", dark: true, ticks: 1200, tier: "uncommon", timed: true, blurb: "DOUBLE POINTS" },
   { id: "J", name: "JAMMER", color: "#d13be8", dark: false, ticks: 360, tier: "trap", timed: true, blurb: "THE PADDLE SHRINKS" },
   { id: "N", name: "NUKE", color: "#b6ff00", dark: true, ticks: 0, tier: "rare", timed: false, blurb: "A SHOCKWAVE TAKES THE WALL" },
   { id: "S", name: "SWARM", color: "#1fd8c4", dark: true, ticks: 180, tier: "rare", timed: true, blurb: "TWELVE BALLS AT ONCE", lasts: "INSTANT" },
   { id: "U", name: "1UP", color: "#ff70b8", dark: true, ticks: 0, tier: "rare", timed: false, blurb: "ONE EXTRA LIFE, UP TO SIX" },
   { id: "Z", name: "ZAP", color: "#4ae0ff", dark: true, ticks: 0, tier: "uncommon", timed: false, blurb: "THE BOTTOM ROW VAPORIZES" },
   { id: "R", name: "RAIN", color: "#8a5cf5", dark: false, ticks: 0, tier: "uncommon", timed: false, blurb: "FOUR MORE CAPSULES FALL" },
-  { id: "G", name: "GLUE", color: "#b07840", dark: false, ticks: 720, tier: "common", timed: true, blurb: "BALLS STICK · CLICK TO FREE" },
-  { id: "I", name: "STASIS", color: "#9effd6", dark: true, ticks: 90, tier: "common", timed: true, blurb: "EVERY BALL STOPS IN MID-AIR" },
-  { id: "H", name: "HOMING", color: "#00e05a", dark: true, ticks: 480, tier: "common", timed: true, blurb: "BALLS CURVE ONTO BRICKS" },
-  { id: "Y", name: "MIRROR", color: "#a878b4", dark: false, ticks: 600, tier: "common", timed: true, blurb: "A GHOST PADDLE ON THE CEILING" },
-  { id: "C", name: "CHAIN", color: "#3dff8e", dark: true, ticks: 600, tier: "uncommon", timed: true, blurb: "KILLS ARC TO OTHER BRICKS" },
-  { id: "K", name: "MAGNET", color: "#6fd0b4", dark: true, ticks: 720, tier: "common", timed: true, blurb: "THE PADDLE PULLS CAPSULES IN" },
-  { id: "V", name: "SINGULARITY", color: "#c9a7ff", dark: true, ticks: 720, tier: "uncommon", timed: true, blurb: "A BLACK HOLE BENDS THE BALLS" },
-  { id: "PO", name: "PORTAL", color: "#00b3fa", dark: true, ticks: 1800, tier: "uncommon", timed: true, blurb: "SIDE WALLS BECOME DOORWAYS" },
-  { id: "O", name: "BUMPERS", color: "#ff00aa", dark: false, ticks: 720, tier: "uncommon", timed: true, blurb: "FIVE DISCS · 100 A KICK" },
+  { id: "G", name: "GLUE", color: "#b07840", dark: false, ticks: 1440, tier: "common", timed: true, blurb: "BALLS STICK · CLICK TO FREE" },
+  { id: "I", name: "STASIS", color: "#9effd6", dark: true, ticks: 180, tier: "common", timed: true, blurb: "EVERY BALL STOPS IN MID-AIR" },
+  { id: "H", name: "HOMING", color: "#00e05a", dark: true, ticks: 960, tier: "common", timed: true, blurb: "BALLS CURVE ONTO BRICKS" },
+  { id: "Y", name: "MIRROR", color: "#a878b4", dark: false, ticks: 1200, tier: "common", timed: true, blurb: "A GHOST PADDLE ON THE CEILING" },
+  { id: "C", name: "CHAIN", color: "#3dff8e", dark: true, ticks: 1200, tier: "uncommon", timed: true, blurb: "KILLS ARC TO OTHER BRICKS" },
+  { id: "K", name: "MAGNET", color: "#6fd0b4", dark: true, ticks: 1440, tier: "common", timed: true, blurb: "THE PADDLE PULLS CAPSULES IN" },
+  { id: "V", name: "SINGULARITY", color: "#c9a7ff", dark: true, ticks: 1440, tier: "uncommon", timed: true, blurb: "A BLACK HOLE BENDS THE BALLS" },
+  { id: "PO", name: "PORTAL", color: "#00b3fa", dark: true, ticks: 3600, tier: "uncommon", timed: true, blurb: "SIDE WALLS BECOME DOORWAYS" },
+  { id: "O", name: "BUMPERS", color: "#ff00aa", dark: false, ticks: 1440, tier: "uncommon", timed: true, blurb: "FIVE DISCS · 100 A KICK" },
   { id: "Q", name: "QUAKE", color: "#ffab6b", dark: true, ticks: 0, tier: "uncommon", timed: false, blurb: "THE WALL DROPS A ROW" },
   { id: "BM", name: "BOMB", color: "#ff3b00", dark: false, ticks: 0, tier: "trap", timed: false, blurb: "IT BLOWS UP THE PADDLE" },
   { id: "GH", name: "GHOST", color: "#e1f0b4", dark: true, ticks: 300, tier: "trap", timed: true, blurb: "THE WALL GOES INTANGIBLE" },
-  { id: "CR", name: "CRITTER", color: "#a3e04a", dark: true, ticks: 0, tier: "uncommon", timed: false, blurb: "A GRUB EATS THROUGH THE WALL", lasts: "15 S" },
+  { id: "CR", name: "CRITTER", color: "#a3e04a", dark: true, ticks: 0, tier: "uncommon", timed: false, blurb: "A GRUB EATS THROUGH THE WALL", lasts: "30 S" },
   { id: "RU", name: "RUSH", color: "#e1001b", dark: false, ticks: 300, tier: "trap", timed: true, blurb: "EVERY BALL AT 1.8 SPEED" },
-  { id: "XW", name: "XWIDE", color: "#0082a0", dark: false, ticks: 720, tier: "rare", timed: true, blurb: "TWICE THE WIDE DECK" },
-  { id: "XR", name: "XRAY", color: "#2aff00", dark: true, ticks: 300, tier: "rare", timed: true, blurb: "EVERY BRICK SHOWS ITS CAPSULE" },
+  { id: "XW", name: "XWIDE", color: "#0082a0", dark: false, ticks: 1440, tier: "rare", timed: true, blurb: "TWICE THE WIDE DECK" },
+  { id: "XR", name: "XRAY", color: "#2aff00", dark: true, ticks: 600, tier: "rare", timed: true, blurb: "EVERY BRICK SHOWS ITS CAPSULE" },
   { id: "MT", name: "METEOR", color: "#c84b19", dark: false, ticks: 0, tier: "rare", timed: false, blurb: "THREE METEORS DRILL THE WALL" },
   { id: "SP", name: "SPLIT", color: "#e0607a", dark: false, ticks: 360, tier: "trap", timed: true, blurb: "THE DECK BREAKS AROUND A HOLE" },
-  { id: "VX", name: "VORTEX", color: "#b000fc", dark: false, ticks: 720, tier: "rare", timed: true, blurb: "A BIGGER BLACK HOLE, ADRIFT" },
+  { id: "VX", name: "VORTEX", color: "#b000fc", dark: false, ticks: 1440, tier: "rare", timed: true, blurb: "A BIGGER BLACK HOLE, ADRIFT" },
   { id: "BN", name: "BANANA", color: "#e2fe74", dark: true, ticks: 0, tier: "trap", timed: false, blurb: "PEELS SKID THE DECK", lasts: "10 S PEELS" },
   { id: "D", name: "DEMAKE", color: "#00d200", dark: true, ticks: 480, tier: "trap", timed: true, blurb: "THE MACHINE DROPS TO 1-BIT" },
   { id: "BK", name: "BLACKOUT", color: "#6998f7", dark: true, ticks: 1200, tier: "trap", timed: true, blurb: "LIGHTS OUT · THE BALL GLOWS" },
   { id: "F", name: "FLIP", color: "#ff1aff", dark: true, ticks: 480, tier: "trap", timed: true, blurb: "THE WHOLE FIELD TURNS OVER" },
-  { id: "TU", name: "TURBO", color: "#00ffff", dark: true, ticks: 600, tier: "rare", timed: true, blurb: "BALLS RUN FAST · POINTS x3" },
+  { id: "TU", name: "TURBO", color: "#00ffff", dark: true, ticks: 1200, tier: "rare", timed: true, blurb: "BALLS RUN FAST · POINTS x3" },
   { id: "A", name: "ANGEL", color: "#ffb0e0", dark: true, ticks: 0, tier: "rare", timed: false, blurb: "IT CATCHES ONE LOST BALL", lasts: "ONE SAVE" },
   { id: "GB", name: "GAMBLE", color: "#ff6cff", dark: true, ticks: 0, tier: "uncommon", timed: false, blurb: "A REEL PAYS A RANDOM BONUS", lasts: "ONE SPIN" },
   // The body is the widest gap left on a 40-capsule board, measured rather than
@@ -254,7 +254,7 @@ export const POWER_UPS = [
   // not a reservation, and a capsule about putting english on a ball is the
   // colour of the cloth you do it on or it is nothing. The glyph is what tells
   // them apart, as it is for the other seven.
-  { id: "EN", name: "ENGLISH", color: "#009436", dark: false, ticks: 1200, tier: "rare", timed: true, blurb: "WHIP THE PADDLE · CURVE THE BALL" },
+  { id: "EN", name: "ENGLISH", color: "#009436", dark: false, ticks: 2400, tier: "rare", timed: true, blurb: "WHIP THE PADDLE · CURVE THE BALL" },
   // The brightest body on the board and the one with the most room under it:
   // 11.6:1 against the darkest field theme, which is three times the bar, and
   // 76 from XRAY, MULTI and CRITTER alike. The green quarter is crowded and
@@ -267,7 +267,7 @@ export const POWER_UPS = [
   // player might read as a trap while it falls is worse than one they cannot
   // tell from another bonus. The grid it lays over the field is drawn in this
   // green taken right down, so the effect and the pill are one colour.
-  { id: "SN", name: "SNAP", color: "#60ff36", dark: true, ticks: 720, tier: "common", timed: true, blurb: "EVERY BOUNCE SNAPS TO THE GRID" },
+  { id: "SN", name: "SNAP", color: "#60ff36", dark: true, ticks: 1440, tier: "common", timed: true, blurb: "EVERY BOUNCE SNAPS TO THE GRID" },
   // Mortar, which is the one thing on the field this capsule is about and the
   // one colour nothing on the board had taken. 77 from QUAKE, MIRROR and GHOST
   // alike — the widest gap left on a 44-capsule board — and 0.469 luminance
@@ -284,7 +284,7 @@ export const POWER_UPS = [
   // two capsules do the same thing to the wall from opposite ends, and one that
   // could be mistaken for the other while it falls would be the worst pill on
   // the board.
-  { id: "ER", name: "ERODE", color: "#bcb88e", dark: true, ticks: 720, tier: "rare", timed: true, blurb: "MORTAR ERODES · THREAD THE WALL" },
+  { id: "ER", name: "ERODE", color: "#bcb88e", dark: true, ticks: 1440, tier: "rare", timed: true, blurb: "MORTAR ERODES · THREAD THE WALL" },
   // Coral, and the roster's own answer to a fire capsule arriving on a board
   // where fire is the one thing everybody already took. Swept properly, the
   // warm quarter has exactly one opening left: 60.5 from SPLIT and 60.6 from
@@ -305,7 +305,7 @@ export const POWER_UPS = [
   // could actually be confused with — BOMB, the trap that blows up the deck —
   // it sits 93 away, which matters more, because BOMB and PYRE are the two
   // capsules on the board about something exploding.
-  { id: "PY", name: "PYRE", color: "#ff744a", dark: true, ticks: 600, tier: "uncommon", timed: true, blurb: "CLICK BURNS A BALL AS A BOMB" },
+  { id: "PY", name: "PYRE", color: "#ff744a", dark: true, ticks: 1200, tier: "uncommon", timed: true, blurb: "CLICK BURNS A BALL AS A BOMB" },
   // Stone, and the one material on the board nobody had taken. The roster is
   // 45 pills of hue and this is the first one with none: at 8 % saturation it
   // reads as grey to the eye, and grey is what is left when every quarter of
@@ -328,7 +328,7 @@ export const POWER_UPS = [
   // is read as a shape with a letter in it before it is read as a letter, and
   // the light one keeps it in the family of everything else that is not a
   // yellow or an orange.
-  { id: "GR", name: "GRAVEL", color: "#8a8c78", dark: false, ticks: 720, tier: "common", timed: true, blurb: "KILLS CRUMBLE · CATCH THE BITS" },
+  { id: "GR", name: "GRAVEL", color: "#8a8c78", dark: false, ticks: 1440, tier: "common", timed: true, blurb: "KILLS CRUMBLE · CATCH THE BITS" },
   // Verdigris, which is what heavy bronze actually turns into and the one
   // honest colour left for a capsule about weight: the warm quarter that owns
   // impact — BLAST, BOMB, METEOR, PYRE — has been full since PYRE took its last
@@ -342,7 +342,7 @@ export const POWER_UPS = [
   // decided it over the olive and the bronze that scored similarly: this
   // capsule takes a hole out of the wall, and one the player reads as a trap
   // while it falls is one they let go.
-  { id: "GI", name: "GIANT", color: "#469292", dark: false, ticks: 480, tier: "rare", timed: true, blurb: "A HUGE BALL CRUSHES A PATCH" },
+  { id: "GI", name: "GIANT", color: "#469292", dark: false, ticks: 960, tier: "rare", timed: true, blurb: "A HUGE BALL CRUSHES A PATCH" },
   // Olive drab, which is the colour ammunition comes in and the widest opening
   // left on a board this full. Swept rather than picked: 70.2 from MULTI, 70.7
   // from GRAVEL, 72.0 from FUSE and 74.5 from GLUE against the 58 bar, 3.88:1
@@ -364,7 +364,7 @@ export const POWER_UPS = [
   // gives `uncommon` and `rare` the same single ticket, so the only frequency
   // choice left is two tickets or one. A capsule whose job is to stop you losing
   // a ball has to be met while you are still learning to read one.
-  { id: "TR", name: "TRACER", color: "#688a3a", dark: false, ticks: 600, tier: "common", timed: true, blurb: "THE BALL SHOWS WHERE IT LANDS" },
+  { id: "TR", name: "TRACER", color: "#688a3a", dark: false, ticks: 1200, tier: "common", timed: true, blurb: "THE BALL SHOWS WHERE IT LANDS" },
   // Lime jelly, which is the colour the capsule is about and not a coincidence
   // worth apologising for. The green quarter holds thirteen pills and is still
   // open for the reason SNAP's own note gives: what is crowded there is the
@@ -386,7 +386,7 @@ export const POWER_UPS = [
   // from CRITTER, under the bar by one, and 58 from BANANA exactly, which is a
   // trap sitting on the floor of the rule. Pale spring green at hue 114 is the
   // one point in the family that clears everything at once.
-  { id: "JE", name: "JELLY", color: "#98fc8c", dark: true, ticks: 600, tier: "uncommon", timed: true, blurb: "RIPPLES CROSS · BRICKS BURST" },
+  { id: "JE", name: "JELLY", color: "#98fc8c", dark: true, ticks: 1200, tier: "uncommon", timed: true, blurb: "RIPPLES CROSS · BRICKS BURST" },
   // Cold steel, and deliberately the thing that failed rather than the mess it
   // made: GRAVEL took stone, ERODE took mortar, and GLUE, METEOR and QUAKE hold
   // the rest of the warm-earth quarter. A capsule about a wall losing its
@@ -405,7 +405,7 @@ export const POWER_UPS = [
   // lands it beside WALL, and the 19 % saturation is what separates them: WALL
   // is sky and this is galvanised. The glyph does the rest, as it does for the
   // other six blues.
-  { id: "SL", name: "SLUMP", color: "#b0bcc9", dark: true, ticks: 480, tier: "uncommon", timed: true, blurb: "THE WALL FALLS IN ON ITSELF" },
+  { id: "SL", name: "SLUMP", color: "#b0bcc9", dark: true, ticks: 960, tier: "uncommon", timed: true, blurb: "THE WALL FALLS IN ON ITSELF" },
   // Shallow-sea green, and the water family's own colour taken from the side of
   // it nobody had reached. **Sea petrol is gone**: GIANT shipped `#469292` into
   // exactly that spot, so what was left was the green half of the family, and
@@ -421,7 +421,7 @@ export const POWER_UPS = [
   // The two greens it could have been confused with are the two the margin is
   // spent on: STASIS `#9effd6` is a mint and sits 91 away, MAGNET `#6fd0b4` a
   // pale jade at 106. Both are paler than this and neither is a sea.
-  { id: "TI", name: "TIDE", color: "#14bc8c", dark: true, ticks: 480, tier: "uncommon", timed: true, blurb: "IT FLOODS · THE DECK FLOATS" },
+  { id: "TI", name: "TIDE", color: "#14bc8c", dark: true, ticks: 960, tier: "uncommon", timed: true, blurb: "IT FLOODS · THE DECK FLOATS" },
   // Low gold: the economy hue PAYDAY and PIERCE hold, taken down to the value a
   // sun near the horizon actually has. The warm band was full at the bright end
   // and open at the low end, and that is the whole of the placement — a capsule
@@ -440,7 +440,7 @@ export const POWER_UPS = [
   // unchanged at 48 deg, and nothing else in the sweep moves. The darker golds
   // that measured wider — #8c6900 reaches 71.6 — all sit within a tenth of the
   // 3:1 field floor, which this roster has refused twice before.
-  { id: "UM", name: "UMBRA", color: "#b28e00", dark: true, ticks: 600, tier: "uncommon", timed: true, blurb: "HIT A SHADOW, HIT ITS BRICK" },
+  { id: "UM", name: "UMBRA", color: "#b28e00", dark: true, ticks: 1200, tier: "uncommon", timed: true, blurb: "HIT A SHADOW, HIT ITS BRICK" },
   // The widest opening left on a 53-capsule board, and the sweep says it is not
   // close: 75.1 from ENGLISH, TRACER and FUSE against the 58 bar, where the best
   // point in every other quarter of the wheel sits in the low sixties. The board
@@ -491,7 +491,7 @@ export const POWER_UPS = [
   // liseré (`superposeEdge`), the way SNAP's lattice and GRAVEL's cracks come
   // off their own pills. SHA-137 is why it has an edge at all: UMBRA shipped
   // without one and a half-transparent thing on a dark field could not be found.
-  { id: "SU", name: "SUPERPOSE", color: "#d278dc", dark: true, ticks: 600, tier: "uncommon", timed: true, blurb: "EVERY BRICK IS IN TWO PLACES" },
+  { id: "SU", name: "SUPERPOSE", color: "#d278dc", dark: true, ticks: 1200, tier: "uncommon", timed: true, blurb: "EVERY BRICK IS IN TWO PLACES" },
   // The blue quarter, which FUSE's row above calls simply full and which the
   // sweep agrees with: **31 legal bodies in the whole of hue 180-260, and not
   // one of them is pale.** Every last one is a saturated electric blue sitting
@@ -530,7 +530,7 @@ export const POWER_UPS = [
   // The ticket proposed #fcbca4 and it is still legal today — 59.6 from QUAKE,
   // 1.6 over the bar. This is the same rose one step out, and it buys the
   // clearance back off the binding neighbour rather than off the others.
-  { id: "TW", name: "TWIN", color: "#ffbda5", dark: true, ticks: 540, tier: "rare", timed: true, blurb: "THREADED BRICKS DIE IN PAIRS" },
+  { id: "TW", name: "TWIN", color: "#ffbda5", dark: true, ticks: 1080, tier: "rare", timed: true, blurb: "THREADED BRICKS DIE IN PAIRS" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];

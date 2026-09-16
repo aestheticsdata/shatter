@@ -1517,7 +1517,7 @@ const SCENES: Record<PowerUpKind, Painter> = {
    * Three states in one frame, which is what GRAVEL's and PYRE's scenes do:
    * bricks with their doubles standing, one pair mid-collapse with only its
    * edge left, and — bottom right — a brick whose echo is already spent and
-   * which stands alone the way the whole wall will by the end of the ten
+   * which stands alone the way the whole wall will by the end of the twenty
    * seconds.
    */
   SU: (field) => {
@@ -1534,7 +1534,7 @@ const SCENES: Record<PowerUpKind, Painter> = {
      * Three states, left to right, which is also the capsule's whole arc in one
      * frame: two pairs standing, one collapsing, and on the right a brick whose
      * double is already spent and which stands alone the way the entire wall
-     * will by the end of the ten seconds.
+     * will by the end of the twenty seconds.
      */
     const row = 3;
     const kinds: readonly BrickKind[] = ["1", "2", "3", "4"];

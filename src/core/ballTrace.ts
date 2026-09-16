@@ -77,7 +77,7 @@ export interface TraceRules {
    * A rule and not a constant since TIDE: the deck floats 96 px up while the
    * field is flooded, and a thread drawn to the rail it is no longer on would
    * be the one lie this prediction may not tell. Absent means the rail, which
-   * is where the deck is for all but eight seconds of a run.
+   * is where the deck is for all but sixteen seconds of a run.
    *
    * The water below the deck is deliberately *not* modelled here, and does not
    * need to be: the waterline is the deck's own bottom edge, so a ball still

@@ -1000,7 +1000,7 @@ export class SoundBank {
 
   // One bounce off a trampoline: a short pitched blip that bends up as it goes,
   // which is the ball leaving faster than it arrived. Quiet, because it plays
-  // on every single wall contact for ten seconds and the brick clank it
+  // on every single wall contact for twenty seconds and the brick clank it
   // replaces was quieter still.
   jellyBounce(): void {
     if (!this.allow("jellyBounce", 40)) {

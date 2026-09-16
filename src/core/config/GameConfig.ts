@@ -544,7 +544,7 @@ export const gameConfig = {
        * shortened by exactly this much to pay for it: a slip that could push a
        * cell past the end of the wipe is a cell that never finishes splitting,
        * which would leave it a pixel short of cracked and shedding grit for the
-       * whole twelve seconds.
+       * whole twenty-four seconds.
        */
       crack: {
         wipeSpan: 0.55,
@@ -552,12 +552,12 @@ export const gameConfig = {
         // Fractures per brick face, and how far each walks. Two of five is ten
         // dark pixels on a 28x10 body — enough to read as split at a glance
         // across sixty bricks, few enough that the wall keeps its own colour
-        // for the twelve seconds it wears them.
+        // for the twenty-four seconds it wears them.
         fractures: 2,
         fractureLength: 5,
         // The dusting, per brick, while that brick is actually splitting. Gone
         // by the time it has set, so the grit is the arrival rather than a
-        // weather effect the wall wears for twelve seconds.
+        // weather effect the wall wears for twenty-four seconds.
         grit: 4,
         gritFall: 9,
       },
@@ -570,7 +570,7 @@ export const gameConfig = {
      * time — a capsule whose rule is that the last ball never burns is a
      * capsule that does nothing at all on a single-ball field, which is the
      * loudest way there is to ship a dud. So the catch tops the field up the
-     * way MULTI's first tier does, and the ten seconds are what the two
+     * way MULTI's first tier does, and the twenty seconds are what the two
      * newcomers are for: catch it, and you are holding two grenades and the
      * ball you started with.
      *
@@ -772,8 +772,10 @@ export const gameConfig = {
     // derives the rest, so the two can never fall out of step.
     vortex: {
       scale: 1.5,
-      // 21 px/s — about two thirds of the field over the 12 s it stays open. A
-      // hole the player has to keep re-reading, not one that outruns the rally.
+      // 21 px/s — about a field and a third of travel over the 24 s it stays
+      // open, so it crosses its box and turns back rather than parking at an
+      // edge. A hole the player has to keep re-reading, not one that outruns
+      // the rally.
       driftSpeed: 0.35,
       // The box the centre stays inside. `top` clears the deepest grid, which
       // bottoms out at y 134, and `bottom` leaves 104 px to the paddle: that is
@@ -865,7 +867,7 @@ export const gameConfig = {
       // tick, which is a paddle being raised by a lift rather than a paddle
       // finding its own level. At a 2 px draft the water climbs the deck's side
       // first and only then picks it up, foam breaks along its flank for the
-      // whole eight seconds instead of for one frame, and the bob makes the
+      // whole sixteen seconds instead of for one frame, and the bob makes the
       // draft itself breathe between 1 and 3 px — which is what a thing
       // floating looks like and what a thing being held up does not.
       draft: 2,
@@ -874,7 +876,7 @@ export const gameConfig = {
       // the most a 7 px deck can move without reading as a stutter — and it is
       // scaled by the flood, so the deck comes to rest on the water rather than
       // starting to bounce the instant it lifts. 96 ticks is a slow swell: a
-      // second and a half a heave, about five over the capsule's eight seconds.
+      // second and a half a heave, about ten over the capsule's sixteen seconds.
       bobAmplitude: 1,
       bobPeriodTicks: 96,
       // The drain's dip, in px and in px either side of the plughole. What the
@@ -915,7 +917,7 @@ export const gameConfig = {
        * the outer columns rake harder than the inner ones, which is what says
        * *sun* rather than *stage light* — but the spread across the wall is
        * about 5:1 of shear instead of 30:1, and every column swings through
-       * vertical at some point in the ten seconds.
+       * vertical at some point in the twenty seconds.
        */
       sunHeight: 240,
       // And the bound on it, in px of run per px of drop. 1.1 is a shade over
@@ -1022,7 +1024,7 @@ export const gameConfig = {
      * SUPERPOSE. Every live brick stands in two places at once: itself, and an
      * echo half a cell off it. Both are surfaces, a hit on either collapses the
      * pair into the brick, and the wall resolves itself back to one wall over
-     * the ten seconds.
+     * the twenty seconds.
      */
     superpose: {
       // Half a cell, diagonally. Not a whole one — an echo on the next cell's
@@ -1165,7 +1167,7 @@ export const gameConfig = {
        *
        * Fifteen ticks is a quarter-second and it is the arrival of the couple
        * rather than of the capsule: the refill clock draws new ones all the way
-       * through the nine seconds and each of those grows in the same way, so a
+       * through the eighteen seconds and each of those grows in the same way, so a
        * thread appearing at full length is never the picture.
        */
       drawTicks: 15,
@@ -1195,7 +1197,7 @@ export const gameConfig = {
        * How often the pairing tops back up, in ticks.
        *
        * **Without this the capsule spends itself in the first two seconds and
-       * stands there for seven more.** Twelve couples against a wall being
+       * stands there for sixteen more.** Twelve couples against a wall being
        * actively eaten is about two seconds of play, and a rare capsule whose
        * whole visible life is its opening two seconds is one the player
        * remembers as having done nothing. A second and a half between refills
@@ -1616,7 +1618,7 @@ export const gameConfig = {
      * capsule cannot afford, at the one end of the field the player is not
      * looking at.
      *
-     * 12 ticks is 200 ms and 2 % of MIRROR's ten seconds, and it is deliberately
+     * 12 ticks is 200 ms and 1 % of MIRROR's twenty seconds, and it is deliberately
      * *not* the deck's one-pixel-an-edge — a reflection is not hydraulics, so it
      * takes the same fifth of a second to arrive whether the deck under it is
      * 46 px or a 144 px XWIDE.
@@ -1652,7 +1654,7 @@ export const gameConfig = {
     tracerFadeTicks: 30,
     // PYRE's ember wash, rolling over the deck and rolling back off it. Both
     // ends of the capsule are this one number: the front sweeps cap to cap as
-    // the fire takes and sweeps back the way it came when the ten seconds are
+    // the fire takes and sweeps back the way it came when the twenty seconds are
     // up, and the crowns on the balls will not light until it is half across —
     // which is the ticket's "then", spent rather than described.
     pyreEmberTicks: 24,
@@ -1702,9 +1704,11 @@ export const gameConfig = {
     jellySpeed: 0.25,
     // What the sheet keeps each tick. 0.985 spends a strike's ring over about
     // two seconds, which is long enough for three crossings and short enough
-    // that six strikes in ten seconds do not compound into a wall that
-    // dissolves on the clock. This is the number the whole capsule is most
-    // sensitive to: at 0.995 the wall comes apart whatever the player does.
+    // that twelve strikes in twenty seconds do not compound into a wall that
+    // dissolves on the clock. A ring is spent on its own clock rather than the
+    // capsule's, so this half of the pair is the one the longer window did not
+    // move. This is the number the whole capsule is most sensitive to: at 0.995
+    // the wall comes apart whatever the player does.
     jellyDamping: 0.985,
     // How far the sheet may stretch, in pixels either way. Half a brick, and
     // the thing that actually bounds this capsule — see the note in
@@ -1721,7 +1725,7 @@ export const gameConfig = {
     //
     // **The relaxation is the load-bearing half of this pair**, and it is seven
     // times what the first cut had. Without it a cell only has to be bent *at
-    // some point* to reach failure, so ten seconds of any ringing at all takes
+    // some point* to reach failure, so ten seconds of any ringing at all took
     // a wall apart on the clock — 67 % of every wall it was measured against,
     // against the 35 % these two give. With it a cell has to be bent *and kept
     // bent*, which is the difference between a wall that dissolves and one the
@@ -1732,12 +1736,21 @@ export const gameConfig = {
     // **Tuned against real rallies, because the obvious benchmark was wrong by
     // an order of magnitude.** A ball that is no longer breaking bricks does
     // not punch a hole and leave — it rattles along the wall's underside, and a
-    // jellied wall takes 30 to 130 contacts in the ten seconds where a plain
-    // one takes 4 to 11. Over eighteen measured rallies these land the average
-    // tear at about a third of the wall; the spread is wide — nothing on one
-    // rally, nearly all of it on another — and that is the feedback loop rather
-    // than the numbers, since a rally that keeps the ball in the wall keeps
-    // feeding the sheet.
+    // jellied wall takes 30 to 130 contacts in ten seconds where a plain one
+    // takes 4 to 11. Over eighteen measured rallies these land the average tear
+    // at about a third of the wall; the spread is wide — nothing on one rally,
+    // nearly all of it on another — and that is the feedback loop rather than
+    // the numbers, since a rally that keeps the ball in the wall keeps feeding
+    // the sheet.
+    //
+    // **Every figure above was measured against a 600-tick capsule, and
+    // SHA-163 doubled the window to 1200 without re-measuring them.** These two
+    // are rates per tick and do not scale, but the tear they add up to does:
+    // the contact count and the third-of-a-wall average are both over ten
+    // seconds, and twenty seconds of the same feedback loop is the case the
+    // relaxation was introduced to rule out. This is the one row in that
+    // ticket where a longer capsule is a stronger capsule rather than a more
+    // generous one, and it is the row to watch on a wall the player is losing.
     jellyStrainGain: 0.4,
     jellyStrainRelax: 0.045,
     // Strain to a hit. Three, so a cell shows two notches of load before it
@@ -1850,10 +1863,11 @@ export const gameConfig = {
     // CRITTER's grub. `stepSpeed` is a brick every 18 ticks — 30 px at 1.667 —
     // slow enough to watch it work and slow enough that the row it is eating is
     // still worth playing; over ground it has already cleared it doubles, so a
-    // stripped row is crossed rather than paraded across. 15 s of life is about
-    // four full rows of chewing, and it usually walks off the bottom first.
+    // stripped row is crossed rather than paraded across. 30 s of life is about
+    // eight full rows of chewing, and it nearly always walks off the bottom
+    // first — the life timer is the ceiling, the wall is what actually ends it.
     critter: {
-      lifeTicks: 900,
+      lifeTicks: 1800,
       stepSpeed: 1.667,
       emptyRowSpeed: 3.33,
       // What a grub does with its last second, whichever of its two clocks is

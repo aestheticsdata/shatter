@@ -73,7 +73,7 @@ export class Superposition {
   readonly pops: EchoPop[] = [];
   // Rebuilt once a tick and handed to the renderer and the collision test,
   // rather than each of them walking the wall itself. A field and not a return
-  // value so the ten seconds cost no allocations.
+  // value so the twenty seconds cost no allocations.
   readonly rects: EchoRect[] = [];
 
   get active(): boolean {
@@ -141,7 +141,7 @@ export class Superposition {
    * The catch: every brick standing right now gets a double.
    *
    * A second SUPERPOSE over a live one re-echoes the wall rather than topping
-   * the ten seconds up, and unlike UMBRA's restart that is not a picture
+   * the twenty seconds up, and unlike UMBRA's restart that is not a picture
    * decision — it is the only honest one. The pairs the player has already
    * collapsed are spent, and a top-up would hand back a wall they had worked
    * down while claiming to be the same capsule twice.

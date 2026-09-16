@@ -304,7 +304,7 @@ export class ShatterGame {
    * The capsule's whole transition lives on this one number. It is spent
    * geometrically rather than as an alpha: the front sweeps cap to cap across
    * the deck as the blend climbs, and sweeps back the way it came as it falls,
-   * so the ten seconds start and end with something *travelling* rather than
+   * so the twenty seconds start and end with something *travelling* rather than
    * with a colour appearing. The crowns on the balls read it too — they will not
    * light until the wash is half across, which is the ticket's "then".
    *
@@ -548,7 +548,7 @@ export class ShatterGame {
   /**
    * GRAVEL's fault, 0 whole wall to 1 every face split.
    *
-   * The **held cue**, and the only one this capsule has: for twelve seconds
+   * The **held cue**, and the only one this capsule has: for twenty-four seconds
    * every brick on the wall wears the cracks that say the next kill will
    * crumble. It is on the wall rather than in the POWER inset by the rule
    * ANGEL's wings paid for — the cue belongs on the thing the capsule changes,
@@ -692,7 +692,7 @@ export class ShatterGame {
    * is banked on the ball at the moment of contact and decays on its own, so
    * there is no global strength to fade. What the blend owns is the *surface* —
    * a deck that can put english on a ball, arriving and leaving as a sweep
-   * across its own face. A ball still curving when the twenty seconds run out
+   * across its own face. A ball still curving when the forty seconds run out
    * keeps curving until its spin runs out, which is the departure the capsule
    * actually has.
    */
@@ -754,7 +754,7 @@ export class ShatterGame {
    * catch surface for balls, capsules and gravel alike; it says which balls are
    * under water and are therefore being pushed back out of it; and it says how
    * fast a capsule is falling. Three hitboxes off one number, which is why the
-   * drain is spent out of the capsule's own eight seconds rather than after them
+   * drain is spent out of the capsule's own sixteen seconds rather than after them
    * — PORTAL's rule, and this blend needs it harder than PORTAL's door did.
    *
    * The deck is never *moved* by the capsule. The water is raised and the deck
@@ -1434,7 +1434,7 @@ export class ShatterGame {
      * only PIERCE's: a sheet told to stop on the tick it stops being a sheet
      * would snap a wall full of hanging bricks back into line in one frame. It
      * has to be still *before* the capsule ends, so the setting runs inside the
-     * last of the ten seconds rather than after them.
+     * last of the twenty seconds rather than after them.
      */
     if (this.timers.remaining("JE") > 0 && this.timers.remaining("JE") <= gameConfig.effects.jellySettleTicks) {
       this.sheet.settle();
@@ -1451,7 +1451,7 @@ export class ShatterGame {
      * Gravity runs every tick it is on, not only at the catch: the capsule's
      * whole second half is that every brick the player kills drops the column
      * above it onto the gap, so the wall goes on eating itself downward for the
-     * rest of the eight seconds.
+     * rest of the sixteen seconds.
      */
     if (this.timers.remaining("SL") > 0 && this.timers.remaining("SL") <= gameConfig.effects.slumpSetTicks) {
       this.slump.settle();
@@ -1489,7 +1489,7 @@ export class ShatterGame {
      *
      * Below the freeze gates with them, and for their reason: this is a hitbox
      * and not a picture of one. A detonation holding the field still holds the
-     * sun still too, so the ten seconds a player caught are ten seconds they
+     * sun still too, so the twenty seconds a player caught are twenty seconds they
      * get to use.
      *
      * `paddle.y` and not `gameConfig.paddle.y`: the deck floats under TIDE, and
@@ -1531,7 +1531,7 @@ export class ShatterGame {
     // TWIN's couples, beside the echoes and below the same gates — though for a
     // milder reason than theirs. A thread is not a hitbox, so a detonation
     // holding the field still is not holding a collider still; what the gates
-    // buy here is that the refill clock does not spend the capsule's nine
+    // buy here is that the refill clock does not spend the capsule's eighteen
     // seconds while the wall is frozen behind a clear.
     this.entanglement.step(this.grid);
     this.lightCasters();
@@ -2067,7 +2067,7 @@ export class ShatterGame {
    * 1. **Something bends the ball.** HOMING, ENGLISH, HAYWIRE and the two wells
    *    all turn a heading mid-flight, so the walk's premise is gone before it
    *    starts. No amount of walking recovers it — the thread is a stub for as
-   *    long as they are up, and under HOMING that is the whole ten seconds. That
+   *    long as they are up, and under HOMING that is the whole twenty seconds. That
    *    is the correct picture rather than a degraded one.
    * 2. **Something is in the way.** Live bricks and bumper discs both, sampled
    *    along the path by `ballTrace`. The thread then ends at the face of
@@ -2140,7 +2140,7 @@ export class ShatterGame {
         // **Slack means "no claim", and that is the whole rule.** A climbing ball
         // has nothing to predict yet; a ball HOMING is bending has nothing that
         // can be predicted at all. Both hang rope, because the alternative is
-        // drawing nothing — and a capsule that draws nothing for ten seconds
+        // drawing nothing — and a capsule that draws nothing for twenty seconds
         // reads as one that broke, which is the defect this roster keeps
         // relearning. A thread that got *part* of the way down (stopped at a
         // brick face) is not slack: it has something true to show and shows it.
@@ -2378,8 +2378,8 @@ export class ShatterGame {
    * hangs off a ball's kill has to hang off this. Points, the capsule the brick
    * was holding, a live BLAST's splash, a live CHAIN's links and GRAVEL's chips
    * all pay out exactly as they would have if the ball had simply broken the
-   * brick — which is what it was doing ten seconds ago and will be doing again
-   * in ten more.
+   * brick — which is what it was doing twenty seconds ago and will be doing
+   * again in twenty more.
    *
    * It is a *hit* and not a kill, so granite still takes four tears and shows
    * its ramp going down between them.
@@ -2815,7 +2815,7 @@ export class ShatterGame {
    *
    * Through the capsule's own sunset rather than switched off — see
    * `ShadowCast.retire`. The timer is cut to match, so the POWER inset stops
-   * claiming ten seconds of a capsule that has half a second left, and the
+   * claiming twenty seconds of a capsule that has half a second left, and the
    * expiry branch still fires at the end of it and does the bookkeeping.
    */
   private retireForUmbra(): void {
@@ -3573,7 +3573,7 @@ export class ShatterGame {
    * the deck floating over a field with nothing under it, and a ball in a column
    * of water no capsule was paying for.
    *
-   * A second TIDE over a live one tops the eight seconds up and changes nothing
+   * A second TIDE over a live one tops the sixteen seconds up and changes nothing
    * else. The sea is already in and the blend is already 1; there is no arrival
    * to restart, because the arrival is the water rising and the water is here.
    */
@@ -3605,7 +3605,7 @@ export class ShatterGame {
 
   /**
    * Whether the sea is still coming in — which is the capsule's whole clock,
-   * because the last fifty ticks of the eight seconds are the drain.
+   * because the last fifty ticks of the sixteen seconds are the drain.
    *
    * Both halves of the test, exactly as PORTAL's door reads them: the second is
    * what spends the drain out of the capsule's own 480 ticks instead of
@@ -4936,7 +4936,7 @@ export class ShatterGame {
     }
     if (kind === "TW") {
       // The wall as it stands on the catch frame, and a second TWIN redraws the
-      // pairing rather than topping the nine seconds up — `Entanglement.start`
+      // pairing rather than topping the eighteen seconds up — `Entanglement.start`
       // has the argument, which is SUPERPOSE's above it.
       this.timers.activate("TW", durations.TW);
       this.entanglement.start(this.grid, durations.TW);
@@ -5024,7 +5024,7 @@ export class ShatterGame {
     if (kind === "EN") {
       // Nothing is armed on the catch and nothing needs to be: the shot is put
       // on at the next contact, out of whatever the deck is doing then. A second
-      // ENGLISH caught over a live one is a plain top-up of the same twenty
+      // ENGLISH caught over a live one is a plain top-up of the same forty
       // seconds, and any spin already in the air is untouched by it — the ball
       // is carrying a shot, not a subscription.
       this.timers.activate("EN", durations.EN);
@@ -5036,7 +5036,7 @@ export class ShatterGame {
       // The timer and nothing else, like SNAP above it. The threads are rebuilt
       // from the live balls every tick and hold no state of their own, so there
       // is nothing here to seed and a second TRACER over a live one is a plain
-      // top-up of the ten seconds.
+      // top-up of the twenty seconds.
       this.timers.activate("TR", durations.TR);
     }
     if (kind === "ER") {
@@ -5052,7 +5052,7 @@ export class ShatterGame {
     if (kind === "SL") {
       // The timer and the fall's own start, which is the hesitation: four ticks
       // of a wall that has stopped being held up and has not yet noticed. A
-      // second SLUMP over a live one tops the eight seconds up and hesitates
+      // second SLUMP over a live one tops the sixteen seconds up and hesitates
       // again, which is right — the wall is being let go of a second time, and
       // whatever had already fallen stays exactly where it fell.
       this.timers.activate("SL", durations.SL);
@@ -5075,7 +5075,7 @@ export class ShatterGame {
       // simulation with its own history, and the slack running in from the
       // frames is an event with a start.
       //
-      // A second JELLY over a live one tops the ten seconds up and restarts the
+      // A second JELLY over a live one tops the twenty seconds up and restarts the
       // slack, which is the honest answer for a capsule whose arrival is how
       // the player is told what the wall is made of: the wave already in the
       // sheet is left exactly alone, so nothing in flight is interrupted.
@@ -5085,7 +5085,7 @@ export class ShatterGame {
     if (kind === "GR") {
       // The timer and nothing else. The cracks are the capsule's whole state
       // and they chase this by themselves; a second GRAVEL over a live one is a
-      // plain top-up of the twelve seconds, and the pips already falling are
+      // plain top-up of the twenty-four seconds, and the pips already falling are
       // nobody's business but their own — they were paid for by a kill that
       // has already happened.
       this.timers.activate("GR", durations.GR);

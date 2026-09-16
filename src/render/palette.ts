@@ -223,7 +223,7 @@ export const canvasPalette = {
    * retire each other — black on black is an invisible collider.
    *
    * `umbraSun` and `umbraRim` are the light: a hot mark sliding along the top
-   * frame for the whole ten seconds, and the wash that lights the left frame
+   * frame for the whole twenty seconds, and the wash that lights the left frame
    * top to bottom while it comes up. Pale rather than saturated, because what
    * is on the frame is a light source and not a gold pill — the capsule's own
    * body is the low sun and this is the sun itself.
@@ -304,7 +304,7 @@ export const canvasPalette = {
    * field is drawn in the colour of the pill that put it there. One step and
    * not SNAP's several — that one is graph paper the ball is read *against* and
    * has to lose, while this is the held cue and has to be findable from across
-   * the field for nine seconds. It clears 6.85:1 on the darkest playfield theme
+   * the field for eighteen seconds. It clears 6.85:1 on the darkest playfield theme
    * and still sits well under the pill, so a thread never competes with the
    * capsule falling.
    *

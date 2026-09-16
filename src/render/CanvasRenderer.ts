@@ -423,7 +423,7 @@ export interface PaddleRenderState extends DeckSeamState {
    * Beside the resin and the felt and on the same record for their reason: the
    * deck is what paints it. Unlike either of them it is a *front* and not a
    * spread — it enters from one cap and leaves back through it, which is what
-   * makes the ten seconds start and end with something moving.
+   * makes the twenty seconds start and end with something moving.
    */
   ember: number;
   /**
@@ -1821,7 +1821,7 @@ export class CanvasRenderer {
         // Last of the three, and above the ball rather than around it: the arc
         // and the flecks orbit the sprite, and a crown is standing on it. Gated
         // on the ball's own counter and not on the capsule, so a crown guttering
-        // out after the ten seconds are up is still drawn — which is the point
+        // out after the twenty seconds are up is still drawn — which is the point
         // of the stagger that put it there.
         if (ball.pyreCrown > 0) {
           this.drawPyreCrown(ball, index, lift);
@@ -1950,7 +1950,7 @@ export class CanvasRenderer {
    * UMBRA's twelve wedges, as the rows the rasterizer cut.
    *
    * One `fillStyle` for the whole field and a bare `fillRect` per row rather
-   * than `pixel`: this is up to twelve hundred rows a frame for ten seconds,
+   * than `pixel`: this is up to twelve hundred rows a frame for twenty seconds,
    * and every one of them is the same flat black. The spans are already whole
    * pixels and already clipped to the field, so there is nothing left here to
    * round or to bound — which is the point of rasterizing once. The renderer
@@ -2099,14 +2099,14 @@ export class CanvasRenderer {
       }
       // Both ends at once: a dot exists once the nearer anchor has paid out to
       // it, so the two halves close on the middle. `drawn` is per couple, since
-      // the refill clock keeps adding them all the way through the nine seconds.
+      // the refill clock keeps adding them all the way through the eighteen seconds.
       const reach = (length / 2) * thread.drawn;
       const unitX = alongX / length;
       const unitY = alongY / length;
       // Where one pixel of this thread lands, at a distance along it. Written
       // into two locals rather than returned as a point: a 300 px thread is 75
       // dots and there are twelve of them on the field, so a fresh object per
-      // pixel would be nine hundred allocations a frame for nine seconds.
+      // pixel would be nine hundred allocations a frame for eighteen seconds.
       let dotX = 0;
       let dotY = 0;
       const at = (walked: number): void => {
@@ -2848,7 +2848,7 @@ export class CanvasRenderer {
    * and the two layers either side of it. GLUE's resin and ENGLISH's felt both
    * open from the middle of the deck outward and are symmetric by construction;
    * this enters at the left cap and travels, so what the player sees at the
-   * catch is fire *arriving*, and what they see ten seconds later is the same
+   * catch is fire *arriving*, and what they see twenty seconds later is the same
    * fire going back out the way it came. One blend, read as a position rather
    * than as a strength, and both ends of the capsule come out of it.
    *
@@ -3540,7 +3540,7 @@ export class CanvasRenderer {
    *
    * Hashed off the cell's coordinates rather than kept as state, for the erode
    * trickle's reason and its own: a brick's fractures have to be in the same
-   * place on every frame of the twelve seconds it wears them, and a wall that
+   * place on every frame of the twenty-four seconds it wears them, and a wall that
    * re-cracked each frame would boil.
    *
    * The grit is on the **face**, drifting down across the stone and looping,
@@ -3572,7 +3572,7 @@ export class CanvasRenderer {
     // size, so `start` lands inside `[0, wipeSpan]` by construction and every
     // cell has the whole of `1 - wipeSpan` left to split in. Two-sided, the far
     // column would finish past 1 — its crack would stop a pixel short for the
-    // whole twelve seconds and, worse, it would sit inside its own split
+    // whole twenty-four seconds and, worse, it would sit inside its own split
     // shedding grit the entire time, since the dust is drawn while a cell is
     // still moving.
     const start = (column / (columns - 1)) * (wipeSpan - jitter) + (((cellHash >>> 7) % 1001) / 1000) * jitter;
@@ -3692,7 +3692,7 @@ export class CanvasRenderer {
    *
    * **A dotted line and never a solid one.** A solid rule from the ball to the
    * deck is the longest mark anything in this game draws and would sit on top of
-   * the field for ten seconds; one pixel lit in two reads as a thread at this
+   * the field for twenty seconds; one pixel lit in two reads as a thread at this
    * scale and costs the field half the ink. It is also what keeps it clear of
    * SNAP, whose dashes run *along* the diagonal a ball just left on — these run
    * *ahead* of one, and the two capsules are frequently up together.

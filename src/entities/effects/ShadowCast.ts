@@ -105,7 +105,7 @@ export class ShadowCast {
   }));
   readonly surges: ShadowSurge[] = [];
   // The surges that reached their caster this tick, drained by the game into
-  // brick flashes. A field rather than a return value so the ten seconds cost
+  // brick flashes. A field rather than a return value so the twenty seconds cost
   // no allocations; it is cleared at the top of every step.
   readonly arrivals: ShadowSurge[] = [];
 
@@ -119,7 +119,7 @@ export class ShadowCast {
   private sun = 0;
   // Where it was when the light started to go, so the sunset is a fall from
   // wherever the sun had got to rather than a jump. It matters most when the
-  // sunset is *forced* — a BLACKOUT caught over a live UMBRA cuts the ten
+  // sunset is *forced* — a BLACKOUT caught over a live UMBRA cuts the twenty
   // seconds short, and the sun diving for the right frame in half a second is
   // what that looks like from the field.
   private sunHeld = 0;
@@ -170,7 +170,7 @@ export class ShadowCast {
 
   start(durationTicks: number): void {
     // A second UMBRA over a live one restarts the sun rather than topping the
-    // ten seconds up, and it is the one capsule on the roster where that is the
+    // twenty seconds up, and it is the one capsule on the roster where that is the
     // honest answer: the effect *is* a sun crossing the sky once, and a top-up
     // would be the sun jumping back to the horizon with its shadows already
     // raking the other way. Starting over puts it back on the left frame and

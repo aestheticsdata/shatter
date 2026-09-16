@@ -45,7 +45,7 @@ export class JellySheet {
   // What is painted and collided — the wave, rounded to whole pixels and held
   // wherever a ball is standing. Whole pixels for QUAKE's reason: the art is
   // drawn at 3x and a fractional translate would soften every brick on screen
-  // for the whole ten seconds.
+  // for the whole twenty seconds.
   private offsets = new Int8Array(0);
   // Which cells are walking back to the wave rather than sitting on it: set
   // when a ball's hold ends, cleared when the cell catches up. Only these pay
@@ -235,7 +235,7 @@ export class JellySheet {
         // **The sheet can only stretch so far, and this is the whole of what
         // bounds the capsule.** Damping alone does not: a ball that is no
         // longer breaking bricks *stays in the wall*, ricocheting between faces
-        // and pressing a fresh dimple every few ticks, so ten seconds of a real
+        // and pressing a fresh dimple every few ticks, so twenty seconds of a real
         // rally pumps in far more energy than it can shed. Unclamped, that took
         // the sheet to 25 px — two brick heights — and cleared every wall it
         // was measured on, which is the one thing a capsule may not do.
@@ -258,7 +258,7 @@ export class JellySheet {
         const index = row * columns + column;
         const bent = Math.abs(this.displacement[index]) * this.bendScale;
         // Strain is earned above a threshold and given back below it, and the
-        // relaxation is what keeps the capsule honest over ten seconds: without
+        // relaxation is what keeps the capsule honest over twenty seconds: without
         // it every cell on a wall that is ringing at all creeps to failure on
         // the clock, and a rally would take the whole level apart whatever the
         // player aimed at. With it, only a cell the crossings keep coming back
