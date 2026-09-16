@@ -315,6 +315,27 @@ export const canvasPalette = {
    */
   twinThread: "#e89a78",
   twinFlash: "#ffe2d4",
+  /**
+   * LEAP: the pip that says where the next jump lands, and the flash at each
+   * end of one.
+   *
+   * `leapPip` is the capsule's magenta taken *up* rather than down, which is
+   * where it parts company with `twinThread` one entry above. A thread is
+   * hundreds of pixels of line and can afford to sit under the sprites; a pip
+   * is a diamond four pixels across hanging in open field, and SHA-137 is the
+   * ticket about what happens to a small faint thing on a dark theme — UMBRA
+   * shipped a half-transparent wedge with no edge and nobody could find it. It
+   * clears 6.10:1 on the darkest playfield theme, which is `twinThread`'s
+   * bracket, and it is drawn at an alpha that falls with the capsule's reach so
+   * "faint" is a thing it *becomes* rather than a thing it starts as.
+   *
+   * `leapFlash` is the hot end, near-white with the magenta still in it, and it
+   * is near-white for PIERCE's reason and `twinFlash`'s: a discharge is hot, not
+   * branded. It is on screen for seven ticks at each end of a jump and has to be
+   * caught out of the corner of an eye that is following the ball.
+   */
+  leapPip: "#f078d0",
+  leapFlash: "#ffd8f4",
   // JAMMER: the rail the deck has just been shut off, dying through four steps
   // of the capsule's own magenta. Authored rather than alpha-blended, because
   // everything else on this field fades in whole pixels of a named tone and a

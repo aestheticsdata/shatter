@@ -32,6 +32,8 @@ import { ShadowCast } from "@entities/effects/ShadowCast";
 import { Singularity } from "@entities/effects/Singularity";
 import { Slump } from "@entities/effects/Slump";
 import { Superposition } from "@entities/effects/Superposition";
+import { Tunnelling } from "@entities/effects/Tunnelling";
+import { Uncertainty } from "@entities/effects/Uncertainty";
 import { WallOffsets } from "@entities/effects/WallOffsets";
 import { ShotPool } from "@entities/laser/ShotPool";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
@@ -48,6 +50,7 @@ import type { TraceRules } from "@core/ballTrace";
 import type { ComboId } from "@core/config/combos";
 import type { Landing } from "@entities/effects/Slump";
 import type { EchoContact } from "@entities/effects/Superposition";
+import type { LeapField } from "@entities/effects/Tunnelling";
 import type { WidthCurve } from "@entities/paddle/Paddle";
 import type {
   BrickFlash,
@@ -430,6 +433,18 @@ export class ShatterGame {
   // is `partnerOf` — at the two places a brick is written to the grid, never at
   // a collision. See `strikeTwin`.
   private readonly entanglement = new Entanglement();
+  /**
+   * LEAP's clocks, and the one effect on this list that holds nothing about the
+   * wall at all: what it owns is a countdown and a span per *ball*, which is
+   * why it is keyed by ball identity rather than sized from the level like the
+   * six above it. Nothing here is a surface — a jump is a displacement, and the
+   * only thing it touches is where a ball is.
+   */
+  private readonly tunnel = new Tunnelling();
+  // HEISEN's vagueness, beside the clocks above it and per ball for their
+  // reason. It is read in two places that must not be allowed to disagree —
+  // `scoreMultiplier` and the renderer — and it answers both off one number.
+  private readonly uncertainty = new Uncertainty();
   // The bricks that landed this tick, reused rather than allocated: a whole
   // wall arriving at the floor is ninety-six of these in one frame.
   private readonly landings: Landing[] = [];
@@ -985,6 +1000,8 @@ export class ShatterGame {
       // walked the wall this tick to place every thread, and the renderer reads
       // that list rather than asking the wall the same question twice.
       twin: this.entanglement,
+      leap: this.tunnel,
+      heisen: this.uncertainty,
       // One number, and the pips it is about. The fault says which bricks will
       // crumble and the pool says which ones already did — the capsule's state
       // and its history, the way SNAP's lattice and its marks are two fields.
@@ -1663,6 +1680,22 @@ export class ShatterGame {
     if (expired.includes("CO")) {
       this.decoherence.reset();
     }
+    // The jumps already run down: the last three seconds shortened every span
+    // toward nothing and the pip shrank with them, so by this tick there is no
+    // reach left to take away. `retire` rather than `reset` because the two
+    // flashes of the last jump may still be on screen and they are the report
+    // of something that really happened — see `Tunnelling.retire`.
+    if (expired.includes("LE")) {
+      this.tunnel.retire();
+    }
+    // And the ball coming back into focus, which is the twelve ticks *after*
+    // this one: `retire` only stops the climb, and the copies spend the window
+    // converging on the sprite they came out of while the multiplier eases back
+    // to x1. Nothing here is switched off — the last copy is absorbed.
+    if (expired.includes("HE")) {
+      this.uncertainty.retire();
+      this.deps.sfx.heisenFocus();
+    }
     // The faces closing again, and — like the mortar setting above it — the
     // announcement only: the cracks heal along the wall from the far column
     // back over the next half second, and a kill landing inside that half
@@ -1716,6 +1749,31 @@ export class ShatterGame {
     // same tick of the same clock — and so the gate below and the debt above it
     // are asking about the number the ball actually moved on.
     const timeScale = this.ballTimeScale();
+    /**
+     * LEAP's jumps, above the walk and below the freeze gates.
+     *
+     * **Above the walk** because that is where PORTAL's transit sits and for
+     * its reason exactly: a displacement that skipped collision from *inside*
+     * the sub-step loop would be a ball stepping over half a brick and
+     * colliding with the other half. Done once at the top of the tick, the jump
+     * is complete before the ordinary walk starts, and the ball then covers its
+     * tick from the new spot exactly as it would have from the old one.
+     *
+     * **Below the freeze gates** for the reason the wall effects are: this one
+     * moves a ball, and a ball held behind a shockwave that teleported anyway
+     * would be the hold doing the opposite of its job. `timeScale` is the same
+     * reading the loop below gates on, so the two cannot disagree about whether
+     * the field is being held.
+     */
+    const jumped = this.tunnel.step(this.balls, this.leapField(timeScale));
+    if (jumped > 0) {
+      this.deps.sfx.leapBlink();
+    }
+    // HEISEN's climb, beside it and below the same gates — the ticket's one
+    // thing that goes under them. A field held still is a field the player can
+    // see perfectly well, and three seconds of multiplier banked behind a
+    // shockwave is payment for a risk nobody took.
+    this.uncertainty.step(this.balls, timeScale === 0);
     for (let index = 0; index < this.balls.length; index++) {
       const ball = this.balls[index];
       if (!ball.active) {
@@ -2123,7 +2181,17 @@ export class ShatterGame {
     let soonest = Infinity;
     let soonestBall: Ball | null = null;
     const traced = this.balls.map((ball) => {
-      const walk = bent ? { points: [{ x: ball.centerX, y: ball.y }], arrival: null } : trace(ball, rules);
+      // LEAP is the fourth way the walk can be wrong and the only one that is
+      // not a *bend*: a jump leaves the heading and the speed exactly as they
+      // were, so the thread is right up to the tick it fires and worthless
+      // after it — the gap the ball skips is what decides whether the bricks in
+      // it counted. So the walk is cut there rather than added to the list
+      // above, which would hang rope for the whole six seconds over a
+      // prediction that is true for most of them. See `TraceRules.stopTicks`.
+      const jumpIn = this.tunnel.active ? this.tunnel.ticksToJump(ball) : null;
+      const walk = bent
+        ? { points: [{ x: ball.centerX, y: ball.y }], arrival: null }
+        : trace(ball, jumpIn === null ? rules : { ...rules, stopTicks: jumpIn });
       if (walk.arrival !== null && walk.arrival.ticks < soonest) {
         soonest = walk.arrival.ticks;
         soonestBall = ball;
@@ -2334,7 +2402,7 @@ export class ShatterGame {
       return;
     }
     if (ball.size <= gameConfig.ball.size) {
-      this.damageBrick(hit);
+      this.damageBrick(hit, "ball", ball);
       return;
     }
     this.crushBricks(ball, hit);
@@ -2456,7 +2524,7 @@ export class ShatterGame {
     }
 
     for (const cell of patch) {
-      this.damageBrick(cell);
+      this.damageBrick(cell, "ball", ball);
     }
 
     for (const key of ring) {
@@ -2475,7 +2543,7 @@ export class ShatterGame {
         onWall: !this.isPost(neighbor.row),
         gild: false,
       });
-      this.damageBrick(neighbor, "splash");
+      this.damageBrick(neighbor, "splash", ball);
     }
   }
 
@@ -2688,14 +2756,14 @@ export class ShatterGame {
    * entered on and is gone from the field on the same tick, so there is nothing
    * left to graze.
    */
-  private strikeEcho(echo: EchoContact): void {
+  private strikeEcho(echo: EchoContact, ball: Ball): void {
     this.superposition.collapse(echo.row, echo.column);
     this.deps.sfx.superposeCollapse();
     const brick = this.grid.hitAtCell(echo.row, echo.column);
     if (brick === null) {
       return;
     }
-    this.damageBrick(brick);
+    this.damageBrick(brick, "ball", ball);
   }
 
   /**
@@ -2779,7 +2847,7 @@ export class ShatterGame {
     }
     this.shadows.strike(contact.column, contact.row, ball.y + ball.size / 2);
     this.deps.sfx.umbraStrike();
-    this.damageBrick(caster);
+    this.damageBrick(caster, "ball", ball);
   }
 
   /**
@@ -3049,6 +3117,60 @@ export class ShatterGame {
     });
   }
 
+  /**
+   * What the field looks like to a jump: the line it may not cross, whether the
+   * balls are held, and whether a given box is standing clear.
+   *
+   * **Read-only, and that is the whole of why the test is written here rather
+   * than handed to `findBallOverlap`.** A jump asks about a position it has not
+   * taken yet, and `findBallOverlap` marks every fogged cell it looks at as
+   * pending — so probing with it would hand COLLAPSE's wall back for free, from
+   * a ball that never went there. TRACER's `blocked` predicate refuses the same
+   * trade in the same words.
+   *
+   * The two things a landing is *allowed* to be inside are the two the ball can
+   * already be inside: a fogged brick and, under GHOST, any brick at all. The
+   * ghost ceiling is deliberately not tested — MIRROR catches on one side and
+   * pushes a ball out to `mirrorCatch.bottom`, so a landing in it resolves on
+   * the next sub-step rather than wedging.
+   */
+  private leapField(timeScale: number): LeapField {
+    const inset = gameConfig.ball.collisionInset;
+    const ghosting = this.timers.isActive("GH");
+    const { radius } = gameConfig.powerUps.bumpers;
+    return {
+      deckY: this.paddle.y,
+      frozen: timeScale === 0,
+      free: (x, y, size) => {
+        if (!ghosting) {
+          const corners: Array<[number, number]> = [
+            [x + inset, y + inset],
+            [x + size - inset, y + inset],
+            [x + inset, y + size - inset],
+            [x + size - inset, y + size - inset],
+          ];
+          for (const [cornerX, cornerY] of corners) {
+            const cell = this.grid.cellAt(cornerX, cornerY);
+            if (cell !== null && !this.decoherence.fogged(cell.row, cell.column)) {
+              return false;
+            }
+          }
+          if (this.superposition.overlap(x, y, size) !== null) {
+            return false;
+          }
+        }
+        // The discs and the wedges stay solid through a GHOST — the capsule
+        // takes the *wall* intangible, and neither of these is the wall.
+        const centerX = x + size / 2;
+        const centerY = y + size / 2;
+        if (this.bumpers.discs.some((disc) => Math.hypot(disc.x - centerX, disc.y - centerY) <= radius + size / 2)) {
+          return false;
+        }
+        return !(this.shadows.solid && this.shadows.contact(x, y, size) !== null);
+      },
+    };
+  }
+
   private moveBall(ball: Ball, index: number, timeScale: number): void {
     // Guidance, then physics. Anything that bends a ball without touching its
     // speed belongs here, once per tick — never inside the sub-step loop, where
@@ -3162,7 +3284,7 @@ export class ShatterGame {
           ball.velocity.x = -ball.velocity.x;
         }
         ball.spin = 0;
-        this.strikeEcho(echo);
+        this.strikeEcho(echo, ball);
       }
       if (hit) {
         if (pierce()) {
@@ -3191,7 +3313,7 @@ export class ShatterGame {
           ball.velocity.y = -ball.velocity.y;
         }
         ball.spin = 0;
-        this.strikeEcho(echo);
+        this.strikeEcho(echo, ball);
       }
       if (hit) {
         if (pierce()) {
@@ -3776,7 +3898,12 @@ export class ShatterGame {
    * the capsule quietly not meaning what it says, and it is reachable — the
    * cannons are the one thing on the board whose damage depends on what it hit.
    */
-  private damageBrick(hit: BrickHit, source: BrickDamageSource = "ball", amount?: number): void {
+  private damageBrick(
+    hit: BrickHit,
+    source: BrickDamageSource = "ball",
+    by: Ball | null = null,
+    amount?: number,
+  ): void {
     // What the source takes off. Only granite reads anything but 1 here, and
     // only for a laser: the cannons drill stone at double the ball's rate, which
     // is what makes SUPER MAZE's two seeded LASERs the way through it rather
@@ -3788,7 +3915,7 @@ export class ShatterGame {
     // granite partner chips exactly as the struck brick chips, and the thread
     // stays until one of them actually dies.
     if (source !== "twin") {
-      this.strikeTwin(hit, taken);
+      this.strikeTwin(hit, taken, by);
     }
     if (!destroyed) {
       // A BLAST splash is covered by its one boom and a CHAIN link by its one
@@ -3816,7 +3943,7 @@ export class ShatterGame {
     // this one soon enough for the difference to be visible.
     this.sheet.clearCell(hit.row, hit.column);
     this.slump.clearCell(hit.row, hit.column);
-    this.score += hit.cell.points * this.scoreMultiplier(source);
+    this.award(hit.cell.points, source, by);
     if (isDirectHit(source)) {
       // A post snapping, not a brick shattering. Its own sound and not merely
       // its own pitch: `brickDestroyed` tunes itself off the row, and row 16 is
@@ -3872,13 +3999,13 @@ export class ShatterGame {
     }
 
     if (source === "ball" && this.timers.isActive("B")) {
-      this.blastNeighbors(hit);
+      this.blastNeighbors(hit, by);
     }
     // After the splash, so a chain starts outside the crater BLAST just made.
     // `"ball"` and not `isDirectHit`: a laser shot arcs nothing, and a chained
     // kill may not chain again — the web's reach is `chainFrom`'s to decide.
     if (source === "ball" && this.timers.isActive("C")) {
-      this.chainFrom(hit);
+      this.chainFrom(hit, by);
     }
 
     // Idempotent on purpose: a BLAST chain reaches here recursively when the
@@ -3941,7 +4068,7 @@ export class ShatterGame {
    * pass, and that is the best thing this capsule can do. Nothing here guards
    * against it.
    */
-  private strikeTwin(hit: BrickHit, amount: number | null): void {
+  private strikeTwin(hit: BrickHit, amount: number | null, by: Ball | null = null): void {
     const partner = this.entanglement.partnerOf(hit.row, hit.column);
     if (partner === null) {
       return;
@@ -3957,10 +4084,10 @@ export class ShatterGame {
     if (amount === null) {
       this.grid.destroy(target);
       this.releaseSeededCapsule(target);
-      this.score += target.cell.points * this.scoreMultiplier("twin");
+      this.award(target.cell.points, "twin", by);
       this.emitBurst(target, gameConfig.effects.brickDeathBurst);
     } else {
-      this.damageBrick(target, "twin", amount);
+      this.damageBrick(target, "twin", by, amount);
     }
     // The hop, whether or not it killed: what the player has to hear is that
     // the damage crossed the field, which is the capsule's whole event and is
@@ -3985,7 +4112,7 @@ export class ShatterGame {
    * `damageBrick(_, "chain")`, which cannot start another chain, so this walk is
    * the only thing deciding how far the web reaches.
    */
-  private chainFrom(seed: BrickHit): void {
+  private chainFrom(seed: BrickHit, by: Ball | null = null): void {
     const { maxDepth, maxLinks, boltTicks } = gameConfig.effects.chain;
     const { columns } = gameConfig.grid;
     const key = (row: number, column: number): number => row * columns + column;
@@ -4010,7 +4137,7 @@ export class ShatterGame {
         visited.add(key(target.row, target.column));
         this.bolts.push(chainBolt(node.row, node.column, target.row, target.column, boltTicks));
         queue.push({ row: target.row, column: target.column, depth: node.depth + 1 });
-        this.damageBrick(target, "chain");
+        this.damageBrick(target, "chain", by);
       }
     }
 
@@ -4054,7 +4181,7 @@ export class ShatterGame {
   // Splash kills never chain and never drop capsules — one explosion per ball
   // hit, however wide it is. NOVA (PIERCE+BLAST) is the width: one ring of
   // neighbours becomes two, the 5x5 block around the kill, 24 cells.
-  private blastNeighbors(center: BrickHit): void {
+  private blastNeighbors(center: BrickHit, by: Ball | null = null): void {
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
     const radius = this.hasCombo("NOVA") ? gameConfig.powerUps.comboBlastRadius : 1;
     let blasted = false;
@@ -4080,7 +4207,7 @@ export class ShatterGame {
           // read as two.
           gild: false,
         });
-        this.damageBrick(neighbor, "splash");
+        this.damageBrick(neighbor, "splash", by);
       }
     }
 
@@ -4296,7 +4423,7 @@ export class ShatterGame {
         const hit = { cell, row: rowIndex, column: columnIndex };
         this.destroyBrick(hit);
         this.releaseSeededCapsule(hit);
-        this.score += cell.points * this.scoreMultiplier();
+        this.award(cell.points);
         this.emitBurst(hit, gameConfig.effects.nukeBurst);
       });
     });
@@ -4353,7 +4480,7 @@ export class ShatterGame {
     }
     this.destroyBrick(hit);
     this.releaseSeededCapsule(hit);
-    this.score += hit.cell.points * this.scoreMultiplier();
+    this.award(hit.cell.points);
     this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
     this.deps.sfx.critterBite();
     // Same idempotent clear trigger as damageBrick: the pet can take the last brick.
@@ -4431,7 +4558,7 @@ export class ShatterGame {
       }
       this.destroyBrick(hit);
       this.releaseSeededCapsule(hit);
-      this.score += hit.cell.points * this.scoreMultiplier();
+      this.award(hit.cell.points);
       this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
       // The 30 ms guard folds rocks landing on the same tick into one beep,
       // which is what keeps a volley from sounding like a drum roll.
@@ -4452,13 +4579,53 @@ export class ShatterGame {
     return this.timers.isActive("X") ? gameConfig.scoring.paydayMultiplier : 1;
   }
 
-  // What a killed brick pays: PAYDAY's double and TURBO's triple, stacking to
-  // x6 on independent timers, and JACKPOT's double over the top of a splash
-  // kill for x12 at the extreme. `source` is what the splash carve-out reads —
-  // every other caller kills something directly and takes the default.
-  private scoreMultiplier(source: BrickDamageSource = "ball"): number {
+  /**
+   * What a killed brick pays: PAYDAY's double and TURBO's triple, stacking to
+   * x6 on independent timers, JACKPOT's double over the top of a splash kill
+   * for x12 at the extreme, and HEISEN's x1-to-x3 on top of that. `source` is
+   * what the splash carve-out reads — every other caller kills something
+   * directly and takes the default.
+   *
+   * **`by` is the ball behind the kill, and it is the first factor here that is
+   * not a property of the field.** PAYDAY and TURBO are timers: while one is up
+   * every brick on the board is worth the same. HEISEN's is per ball, so a
+   * vague ball and one the player observed a second ago are worth different
+   * amounts in the same rally — which is the whole capsule, and is why it could
+   * not have been folded into PAYDAY's flat double. Null for the five paths no
+   * ball is behind: a bolt, a nuke, ZAP's sweep, the grub and a meteor.
+   *
+   * **It multiplies rather than capping under TURBO**, which SHA-162 asked to
+   * be decided out loud. Every multiplier in this game is an independent timer
+   * and they have stacked since PAYDAY met TURBO; one that quietly stopped
+   * paying because another was live would be a lie with no tell. And it cuts
+   * the right way round — TURBO makes the balls faster, which makes a vague one
+   * harder to follow, so that is exactly when the trade should be worth most.
+   *
+   * The product is no longer an integer, so every caller rounds. See `award`.
+   */
+  private scoreMultiplier(source: BrickDamageSource = "ball", by: Ball | null = null): number {
     const jackpot = source === "splash" && this.hasCombo("JACKPOT") ? gameConfig.scoring.jackpotMultiplier : 1;
-    return this.paydayMultiplier() * (this.timers.isActive("TU") ? gameConfig.scoring.turboMultiplier : 1) * jackpot;
+    return (
+      this.paydayMultiplier() *
+      (this.timers.isActive("TU") ? gameConfig.scoring.turboMultiplier : 1) *
+      jackpot *
+      this.uncertainty.payout(by)
+    );
+  }
+
+  /**
+   * A brick's points, multiplied and banked.
+   *
+   * **The rounding is the whole reason this is a method.** Every multiplier in
+   * the game was an integer until HEISEN, and its x1-to-x3 is continuous — a
+   * 30-point brick under a half-vague ball is 57.9 points, and a score that
+   * accumulates tenths would print a fraction in the hall of fame the first
+   * time anybody got far. Rounded once at the payout rather than at the end, so
+   * what the player is paid for a brick is a whole number they could have
+   * counted.
+   */
+  private award(points: number, source: BrickDamageSource = "ball", by: Ball | null = null): void {
+    this.score += Math.round(points * this.scoreMultiplier(source, by));
   }
 
   /**
@@ -4582,6 +4749,8 @@ export class ShatterGame {
     this.superposition.reset();
     this.decoherence.reset();
     this.entanglement.reset();
+    this.tunnel.reset();
+    this.uncertainty.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;
@@ -4933,6 +5102,24 @@ export class ShatterGame {
       this.timers.activate("SU", durations.SU);
       this.superposition.start(this.grid, durations.SU);
       this.deps.sfx.superposeSplit();
+    }
+    if (kind === "LE") {
+      // A second LEAP re-rolls every clock rather than topping the six seconds
+      // up — `Tunnelling.start` has the argument, which is COLLAPSE's: a trap
+      // may charge twice where a bonus may not.
+      this.timers.activate("LE", durations.LE);
+      this.tunnel.start(durations.LE);
+      this.deps.sfx.leapCatch();
+    }
+    if (kind === "HE") {
+      // The one capsule on this list that deliberately keeps the state it finds.
+      // Every ball's vagueness is left exactly where it was: a second HEISEN is
+      // eight more seconds of the same trade, and wiping the multiplier the
+      // player spent three seconds earning would make catching the capsule that
+      // pays it the thing that costs them.
+      this.timers.activate("HE", durations.HE);
+      this.uncertainty.start();
+      this.deps.sfx.heisenBlur();
     }
     if (kind === "TW") {
       // The wall as it stands on the catch frame, and a second TWIN redraws the
@@ -5504,7 +5691,7 @@ export class ShatterGame {
       for (const hit of hits) {
         this.destroyBrick(hit);
         this.releaseSeededCapsule(hit);
-        this.score += hit.cell.points * this.scoreMultiplier();
+        this.award(hit.cell.points);
         this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
       }
       break;
@@ -5691,7 +5878,7 @@ export class ShatterGame {
         const hit = { cell, row: rowIndex, column: columnIndex };
         this.destroyBrick(hit);
         this.releaseSeededCapsule(hit);
-        this.score += cell.points * this.scoreMultiplier();
+        this.award(cell.points);
         this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
       });
     });
@@ -5847,7 +6034,18 @@ export class ShatterGame {
           }
           break;
         }
-        this.firePyre();
+        if (this.firePyre()) {
+          break;
+        }
+        // **Fourth on a click the house has already ruled on twice, and last on
+        // purpose.** The release wins, then the fuse; this takes the click only
+        // when neither wanted it. It is the one of the four that is free,
+        // repeatable and harmless — a click swallowed by GLUE or PYRE simply
+        // does not observe, and the scatter staying put is a legible enough
+        // answer that it needs no tell of its own.
+        if (this.uncertainty.observe(this.balls) > 0) {
+          this.deps.sfx.heisenObserve();
+        }
         break;
       case "pause":
         this.setScreen("play");
@@ -5977,6 +6175,8 @@ export class ShatterGame {
     this.superposition.reset();
     this.decoherence.reset();
     this.entanglement.reset();
+    this.tunnel.reset();
+    this.uncertainty.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;
@@ -6064,6 +6264,8 @@ export class ShatterGame {
     this.superposition.reset();
     this.decoherence.reset();
     this.entanglement.reset();
+    this.tunnel.reset();
+    this.uncertainty.reset();
     this.gravelBlend = 0;
     this.gravel.reset();
     this.ghostBlend = 0;

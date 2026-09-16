@@ -1242,6 +1242,199 @@ export const gameConfig = {
       // of at once is not moving, it is a line.
       snapHead: 14,
     },
+    /**
+     * LEAP. Every second or so the ball is not where it was: it blinks out, and
+     * reappears a short hop further along its own heading with its speed and
+     * direction untouched, having crossed the gap without being anywhere in
+     * between. Nothing in the gap is hit, because the ball was never in it.
+     */
+    leap: {
+      /**
+       * The gap between two jumps, rolled fresh each time.
+       *
+       * **A range and not a number, and the range is the capsule.** At a fixed
+       * cadence the player counts ticks and simply stops swinging on the beat,
+       * which turns a trap into a metronome with a tax. Rolled, the jump is
+       * always somewhere in the next second and a half and never on a count.
+       *
+       * The floor is what keeps two jumps from reading as one long one, and the
+       * ceiling is what keeps the six seconds from holding only three.
+       */
+      minGapTicks: 75,
+      maxGapTicks: 105,
+      /**
+       * How far a jump goes, in px, rolled with the gap above it rather than at
+       * the moment it fires — the landing pip has to be able to tell the truth,
+       * and a distance rolled on the tick of the jump is a pip that was
+       * guessing.
+       *
+       * Two and a half to four ball-widths. Short enough that the ball is
+       * plainly the same ball arriving further on, and long enough to clear a
+       * brick course: at 32 px a leap crosses a whole 30 px cell, which is the
+       * shot the player had lined up going missing.
+       */
+      minSpan: 20,
+      maxSpan: 32,
+      /**
+       * The arrival: the ball goes unsure before it goes anywhere.
+       *
+       * Twelve ticks of flicker in place — the machine losing its grip on where
+       * the ball is, then using it. **Drawn and not simulated**, which is the
+       * whole reason it is affordable: a ball genuinely shaken a pixel either
+       * way is a ball that can be shaken into a brick, and the picture of
+       * uncertainty costs nothing while the fact of it costs a collision.
+       */
+      settleTicks: 12,
+      // How far the flicker throws the sprite, in px. One, because two reads as
+      // the ball moving and nought reads as nothing happening.
+      settleJitter: 1,
+      /**
+       * The expiry: the jumps run down rather than stopping.
+       *
+       * Every span is scaled by how much of this window is left, so the last
+       * jumps are visibly shorter and the pip that announces them shrinks in
+       * step — the capsule runs out of reach in front of the player instead of
+       * switching off between one jump and the next, which is SHA-59's rule and
+       * the one this roster keeps relearning.
+       *
+       * Three seconds is about two jumps at the cadence above, which is what the
+       * ticket asked for: at 90 ticks left a 26 px span comes out at 13 and at
+       * 20 ticks left at 3.
+       */
+      runDownTicks: 180,
+      /**
+       * How long after a ball is loosed it may first jump, in ticks.
+       *
+       * **A launch is always the player's.** A ball teleported out of its own
+       * serve is the one moment in the capsule where the player has made no
+       * choice yet and can be punished for it anyway. Held while a ball is
+       * parked or stuck and counted from the tick it is let go, so GLUE's
+       * release is covered by the same number as the serve.
+       */
+      serveGuardTicks: 20,
+      /**
+       * The walk back, in px: a landing that is not free is pulled toward the
+       * ball in steps this size until one is.
+       *
+       * Two, which is `stepBall`'s own sub-step — the resolution the engine
+       * actually decides collisions at. A coarser walk would step over a gap the
+       * ball would have fitted in, and a finer one would cost tests to land on a
+       * position the physics cannot tell apart from its neighbour.
+       */
+      walkStep: 2,
+      /**
+       * The shortest a jump may be while the capsule is still live, in px.
+       *
+       * **Without a floor the run-down ends in silence**, which is the exact
+       * failure the run-down exists to prevent. The reach reaches 0 at the
+       * timer, so the last jump due before it rolls a span of under a pixel —
+       * and a span shorter than one walk step is no landing at all, so the jump
+       * silently does not happen, the pip goes out with it, and the final
+       * second of the capsule has no cue in it. Measured in a browser, not
+       * argued: the fourth jump of a six-second LEAP came due at tick 355 with
+       * a 0.7 px span and was dropped.
+       *
+       * Six is the ticket's own number for the last one and it is about
+       * three-quarters of a ball — a visible twitch rather than a leap, which
+       * is what a capsule running out of reach should look like. The frame and
+       * death-line clamps are still applied *after* it, so a floor can never
+       * push a landing anywhere a full-strength jump could not have gone.
+       */
+      minLiveSpan: 6,
+      /**
+       * The flash at each end of a jump, in ticks, and how long the pip's arms
+       * are at full reach.
+       *
+       * Seven ticks is about a tenth of a second, which is UMBRA's flash and
+       * SUPERPOSE's pop: long enough to be caught out of the corner of the eye
+       * while the player is watching the ball, short enough that four jumps
+       * across six seconds do not leave the field lit.
+       *
+       * The two flashes are drawn as a square closing at the spot the ball left
+       * and opening at the spot it arrived, which is the one thing in the
+       * capsule that says which way the jump went.
+       */
+      flashTicks: 7,
+      // The landing pip: a diamond this many px from centre to point, faint, on
+      // the heading, the whole time. It is the held cue and the capsule is
+      // armed and idle for a full second at a stretch — without it the jumps
+      // read as the game dropping frames, which is the failure this roster has
+      // shipped before.
+      pipReach: 4,
+    },
+    /**
+     * HEISEN. The longer a ball goes unobserved the less precisely the machine
+     * draws it — and the more it pays for what it breaks. A click observes every
+     * ball: the scatter collapses and the multiplier drops back to x1. You can
+     * know where the ball is, or you can be paid.
+     */
+    heisen: {
+      /**
+       * How long a ball takes to go fully vague, in ticks.
+       *
+       * Three seconds, which is two or three wall contacts at play speed — long
+       * enough that reaching the top of the curve is a decision the player
+       * *held*, short enough that they get to make it several times inside the
+       * eight seconds. Per ball and from 0 on every observation, so a swarm is
+       * a dozen different multipliers in one rally rather than one number.
+       */
+      blurTicks: 180,
+      // How many extra copies of the sprite a fully vague ball wears, and how
+      // far out they scatter, in px. Four and five: enough to crowd the ball
+      // without ever hiding it, since the true sprite is drawn last and at full
+      // strength on top of them.
+      copies: 4,
+      maxScatter: 5,
+      // What the copies are drawn at, at full strength. Low enough that the
+      // real ball is unmistakable in the middle of them and high enough that
+      // four of them are a cloud rather than a smudge.
+      copyAlpha: 0.38,
+      /**
+       * How long a copy takes to drift once round its own orbit, in ticks.
+       *
+       * **The copies wander, and that is not decoration.** A fixed offset moving
+       * with the ball is a rigid five-ball constellation — it reads as MULTI
+       * drawn wrong rather than as one ball nobody can pin down. Seeded per ball
+       * and per copy, so no two balls come apart the same way.
+       */
+      driftTicks: 70,
+      /**
+       * What a fully vague ball's kills pay, as a multiplier on the brick.
+       *
+       * Three, and it multiplies with PAYDAY and TURBO rather than capping under
+       * them — the ticket asked for that call out loud. Every multiplier in this
+       * game is an independent timer and they have stacked since PAYDAY met
+       * TURBO; a capsule that quietly stopped paying because another one was
+       * live would be a lie the player has no way to see. It also cuts the wrong
+       * way round: TURBO makes the balls faster, which makes a vague one harder
+       * to follow, so that is exactly the moment the trade should be worth most.
+       */
+      maxMultiplier: 3,
+      /**
+       * The arrival and the expiry, in ticks: the ball going out of focus and
+       * coming back into it.
+       *
+       * Different numbers on purpose, for the reason UMBRA's sunset and
+       * SUPERPOSE's merge are: the two ends of a capsule are two events, and a
+       * departure that is the arrival reversed is neither of them. Going out is
+       * the slower of the two because it is the claim being made; coming back is
+       * the machine getting its grip again, which is a thing that happens *to*
+       * the player rather than something they watch.
+       */
+      focusInTicks: 15,
+      focusOutTicks: 12,
+      /**
+       * A click observing: how long the scatter takes to collapse, in ticks.
+       *
+       * **The number resets on the frame of the click and the picture catches
+       * down to it**, which is COLLAPSE's ordering read the other way up. There
+       * it is a reward and may arrive before the picture finishes; here it is a
+       * price the player chose to pay, and a price that waited a tenth of a
+       * second would let them bank one more kill on a multiplier they had
+       * already sold.
+       */
+      observeTicks: 6,
+    },
     // BANANA. The peels come off the deck that ate the banana, arc out and
     // land on the paddle rail, where they hand the deck to its own momentum for
     // a second when one is swept over.

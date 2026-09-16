@@ -1273,6 +1273,95 @@ export class SoundBank {
     this.tone({ freq: 520, dur: 0.05, vol: 0.04 });
   }
 
+  /**
+   * LEAP arriving: the machine losing its grip on where the ball is.
+   *
+   * A tone that *cannot hold its pitch* — one voice wobbling between two notes
+   * while a thin band of noise opens under it, scored to the twelve ticks of
+   * flicker the ball spends stuttering in place before the first jump. It is
+   * the one sound in the bank that is deliberately unstable, because that is
+   * the whole claim: the position is no longer certain.
+   */
+  leapCatch(): void {
+    if (!this.allow("leapCatch")) {
+      return;
+    }
+    this.tone({ freq: 392, freqEnd: 466, dur: 0.1, vol: 0.05, type: "triangle" });
+    this.tone({ freq: 466, freqEnd: 392, dur: 0.1, vol: 0.045, type: "triangle", delayS: 0.09 });
+    this.noise({ dur: 0.2, vol: 0.025, filter: { type: "bandpass", freq: 1800, freqEnd: 900, q: 6 } });
+  }
+
+  /**
+   * One jump: the ball gone from here and back over there.
+   *
+   * **Two blips, and the gap between them is the whole sound** — the same trick
+   * `twinStrike` uses to say *distance* rather than *event*, at a quarter of its
+   * spacing because a leap is 20-32 px and a thread can be the width of the
+   * field. The second is higher than the first: the ball did not travel, it
+   * turned up further on.
+   *
+   * The window is tight because a SWARM can spend two jumps on one tick, and
+   * two of these at the roster's default would be a rattle rather than a blink.
+   */
+  leapBlink(): void {
+    if (!this.allow("leapBlink", 30)) {
+      return;
+    }
+    this.tone({ freq: 880, freqEnd: 660, dur: 0.035, vol: 0.035, type: "sine" });
+    this.tone({ freq: 990, freqEnd: 1180, dur: 0.035, vol: 0.035, type: "sine", delayS: 0.045 });
+  }
+
+  /**
+   * HEISEN arriving: the ball going out of focus.
+   *
+   * Two voices a few cents apart drifting *further* apart, which is the beat
+   * that `superposeSplit` opens with taken one step on — that one splits into a
+   * pair and this one keeps spreading, because what the capsule does is not a
+   * double, it is a loss of definition. Scored to the fifteen ticks the copies
+   * take to separate out of the sprite.
+   */
+  heisenBlur(): void {
+    if (!this.allow("heisenBlur")) {
+      return;
+    }
+    this.tone({ freq: 494, freqEnd: 466, dur: 0.3, vol: 0.05, type: "sine" });
+    this.tone({ freq: 494, freqEnd: 523, dur: 0.3, vol: 0.05, type: "sine" });
+  }
+
+  /**
+   * A click observing: the scatter collapsing back onto one sprite.
+   *
+   * The shortest pitched thing in the bank after `collapseSolve`, and for its
+   * reason — this is a *tick* and not an event. The player is free to click as
+   * often as they like and some of them will, so it has to sit under the rally
+   * rather than announce itself: one clean high blip, no glide, no tail. It
+   * only plays when there was something to collapse, so an idle click is
+   * silent.
+   */
+  heisenObserve(): void {
+    if (!this.allow("heisenObserve", 60)) {
+      return;
+    }
+    this.tone({ freq: 1046, dur: 0.035, vol: 0.03, type: "sine" });
+  }
+
+  /**
+   * And the machine getting its grip back: the beat closing.
+   *
+   * The arrival's two voices sliding onto one note, which is the one place in
+   * this pair where the departure *is* the arrival reversed — and it is allowed
+   * to be, because what the picture does is literally that: the copies converge
+   * on the sprite they came out of. `superposeMerge` refuses the same shape for
+   * the opposite reason, its two ends being two different events.
+   */
+  heisenFocus(): void {
+    if (!this.allow("heisenFocus")) {
+      return;
+    }
+    this.tone({ freq: 466, freqEnd: 494, dur: 0.22, vol: 0.05, type: "sine" });
+    this.tone({ freq: 523, freqEnd: 494, dur: 0.22, vol: 0.05, type: "sine" });
+  }
+
   // Two effects becoming a third: a bright major arpeggio, quick enough to read
   // as one event rather than a jingle. Guarded, because two combos can form on
   // the same catch and one fusion chord is the announcement, not two.

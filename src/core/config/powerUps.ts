@@ -15,7 +15,7 @@ export type PowerUpTier = "common" | "uncommon" | "rare" | "trap";
 
 // How many tickets a tier puts in the bag — see `DropBag`, which draws without
 // replacement instead of rolling weighted odds. A tier is a count of copies, not
-// a probability, and it is almost the whole of the rarity system: 72 tickets,
+// a probability, and it is almost the whole of the rarity system: 74 tickets,
 // about six levels, every capsule out once or twice a pass. Two rows carry an
 // exception, and `POWER_UP_DROP_TICKETS` says why.
 //
@@ -531,6 +531,63 @@ export const POWER_UPS = [
   // 1.6 over the bar. This is the same rose one step out, and it buys the
   // clearance back off the binding neighbour rather than off the others.
   { id: "TW", name: "TWIN", color: "#ffbda5", dark: true, ticks: 1080, tier: "rare", timed: true, blurb: "THREADED BRICKS DIE IN PAIRS" },
+  // Magenta, and the row that says out loud what the last four have been
+  // circling: **the board is full.** Swept whole at a 3-step, the only bodies
+  // left that clear 58 from every pill and the ball are a handful of greens in
+  // the low sixties and this corner, and the greens are spoken for â HEISEN
+  // takes the acid one in this same commit, and a second leaf green would be
+  // the fifteenth, told apart from the other fourteen by its glyph alone.
+  //
+  // So the magenta FENCE's row refused for crowding is where this lands, and
+  // the refusal is worth re-reading rather than repeating: that row turned the
+  // family down because it *had* a yellow-green at 75.1 to turn it down for.
+  // This one does not, and a capsule with nowhere else to go is a different
+  // question from a capsule with a better option.
+  //
+  // 65.9 from SPLIT and 66.0 from BUMPERS â the two nearest, balanced within a
+  // tenth of each other the way TWIN's row balances its three â against 3.46:1
+  // on the darkest playfield theme, 107 from the nearest speck and 204 from the
+  // ball. **The ticket's `#c408c0` is still legal and is not taken**: it reaches
+  // 63.5 and sits at 3.04:1, which is the field floor this roster has refused
+  // twice before (PYRE's bronze, TRACER's olive drab). Two and a half points of
+  // clearance and four tenths of contrast for 9 degrees of hue is the trade,
+  // and the hue is the one thing nothing here is short of.
+  //
+  // Trap distance is not measured, for the reason FENCE's row gives: this is a
+  // trap, and being far from the other traps buys a trap nothing.
+  //
+  // The light letter is the `dark` heuristic's answer at 0.185 luminance and
+  // not quite the better measurement â 4.07:1 against a dark letter's 4.24 â
+  // which is GRAVEL's trade made again and for GRAVEL's reason: a pill is read
+  // as a shape with a letter in it before it is read as a letter, and the light
+  // one keeps it with everything on the board that is not a yellow.
+  { id: "LE", name: "LEAP", color: "#d230a5", dark: false, ticks: 360, tier: "trap", timed: true, blurb: "THE BALL JUMPS AHEAD OF ITSELF" },
+  // Acid, and **the tightest body in the roster at 59.4 from NUKE** â 1.4 over
+  // the bar, where the rows above it have been clearing 60 to 75. That is not a
+  // number anyone reached for; it is the only point in the family that clears
+  // at all.
+  //
+  // The green quarter is now fourteen pills and the acid end of it is three
+  // deep: NUKE `#b6ff00` above, CRITTER `#a3e04a` beside, SNAP `#60ff36` below.
+  // A 3-step sweep of hue 45-115 finds 235 legal bodies and every one of them is
+  // either this point or a dark olive at 3.0:1 on the field â the olives reach
+  // 64 and sit on the contrast floor, which is the trade this roster has refused
+  // twice. Nudging *anywhere* off this point loses: `#a8c81c` is 52.1 from
+  // CRITTER, `#a0bc20` 53.0 from FUSE, `#b4c828` 45.0 from CRITTER. It threads
+  // between NUKE above and CRITTER below and there is nothing either side of it.
+  //
+  // What it buys for the 1.4 is the rest of the card: 8.10:1 against the darkest
+  // playfield theme, **185 from the nearest speck â the widest star margin on
+  // the board** â 102 from the ball and 123 from the nearest trap, which is the
+  // one that matters for a bonus the player has to want to reach for.
+  //
+  // **It will not survive another green**, and the ticket said so a day before
+  // this shipped. A fifteenth green body has nowhere to stand, and the next
+  // capsule that wants one is going to have to take something else.
+  //
+  // Nothing of this is painted on the field: the effect is the ball's own sprite
+  // copied and moved, so this body has one job â being found while it falls.
+  { id: "HE", name: "HEISEN", color: "#acc814", dark: true, ticks: 480, tier: "uncommon", timed: true, blurb: "BLUR PAYS MORE · CLICK TO SEE" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];
@@ -571,7 +628,7 @@ export const POWER_UP_NAMES: Record<PowerUpKind, string> = byId((definition) => 
  */
 export const POWER_UP_GLYPHS: Record<PowerUpKind, string> = byId((definition) => glyphFor(definition.name));
 export const POWER_UP_DURATIONS: Record<PowerUpKind, number> = byId((definition) => definition.ticks);
-// Tickets per capsule: tier-derived for 55 of the 57 rows, and two kept back.
+// Tickets per capsule: tier-derived for 57 of the 59 rows, and two kept back.
 //
 // There were three weight exceptions — DEMAKE, VORTEX and GIANT — each promoted a
 // class because it was "landing too rarely to enjoy". The instinct was to retire

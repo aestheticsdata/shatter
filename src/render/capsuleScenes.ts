@@ -490,6 +490,82 @@ class Field {
     this.ctx.restore();
   }
 
+  /**
+   * LEAP's landing pip: the lozenge that says where the next jump puts the ball.
+   *
+   * Three pixels wide where the field draws one, and three times as long, which
+   * is `EDGE`'s rule applied to a shape rather than to a line: these pictures
+   * are blitted to a third, and a 1 px diamond with a 4 px arm comes back as
+   * three or four unrelated dots. Widened and lengthened in step, the miniature
+   * carries the same lozenge at the size it is actually seen.
+   */
+  leapPip(x: number, y: number, alpha = 0.5): void {
+    const arm = gameConfig.powerUps.leap.pipReach;
+    const centerX = x + gameConfig.ball.size / 2;
+    const centerY = y + gameConfig.ball.size / 2;
+    this.ctx.globalAlpha = alpha;
+    for (let step = 0; step <= arm; step++) {
+      const across = step * EDGE;
+      const along = (arm - step) * EDGE;
+      this.rect(centerX + across, centerY + along, EDGE, EDGE, canvasPalette.leapPip);
+      this.rect(centerX - across, centerY - along, EDGE, EDGE, canvasPalette.leapPip);
+      this.rect(centerX + along, centerY - across, EDGE, EDGE, canvasPalette.leapPip);
+      this.rect(centerX - along, centerY + across, EDGE, EDGE, canvasPalette.leapPip);
+    }
+    this.ctx.globalAlpha = 1;
+  }
+
+  /**
+   * One end of a jump, caught part-way through: the square closing at the spot
+   * the ball left, or opening at the spot it arrived.
+   *
+   * `progress` is the seven ticks frozen wherever the still wants them, since a
+   * catalogue entry has no frame counter behind it.
+   *
+   * The outline is `EDGE` thick **and the square is `EDGE` times across**, which
+   * is the one place in this picture that departs from the field's own numbers.
+   * The live flash is the ball's own 8 px; a third of that is under three
+   * pixels, so the miniature would carry a speck where the field has a square
+   * closing — and *square closing* is the whole of what this mark says. Scaled
+   * in step with its own line weight, the entry reads the way the field does at
+   * the size it is actually seen. Same trade as `leapPip` above it and
+   * `scatteredBall` below.
+   */
+  leapFlash(x: number, y: number, opening: boolean, progress: number): void {
+    const half = gameConfig.ball.size / 2;
+    const spread = (opening ? half * (0.3 + 1.3 * progress) : half * (1 - progress)) * EDGE;
+    const size = Math.max(EDGE, Math.round(spread * 2));
+    const left = x + half - size / 2;
+    const top = y + half - size / 2;
+    this.ctx.globalAlpha = 1 - progress * 0.4;
+    this.rect(left, top, size, EDGE, canvasPalette.leapFlash);
+    this.rect(left, top + size - EDGE, size, EDGE, canvasPalette.leapFlash);
+    this.rect(left, top + EDGE, EDGE, size - EDGE * 2, canvasPalette.leapFlash);
+    this.rect(left + size - EDGE, top + EDGE, EDGE, size - EDGE * 2, canvasPalette.leapFlash);
+    this.ctx.globalAlpha = 1;
+  }
+
+  /**
+   * HEISEN's scatter: the ball's own sprite, drawn again where it might also be.
+   *
+   * **The offsets are the live ones times `EDGE`**, which is the one number in
+   * this picture that is not the field's. The real scatter tops out at 5 px
+   * around an 8 px ball, and a third of that is under two pixels — the copies
+   * would blit into a single fat ball and the entry would show a capsule that
+   * does nothing. Tripled, the miniature reads as a crowded ball, which is what
+   * the player is actually looking at.
+   *
+   * The true sprite is painted last and at full strength, because that is the
+   * capsule's one promise: the ball is crowded, never lost.
+   */
+  scatteredBall(x: number, y: number, offsets: readonly (readonly [number, number])[]): void {
+    const { copyAlpha } = gameConfig.powerUps.heisen;
+    for (const [offsetX, offsetY] of offsets) {
+      this.trace(x + offsetX * EDGE, y + offsetY * EDGE, copyAlpha);
+    }
+    this.ball(x, y);
+  }
+
   // Where the ball has been, or where it is going.
   trace(x: number, y: number, alpha: number): void {
     this.ctx.globalAlpha = alpha;
@@ -1658,6 +1734,85 @@ const SCENES: Record<PowerUpKind, Painter> = {
     // On the near anchor and under the thread, so the picture reads as one
     // sentence travelling rather than as two lit bricks.
     field.ball(struck.x - 4, struck.y + 12);
+    field.deck();
+  },
+  /**
+   * LEAP: one jump, read bottom to top — it came from there, it is here, it is
+   * going *there*.
+   *
+   * **The shaft is the whole staging decision.** A jump drawn across open field
+   * is a ball moved 30 px, which is a picture of nothing; what a reader has to
+   * come away knowing is that the thing in the gap **does not get hit**. So the
+   * rally has eaten a lane up through the wall, the ball is standing at the top
+   * of it, and the brick capping the lane — the one shot the player had lined
+   * up — is exactly what the pip announces the ball is about to be on the far
+   * side of. The brick is drawn intact because it stays intact.
+   *
+   * The closing square below is the last jump's departure, out in the open
+   * field under the wall. Two squares running opposite ways is the only thing
+   * in the capsule that says which direction a jump went, and the still gets
+   * the same pair the field does.
+   */
+  LE: (field) => {
+    const kinds: readonly BrickKind[] = ["1", "2", "3", "4", "5", "S"];
+    const lane = 6;
+    kinds.forEach((kind, row) => {
+      for (let column = 0; column < COLUMNS; column++) {
+        // The lane, and the cap on it: everything in this column from row 4
+        // down has been played away, the pocket at row 2 is open, and row 3 is
+        // the brick between them.
+        if (column === lane && row !== 3) {
+          continue;
+        }
+        field.brick(column, row, kind);
+      }
+    });
+    // Measured rather than placed: the ball sits in the cleared cell at row 4,
+    // the landing in the pocket at row 2, and the 30 px between them is a legal
+    // span crossing the standing brick at row 3.
+    const ball = { x: 188, y: 93 };
+    const landing = { x: 197, y: 64 };
+    field.leapFlash(179, 122, false, 0.25);
+    field.leapPip(landing.x, landing.y);
+    field.ball(ball.x, ball.y);
+    field.deck();
+  },
+  /**
+   * HEISEN: one ball nobody can quite place, over a wall it is being paid to
+   * break.
+   *
+   * **One ball and not two.** The obvious staging is a vague ball beside a
+   * crisp one, which puts the whole trade in a single frame — and it is wrong
+   * here, because two balls on a field is MULTI, and a catalogue entry that
+   * teaches the wrong capsule in its first glance has already lost. The
+   * observed half of the trade is in the blurb, which names both sides of it.
+   *
+   * The copies are fanned rather than ringed. A ring around the sprite reads as
+   * a halo, which is a thing shining; a fan reads as a reading that has
+   * spread, which is what an unobserved position actually is.
+   *
+   * The wall is eaten down to open field around the ball for TWIN's reason: the
+   * subject is what is happening to the *ball*, and a sprite drawn over
+   * ninety-six intact bricks is a sprite nobody can see the edges of.
+   */
+  HE: (field) => {
+    const kinds: readonly BrickKind[] = ["1", "2", "3", "4"];
+    kinds.forEach((kind, row) => {
+      for (let column = 0; column < COLUMNS; column++) {
+        if (row >= 2 && column > 2 && column < 9) {
+          continue;
+        }
+        field.brick(column, row, kind);
+      }
+    });
+    // The live offsets, in field pixels: four copies inside the 5 px the effect
+    // scatters to, fanned back and to the left of a ball climbing right.
+    field.scatteredBall(BALL_HOME.x, BALL_HOME.y - 96, [
+      [-3.4, 1.8],
+      [-1.6, -3.1],
+      [2.6, 2.4],
+      [1.2, -2.2],
+    ]);
     field.deck();
   },
 };

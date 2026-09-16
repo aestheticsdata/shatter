@@ -31,6 +31,8 @@ import type { ShadowCast } from "@entities/effects/ShadowCast";
 import type { Singularity } from "@entities/effects/Singularity";
 import type { Slump } from "@entities/effects/Slump";
 import type { Superposition } from "@entities/effects/Superposition";
+import type { Tunnelling } from "@entities/effects/Tunnelling";
+import type { Uncertainty } from "@entities/effects/Uncertainty";
 import type { Shot } from "@entities/laser/ShotPool";
 import type { Drop } from "@entities/powerups/DropPool";
 import type {
@@ -670,6 +672,21 @@ export interface RenderView {
    */
   twin: Entanglement;
   /**
+   * LEAP's clocks, handed over whole for the four above it: the effect already
+   * knows where every ball's next jump lands — it has to, because the jump and
+   * the pip announcing it are one function — and a renderer that re-derived the
+   * landing would be a second opinion about the one thing this capsule promises
+   * not to lie about.
+   */
+  leap: Tunnelling;
+  /**
+   * HEISEN's vagueness, handed over whole and for a reason of its own on top of
+   * theirs: the scatter the player is looking at and the multiplier they are
+   * being paid are the same number, and two of them would be a trade the player
+   * cannot see the terms of.
+   */
+  heisen: Uncertainty;
+  /**
    * GRAVEL's fault, 0 whole wall to 1 every face split.
    *
    * One number and no companion flag, which is where it parts company with the
@@ -1299,6 +1316,48 @@ export function drawBall(
   }
 }
 
+/**
+ * LEAP's two cues, at full strength.
+ *
+ * The pip is deliberately the fainter of the two and deliberately not faint
+ * enough to lose: it is up for a whole second at a time beside a ball the
+ * player is tracking, and a cue that competed with the ball would be a trap
+ * that cost them the rally it was warning them about. The flash is bright
+ * because it has seven ticks to be caught out of the corner of an eye.
+ */
+const LEAP_PIP_ALPHA = 0.5;
+const LEAP_FLASH_ALPHA = 0.85;
+
+/**
+ * The offsets the ball sprite is drawn at while LEAP is arriving — a pixel
+ * either way, per ball, changing every frame.
+ *
+ * **A cycle and not `Math.random`.** The renderer may be asked to paint the same
+ * tick twice (a resize, a re-blit) and a flicker that rolled fresh each time
+ * would shimmer at the monitor's rate rather than the game's. Stepping off the
+ * frame counter makes it a function of the tick, which is what every other
+ * animated thing in this file is.
+ *
+ * The ball's index goes into the phase so twelve balls under a SWARM do not
+ * flicker in lockstep, which would read as the whole field vibrating rather
+ * than as the machine being unsure about each of them.
+ */
+const LEAP_STUTTER: readonly number[] = [0, 1, -1, 0, -1, 1, 1, -1, 0];
+
+function leapJitter(settling: number, index: number, frame: number): { x: number; y: number } {
+  if (settling === 0) {
+    return NO_JITTER;
+  }
+  const throwPx = gameConfig.powerUps.leap.settleJitter * settling;
+  const step = frame + index * 3;
+  return {
+    x: LEAP_STUTTER[step % LEAP_STUTTER.length] * throwPx,
+    y: LEAP_STUTTER[(step * 2 + 4) % LEAP_STUTTER.length] * throwPx,
+  };
+}
+
+const NO_JITTER = { x: 0, y: 0 } as const;
+
 // BLACKOUT's pools, in game pixels. A solo ball carries 58 px of light; each
 // extra live ball takes 6 off every pool, down to a floor of 26 — so MULTI and
 // SWARM light more of the field between them without ever lifting the trap.
@@ -1783,6 +1842,17 @@ export class CanvasRenderer {
         drawGambleReel(this.ctx, center, view.paddle.y, view.gambleFace, SCALE, this.frameCount, this.demade);
       }
     }
+    // LEAP's landing pips, under every ball and its trail: the cue says where a
+    // ball is *going*, and one drawn over the sprites would be a mark the player
+    // reads before the thing it is about. Drawn per ball rather than in the loop
+    // below so a pip is never painted on top of another ball's sprite.
+    if (view.leap.active) {
+      for (const ball of view.balls) {
+        if (ball.active) {
+          this.drawLeapPip(view, ball);
+        }
+      }
+    }
     view.balls.forEach((ball, index) => {
       if (ball.active) {
         const ghost = paceGhost(ball, view.tempoGhost);
@@ -1797,7 +1867,22 @@ export class CanvasRenderer {
         if (lift > 0) {
           this.spritePixel(ball.centerX - 1, ball.y + ball.size - lift, 2, lift, canvasPalette.glueResin);
         }
-        this.drawBall(ball, view.ballTrail, view.turboTrail ? TURBO_TRAIL_TONES : RUSH_TRAIL_TONES, lift);
+        // HEISEN's copies, under the true sprite and before it, so the ball the
+        // player is actually steering is always the one on top and at full
+        // strength. Crowded, never hidden.
+        this.drawHeisenScatter(view, ball, lift);
+        // LEAP's arrival: the machine losing its grip on where the ball is.
+        // The *sprite* only — the trail behind it and the copies beside it stay
+        // put, because what is flickering is the reading and not the ball.
+        const jitter = leapJitter(view.leap.settling, index, this.frameCount);
+        this.drawBall(
+          ball,
+          view.ballTrail,
+          view.turboTrail ? TURBO_TRAIL_TONES : RUSH_TRAIL_TONES,
+          lift,
+          jitter.x,
+          jitter.y,
+        );
         // Around the ball rather than in the ring pool: this one rides a ball
         // that is still coasting, while the release ring has to stay where the
         // ball stopped.
@@ -1828,6 +1913,16 @@ export class CanvasRenderer {
         }
       }
     });
+
+    // LEAP's two squares, over the balls where the pips went under them: a
+    // departure is drawn at a spot with nothing left in it, and an arrival has
+    // to be seen *around* the ball that just turned up there. Outside the loop
+    // because a flash outlives the tick it was thrown on and belongs to a jump
+    // rather than to a ball — the last one of the capsule is still running
+    // after the timer has gone.
+    if (view.leap.marks.length > 0) {
+      this.drawLeapFlashes(view);
+    }
 
     for (const ring of view.stasisRings) {
       this.drawStasisRing(ring);
@@ -3198,9 +3293,9 @@ export class CanvasRenderer {
     this.ctx.stroke();
   }
 
-  private drawBall(ball: Ball, trail: number, tones: readonly string[], lift = 0): void {
-    const { x } = ball;
-    const y = ball.y - lift;
+  private drawBall(ball: Ball, trail: number, tones: readonly string[], lift = 0, jitterX = 0, jitterY = 0): void {
+    const x = ball.x + jitterX;
+    const y = ball.y - lift + jitterY;
     const rows = ballRows(ball.size);
 
     if (trail > 0 && ball.stuckOffsetX === null) {
@@ -3214,6 +3309,98 @@ export class CanvasRenderer {
     }
 
     drawBall(this.ctx, x, y, SCALE, this.demade, { birth: ball.birthTicksLeft, size: ball.size });
+  }
+
+  /**
+   * LEAP's landing pip: a lozenge hanging in open field, on the heading, where
+   * this ball's next jump puts it.
+   *
+   * **The held cue, and the capsule does not ship without it.** LEAP is armed
+   * and idle for a full second at a stretch, and a ball that simply vanishes and
+   * turns up elsewhere with no warning reads as the game dropping frames — which
+   * this roster has shipped before and keeps relearning. With the pip up the
+   * player can see the jump coming and play around it.
+   *
+   * An outline and not a filled shape: four diagonals a pixel wide, so it reads
+   * as a *place* rather than as a second ball. Nothing else on this board is a
+   * diamond — HOMING marks a brick with corner ticks, TEMPO's ghost is a ball
+   * shell, SNAP's marks are diagonal pairs — and a cue the player has one
+   * second to learn has to be unlike every cue they already know.
+   *
+   * It shrinks and dims with the capsule's reach, so the last jumps announce
+   * themselves smaller: the effect visibly runs out rather than switching off.
+   */
+  private drawLeapPip(view: RenderView, ball: Ball): void {
+    const landing = view.leap.pipFor(ball);
+    if (landing === null) {
+      return;
+    }
+    const half = ball.size / 2;
+    const centerX = landing.x + half;
+    const centerY = landing.y + half;
+    const arm = Math.round(landing.reach);
+    this.ctx.globalAlpha = LEAP_PIP_ALPHA * (0.45 + 0.55 * view.leap.reach);
+    for (let step = 0; step <= arm; step++) {
+      const across = step;
+      const along = arm - step;
+      this.spritePixel(centerX + across, centerY + along, 1, 1, canvasPalette.leapPip);
+      this.spritePixel(centerX - across, centerY - along, 1, 1, canvasPalette.leapPip);
+      this.spritePixel(centerX + along, centerY - across, 1, 1, canvasPalette.leapPip);
+      this.spritePixel(centerX - along, centerY + across, 1, 1, canvasPalette.leapPip);
+    }
+    this.ctx.globalAlpha = 1;
+  }
+
+  /**
+   * The two ends of a jump: a square **closing** where the ball left and one
+   * **opening** where it arrived.
+   *
+   * The direction is the whole point and the only thing in the capsule that
+   * says which way the jump went — two identical pops would be a ball that was
+   * in two places, which is SUPERPOSE's claim and the opposite of this one.
+   * Outlines rather than fills, so the arriving ball is seen *inside* the
+   * square that opened around it.
+   */
+  private drawLeapFlashes(view: RenderView): void {
+    const { flashTicks } = gameConfig.powerUps.leap;
+    for (const flash of view.leap.marks) {
+      const progress = 1 - flash.ticksLeft / flashTicks;
+      const half = flash.size / 2;
+      const spread = flash.opening ? half * (0.3 + 1.3 * progress) : half * (1 - progress);
+      const size = Math.max(1, Math.round(spread * 2));
+      const left = flash.x + half - size / 2;
+      const top = flash.y + half - size / 2;
+      this.ctx.globalAlpha = (1 - progress) * LEAP_FLASH_ALPHA;
+      this.spritePixel(left, top, size, 1, canvasPalette.leapFlash);
+      this.spritePixel(left, top + size - 1, size, 1, canvasPalette.leapFlash);
+      this.spritePixel(left, top + 1, 1, size - 2, canvasPalette.leapFlash);
+      this.spritePixel(left + size - 1, top + 1, 1, size - 2, canvasPalette.leapFlash);
+      this.ctx.globalAlpha = 1;
+    }
+  }
+
+  /**
+   * HEISEN's scatter: this ball, drawn again where it might also be.
+   *
+   * **Every copy is `drawBall` at 1:1.** The silhouette is not negotiable —
+   * GIANT generates a bigger sprite rather than scaling the drawn one for the
+   * same reason — so what makes the ball uncertain here is *where* the copies
+   * are and never what shape they have. A smeared ball would be a defect
+   * wearing the effect's coat.
+   *
+   * The birth mask rides along with them, so a MULTI fan thrown into a live
+   * HEISEN scatters at the size it is actually colliding at rather than four
+   * full-grown ghosts around a 4 px newborn.
+   */
+  private drawHeisenScatter(view: RenderView, ball: Ball, lift: number): void {
+    for (const copy of view.heisen.scatterFor(ball)) {
+      this.ctx.globalAlpha = copy.alpha;
+      drawBall(this.ctx, ball.x + copy.offsetX, ball.y - lift + copy.offsetY, SCALE, this.demade, {
+        birth: ball.birthTicksLeft,
+        size: ball.size,
+      });
+    }
+    this.ctx.globalAlpha = 1;
   }
 
   private drawDrops(view: RenderView): void {

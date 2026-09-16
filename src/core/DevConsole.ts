@@ -53,7 +53,7 @@ const EXAMPLES: readonly (readonly [string, string])[] = [
   ["BONUS <0-1>", "CHANCE A BRICK DROPS ONE · 1 = ALWAYS"],
   ["GAMBLE <CAPSULE>", "PIN WHAT GAMBLE PAYS · BARE = UNPIN"],
 ];
-// The roster is printed underneath, whole, a page at a time: fifty-seven capsules is
+// The roster is printed underneath, whole, a page at a time: fifty-nine capsules is
 // far more than anyone keeps in their head, and it grows with the registry it is
 // built from. Not one count here is written down — how many cells fit a row is
 // measured against the field, how many rows fit a page comes from the room the

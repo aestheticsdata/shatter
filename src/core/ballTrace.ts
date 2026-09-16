@@ -85,6 +85,25 @@ export interface TraceRules {
    * ever acts on a ball that has already missed it.
    */
   deckY?: number;
+  /**
+   * LEAP: how many ticks of this ball's future the walk is allowed to see,
+   * because at the end of them the ball tunnels.
+   *
+   * **The ruling TRACER's blurb forces.** `THE BALL SHOWS WHERE IT LANDS` is a
+   * lie under a live LEAP, and the two ways out were recomputing the walk
+   * through the pending jump or stopping the thread at it. Recomputing cannot
+   * be honest past the *first* jump — the next gap is rolled when a jump fires,
+   * so a fall that takes two of them would be a prediction with an invented
+   * number in the middle of it — and half an honest thread is exactly what this
+   * capsule may not draw.
+   *
+   * So the walk stops, which is also the answer `blocked` already gives to the
+   * other two ways this prediction can be wrong: it ends early rather than
+   * guessing, and a thread that never reached the rail pins no pip. What the
+   * player sees is the guide running out where the ball is going to vanish,
+   * which is a true and useful thing to be told.
+   */
+  stopTicks?: number;
 }
 
 /**
@@ -124,7 +143,7 @@ export function trace(ball: Ball, rules: TraceRules = {}): Trace {
   }
 
   const { left, right } = gameConfig.field;
-  const { blocked, portal, deckY = gameConfig.paddle.y } = rules;
+  const { blocked, portal, deckY = gameConfig.paddle.y, stopTicks } = rules;
   const wall = right - size;
 
   let x = ball.x;
@@ -135,6 +154,16 @@ export function trace(ball: Ball, rules: TraceRules = {}): Trace {
 
   const points: TracePoint[] = [start];
   for (; ticks < MAX_TICKS; ticks++) {
+    // Tested at the top of the tick rather than inside the sub-step walk: a
+    // jump happens once a tick, above the sub-steps, which is exactly where
+    // `stepBall` puts it. Stopping mid-walk would draw the thread ending in the
+    // middle of a tick the ball completes.
+    if (stopTicks !== undefined && ticks >= stopTicks) {
+      if (ticks > 0) {
+        points.push({ x: x + size / 2, y });
+      }
+      return { points, arrival: null };
+    }
     // `stepBall`'s own division, so the clamp lands on the same sub-step the
     // engine clamps on. `timeScale` is deliberately not read: it scales both
     // components together, so it changes how many ticks the fall takes and never
