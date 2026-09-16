@@ -43,6 +43,7 @@ How it is built — the loop, the module graph, the capsule pipeline, all drawn 
   | `XW`   | XWIDE       | twice the WIDE deck, 144 px of paddle                                                                          | 24 s       | rare     |
   | `XR`   | XRAY        | every brick shows the capsule it is holding                                                                    | 10 s       | rare     |
   | `ME`   | METEOR      | three meteors drill three lanes through the wall                                                               | instant    | rare     |
+  | `VO`   | VORTEX      | half again the SINGULARITY hole, adrift across the field                                                       | 24 s       | rare     |
   | `TU`   | TURBO       | every ball at ×1.5 and every point tripled                                                                     | 20 s       | rare     |
   | `AN`   | ANGEL       | catches the ball you were about to lose, once                                                                  | one save   | rare     |
   | `FU`   | FUSE        | completes a combo: the missing half, or a whole pair                                                           | one fusion | uncommon |
