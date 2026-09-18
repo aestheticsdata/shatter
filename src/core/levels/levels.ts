@@ -58,6 +58,43 @@ export const LEVELS: readonly LevelDefinition[] = [
       "..5.........",
     ],
   },
+  /**
+   * THE VEIL, the first of the Observer's five (SHA-167).
+   *
+   * Ninth in the loop, between BOLT's circuit and CHECKER's vault, so the new
+   * `observer` theme sits beside neither of its own kind — the wrap rule holds
+   * and `check:backgrounds` passes.
+   *
+   * The wall is built around the socket rather than over it: the two `S..S`
+   * gaps in the middle rows are the only way to see what is behind them, so the
+   * eye is **found and not shown**. Nothing acts on this veil. It watches, and
+   * everything the Observer will later do to the player is met here first
+   * against an eye that only blinks.
+   */
+  {
+    name: "THE VEIL",
+    background: "observer",
+    rows: ["5555GGGG5555", "4444SSSS4444", "33.3S..S3.33", "22.2S..S2.22", "1111SSSS1111", ".GG......GG."],
+    observer: {
+      mode: "veil",
+      eye: { x: 186, y: 72, hw: 42, hh: 15 },
+      tint: "blue",
+      hint: "IT PEERS THROUGH THE STONE",
+      brood: [
+        { x: 60, y: 166, form: 0 },
+        { x: 200, y: 198, form: 0 },
+        { x: 300, y: 226, form: 0 },
+      ],
+      diadem: [
+        [286, 142],
+        [247, 178],
+        [207, 192],
+        [165, 192],
+        [125, 178],
+        [86, 142],
+      ],
+    },
+  },
   {
     name: "CHECKER",
     background: "vault",
@@ -116,6 +153,40 @@ export const LEVELS: readonly LevelDefinition[] = [
     background: "circuit",
     rows: wordRows("COOL", ["1", "2", "3", "4"]),
   },
+  /**
+   * THE IRIS, the second veil (SHA-167).
+   *
+   * Where THE VEIL hid the eye behind a wall, this one takes the wall away:
+   * the socket is 116 x 38 across the middle of the field with two rows of brow
+   * above it and nothing else up there at all, so the first thing the player
+   * sees on arriving is the thing that was hiding. The gaps in the two top rows
+   * are cut for the oculi behind them, and the bottom two rows are all there is
+   * to break — which is the point. The level is not about the wall.
+   */
+  {
+    name: "THE IRIS",
+    background: "observer",
+    rows: ["GG.GGG.GGG.G", "5S.S5S.S5S.S", "............", "............", "3..........3", "2S........S2"],
+    observer: {
+      mode: "iris",
+      eye: { x: 186, y: 100, hw: 116, hh: 38 },
+      tint: "blue",
+      hint: "BARE AND HUGE · ITS GAZE PETRIFIES",
+      brood: [
+        { x: 90, y: 176, form: 0 },
+        { x: 250, y: 206, form: 0 },
+        { x: 150, y: 232, form: 0 },
+      ],
+      diadem: [
+        [300, 176],
+        [250, 198],
+        [207, 208],
+        [165, 208],
+        [122, 198],
+        [72, 176],
+      ],
+    },
+  },
   {
     name: "HIVE",
     background: "vault",
@@ -163,6 +234,39 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "PLAY",
     background: "circuit",
     rows: wordRows("PLAY", ["2", "3", "4", "5"]),
+  },
+  /**
+   * THE TEAR, the third veil (SHA-167).
+   *
+   * The eye is pushed into the top-left corner and cut by the frame, and the
+   * wall is pushed five columns right to leave it a corridor — so the left
+   * quarter of the field is nothing but falling water, and the wall is somewhere
+   * the player has to go *past* it to reach. Everything about the layout is
+   * about that column: the tears fall down it, the eggs they hatch walk out of
+   * it, and the ball has to cross it in both directions.
+   */
+  {
+    name: "THE TEAR",
+    background: "observer",
+    rows: [".....GGGGGGG", ".....4444444", ".....33S3S33", ".....22S2S22", ".....1111111", "......SS..SS"],
+    observer: {
+      mode: "tear",
+      eye: { x: 46, y: 62, hw: 62, hh: 23 },
+      tint: "blue",
+      hint: "IT WEEPS FROM THE CORNER · BURST THE TEARS",
+      brood: [
+        { x: 180, y: 196, form: 0 },
+        { x: 300, y: 224, form: 0 },
+      ],
+      diadem: [
+        [150, 126],
+        [192, 152],
+        [232, 172],
+        [272, 182],
+        [312, 172],
+        [346, 142],
+      ],
+    },
   },
   {
     name: "MAZE",
@@ -389,6 +493,57 @@ export const LEVELS: readonly LevelDefinition[] = [
       "....2222....",
     ],
   },
+  /**
+   * THE WRATH, the fourth of the Observer's five (SHA-175).
+   *
+   * **Straight after EYE, and that is the joke of the placement**: the level
+   * before this one is a wall built in the shape of an eye, a portrait hung in
+   * a nebula. Then the portrait's sitter comes up under the floor. The
+   * backgrounds hold — nebula, observer, horizon — so `check:backgrounds`
+   * passes without either neighbour moving.
+   *
+   * The socket is below the rail, so the deck rides across the white and the
+   * player's own paddle is the thing occluding the eye watching them. Only the
+   * brow and the top of the iris clear the wood; the rest of the almond runs off
+   * the bottom of the field. The sclera is veined, and the iris is red.
+   *
+   * The wall is built to be *dug*, because on this veil a hole is a thing that
+   * closes. Two soft rows in the middle (`4` solid, `3` combed) and two more
+   * under them let a rally open a shaft quickly; the armour is all at the top,
+   * where the silver caps and the gold-and-blue row make the last third slow —
+   * and the last third is exactly when the eye has had the most blinks. A
+   * player who digs fast wins the race, and a player who picks at it finds the
+   * holes behind them filling in.
+   *
+   * Three pins, all born as hatchlings rather than eggs: the band's trotting
+   * middle form, because by the fourth veil the introduction is over.
+   *
+   * 54 bricks, 75 hits, 5610 points.
+   */
+  {
+    name: "THE WRATH",
+    background: "observer",
+    rows: ["SS.SSS.SSS.S", "5G.G5G.G5G.G", "444444444444", "3.3.3.3.3.3.", "222222222222", ".1.1.1.1.1.1"],
+    observer: {
+      mode: "wrath",
+      eye: { x: 186, y: 292, hw: 84, hh: 30 },
+      tint: "red",
+      hint: "IT RISES BELOW · EACH BLINK REBUILDS",
+      brood: [
+        { x: 60, y: 170, form: 1 },
+        { x: 200, y: 200, form: 1 },
+        { x: 300, y: 228, form: 1 },
+      ],
+      diadem: [
+        [92, 250],
+        [115, 221],
+        [160, 196],
+        [212, 196],
+        [257, 221],
+        [280, 250],
+      ],
+    },
+  },
   // An hourglass: two sand piles pinched at a one-brick gold neck. Each
   // triangle grades 5-to-1 toward the waist in PYRAMID's two-tone rows — the
   // outer tier rides the row's ends, the next one fills it — so all five tiers
@@ -507,7 +662,69 @@ export const LEVELS: readonly LevelDefinition[] = [
     background: "starfield",
     rows: ["GGGGGGGGGGGG", "S5S5S5S5S5S5", "444444444444", "S3S3S3S3S3S3", "GG22222222GG", "S1S1S1S1S1S1"],
   },
+  /**
+   * THE LID, the last of the Observer's five and the last level of the loop
+   * (SHA-176).
+   *
+   * **The only level in the game that is not won by clearing its wall.** The
+   * eye is a shut slit that does not blink, there are no oculi and no door, and
+   * what is in front of it is a plate of bronze rivets. Break ten of the
+   * sixteen cells behind the seal and the Observer wakes: the socket empties,
+   * and the pupil comes out into the chamber. After that the wall is scenery —
+   * the level ends when the pupil is blind.
+   *
+   * The plate is `L`, the one brick that never pays a capsule, so the ten
+   * silver bricks of the rim are the level's entire supply. That is the whole
+   * argument for the rim being there: without it the last level of the loop
+   * would hand the player nothing at all, and with it the thing they have to
+   * decide is whether to spend a rally on the outside before starting on the
+   * middle.
+   *
+   * Two pins, both born as wyverns — the third form, straight away. There is no
+   * introduction left to give, and the band on this veil is a hazard rather
+   * than a ladder: a wyvern killed is still a star, but nothing here turns into
+   * anything worse than it already is.
+   *
+   * Neighbours: FINALE's starfield behind it, and SUNRISE's horizon across the
+   * wrap, so `check:backgrounds` passes on the loop's one seam as well as
+   * inside it.
+   *
+   * 60 bricks, 120 hits, 14 000 points — and none of that is how the level ends.
+   */
+  {
+    name: "THE LID",
+    background: "observer",
+    rows: ["..LLLLLLLL..", ".LLLLLLLLLL.", "SLLLLLLLLLLS", "SLLLLLLLLLLS", ".SLLLLLLLLS.", "..SSLLLLSS.."],
+    observer: {
+      mode: "lid",
+      eye: { x: 186, y: 74, hw: 120, hh: 27 },
+      tint: "red",
+      hint: "SEALED SHUT · BREAK THE SEAL, BLIND THE EYE",
+      oculi: false,
+      brood: [
+        { x: 100, y: 196, form: 2 },
+        { x: 260, y: 224, form: 2 },
+      ],
+      diadem: [
+        [286, 160],
+        [247, 196],
+        [207, 210],
+        [165, 210],
+        [125, 196],
+        [86, 160],
+      ],
+    },
+  },
 ];
+
+/**
+ * Where the Observer's levels sit in the roster, in order (SHA-167).
+ *
+ * Derived and never written down, so a veil moved or a veil added is one edit
+ * to `LEVELS` and nothing else — the console's `veil 3` means the third veil
+ * there is, not level 27.
+ */
+export const VEIL_LEVELS: readonly number[] = LEVELS.flatMap((level, index) => (level.observer ? [index] : []));
 
 // Runs loop past the last level; the wrapped index is also the background
 // variant, so a level's field art is the same on every visit.

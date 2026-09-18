@@ -64,6 +64,12 @@ export interface BrickCell {
   // slot in a full pool rather than being dropped, and the dev console's `bonus`
   // re-roll leaves it alone.
   seeded: boolean;
+  // THE WRATH's birth flicker, in ticks (SHA-175). Non-zero only on a brick the
+  // Observer has put back, and only for the sixteen ticks it takes to cool into
+  // the wall. On the cell rather than in a list beside the grid for `seed`'s
+  // reason: QUAKE slides cells down by reference, and a flicker tracked by
+  // (row, column) would stay behind on the row the brick has left.
+  scarTicks: number;
 }
 
 export interface BrickHit {
@@ -252,7 +258,18 @@ export interface BurstSpec {
 // Playfield background themes, painted in `src/render/backgrounds.ts`. Every
 // level names one: no default, so a new level cannot silently inherit its
 // neighbour's field.
-export type BackgroundId = "starfield" | "nebula" | "grid" | "horizon" | "planet" | "circuit" | "cathode" | "vault";
+export type BackgroundId =
+  | "starfield"
+  | "nebula"
+  | "grid"
+  | "horizon"
+  | "planet"
+  | "circuit"
+  | "cathode"
+  | "vault"
+  // THE OBSERVER (SHA-167): the five veils' field, and the only theme that is
+  // painted around a point the level names — the eye's socket.
+  | "observer";
 
 // One capsule pinned to one cell of a level's wall, dropped by that brick on
 // every run whatever kills it. Rows stay pure layout: a seeded drop is a
@@ -263,10 +280,42 @@ export interface SeededDrop {
   kind: PowerUpKind;
 }
 
+/**
+ * THE OBSERVER (SHA-167): what a veil is, over and above a wall.
+ *
+ * The whole block is written the day a veil is authored, even where nothing
+ * reads it yet — the brood's pins and the diadem's stars are placed against the
+ * layout by eye, and a level whose creatures arrive three tickets later would
+ * have to be re-composed then. `mode` is what the eye *does* on this veil, and
+ * each mode is a ticket: veil watches (SHA-169), iris petrifies (SHA-173), tear
+ * weeps (SHA-174), wrath rebuilds (SHA-175), lid seals (SHA-176).
+ */
+export interface ObserverDefinition {
+  mode: "veil" | "iris" | "tear" | "wrath" | "lid";
+  // The socket: centre, half-width, half-height, in field pixels. The background
+  // is painted around this point and the almond is drawn on it.
+  eye: { x: number; y: number; hw: number; hh: number };
+  tint: "blue" | "red";
+  // One line over the serve prompt, without the veil's own name — the screen
+  // puts that in front of it.
+  hint: string;
+  // Eggs pinned on the band, the way SUPER MAZE pins its two LASERs (SHA-170).
+  brood?: readonly { x: number; y: number; form: 0 | 1 | 2 }[];
+  // Six star points in an arc under the socket (SHA-170).
+  diadem: readonly (readonly [number, number])[];
+  // `false` on THE LID and absent everywhere else, which is the whole of the
+  // rule: a veil either has the three plaques or it is the one that does not,
+  // and there is no third thing to write here (SHA-171).
+  oculi?: false;
+}
+
 export interface LevelDefinition {
   name: string;
   background: BackgroundId;
   rows: readonly string[];
+  // Present on the five veils and absent everywhere else; a level without it is
+  // a level exactly as it was.
+  observer?: ObserverDefinition;
   // Empty on all but three: SUPER MAZE, whose two LASERs are the only way
   // through a wall of 4-hit granite in anything under a very long while;
   // HOURGLASS, whose TEMPO and STASIS on the spine are the ticket's promise
@@ -314,5 +363,21 @@ export interface PanelView {
   // behind is the rack being set, not a life being caught.
   lifeGainedCount: number;
   lifeRefusedCount: number;
+  // CHAIN: how many links are standing since the last deck touch, and what they
+  // are paying. Two numbers rather than one, because the readout prints both —
+  // and the multiplier is a step function of the count, so a panel deriving it
+  // would be the second place that rule lives.
+  chainHits: number;
+  chainMultiplier: number;
+  // THE DIADEM: how many stars are lit, and how many there are. Two numbers so
+  // the panel can draw the right number of pips without knowing what a veil is
+  // — on the thirty-four levels with no eye, `diademStars` is 0 and the row is
+  // simply empty.
+  diademLit: number;
+  diademStars: number;
+  // LEVEL, or VEIL on one of the Observer's five. The word and not a flag: the
+  // panel prints it, and a boolean here would only be a flag the panel had to
+  // turn back into these two words.
+  levelLabel: string;
   muted: boolean;
 }

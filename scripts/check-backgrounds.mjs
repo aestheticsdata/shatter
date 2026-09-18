@@ -13,6 +13,10 @@
 //   3. No two adjacent levels share a theme — including across the wrap back to
 //      level 1 — and every theme is actually used.
 //
+// It covers the two irises INSIDE THE EYE paints as well (SHA-172). They are
+// not a level's theme, so rules 3 do not apply to them, but they replace the
+// field for twenty-two seconds and rules 1 and 2 are exactly as binding there.
+//
 // Run with: pnpm run check:backgrounds
 import { registerHooks } from "node:module";
 import { URL } from "node:url";
@@ -33,7 +37,7 @@ registerHooks({
   },
 });
 
-const { BACKGROUND_COLORS } = await import("../src/render/backgrounds.ts");
+const { BACKGROUND_COLORS, IRIS_COLORS } = await import("../src/render/backgrounds.ts");
 const { BRICK_COLORS, DROP_COLORS, canvasPalette } = await import("../src/render/palette.ts");
 const { LEVELS } = await import("../src/core/levels/levels.ts");
 
@@ -101,7 +105,13 @@ function nearestSprite(color) {
 const failures = [];
 const rows = [];
 
-for (const [theme, groups] of Object.entries(BACKGROUND_COLORS)) {
+// INSIDE THE EYE (SHA-172) is field art too — it replaces the level's for
+// twenty-two seconds — so it is held to the same two rules. It is checked here
+// rather than trusted because the spec it came from painted it on a white
+// sclera, where the ball measured 1.03:1 and would have been invisible.
+const THEMES = { ...BACKGROUND_COLORS, "iris.blue": IRIS_COLORS.blue, "iris.red": IRIS_COLORS.red };
+
+for (const [theme, groups] of Object.entries(THEMES)) {
   for (const [name, color] of Object.entries(groups.area)) {
     const luminance = relativeLuminance(color);
     const worst = worstContrast(color);
@@ -150,6 +160,9 @@ for (const row of rows) {
 }
 
 const used = new Set(LEVELS.map((level) => level.background));
+// The two irises are not a level's theme and never will be, so they are exempt
+// from the must-be-used rule and from adjacency; they are only ever checked for
+// readability above.
 for (const theme of Object.keys(BACKGROUND_COLORS)) {
   if (!used.has(theme)) {
     failures.push(`theme ${theme} is defined but no level uses it`);

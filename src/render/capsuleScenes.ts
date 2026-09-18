@@ -74,7 +74,7 @@ const INSET = 2 * EDGE;
 // as 1: `drawBrick` reads the damage stage out of them, and a silver brick one
 // short would be drawn chipped in a catalogue that never hit it.
 function cell(kind: BrickKind, seed: number): BrickCell {
-  return { kind, hitPoints: BRICK_BY_ID[kind].hitPoints, points: 0, seed, capsule: null, seeded: false };
+  return { kind, hitPoints: BRICK_BY_ID[kind].hitPoints, points: 0, seed, capsule: null, seeded: false, scarTicks: 0 };
 }
 
 /** The field, in field pixels, with the game's sprites placed on it. */

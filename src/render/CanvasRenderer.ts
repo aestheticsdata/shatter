@@ -2,10 +2,13 @@ import { BRICK_BY_ID, BRICK_RAMPS, BRICK_STRAIN_RAMPS } from "@core/config/brick
 import { gameConfig, peelFlightTicks } from "@core/config/GameConfig";
 import { MALUS_KINDS, POWER_UP_GLYPHS } from "@core/config/powerUps";
 import { type Ball, paceGhost } from "@entities/ball/Ball";
+import { eyePupilPoint } from "@entities/effects/Observer";
+import { OCULUS_HEIGHT, OCULUS_POSITIONS, OCULUS_WIDTH } from "@entities/effects/Oculi";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
 import { DROP_HEIGHT } from "@entities/powerups/DropPool";
-import { BackgroundLayer } from "@render/backgrounds";
+import { BACKGROUND_COLORS, BackgroundLayer, IrisLayer } from "@render/backgrounds";
 import { type BallRow, ballGlints, ballRows } from "@render/ballSprite";
+import { BROOD_BITMAPS, BROOD_FRAMES, BROOD_OUTLINE, broodPalette } from "@render/broodSprite";
 import {
   BRICK_COLORS,
   canvasPalette,
@@ -17,14 +20,17 @@ import {
 
 import type { BrickGrain } from "@core/config/bricks";
 import type { WallErosion, WallSheet } from "@entities/bricks/BrickGrid";
+import type { Beast } from "@entities/effects/Brood";
 import type { Critter } from "@entities/effects/Critter";
 import type { Decoherence } from "@entities/effects/Decoherence";
 import type { Detonation } from "@entities/effects/Detonation";
 import type { Entanglement } from "@entities/effects/Entanglement";
 import type { Fence } from "@entities/effects/Fence";
 import type { Pip } from "@entities/effects/GravelField";
+import type { Inside } from "@entities/effects/Inside";
 import type { JellySheet } from "@entities/effects/JellySheet";
 import type { Meteor } from "@entities/effects/MeteorField";
+import type { Observer } from "@entities/effects/Observer";
 import type { Particle } from "@entities/effects/ParticleField";
 import type { Quake } from "@entities/effects/Quake";
 import type { ShadowCast } from "@entities/effects/ShadowCast";
@@ -439,6 +445,25 @@ export interface PaddleRenderState extends DeckSeamState {
    * hand that threw it — but a reflection of a felted deck is a felted deck.
    */
   english: number;
+  /**
+   * CHAIN (SHA-168) is paying at `goldFrom` or better: the deck's top sheen goes
+   * gold.
+   *
+   * On the deck's record with the resin, the fire and the cloth, and the one of
+   * the four MIRROR's ghost is not given. Those three are things being done to
+   * the paddle and a reflection of them is honest; this is a score, and a ghost
+   * the ball is not caught on has no share in it.
+   */
+  chainGold: boolean;
+  /**
+   * THE IRIS's gaze has caught it (SHA-173), 0 free to 1 fully stone.
+   *
+   * A blend and not a flag, so the rock arrives and washes out rather than
+   * switching — and MIRROR's ghost is not given it, for the reason it is not
+   * given the chain's gold: the reflection is of a deck, not of what has been
+   * done to the player's hand.
+   */
+  petrified: number;
 }
 
 // The four tones a paddle is banded from. The ghost is the same sprite in a
@@ -497,6 +522,76 @@ export const PADDLE_BANDS: PaddleBandColors = {
   shade: canvasPalette.paddleBottomShade,
 };
 
+/**
+ * THE IRIS's gaze has caught the deck (SHA-173): the pill in stone.
+ *
+ * The deck's own four bands in the wall frame's greys, so it is unmistakably
+ * the same object turned to something else rather than a different sprite
+ * swapped in — which is the whole read the trap needs, because the deck is
+ * still *working*. It returns the ball exactly as it always did; what the
+ * player has lost is the steering.
+ */
+const STONE_BANDS: PaddleBandColors = {
+  body: canvasPalette.wallShade,
+  cap: canvasPalette.stoneCap,
+  sheen: canvasPalette.wallLight,
+  shade: canvasPalette.stoneCrack,
+};
+
+// Where the rock splits: a fraction of the span and a height, so a 20px SPLIT
+// half and a 92px XWIDE crack in the same places rather than one of them being
+// all crack and the other none.
+const STONE_CRACKS: ReadonlyArray<readonly [number, number, number]> = [
+  [0.28, 1, 4],
+  [0.55, 3, 3],
+  [0.74, 1, 5],
+];
+
+// Two channels mixed, `weight` of the second. The one place this file
+// interpolates a colour rather than stepping between two: stone arrives over a
+// few ticks and washes out over a few more, and a deck that snapped to grey and
+// back would be the one effect in the game with no fade at either end.
+function mixTone(from: string, to: string, weight: number): string {
+  const a = Number.parseInt(from.slice(1), 16);
+  const b = Number.parseInt(to.slice(1), 16);
+  const blend = (shift: number): number =>
+    Math.round(((a >> shift) & 0xff) * (1 - weight) + ((b >> shift) & 0xff) * weight);
+  return `#${((blend(16) << 16) | (blend(8) << 8) | blend(0)).toString(16).padStart(6, "0")}`;
+}
+
+/**
+ * The deck's tint, once the capsules and the chain have both had their say.
+ *
+ * Two independent overrides on one sprite, so the order is settled here rather
+ * than in a nested ternary at the call site: **JAMMER owns the caps and CHAIN
+ * owns the sheen**, and a deck being shut while a rally is paying wears both at
+ * once, which is exactly what is happening to it.
+ *
+ * The sheen and not the body, because the sheen is the one band a player is
+ * already watching — it is the pixel row the ball leaves from.
+ */
+function deckBands(capsJammed: boolean, chainGold: boolean, petrified: number): PaddleBandColors {
+  let bands = PADDLE_BANDS;
+  if (capsJammed) {
+    bands = { ...bands, cap: DROP_COLORS.J };
+  }
+  if (chainGold) {
+    bands = { ...bands, sheen: canvasPalette.chainSheen };
+  }
+  if (petrified <= 0) {
+    return bands;
+  }
+  // Last of the three and over both: a deck the gaze has caught is stone
+  // whatever it was wearing, and the JAMMER's pink caps or the chain's gold
+  // sheen showing through the rock would be two states claiming the same pixel.
+  return {
+    body: mixTone(bands.body, STONE_BANDS.body, petrified),
+    cap: mixTone(bands.cap, STONE_BANDS.cap, petrified),
+    sheen: mixTone(bands.sheen, STONE_BANDS.sheen, petrified),
+    shade: mixTone(bands.shade, STONE_BANDS.shade, petrified),
+  };
+}
+
 // The deck on the frame a BOMB goes off: every band its own top sheen, which is
 // the brightest tone the pill owns. Not white — the flash under it already is,
 // and a deck that whited out to something it is not made of would read as a
@@ -520,6 +615,42 @@ export const MIRROR_BANDS: PaddleBandColors = {
 
 export interface RenderView {
   background: BackgroundId;
+  // THE OBSERVER's eye, as the object: it carries the veil's socket and tint as
+  // well as this frame's lid and look, and the renderer reads all four off it —
+  // the same arrangement the wear, the fog and the couples arrive under.
+  observer: Observer;
+  // Its brood. A second field and not a property of the eye, because the two are
+  // drawn at opposite ends of the frame: the eye is behind the wall and its
+  // creatures walk in front of it.
+  brood: readonly Beast[];
+  // THE TEAR's drops, falling. Beside the brood rather than inside it, because
+  // a tear is not one of them yet — becoming one is the whole event.
+  tears: readonly { x: number; y: number }[];
+  // THE OCULI: which plaques are in, which one blinks, and the door the third
+  // one cut. `gap` is null whenever the eye is shut, which is also what tells
+  // the frame to close back up.
+  oculi: {
+    live: boolean;
+    taken: readonly boolean[];
+    next: number;
+    gap: { left: number; right: number } | null;
+    remaining: number;
+  };
+  // THE IRIS's gaze: what it is doing, where it comes out of, and where its
+  // column is standing. Flat fields rather than the object, because the one
+  // thing the renderer needs that the object does not hold is how far down the
+  // beam has written — which is a function of the phase's progress.
+  gaze: { phase: "idle" | "charge" | "fire"; source: { x: number; y: number }; x: number; progress: number };
+  // INSIDE THE EYE: the visit, as the object. While it is active the renderer
+  // paints the iris instead of the level and draws nothing of the chamber —
+  // which is the truth about where the ball is rather than a filter over a field
+  // that is still there.
+  inside: Inside;
+  // THE LID's loose pupil (SHA-176), or null before the seal breaks. Nullable
+  // rather than carrying an `active` the renderer has to ask about, because
+  // unlike the visit above this one is not a mode the whole frame is in — it is
+  // one more thing standing in the chamber, and the chamber is drawn either way.
+  loosePupil: PupilView | null;
   // Levels sharing a theme get their own layout from this seed (the wrapped
   // level index).
   backgroundVariant: number;
@@ -968,20 +1099,76 @@ export function drawBrick(
   // Both the brick's own sheen and PAYDAY's gild step with the damage, so the
   // tell survives the tide instead of being flattened by it.
   const sheen = gilded ? GILD_RAMP[Math.min(stage, GILD_RAMP.length - 1)] : ramp[stage];
+  // THE WRATH's birth flicker (SHA-175): a brick the Observer put back arrives
+  // white and cools into the wall over sixteen ticks.
+  //
+  // **Every tone, not an overlay.** A white rectangle drawn on top would hide
+  // the one thing the brick is trying to say — it comes back as scar tissue, at
+  // one hit point, wearing its kind's deepest tone — so instead the whole
+  // sprite is mixed toward the flash and the bevel keeps its shape the whole
+  // way down. The strobe on top of the decay is what makes it a *flicker*
+  // rather than a fade: two ticks lit, two ticks half, weakening, which is the
+  // arrival fade the house asks of every effect, in the only idiom a brick has.
+  // A brick has no matching fade out because a brick does not leave — it bursts.
+  //
+  // On the tube the mixed tones are in no `DEMAKE_GROUND_TONES`, so the lit
+  // ticks come out as a solid ink slab and the dim ones as the brick. That is
+  // the 1-bit reading of the same picture and needs no palette of its own.
+  const scar =
+    cell.scarTicks > 0
+      ? (cell.scarTicks / gameConfig.observer.wrath.flickerTicks) * (cell.scarTicks % 4 < 2 ? 1 : 0.45)
+      : 0;
+  const scarred = (tone: string): string => (scar > 0 ? mixTone(tone, canvasPalette.deathFlash, scar) : tone);
 
-  pixel(bodyX, bodyY, bodyWidth, bodyHeight, ramp[stage + 1]);
+  pixel(bodyX, bodyY, bodyWidth, bodyHeight, scarred(ramp[stage + 1]));
   if (definition.grain) {
     drawGrain(pixel, bodyX, bodyY, bodyWidth, bodyHeight, cell.seed, definition.grain, ramp, stage);
   }
-  pixel(bodyX + 1, bodyY, bodyWidth - 2, 1, sheen);
-  pixel(bodyX, bodyY + 1, 1, bodyHeight - 2, sheen);
+  if (definition.rivets) {
+    drawRivets(pixel, bodyX, bodyY, bodyWidth, bodyHeight, definition, scarred);
+  }
+  pixel(bodyX + 1, bodyY, bodyWidth - 2, 1, scarred(sheen));
+  pixel(bodyX, bodyY + 1, 1, bodyHeight - 2, scarred(sheen));
   // The bottom bevel, and the one edge SLUMP's hesitation touches: a brick that
   // has stopped being held up is lit from under as well as over for those four
   // ticks, so the shade goes to the sheen's own tone and the wall visibly
   // un-seats itself before a single pixel of it moves.
-  pixel(bodyX + 1, bodyY + bodyHeight - 1, bodyWidth - 2, 1, unmoored ? sheen : definition.dark);
-  pixel(bodyX + bodyWidth - 1, bodyY + 1, 1, bodyHeight - 2, definition.dark);
+  pixel(bodyX + 1, bodyY + bodyHeight - 1, bodyWidth - 2, 1, scarred(unmoored ? sheen : definition.dark));
+  pixel(bodyX + bodyWidth - 1, bodyY + 1, 1, bodyHeight - 2, scarred(definition.dark));
   ctx.globalAlpha = 1;
+}
+
+/**
+ * THE LID's kind mark (SHA-176): four rivets across the plate's middle.
+ *
+ * **Four, evenly spaced, and always in the same places** — unlike granite's
+ * pits, which are hashed off the cell's seed and multiply as the stone wears.
+ * A rivet is manufacture and a pit is damage, so one is regular and the other
+ * is not, and a player who has learned granite reads the difference without
+ * being told. They do not change with the hit either: the plate's *body* tone
+ * steps when it is struck, which is the damage tell the ramp already gives.
+ *
+ * Each is two pixels of the brick's own shade with one of its sheen on top,
+ * which is the same two-tone bevel the whole sprite is drawn with, an eighth of
+ * the size. On the tube the shade is a `DEMAKE_GROUND_TONES` member and the
+ * body is not, so the rivets come out as four holes punched in an ink slab —
+ * the one thing on that wall that is not a plain rectangle.
+ */
+function drawRivets(
+  pixel: (x: number, y: number, width: number, height: number, color: string) => void,
+  bodyX: number,
+  bodyY: number,
+  bodyWidth: number,
+  bodyHeight: number,
+  definition: { light: string; dark: string },
+  scarred: (tone: string) => string,
+): void {
+  const middle = bodyY + Math.floor(bodyHeight / 2) - 1;
+  for (let rivet = 0; rivet < 4; rivet += 1) {
+    const x = bodyX + Math.round(((rivet + 0.5) * bodyWidth) / 4) - 1;
+    pixel(x, middle, 2, 2, scarred(definition.dark));
+    pixel(x, middle, 1, 1, scarred(definition.light));
+  }
 }
 
 /**
@@ -1254,6 +1441,915 @@ export function drawPaddleBands(
   pixel(x + 9, y + height - 1, width - 18, 1, colors.shade);
 }
 
+// The nine tones an eye is painted from.
+interface EyeTones {
+  sclera: string;
+  scleraShade: string;
+  rim: string;
+  lash: string;
+  iris: string;
+  irisEdge: string;
+  irisInner: string;
+  pupil: string;
+  glint: string;
+  // THE WRATH's bloodshot white (SHA-175). Every tint carries one so the table
+  // stays total, and only the veil that asks for veins ever draws with it.
+  vein: string;
+  // THE LID's emptied socket (SHA-176): what is left when the pupil walks out
+  // of it. Darker than the iris it replaces, because a socket with nothing in
+  // it is a hole, and a hole is not lit.
+  hollow: string;
+}
+
+/**
+ * The eye's palette, by veil tint — and the tube's, which is not a mapping of
+ * either.
+ *
+ * **This sprite reduces itself rather than going through `ink()`.** Every other
+ * sprite can: the rule there is that a tone playing a *shadow* role becomes the
+ * tube's ground and everything else its ink, and the game's sprites are 1px
+ * bevels on a body, so that rule keeps their shapes. An eye is not banded like
+ * that. It is a pale field with two discs inside it, and by the shadow rule the
+ * sclera, the iris and the pupil are all ink — a solid green almond with the one
+ * thing the sprite exists for, the pupil, dissolved into it.
+ *
+ * So the demade eye is drawn the way a 1-bit port would have drawn it: ground
+ * inside the lid, the almond outlined in ink, the iris a ring and the pupil a
+ * filled disc. Same geometry, same code path, one different record.
+ */
+const EYE_TONES: Record<"blue" | "red" | "gold" | "demade", EyeTones> = {
+  blue: {
+    sclera: canvasPalette.wallLight,
+    scleraShade: canvasPalette.eyeScleraShade,
+    rim: BRICK_COLORS.G.dark,
+    lash: BRICK_COLORS.G.flat,
+    iris: canvasPalette.paddleBody,
+    irisEdge: canvasPalette.eyeIrisEdge,
+    irisInner: canvasPalette.eyeIrisInner,
+    pupil: canvasPalette.eyePupil,
+    glint: canvasPalette.deathFlash,
+    vein: canvasPalette.eyeIrisEdge,
+    hollow: canvasPalette.eyePupil,
+  },
+  // THE WRATH and THE LID. Written now because the tint is part of a veil's
+  // definition and an eye that could only be blue would make the fourth veil a
+  // change to this table rather than a level.
+  red: {
+    sclera: canvasPalette.wallLight,
+    scleraShade: canvasPalette.eyeScleraShade,
+    rim: BRICK_COLORS.G.dark,
+    lash: BRICK_COLORS.G.flat,
+    iris: BRICK_COLORS["1"].flat,
+    irisEdge: BRICK_COLORS["1"].dark,
+    irisInner: BRICK_COLORS["1"].light,
+    pupil: canvasPalette.eyePupil,
+    glint: canvasPalette.deathFlash,
+    vein: BRICK_COLORS["1"].dark,
+    hollow: canvasPalette.eyeSocket,
+  },
+  /**
+   * THE OCULI have opened it (SHA-171). Not a veil's tint but a *state*: the
+   * eye is only gold while the door in the frame is, and the two going gold on
+   * the same tick is what connects a plaque struck at the top of the field to a
+   * gap cut in the frame above the socket.
+   */
+  gold: {
+    sclera: canvasPalette.wallLight,
+    scleraShade: canvasPalette.eyeScleraShade,
+    rim: BRICK_COLORS.G.dark,
+    lash: BRICK_COLORS.G.flat,
+    iris: canvasPalette.chainSheen,
+    irisEdge: BRICK_COLORS["2"].flat,
+    irisInner: BRICK_COLORS.G.light,
+    pupil: canvasPalette.eyePupil,
+    glint: canvasPalette.deathFlash,
+    vein: BRICK_COLORS["2"].dark,
+    hollow: canvasPalette.eyePupil,
+  },
+  demade: {
+    sclera: canvasPalette.demakeGround,
+    scleraShade: canvasPalette.demakeGround,
+    rim: canvasPalette.demakeInk,
+    lash: canvasPalette.demakeInk,
+    iris: canvasPalette.demakeGround,
+    irisEdge: canvasPalette.demakeInk,
+    irisInner: canvasPalette.demakeGround,
+    pupil: canvasPalette.demakeInk,
+    glint: canvasPalette.demakeGround,
+    vein: canvasPalette.demakeInk,
+    hollow: canvasPalette.demakeGround,
+  },
+};
+
+/**
+ * THE OBSERVER's eye, at whatever scale it is asked for (SHA-169).
+ *
+ * Module-level and scale-taking for `drawBrick`'s reason exactly: the arena
+ * paints it at SCALE and the level gallery at 1 into a still, and a veil drawn
+ * in the gallery without its eye would be a picture of a level that does not
+ * exist.
+ *
+ * An almond, scanned row by row: the lid's half-width at each row is
+ * `hw * (1 - t²)`, which is the parabola that gives an eye its corners rather
+ * than the ellipse that would give it a lens. `open` squashes only the
+ * half-height, so a blink is the lid coming down over an iris that stays where
+ * it is — the iris is clipped by the rows that survive, which is what makes a
+ * half-blink read as a half-blink instead of as a shrinking eye.
+ *
+ * **The outline is drawn as steps and not as dots**, which is the one place the
+ * mockup's staging does not survive being made this size. A single pixel at each
+ * end of each row is a continuous edge only where the curve is near-vertical;
+ * across the top and along the corners the half-width jumps four and five pixels
+ * a row, and the eye comes out stitched with a dashed line. Each row's ends are
+ * painted over the whole step from the row before instead, which closes the
+ * curve — and since the two halves of that curve are different things, they are
+ * different colours: **gold above, bronze below**. A brow and a lid, in the 1px
+ * bevel every other sprite in this file is banded with.
+ *
+ * The iris is bounded *inside* the lid rather than clipped by it: `reachX` and
+ * `reachY` keep the whole disc within the almond, so however hard the eye looks
+ * there is always white on the side it is looking away from and the iris is
+ * always round. The mockup lets it run under the lower lid, which on a socket
+ * 42 x 15 behind a wall leaves an arch of iris with the pupil jammed against the
+ * bottom edge — an eye reading as a lump rather than as a look. The cost is that
+ * a wide, shallow socket tracks mostly sideways, which is the truth about a
+ * wide, shallow socket.
+ *
+ * `ctx` is painted through a brush built with `demade: false` on purpose: the
+ * tones handed to it have already been chosen for the machine — see `EYE_TONES`.
+ */
+export function drawEye(
+  ctx: CanvasRenderingContext2D,
+  socket: { x: number; y: number; hw: number; hh: number },
+  open: number,
+  target: { x: number; y: number },
+  tint: "blue" | "red" | "gold",
+  scale: number,
+  demade = false,
+  // THE TEAR (SHA-174): two wet streaks down the cheek, under the pupil. They
+  // travel with the look, so the tracks are always under where the next drop
+  // will leave from — which is what makes the corner read as *weeping* rather
+  // than as a place drops happen to appear.
+  weeping = false,
+  // THE WRATH (SHA-175): the white is bloodshot. A parameter and not a property
+  // of the red tint, because THE LID is red too and a sealed slit has no white
+  // to run them across.
+  veined = false,
+  // THE LID (SHA-176): the seal is broken and the pupil has left. The socket is
+  // drawn wide with nothing in it — no iris, no glint, no look — which is the
+  // one frame in the game where the eye stops being a thing that watches.
+  hollow = false,
+): void {
+  const pixel = spriteBrush(ctx, scale, false);
+  const tones = EYE_TONES[demade ? "demade" : tint];
+  const { x: cx, y: cy, hw, hh } = socket;
+  const { irisRadius: irisScale, pupilRadius: pupilScale } = gameConfig.observer.eye;
+  // Never under two rows: a lid that shut to a single line would be gone the
+  // frame the field art is dark behind it.
+  const lid = Math.max(2, Math.round(hh * open));
+  const irisRadius = Math.round(hh * irisScale);
+  const pupilRadius = Math.round(hh * pupilScale);
+  // Off the same function THE IRIS's gaze fires out of, so the beam and the
+  // pupil can never be a pixel apart. See `eyePupilPoint`.
+  const { x: ix, y: iy } = eyePupilPoint(socket, open, target);
+
+  let previous = 0;
+  let previousY = cy - lid;
+  for (let dy = -lid; dy <= lid; dy += 1) {
+    const t = dy / lid;
+    const half = Math.round(hw * (1 - t * t));
+    if (half <= 0) {
+      // The tip: nothing of this row is inside the eye, but the row before it
+      // still owes an edge, which the step below the loop lays down.
+      continue;
+    }
+    const y = cy + dy;
+    const x0 = cx - half;
+    const x1 = cx + half;
+    // The upper third is the shaded one: light falls from above, so the part of
+    // the white under the brow is the part in shadow.
+    pixel(x0, y, x1 - x0, 1, hollow ? tones.hollow : dy < -lid * 0.55 ? tones.scleraShade : tones.sclera);
+
+    const dyIris = y - iy;
+    if (!hollow && Math.abs(dyIris) <= irisRadius) {
+      const irisHalf = Math.round(Math.sqrt(irisRadius * irisRadius - dyIris * dyIris));
+      const a = Math.max(x0 + 1, ix - irisHalf);
+      const b = Math.min(x1 - 1, ix + irisHalf);
+      if (b > a) {
+        const rim = Math.abs(dyIris) > irisRadius - 3;
+        pixel(a, y, b - a, 1, rim ? tones.irisEdge : tones.iris);
+        if (!rim) {
+          // The limbal ring: two pixels of the darker tone at each end of every
+          // row, which is what a circle's own edge would be if it were drawn
+          // rather than scanned.
+          pixel(a, y, 2, 1, tones.irisEdge);
+          pixel(b - 2, y, 2, 1, tones.irisEdge);
+          // Fibres, every fifth row off a seed that moves with the iris, so the
+          // texture travels with the look instead of the eye sliding under a
+          // fixed pattern.
+          if (Math.abs(dyIris) < irisRadius * 0.55 && (y + ix) % 5 === 0) {
+            pixel(a + 3, y, Math.max(1, b - a - 6), 1, tones.irisInner);
+          }
+        }
+      }
+      if (Math.abs(dyIris) <= pupilRadius) {
+        const pupilHalf = Math.round(Math.sqrt(pupilRadius * pupilRadius - dyIris * dyIris));
+        const pa = Math.max(x0 + 1, ix - pupilHalf);
+        const pb = Math.min(x1 - 1, ix + pupilHalf);
+        if (pb > pa) {
+          pixel(pa, y, pb - pa, 1, tones.pupil);
+        }
+      }
+    }
+
+    // The edge: the step between this row and the one before it, painted on
+    // whichever of the two is the wider — going down the curve that is this row,
+    // coming back up it is the row above, and painting it on the narrower one
+    // would put the outline outside the eye.
+    const edge = dy <= 0 ? tones.lash : tones.rim;
+    const step = Math.max(1, Math.abs(half - previous));
+    const wide = Math.max(half, previous);
+    const stepY = half >= previous ? y : previousY;
+    pixel(cx - wide, stepY, step, 1, edge);
+    pixel(cx + wide - step, stepY, step, 1, edge);
+    // Past the corners the row is all edge and no white.
+    if (half <= 2) {
+      pixel(x0, y, x1 - x0, 1, edge);
+    }
+    previous = half;
+    previousY = y;
+  }
+  // The bottom tip. The scan stops at the last row with any width in it, and
+  // that row is the lid: below it the parabola has closed and there is nothing
+  // to draw on.
+  if (previous > 0) {
+    pixel(cx - previous, previousY, previous * 2, 1, tones.rim);
+  }
+
+  // Over the white and under the glint: veins are in the eye, and a hairline
+  // drawn across the one wet highlight would put them on top of it.
+  if (veined && !hollow) {
+    drawEyeVeins(pixel, socket, lid, { x: ix, y: iy, radius: irisRadius }, tones.vein);
+  }
+
+  if (weeping) {
+    const track = demade ? tones.rim : canvasPalette.tearTrack;
+    const lidY = cy + lid + 1;
+    pixel(ix - 7, lidY, 1, 9, track);
+    pixel(ix + 6, lidY, 1, 6, track);
+    pixel(ix - 7, lidY + 9, 1, 1, demade ? tones.lash : canvasPalette.eyeIrisInner);
+  }
+  // Only on an open eye: a glint is a reflection off a wet surface, and a lid
+  // halfway down has covered the part of it that would catch the light.
+  if (open > 0.5 && !hollow) {
+    pixel(ix - pupilRadius + 1, iy - pupilRadius + 1, 2, 2, tones.glint);
+  }
+  for (const [fraction, rise] of EYE_LASHES) {
+    // Anchored on the brow it grows out of rather than on the socket's top: the
+    // almond's own top at this x, off the same parabola the scan walks. Four
+    // lashes hanging in the field above a curve they do not touch is what the
+    // straight port looked like.
+    const browY = cy - Math.round(lid * Math.sqrt(Math.max(0, 1 - Math.abs(fraction))));
+    pixel(cx + fraction * hw, browY - rise, 1, rise, tones.lash);
+  }
+  // Two ticks of rim past the corners, so the almond reads as set into
+  // something rather than floating on the field.
+  pixel(cx - hw - 3, cy, 3, 1, tones.rim);
+  pixel(cx + hw, cy, 3, 1, tones.rim);
+}
+
+/**
+ * One of THE OBSERVER's beasts (SHA-170), at whatever scale it is asked for.
+ *
+ * The bitmap is walked as **runs** rather than pixel by pixel: a 28 x 14 wyvern
+ * is 392 cells but only about forty spans of one colour, and a span is one
+ * `fillRect` where a cell would be four hundred. Same picture, an order of
+ * magnitude fewer calls, and three beasts a frame costs nothing.
+ *
+ * The strike flash cools through the shape over its eight ticks rather than
+ * switching off: the whole silhouette is white for the first half, then only
+ * the outline is, then the beast is itself again. See `BROOD_OUTLINE`.
+ *
+ * `ctx` is painted through a brush built with `demade: false`, because the
+ * palette has already been chosen for the machine — see `broodPalette`.
+ */
+export function drawBeast(
+  ctx: CanvasRenderingContext2D,
+  beast: Beast,
+  frameCount: number,
+  scale: number,
+  demade = false,
+): void {
+  const pixel = spriteBrush(ctx, scale, false);
+  const form = gameConfig.observer.brood.forms[beast.form];
+  const frames = BROOD_FRAMES[beast.form];
+  const sprite = frames[Math.floor(frameCount / form.frameTicks) % frames.length];
+  const rows = BROOD_BITMAPS[sprite];
+  const palette = broodPalette(sprite, demade);
+  const x = Math.round(beast.x);
+  const y = Math.round(beast.y + Math.sin(beast.bob) * form.bob);
+
+  // How much of the strike is left, 1 on the frame it landed. Two steps and not
+  // a blend: these are flat sprites with no in-between tone, and a lerp on a
+  // five-colour bitmap only dithers.
+  const flash = beast.flashTicks / gameConfig.observer.brood.flashTicks;
+  const white = demade ? canvasPalette.demakeInk : canvasPalette.deathFlash;
+  const outline = BROOD_OUTLINE[sprite];
+
+  // The shadow first, under the body: a beast walking the band is a thing in
+  // the room rather than a sticker on it, and one dark row is the whole of what
+  // says so.
+  pixel(x + Math.round(form.width / 2) - 3, y + form.height + 2, 6, 1, BACKGROUND_COLORS.observer.area.ringOuter);
+
+  drawBitmap(pixel, rows, palette, x, y, (character) =>
+    flash > 0.5 || (flash > 0 && character === outline) ? white : null,
+  );
+}
+
+/**
+ * A character grid, painted as **runs** rather than pixel by pixel: a 28 x 14
+ * wyvern is 392 cells but only about forty spans of one colour, and a span is
+ * one `fillRect` where a cell would be four hundred.
+ *
+ * `override` is given each character and may answer a tone to use instead of the
+ * palette's — which is how a struck beast wears white without a second copy of
+ * the walk.
+ */
+function drawBitmap(
+  pixel: (x: number, y: number, width: number, height: number, color: string) => void,
+  rows: readonly string[],
+  palette: Readonly<Record<string, string>>,
+  x: number,
+  y: number,
+  override?: (character: string) => string | null,
+): void {
+  for (const [row, line] of rows.entries()) {
+    let index = 0;
+    while (index < line.length) {
+      const character = line[index];
+      let span = 1;
+      while (index + span < line.length && line[index + span] === character) {
+        span += 1;
+      }
+      const tone = palette[character];
+      if (tone) {
+        pixel(x + index, y + row, span, 1, override?.(character) ?? tone);
+      }
+      index += span;
+    }
+  }
+}
+
+/**
+ * THE TEAR's drops (SHA-174), falling down the corridor.
+ *
+ * The same five-pixel sprite the whole way down, with no wobble and no trail:
+ * what the player is reading is *where* it is and how long they have, and a drop
+ * that shimmered would be one more thing moving on a field that already has a
+ * ball, a brood and an eye on it.
+ */
+export function drawTears(
+  ctx: CanvasRenderingContext2D,
+  drops: readonly { x: number; y: number }[],
+  scale: number,
+  demade = false,
+): void {
+  const pixel = spriteBrush(ctx, scale, false);
+  const rows = BROOD_BITMAPS.tear;
+  const palette = broodPalette("tear", demade);
+  for (const drop of drops) {
+    drawBitmap(pixel, rows, palette, Math.round(drop.x), Math.round(drop.y));
+  }
+}
+
+/**
+ * THE DIADEM (SHA-170): six stars in an arc under the socket, and the lines
+ * between the ones that are lit.
+ *
+ * **A constellation and not a progress bar.** The lines are drawn only between
+ * *adjacent* lit stars, so a diadem earned out of order is a broken chain of
+ * light that closes up as the gaps fill — which says how far along the player is
+ * without a number, and says it in the sky where the stars are rather than in
+ * the panel where the count is.
+ *
+ * **A dark star is a cross too**, five pixels to the lit one's seven and grey
+ * instead of gold. It was a three-pixel dot, and on a starfield that is
+ * indistinguishable from the scatter the theme is already painting — six empty
+ * settings that read as six more background specks promise nothing, and a star
+ * lighting over them comes out of nowhere. A cross is a shape the background
+ * never makes, so an unlit socket says what it is before anything is in it; and
+ * lighting one is then a step in size *and* in brightness, which is what carries
+ * it through the tube.
+ *
+ * The twinkle is staggered per star, or six of them would blink as one block.
+ */
+export function drawDiadem(
+  ctx: CanvasRenderingContext2D,
+  points: readonly (readonly [number, number])[],
+  lit: readonly boolean[],
+  frameCount: number,
+  scale: number,
+  demade = false,
+): void {
+  const pixel = spriteBrush(ctx, scale, false);
+  const { twinkleTicks, twinkleStagger } = gameConfig.observer.diadem;
+  const thread = demade ? canvasPalette.demakeInk : BRICK_COLORS.G.dark;
+  for (let index = 1; index < points.length; index += 1) {
+    if (lit[index] && lit[index - 1]) {
+      drawPixelLine(pixel, points[index - 1], points[index], thread);
+    }
+  }
+  for (const [index, [x, y]] of points.entries()) {
+    const bright = (frameCount + index * twinkleStagger) % twinkleTicks < twinkleTicks / 2;
+    if (!lit[index]) {
+      // On the tube a socket is four tips and nothing between them, because
+      // "dimmer" is not a thing one ink can say — the difference from a lit star
+      // has to be how much of the cross is there.
+      if (demade) {
+        const ink = canvasPalette.demakeInk;
+        pixel(x - 2, y, 1, 1, ink);
+        pixel(x + 2, y, 1, 1, ink);
+        pixel(x, y - 2, 1, 1, ink);
+        pixel(x, y + 2, 1, 1, ink);
+        continue;
+      }
+      pixel(x - 2, y, 5, 1, canvasPalette.diademDarkEdge);
+      pixel(x, y - 2, 1, 5, canvasPalette.diademDarkEdge);
+      pixel(x, y, 1, 1, canvasPalette.diademDark);
+      continue;
+    }
+    if (demade) {
+      // And the twinkle becomes a size rather than a colour, so a lit diadem
+      // still shimmers on a machine with one ink.
+      const ink = canvasPalette.demakeInk;
+      const arm = bright ? 3 : 2;
+      pixel(x - arm, y, arm * 2 + 1, 1, ink);
+      pixel(x, y - arm, 1, arm * 2 + 1, ink);
+      pixel(x - 1, y - 1, 3, 3, ink);
+      continue;
+    }
+    const tone = bright ? canvasPalette.diademTwinkle : canvasPalette.diademStar;
+    pixel(x - 3, y, 7, 1, tone);
+    pixel(x, y - 3, 1, 7, tone);
+    pixel(x - 1, y - 1, 3, 3, canvasPalette.diademStar);
+    pixel(x, y, 1, 1, canvasPalette.diademCore);
+  }
+}
+
+/**
+ * THE OCULI (SHA-171): the three plaques, in one of three states each.
+ *
+ * **The mark is tally bars, not text.** I, II and III are one, two and three
+ * strokes, and drawing them as strokes rather than through `fillText` gets a
+ * crisper glyph at 7px, costs no font, and survives the tube exactly — a
+ * numeral rendered from a proportional face at this size is three grey smudges.
+ * It also happens to be what would be cut into a real bronze plaque.
+ *
+ * Three states and three readings, and each difference is a *shape* before it is
+ * a colour so the tube keeps all three: an untaken plaque is an outline round a
+ * recess, the next one blinks, and a taken one is filled solid with its marks
+ * knocked out of it.
+ */
+export function drawOculi(
+  ctx: CanvasRenderingContext2D,
+  taken: readonly boolean[],
+  next: number,
+  frameCount: number,
+  scale: number,
+  demade = false,
+): void {
+  const pixel = spriteBrush(ctx, scale, false);
+  const ink = canvasPalette.demakeInk;
+  const ground = canvasPalette.demakeGround;
+  // A slow pulse on the same clock a trap's glyph blinks to: 22 ticks lit out of
+  // 40, so the plaque is on rather more than it is off and the blink reads as a
+  // light rather than as a fault.
+  const blink = frameCount % 40 < 22;
+
+  for (const [index, [x, y]] of OCULUS_POSITIONS.entries()) {
+    const done = taken[index];
+    const isNext = !done && index === next;
+    const edge = demade
+      ? ink
+      : done
+        ? BRICK_COLORS["4"].flat
+        : isNext && blink
+          ? canvasPalette.chainSheen
+          : BRICK_COLORS.G.dark;
+    const fill = demade
+      ? done || (isNext && blink)
+        ? ink
+        : ground
+      : done
+        ? BRICK_COLORS["4"].dark
+        : canvasPalette.oculusRecess;
+    const mark = demade
+      ? done || (isNext && blink)
+        ? ground
+        : ink
+      : done
+        ? BRICK_COLORS["4"].light
+        : isNext
+          ? canvasPalette.chainSheen
+          : BRICK_COLORS.G.flat;
+
+    // The plaque: a rectangle with its corners knocked off, drawn as two
+    // overlapping spans the way every pill in this file is.
+    pixel(x + 1, y, OCULUS_WIDTH - 2, OCULUS_HEIGHT, edge);
+    pixel(x, y + 1, OCULUS_WIDTH, OCULUS_HEIGHT - 2, edge);
+    pixel(x + 2, y + 1, OCULUS_WIDTH - 4, OCULUS_HEIGHT - 2, fill);
+    pixel(x + 1, y + 2, OCULUS_WIDTH - 2, OCULUS_HEIGHT - 4, fill);
+
+    const strokes = index + 1;
+    const span = strokes * 3 - 1;
+    const markX = x + Math.round((OCULUS_WIDTH - span) / 2);
+    for (let stroke = 0; stroke < strokes; stroke += 1) {
+      pixel(markX + stroke * 3, y + 4, 1, 6, mark);
+    }
+  }
+}
+
+/**
+ * The door the third plaque opens: a gap in the top frame, running with light.
+ *
+ * The edge is three rows of a repeating red-orange-gold march that steps one
+ * cell every frame, so the opening is unmistakably *moving* even while the ball
+ * is at the other end of the field — a still gap in a still frame is a hole
+ * somebody forgot to paint. Under it, a one-pixel bar shortening from the left
+ * is the ten seconds: the two together say "open" and "not for long" without a
+ * word, which is what leaves the words to say where to aim.
+ *
+ * On the tube the march becomes two rows of ink stepping through ground on the
+ * same clock — the movement survives where the three tones cannot.
+ */
+export function drawEyeGate(
+  ctx: CanvasRenderingContext2D,
+  gap: { left: number; right: number },
+  remaining: number,
+  frameCount: number,
+  scale: number,
+  demade = false,
+): void {
+  const pixel = spriteBrush(ctx, scale, false);
+  const width = gap.right - gap.left;
+  const step = frameCount % 12;
+  pixel(gap.left, 0, width, 3, demade ? canvasPalette.demakeGround : canvasPalette.eyePupil);
+  for (let offset = 0; offset < width; offset += 4) {
+    const phase = (offset / 4 + step) % 3;
+    const tone = demade
+      ? phase === 0
+        ? canvasPalette.demakeInk
+        : canvasPalette.demakeGround
+      : phase === 0
+        ? canvasPalette.diademTwinkle
+        : phase === 1
+          ? BRICK_COLORS["2"].flat
+          : BRICK_COLORS["1"].flat;
+    pixel(gap.left + offset, 0, Math.min(4, width - offset), 3, tone);
+  }
+  // The jambs: two pixels of gold down each side of the cut, so the gap has an
+  // edge the eye can find against the frame it was cut out of.
+  const jamb = demade ? canvasPalette.demakeInk : canvasPalette.diademStar;
+  pixel(gap.left - 1, 0, 1, 7, jamb);
+  pixel(gap.right, 0, 1, 7, jamb);
+  pixel(gap.left, 4, Math.round(width * remaining), 1, demade ? canvasPalette.demakeInk : canvasPalette.eyeIrisInner);
+}
+
+/**
+ * INSIDE THE EYE (SHA-172): the pupil, on its orbit.
+ *
+ * Six spokes turning at half the orbit's own rate, a black disc with a blood
+ * rim, a glint, and a health bar slung under it. The spokes are the whole reason
+ * it reads as *alive* rather than as a ball: a disc sliding along a Lissajous
+ * path is a moving target, and a disc with six arms turning underneath it at a
+ * different rate is a thing looking around.
+ *
+ * The bar travels with the pupil rather than sitting at the top of the field
+ * with the clock. Two readouts in one place would be one readout nobody reads,
+ * and of the two this is the one that belongs to an object.
+ */
+/**
+ * The pupil, wherever it is: INSIDE THE EYE's boss on its orbit (SHA-172) and
+ * THE LID's loose one in the chamber (SHA-176).
+ *
+ * **One sprite, deliberately.** The two are different fights in different rooms
+ * with different rules, and the whole point of the fifth veil is that the player
+ * recognises what has come out of the socket from the four times they went in
+ * after it. So this takes the six numbers both objects have rather than either
+ * class — and neither of them had to learn about the other to be drawn.
+ */
+export function drawPupil(ctx: CanvasRenderingContext2D, inside: PupilView, scale: number, demade = false): void {
+  const pixel = spriteBrush(ctx, scale, false);
+  const radius = inside.radius;
+  const x = Math.round(inside.x);
+  const y = Math.round(inside.y);
+  const spokes = demade ? canvasPalette.demakeInk : BRICK_COLORS["1"].flat;
+  for (let index = 0; index < 6; index += 1) {
+    const angle = (index * Math.PI) / 3 + inside.spin * 0.5;
+    drawPixelLine(
+      pixel,
+      [Math.round(x + Math.cos(angle) * (radius + 2)), Math.round(y + Math.sin(angle) * (radius + 2))],
+      [Math.round(x + Math.cos(angle) * (radius + 16)), Math.round(y + Math.sin(angle) * (radius + 16))],
+      spokes,
+    );
+  }
+  drawDisc(pixel, x, y, radius + 1, demade ? canvasPalette.demakeInk : BRICK_COLORS["1"].dark);
+  drawDisc(pixel, x, y, radius, demade ? canvasPalette.demakeGround : canvasPalette.eyePupil);
+  const glint = demade ? canvasPalette.demakeInk : canvasPalette.deathFlash;
+  pixel(x - 6, y - 7, 3, 3, glint);
+  pixel(x - 3, y - 4, 1, 1, glint);
+  if (inside.flashTicks > 0) {
+    drawRing(pixel, x, y, radius + 3, demade ? canvasPalette.demakeInk : canvasPalette.deathFlash);
+    drawRing(pixel, x, y, radius + 5, demade ? canvasPalette.demakeGround : BRICK_COLORS.G.light);
+  }
+  // The health bar, and **its track has to be visible or the bar is not a bar**.
+  // It used to be drawn in the pupil's own black, which reads on the iris's lit
+  // interior and vanishes on the chamber's dark field — so THE LID's fight, the
+  // one with twenty-four hits in it, was the one where the player could not see
+  // how much was left. The oculi's recess is the tone that carries on both.
+  const barWidth = Math.round(radius * 2 * inside.health);
+  pixel(x - radius, y + radius + 4, radius * 2, 3, demade ? canvasPalette.demakeGround : canvasPalette.oculusRecess);
+  pixel(x - radius, y + radius + 4, barWidth, 3, demade ? canvasPalette.demakeInk : BRICK_COLORS["1"].flat);
+}
+
+/** What `drawPupil` needs, which is all either pupil has in common. */
+export interface PupilView {
+  x: number;
+  y: number;
+  radius: number;
+  spin: number;
+  flashTicks: number;
+  health: number;
+}
+
+/**
+ * The visit's clock, across the top of the iris under the brow.
+ *
+ * It turns red for the last ninety ticks, which is the only warning the fight
+ * gives: there is no sound for it, because a player with a second and a half
+ * left is watching the pupil and could not do anything about a noise.
+ */
+export function drawInsideTimer(ctx: CanvasRenderingContext2D, remaining: number, scale: number, demade = false): void {
+  const pixel = spriteBrush(ctx, scale, false);
+  const span = gameConfig.field.width - 20;
+  const left = Math.round(span * Math.max(0, remaining));
+  const urgent = remaining * gameConfig.observer.inside.ticks < 90;
+  pixel(10, 6, span, 3, demade ? canvasPalette.demakeGround : canvasPalette.oculusRecess);
+  pixel(10, 6, left, 3, demade ? canvasPalette.demakeInk : urgent ? BRICK_COLORS["1"].flat : canvasPalette.chainSheen);
+}
+
+// A filled circle in whole pixels, scanned row by row like the eye's iris — the
+// one shape in this file that is a disc rather than a box, and it has to land on
+// the same grid everything else does.
+function drawDisc(
+  pixel: (x: number, y: number, width: number, height: number, color: string) => void,
+  cx: number,
+  cy: number,
+  radius: number,
+  color: string,
+): void {
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    const half = Math.round(Math.sqrt(Math.max(0, radius * radius - dy * dy)));
+    if (half > 0) {
+      pixel(cx - half, cy + dy, half * 2, 1, color);
+    }
+  }
+}
+
+// Its outline: the same scan keeping only each row's ends, widened to cover the
+// step from the row before so the circle closes where it turns fastest — the
+// eye's own rule, and it is the same curve.
+function drawRing(
+  pixel: (x: number, y: number, width: number, height: number, color: string) => void,
+  cx: number,
+  cy: number,
+  radius: number,
+  color: string,
+): void {
+  let previous = 0;
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    const half = Math.round(Math.sqrt(Math.max(0, radius * radius - dy * dy)));
+    const wide = Math.max(half, previous);
+    const step = Math.max(1, Math.abs(half - previous));
+    pixel(cx - wide, cy + dy, step, 1, color);
+    pixel(cx + wide - step, cy + dy, step, 1, color);
+    previous = half;
+  }
+}
+
+// The wall, while the player is somewhere it is not. One shared empty array
+// rather than a branch around a forty-line loop.
+const EMPTY_GRID: ReadonlyArray<ReadonlyArray<BrickCell | null>> = [];
+
+/**
+ * THE IRIS's gaze (SHA-173): the ring while it charges, the beam while it fires.
+ *
+ * **The charge is a held cue and the beam is the event.** A ring **closes onto
+ * the pupil** over the three quarters of a second before the beam, starting out
+ * at the iris's edge and tightening to the pupil's — energy gathering into the
+ * place it is about to come out of. Contracting and not growing, which is the
+ * one thing the mockup's staging had to be turned around: a ring expanding out
+ * of a pupil is what a shot already fired looks like, and this is the warning
+ * before one. It pulses white and gold while it closes, and the column is
+ * already standing where it will fire, so being caught is always something the
+ * player was shown and did not move for.
+ *
+ * The beam itself writes *down* from the pupil over its first few ticks rather
+ * than appearing whole, so the gaze visibly reaches rather than switching on.
+ *
+ * It stops at the rail and never touches the ball. The one thing it takes is
+ * the steering; see `STONE_BANDS`.
+ */
+export function drawGaze(
+  ctx: CanvasRenderingContext2D,
+  phase: "idle" | "charge" | "fire",
+  source: { x: number; y: number },
+  beamX: number,
+  progress: number,
+  // Where the ring starts and where it closes to: the iris's edge and the
+  // pupil's. Passed rather than derived, because THE LID's loose pupil fires the
+  // same gaze and has no iris around it (SHA-176).
+  radii: { inner: number; outer: number },
+  frameCount: number,
+  scale: number,
+  demade = false,
+): void {
+  if (phase === "idle") {
+    return;
+  }
+  const pixel = spriteBrush(ctx, scale, false);
+  const x = Math.round(source.x);
+  const y = Math.round(source.y);
+  if (phase === "charge") {
+    // Two rings a frame apart in the pulse, growing with the count: the gap
+    // between them is what reads as a charge tightening rather than a light
+    // blinking.
+    const beat = frameCount % 6 < 3;
+    const tone = demade
+      ? beat
+        ? canvasPalette.demakeInk
+        : canvasPalette.demakeGround
+      : beat
+        ? canvasPalette.deathFlash
+        : canvasPalette.chainSheen;
+    drawRing(pixel, x, y, Math.round(radii.outer - (radii.outer - radii.inner) * progress), tone);
+    return;
+  }
+  const column = Math.round(beamX);
+  const { beamWidth } = gameConfig.observer.gaze;
+  const half = Math.floor(beamWidth / 2);
+  // How far down the beam has written. Full length after a fifth of the fire,
+  // so the reach is a gesture and not a delay.
+  const rail = gameConfig.paddle.y;
+  const reach = Math.round((rail - y) * Math.min(1, progress * 5));
+  if (reach <= 0) {
+    return;
+  }
+  const flicker = frameCount % 2 === 0;
+  const body = demade
+    ? flicker
+      ? canvasPalette.demakeInk
+      : canvasPalette.demakeGround
+    : flicker
+      ? BRICK_COLORS["1"].flat
+      : BRICK_COLORS["1"].dark;
+  pixel(column - half, y, beamWidth, reach, body);
+  pixel(column - 1, y, 2, reach, demade ? canvasPalette.demakeInk : BRICK_COLORS.G.light);
+  // Rungs running down the column, offset every other frame: a beam that is
+  // only two tones is a bar, and a beam with something travelling inside it is
+  // a beam.
+  for (let rung = y + (flicker ? 0 : 3); rung < y + reach; rung += 7) {
+    pixel(column - half - 1, rung, beamWidth + 2, 1, demade ? canvasPalette.demakeGround : BRICK_COLORS["1"].light);
+  }
+}
+
+// Bresenham, in whole game pixels: the one line-drawing this file does, and it
+// has to land on the grid the stars do or a constellation's threads would be
+// the only antialiased thing on the field.
+function drawPixelLine(
+  pixel: (x: number, y: number, width: number, height: number, color: string) => void,
+  from: readonly [number, number],
+  to: readonly [number, number],
+  color: string,
+): void {
+  let [x, y] = from;
+  const [endX, endY] = to;
+  const stepX = Math.sign(endX - x);
+  const stepY = Math.sign(endY - y);
+  const spanX = Math.abs(endX - x);
+  const spanY = Math.abs(endY - y);
+  let error = spanX - spanY;
+  for (;;) {
+    pixel(x, y, 1, 1, color);
+    if (x === endX && y === endY) {
+      return;
+    }
+    const doubled = error * 2;
+    if (doubled > -spanY) {
+      error -= spanY;
+      x += stepX;
+    }
+    if (doubled < spanX) {
+      error += spanX;
+      y += stepY;
+    }
+  }
+}
+
+// Four lashes over the brow: where along the half-width each one stands, and how
+// far it reaches out of the curve. Fractions rather than pixels so they sit in
+// the same places on a 42px eye and on a 120px one.
+const EYE_LASHES: ReadonlyArray<readonly [number, number]> = [
+  [-0.86, 3],
+  [-0.58, 4],
+  [0.84, 3],
+  [0.56, 4],
+];
+
+/**
+ * THE WRATH's veins (SHA-175): six hairlines fanning in from the corners of the
+ * sclera.
+ *
+ * `[side, where it starts on the lid, how far it drifts on the way in]`, all in
+ * fractions rather than pixels — an 84 x 30 socket is nearly twice the size of
+ * THE VEIL's, and a vein written in pixels would be a scratch on one and a
+ * stripe on the other.
+ *
+ * **Every vein leans toward the middle, and none of them crosses another.** The
+ * first cut of this table had them leaning both ways for variety, and three
+ * hairlines crossing three more drew a net across the white — which reads as a
+ * cracked lens, not a bloodshot eye. Veins radiate; they converge on the iris
+ * and stop at it. The drifts are small for the same reason: over a 46 px run
+ * these move five pixels, so the fan stays a fan. The two sides are not mirrors
+ * of each other, which is the only irregularity the picture needs.
+ */
+const EYE_VEINS: ReadonlyArray<readonly [number, number, number]> = [
+  [-1, -0.48, 0.18],
+  [-1, 0, 0.06],
+  [-1, 0.44, -0.2],
+  [1, -0.42, 0.15],
+  [1, 0.06, -0.05],
+  [1, 0.5, -0.22],
+];
+
+/**
+ * The veins themselves, walked pixel by pixel and stopped wherever they would
+ * leave the white: inside the almond, outside the iris.
+ *
+ * **Clipped per pixel rather than cut to length**, because the iris moves. A
+ * vein shortened at load would be a vein the eye's own look slides out from
+ * under, and the first time it tracked a ball into the corner the hairlines
+ * would be drawn straight across the pupil. Stopping at the iris also gives the
+ * picture for free: the veins crowd at the corners and clear the middle,
+ * exactly as they do on an eye.
+ *
+ * Drawn after the scan, so they lie on the white; broken two-on-one-off, which
+ * is what keeps a hairline reading as a hairline at this size rather than as a
+ * drawn line.
+ */
+function drawEyeVeins(
+  pixel: (x: number, y: number, width: number, height: number, color: string) => void,
+  socket: { x: number; y: number; hw: number; hh: number },
+  lid: number,
+  iris: { x: number; y: number; radius: number },
+  tone: string,
+): void {
+  const { x: cx, y: cy, hw } = socket;
+  const reach = Math.max(4, Math.round(hw * 0.55));
+  for (const [side, start, drift] of EYE_VEINS) {
+    let y = cy + lid * start;
+    // **The almond's own edge at the row this vein leaves from, not the socket's
+    // widest point.** An eye is a parabola: at two-fifths of the way up the lid
+    // it is already a sixth narrower than `hw`, so a vein hung off `hw` would
+    // start in the field outside the white and be clipped away before its first
+    // pixel. Four of the six start off-centre, and all six were invisible.
+    const from = Math.round(hw * (1 - start * start)) - 2;
+    for (let step = 0; step < reach; step++) {
+      const x = Math.round(cx + side * (from - step));
+      y += (drift / reach) * lid;
+      const py = Math.round(y);
+      const fromCentre = (py - cy) / lid;
+      // The almond's own half-width at this row, pulled in two so a vein never
+      // lands on the outline it is supposed to be under.
+      const half = hw * (1 - fromCentre * fromCentre) - 2;
+      if (Math.abs(x - cx) > half) {
+        break;
+      }
+      const toIrisX = x - iris.x;
+      const toIrisY = py - iris.y;
+      if (toIrisX * toIrisX + toIrisY * toIrisY <= (iris.radius + 1) * (iris.radius + 1)) {
+        break;
+      }
+      // Solid at the corner and breaking up toward the iris, which is the only
+      // taper a one-pixel line has: there is no half pixel to thin it with, so
+      // it thins by being there less of the time.
+      if (step % 4 < Math.max(1, Math.round((1 - step / reach) * 4))) {
+        pixel(x, py, 1, 1, tone);
+      }
+    }
+  }
+}
+
 /**
  * What the capsules holding a ball have done to how it is drawn.
  *
@@ -1471,6 +2567,7 @@ export class CanvasRenderer {
   // UMBRA's 1-bit shadow fill, made on first use and kept: see `halftone`.
   private halftoneFill: CanvasPattern | null = null;
   private readonly background: BackgroundLayer;
+  private readonly iris: IrisLayer;
   private frameCount = 0;
   // Set once per frame from the view, and read by every colour this class
   // paints. A field rather than a parameter because it applies to all of them:
@@ -1490,6 +2587,7 @@ export class CanvasRenderer {
     this.ctx = ctx;
     this.ctx.imageSmoothingEnabled = false;
     this.background = new BackgroundLayer(width, height);
+    this.iris = new IrisLayer(width, height);
   }
 
   /**
@@ -1554,9 +2652,20 @@ export class CanvasRenderer {
     // The level's field art, painted at 1× on a theme change and blitted here
     // with smoothing off — an exact 3× nearest-neighbour upscale, so the
     // background keeps the same chunky game pixels as the sprites.
-    const layer = this.demade
-      ? this.background.monoImageFor(view.background, view.backgroundVariant)
-      : this.background.imageFor(view.background, view.backgroundVariant);
+    // INSIDE THE EYE (SHA-172): while the visit is live the field *is* the
+    // iris, and none of the chamber is drawn — no wall, no eye, no creatures.
+    // One flag read once, here, and the four places below that would otherwise
+    // paint a level the player is not standing in.
+    const chamber = !view.inside.active;
+    // The veil's socket, so the zodiac ring is painted around the eye rather
+    // than around the middle of the field. Undefined on every other level,
+    // which every other theme ignores.
+    const focus = view.observer.level?.eye;
+    const layer = chamber
+      ? this.demade
+        ? this.background.monoImageFor(view.background, view.backgroundVariant, focus)
+        : this.background.imageFor(view.background, view.backgroundVariant, focus)
+      : this.iris.imageFor(view.observer.level?.tint ?? "blue", this.demade);
     this.ctx.drawImage(layer, 0, 0, width * SCALE, height * SCALE);
 
     // SNAP's paper goes straight onto the field art, outside both the turn and
@@ -1587,6 +2696,56 @@ export class CanvasRenderer {
     // drop, a disc, a singularity's core or the ball crossing the band passes
     // over it the way it would pass over the field art. It rides the shake,
     // because it is cast by a wall that is shaking.
+    // THE OBSERVER, first of everything inside the turn and therefore behind
+    // all of it: the eye is set into the room *behind* the wall, and on THE VEIL
+    // the only sight of it is through two gaps in the stone.
+    //
+    // Inside the turn and inside the shake, unlike the field art outside them.
+    // Both are right for the same reason the art is outside: FLIP turns the
+    // arena over and the thing living in it turns with it — THE WRATH's eye is
+    // under the deck, and a flipped field that left it there would be turning
+    // the room around its own tenant — and a wall rattling in front of the eye
+    // while the eye held still would read as two pictures, not one room.
+    if (chamber && view.observer.live) {
+      const socket = view.observer.level?.eye;
+      if (socket) {
+        drawEye(
+          this.ctx,
+          socket,
+          view.observer.open,
+          view.observer.target,
+          view.oculi.gap ? "gold" : (view.observer.level?.tint ?? "blue"),
+          SCALE,
+          this.demade,
+          view.observer.level?.mode === "tear",
+          view.observer.level?.mode === "wrath",
+          view.observer.hollow,
+        );
+      }
+      // With the eye and not with the brood: the diadem is in the sky over the
+      // socket, and a star is no more matter than the eye is.
+      const stars = view.observer.level?.diadem;
+      if (stars) {
+        drawDiadem(this.ctx, stars, view.observer.diadem, this.frameCount, SCALE, this.demade);
+      }
+      // And the gaze over both, because it comes out of the pupil they are
+      // drawn around — but still behind the wall, so a beam crossing a standing
+      // brick passes behind it. The gaze is light, and the wall is stone.
+      drawGaze(
+        this.ctx,
+        view.gaze.phase,
+        view.gaze.source,
+        view.gaze.x,
+        view.gaze.progress,
+        {
+          inner: Math.round((socket?.hh ?? 0) * gameConfig.observer.eye.pupilRadius) + 2,
+          outer: Math.round((socket?.hh ?? 0) * gameConfig.observer.eye.irisRadius),
+        },
+        this.frameCount,
+        SCALE,
+        this.demade,
+      );
+    }
     if (view.shadows.casting) {
       this.drawShadows(view.shadows);
     }
@@ -1604,7 +2763,10 @@ export class CanvasRenderer {
     // what happened.
     const wallY = top - view.quake.dropOffset;
     const beamY = view.xrayBeamY - view.quake.dropOffset;
-    view.grid.forEach((row, rowIndex) => {
+    // The wall is still loaded while the player is inside the eye — the veil is
+    // waiting for them exactly as they left it — so it is skipped here rather
+    // than torn down, which is what makes coming back out free.
+    (chamber ? view.grid : EMPTY_GRID).forEach((row, rowIndex) => {
       row.forEach((cell, columnIndex) => {
         if (cell) {
           const x = left + columnIndex * brickWidth;
@@ -1744,6 +2906,42 @@ export class CanvasRenderer {
         gameConfig.grid.brickHeight - flashPad.y * 2,
         tone,
       );
+    }
+    // THE OCULI, in the band of sky between the frame and the wall. With the
+    // brood and not with the eye: a plaque is something the ball hits, and the
+    // three of them are the only targets in the game that are not bricks and
+    // not on the band.
+    if (chamber && view.oculi.live) {
+      drawOculi(this.ctx, view.oculi.taken, view.oculi.next, this.frameCount, SCALE, this.demade);
+    }
+    // THE BROOD, over the wall and under everything the player is holding.
+    //
+    // In front of the wall and not behind it with the eye, which is the whole
+    // difference between the Observer and its creatures: the eye is set into the
+    // room and watches, while a beast is *out on the band* where the ball is —
+    // it is hit, it reflects, and a wyvern whose wingtip passed behind a brick
+    // would be a thing the player could not aim at.
+    if (chamber) {
+      for (const beast of view.brood) {
+        if (beast.alive) {
+          drawBeast(this.ctx, beast, this.frameCount, SCALE, this.demade);
+        }
+      }
+      // With the brood and over the wall: a tear is out on the field where the
+      // ball is, and one falling behind a brick would be one the player could
+      // not burst.
+      drawTears(this.ctx, view.tears, SCALE, this.demade);
+      // THE LID's loose pupil, last of the chamber and over everything in it
+      // (SHA-176). Over the wall for the brood's reason and then some: it is
+      // thirty pixels across, it is what the ball is being aimed at, and the
+      // bricks it passes are scenery from the moment it is out.
+      if (view.loosePupil) {
+        drawPupil(this.ctx, view.loosePupil, SCALE, this.demade);
+      }
+    } else {
+      // The one thing that is in here with you, and the clock it is on.
+      drawPupil(this.ctx, view.inside, SCALE, this.demade);
+      drawInsideTimer(this.ctx, view.inside.remaining, SCALE, this.demade);
     }
     // Under the balls and inside the shake: a thread is a line between a ball and
     // the rail, and one that ignored QUAKE would point somewhere the deck is not.
@@ -1966,7 +3164,14 @@ export class CanvasRenderer {
 
     // Inside the turn with the field: the frame is closed at the top and open
     // at the bottom, so which edge kills is drawn rather than remembered.
-    this.drawWalls();
+    this.drawWalls(view.oculi.gap);
+    // The door, over the frame it is cut into and painted in the same pass: the
+    // gap is left unpainted above and this fills it with light, so what closes
+    // when the window runs out is the real frame coming back rather than a lid
+    // drawn over a hole.
+    if (view.oculi.gap) {
+      drawEyeGate(this.ctx, view.oculi.gap, view.oculi.remaining, this.frameCount, SCALE, this.demade);
+    }
     // The sun itself, on the frame and therefore over it: a light source is in
     // front of the cabinet's own woodwork, and it is the one thing this capsule
     // draws that is not black. Inside the turn with the frame it is painted on,
@@ -2670,11 +3875,12 @@ export class CanvasRenderer {
       y,
       paddle.width,
       paddle.splitGap,
-      paddle.capsJammed ? { ...PADDLE_BANDS, cap: DROP_COLORS.J } : PADDLE_BANDS,
+      deckBands(paddle.capsJammed, paddle.chainGold, paddle.petrified),
       paddle,
       paddle.glueReach,
       paddle.english,
       paddle.ember,
+      paddle.petrified,
     );
 
     this.drawCannons(paddle, y);
@@ -2838,6 +4044,7 @@ export class CanvasRenderer {
     glueReach = 0,
     english = 0,
     ember = 0,
+    petrified = 0,
   ): void {
     const half = (width - gap) / 2;
     if (gap === 0 || half < 1) {
@@ -2847,6 +4054,21 @@ export class CanvasRenderer {
       this.drawDeckPill(x + width - half, y, half, colors, glueReach, english, ember);
     }
     this.drawDeckSeam(seam, x, y, width, colors);
+    // The cracks, over the whole span and after the seam: a SPLIT deck turned to
+    // stone is one broken thing, not two. Only past halfway through the blend,
+    // so the rock arrives as a colour first and then splits — which is the order
+    // it would happen in.
+    if (petrified > 0.5) {
+      for (const [fraction, crackWidth, crackHeight] of STONE_CRACKS) {
+        this.spritePixel(
+          x + Math.round(width * fraction),
+          y + Math.round((gameConfig.paddle.height - crackHeight) / 2),
+          crackWidth,
+          crackHeight,
+          canvasPalette.stoneCrack,
+        );
+      }
+    }
   }
 
   /**
@@ -4369,13 +5591,30 @@ export class CanvasRenderer {
     }
   }
 
-  private drawWalls(): void {
+  /**
+   * The three bars the field is closed with, and the one place a gap can be cut
+   * in them.
+   *
+   * `gap` is THE OCULI's door (SHA-171): the ceiling is painted as two spans
+   * with nothing between them rather than painted whole and then covered, so
+   * the hole in the frame is genuinely a hole — which is the same decision
+   * PORTAL's mouths make, and for the same reason. A ball is let through
+   * exactly the pixels that are missing.
+   */
+  private drawWalls(gap: { left: number; right: number } | null = null): void {
     const { width, height } = gameConfig.field;
     this.pixel(0, 0, 3, height, canvasPalette.wallLight);
     this.pixel(2, 0, 1, height, canvasPalette.wallShade);
     this.pixel(width - 3, 0, 3, height, canvasPalette.wallLight);
     this.pixel(width - 3, 0, 1, height, canvasPalette.wallShade);
-    this.pixel(0, 0, width, 3, canvasPalette.wallLight);
-    this.pixel(0, 2, width, 1, canvasPalette.wallShade);
+    if (!gap) {
+      this.pixel(0, 0, width, 3, canvasPalette.wallLight);
+      this.pixel(0, 2, width, 1, canvasPalette.wallShade);
+      return;
+    }
+    this.pixel(0, 0, gap.left, 3, canvasPalette.wallLight);
+    this.pixel(0, 2, gap.left, 1, canvasPalette.wallShade);
+    this.pixel(gap.right, 0, width - gap.right, 3, canvasPalette.wallLight);
+    this.pixel(gap.right, 2, width - gap.right, 1, canvasPalette.wallShade);
   }
 }

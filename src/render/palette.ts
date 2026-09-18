@@ -40,6 +40,68 @@ export const canvasPalette = {
   paddleCap: "#e8384f",
   paddleTopSheen: "#a8d8ff",
   paddleBottomShade: "#0b3a78",
+  // CHAIN paying at x4 or better: the deck's top sheen, in gold. The same
+  // yellow the panel's xN turns on the same step, and the same one the cannons
+  // and the shots are painted in — the deck is not wearing a new colour, it is
+  // wearing the one this machine already uses for "this is worth something".
+  chainSheen: "#ffcf1c",
+  /**
+   * THE OBSERVER's eye (SHA-169). Four tones, and only four: the sclera is
+   * `wallLight`, the bronze rim and the gold lash are the gold brick's own dark
+   * and flat, and the red iris is the red brick's three — an eye made of the
+   * colours this machine is already built from, rather than a palette of its
+   * own arriving with it.
+   *
+   * `eyePupil` is the deepest tone on the field, darker than the field itself:
+   * a pupil is a hole, and a hole has to be blacker than what it is cut in.
+   */
+  eyeScleraShade: "#c7d2f5",
+  eyePupil: "#05050f",
+  eyeIrisEdge: "#1d47a8",
+  eyeIrisInner: "#63b0ff",
+  /**
+   * THE LID's emptied socket (SHA-176): the hole the loose pupil left.
+   *
+   * A red so deep it is nearly the field — darker than the red brick's own
+   * shade, which the iris that used to sit here was drawn from — because what
+   * the picture has to say is that the socket is *empty*. A brighter red would
+   * be an eye with a red iris, and the player has spent the last four veils
+   * learning to read exactly that.
+   */
+  eyeSocket: "#3d0009",
+  /**
+   * THE DIADEM's stars (SHA-170). Gold, because this is the one thing on a veil
+   * that is a *reward* — the house keeps yellow for what pays, and six of these
+   * are worth more at a clear than the wall under them.
+   *
+   * Two tones for a lit star and two for a dark one, and the pair is the whole
+   * tell: a star that is only dimmer would read as a star further away, while a
+   * dark one drawn as three grey pixels reads as a socket waiting to be filled.
+   */
+  /**
+   * THE IRIS's gaze has the deck (SHA-173): the pill in stone.
+   *
+   * The body and the sheen are the wall frame's own two greys, so the deck turns
+   * into the same rock the chamber is built out of. The caps are the deck's red
+   * drained of it rather than a new colour — what happened is that the paddle
+   * *stopped being paint* — and the cracks are the darkest blue on the field, so
+   * they read as depth rather than as dirt.
+   */
+  // THE TEAR's tracks (SHA-174): the wet trail down the cheek. Dark enough to
+  // read as a stain on the sclera rather than as a second sprite laid on it,
+  // and the same blue the drop itself is cut from.
+  tearTrack: "#3c50a0",
+  stoneCap: "#5a6486",
+  stoneCrack: "#1b2244",
+  // THE OCULI's plaques (SHA-171): the recess behind the bronze. Darker than the
+  // sky they hang in, so a plaque reads as something set into the wall of the
+  // chamber rather than as a tile lying on the starfield.
+  oculusRecess: "#3b2a0e",
+  diademStar: "#ffcf1c",
+  diademTwinkle: "#ffe14a",
+  diademCore: "#fff9d0",
+  diademDark: "#4a4c60",
+  diademDarkEdge: "#2b2d40",
   laserCannon: "#ffcf1c",
   // A cannon still coming out of the deck. `laserCannon` and `laserShot` are the
   // same yellow, so a muzzle painted in either while it rises is painted in the

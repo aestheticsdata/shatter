@@ -1,3 +1,4 @@
+import { gameConfig } from "@core/config/GameConfig";
 import { canvasPalette } from "@render/palette";
 
 import type { BackgroundId } from "@interfaces/types";
@@ -69,7 +70,186 @@ export const BACKGROUND_COLORS = {
     area: { base: "#0e0e13", mortar: "#17171f", stoneDark: "#0a0a0f", stoneLight: "#131319" },
     speck: { chip: "#22222c" },
   },
+  // THE OBSERVER's field: the classic starfield with a zodiac ring cut into it
+  // around the eye's socket. The two rings are `area` because a 1px circle 172px
+  // across is a line and the class rule counts lines as area; the twelve ticks
+  // are `speck` because each is five pixels of dot, which is what the brighter
+  // tone is allowed to be.
+  observer: {
+    area: { base: "#0b0b26", ringOuter: "#151a38", ringInner: "#1b2244" },
+    speck: { starDim: "#232a52", starMid: "#3a4a86", starBright: "#7f92c8", tick: "#2b3a72" },
+  },
 } as const satisfies Record<BackgroundId, BackgroundColorSet>;
+
+/**
+ * Where a theme is painted *around*, in field pixels.
+ *
+ * One theme reads it — `observer`, whose ring belongs to the eye's socket and
+ * moves veil by veil. Every other painter ignores it, and a caller with no
+ * point to give (the capsule catalogue's scenes) leaves it out.
+ */
+export interface BackgroundFocus {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * INSIDE THE EYE (SHA-172): the field, when the field is the iris.
+ *
+ * Eight bands out from the pupil's orbit centre, fibres spoking across them, a
+ * bronze lash bar along the top and the socket's own dark ring at the edge — a
+ * whole eye seen from the inside, at the size of the playfield. Painted rather
+ * than tinted from a photo of the small one for the reason every sprite in this
+ * codebase is drawn twice at two sizes: the 42px eye's iris is nine rows and
+ * this is two hundred, and nothing that reads at one reads at the other.
+ *
+ * **It has its own demade drawing rather than a threshold.** The colour iris is
+ * a bright field, so the tube's luma rule would turn nearly all of it to ink —
+ * a solid green screen with a hole in it, which loses every band. Inverted
+ * instead, the way the brood is: ground everywhere, and the band edges, the
+ * fibres and the lash in ink. Same eye, one colour.
+ */
+const IRIS_BANDS = [104, 98, 88, 76, 66, 56, 46, 38];
+
+/**
+ * The two interiors, by tint — and they are **dark**, which is the one place
+ * this ticket overruled its own spec.
+ *
+ * The counter-spec and the mockup both paint the inside of the eye on a white
+ * sclera, and at this game's palette that is unplayable: `ballBody` is #ffe14a,
+ * which comes out at **1.03:1** against #dbe4ff. The single most important
+ * sprite in the game would be invisible for the twenty-two seconds the player
+ * most needs to see it, and `check:backgrounds` exists to stop exactly that.
+ *
+ * So the interior is lit the way an eye is actually lit from the inside: the
+ * sclera is not white here, it is backlit tissue, and the iris bands are the
+ * tint at the depth every other theme in this file is painted at. Same drawing,
+ * same eight rings, same fibres — a fifth of the brightness. These tones are
+ * checked by the same guard the themes are; see `check-backgrounds.mjs`.
+ */
+export const IRIS_COLORS = {
+  blue: {
+    area: {
+      base: "#101528",
+      vein: "#1b2244",
+      band0: "#0a1130",
+      band1: "#142255",
+      band2: "#0d1538",
+      band3: "#142255",
+      band4: "#0d1538",
+      band5: "#16234e",
+      band6: "#101a40",
+      band7: "#142255",
+      fibreDim: "#0d1538",
+      fibreLit: "#16234e",
+      limbal: "#070a1c",
+      brow: "#1a1408",
+      browRim: "#2e2410",
+      lash: "#2d240f",
+    },
+    speck: {},
+  },
+  red: {
+    area: {
+      base: "#1a1018",
+      vein: "#33101a",
+      band0: "#2a0009",
+      band1: "#490e1b",
+      band2: "#24060e",
+      band3: "#490e1b",
+      band4: "#24060e",
+      band5: "#49121d",
+      band6: "#330a14",
+      band7: "#490e1b",
+      fibreDim: "#24060e",
+      fibreLit: "#441019",
+      limbal: "#070a1c",
+      brow: "#1a1408",
+      browRim: "#2e2410",
+      lash: "#2d240f",
+    },
+    speck: {},
+  },
+} as const;
+
+export type IrisTint = keyof typeof IRIS_COLORS;
+
+function paintIris(brush: BackgroundBrush, tint: IrisTint, focus: BackgroundFocus, demade: boolean): void {
+  const ink = canvasPalette.demakeInk;
+  const ground = canvasPalette.demakeGround;
+  const { area } = IRIS_COLORS[tint];
+  const bands = [area.band0, area.band1, area.band2, area.band3, area.band4, area.band5, area.band6, area.band7];
+  brush.rect(0, 0, brush.width, brush.height, demade ? ground : area.base);
+  if (!demade) {
+    // The white of an eye is not flat, and neither is the back of one: veins,
+    // short and horizontal, so the sclera reads as tissue rather than as paper.
+    for (let index = 0; index < 40; index += 1) {
+      brush.rect(brush.randomInt(0, brush.width), brush.randomInt(20, 240), brush.randomInt(4, 14), 1, area.vein);
+    }
+  }
+  for (const [index, radius] of IRIS_BANDS.entries()) {
+    if (demade) {
+      ring(brush, focus.x, focus.y, radius, index % 2 === 0 ? ink : ground);
+      continue;
+    }
+    brush.disc(focus.x, focus.y, radius, bands[index]);
+  }
+  // Fibres from the pupil outward, every fourteenth of a turn.
+  for (let index = 0; index < 28; index += 1) {
+    const angle = (index / 28) * Math.PI * 2 + 0.1;
+    const tone = demade ? (index % 2 === 0 ? ink : ground) : index % 2 === 0 ? area.fibreDim : area.fibreLit;
+    for (let radius = 40; radius < 100; radius += 1) {
+      brush.rect(focus.x + Math.cos(angle) * radius, focus.y + Math.sin(angle) * radius, 1, 1, tone);
+    }
+  }
+  for (let radius = 100; radius < 104; radius += 1) {
+    ring(brush, focus.x, focus.y, radius, demade ? ink : area.limbal);
+  }
+  // The brow, across the top: the lid the player is looking out from under.
+  brush.rect(0, 0, brush.width, 18, demade ? ground : area.brow);
+  brush.rect(0, 18, brush.width, 2, demade ? ink : area.browRim);
+  brush.rect(0, 20, brush.width, 1, demade ? ink : area.lash);
+  for (let x = 6; x < brush.width; x += 22) {
+    brush.rect(x, 21, 2, 6, demade ? ink : area.browRim);
+  }
+}
+
+/**
+ * The two irises, painted once each and kept.
+ *
+ * Beside `BackgroundLayer` and not inside it: that one holds *the level on
+ * screen* and repaints when the level changes, and the iris is neither a level
+ * nor a theme — it is one of two pictures that the field is replaced with for
+ * twenty-two seconds. Four canvases in all, and they are painted the first time
+ * a player goes through the door rather than at boot.
+ */
+export class IrisLayer {
+  private readonly cache = new Map<string, HTMLCanvasElement>();
+
+  constructor(
+    private readonly width: number,
+    private readonly height: number,
+  ) {}
+
+  imageFor(tint: IrisTint, demade: boolean): HTMLCanvasElement {
+    const key = `${tint}:${demade ? "mono" : "lit"}`;
+    const held = this.cache.get(key);
+    if (held) {
+      return held;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = this.width;
+    canvas.height = this.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      throw new Error("2D iris context unavailable");
+    }
+    const { centerX, centerY } = gameConfig.observer.inside;
+    paintIris(createBrush(ctx, this.width, this.height, hashSeed(key)), tint, { x: centerX, y: centerY }, demade);
+    this.cache.set(key, canvas);
+    return canvas;
+  }
+}
 
 export interface BackgroundBrush {
   readonly width: number;
@@ -332,7 +512,60 @@ function paintVault(brush: BackgroundBrush): void {
   }
 }
 
-const PAINTERS: Record<BackgroundId, (brush: BackgroundBrush) => void> = {
+/**
+ * A 1px circle, plotted rather than stroked: `ctx.arc` would antialias, and a
+ * half-lit pixel is exactly what the blit at 3x turns into a smear.
+ *
+ * Walked by angle at a step fine enough that no pixel of the circumference is
+ * skipped — one step per pixel of arc — and deduplicated by rounding onto the
+ * grid, which a `fillRect` of the same pixel does for free.
+ */
+function ring(brush: BackgroundBrush, x: number, y: number, radius: number, color: string): void {
+  const steps = Math.ceil(Math.PI * 2 * radius);
+  for (let index = 0; index < steps; index += 1) {
+    const angle = (index / steps) * Math.PI * 2;
+    brush.rect(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius, 1, 1, color);
+  }
+}
+
+// The zodiac ring: two circles and twelve ticks across the band between them.
+const RING_OUTER = 86;
+const RING_INNER = 82;
+const RING_TICKS = 12;
+
+/**
+ * THE OBSERVER's field: a starfield with a zodiac ring around the eye's socket.
+ *
+ * The ring is here and not on the eye because it has to be there **before** the
+ * eye is — on THE VEIL the wall covers the socket and only two gaps show any of
+ * it, so a player who has not yet broken through still sees that this level's
+ * field is built around a point. It is the one thing in this file painted at a
+ * position the caller chooses, which is why `focus` exists.
+ *
+ * A veil's socket can sit near an edge (THE TEAR's is in the top-left corner)
+ * and the ring simply runs off the field there; clipping it to fit would move
+ * the centre, and the centre is the whole statement.
+ */
+function paintObserver(brush: BackgroundBrush, focus: BackgroundFocus): void {
+  const { area, speck } = BACKGROUND_COLORS.observer;
+  const tones = [speck.starDim, speck.starMid, speck.starBright];
+  for (let index = 0; index < STAR_COUNT; index += 1) {
+    scatter(brush, 1, tones[index % tones.length]);
+  }
+  ring(brush, focus.x, focus.y, RING_OUTER, area.ringOuter);
+  ring(brush, focus.x, focus.y, RING_INNER, area.ringInner);
+  // The ticks are drawn across the whole band rather than as dots on one
+  // circle, so the two rings read as a dial with divisions rather than as two
+  // unrelated circles that happen to be concentric.
+  for (let index = 0; index < RING_TICKS; index += 1) {
+    const angle = (index / RING_TICKS) * Math.PI * 2;
+    for (let radius = RING_INNER; radius <= RING_OUTER; radius += 1) {
+      brush.rect(focus.x + Math.cos(angle) * radius, focus.y + Math.sin(angle) * radius, 1, 1, speck.tick);
+    }
+  }
+}
+
+const PAINTERS: Record<BackgroundId, (brush: BackgroundBrush, focus: BackgroundFocus) => void> = {
   starfield: paintStarfield,
   nebula: paintNebula,
   grid: paintGrid,
@@ -341,6 +574,7 @@ const PAINTERS: Record<BackgroundId, (brush: BackgroundBrush) => void> = {
   circuit: paintCircuit,
   cathode: paintCathode,
   vault: paintVault,
+  observer: paintObserver,
 };
 
 export function paintBackground(
@@ -349,10 +583,13 @@ export function paintBackground(
   variant: number,
   width: number,
   height: number,
+  focus?: BackgroundFocus,
 ): void {
   const brush = createBrush(ctx, width, height, hashSeed(`${id}:${variant}`));
   brush.rect(0, 0, width, height, BACKGROUND_COLORS[id].area.base);
-  PAINTERS[id](brush);
+  // The field's middle when the caller has nothing to say, which is every theme
+  // but one and every caller but the two that know which level they are on.
+  PAINTERS[id](brush, focus ?? { x: Math.round(width / 2), y: Math.round(height / 2) });
 }
 
 /**
@@ -405,10 +642,14 @@ export class BackgroundLayer {
     this.monoCtx = monoCtx;
   }
 
-  imageFor(id: BackgroundId, variant: number): HTMLCanvasElement {
+  // `focus` is not part of the key and must not be: it is a function of the
+  // level, the variant already is the level, and a key carrying a point would
+  // repaint the field every time a veil's socket was nudged in the source
+  // without ever being able to be wrong about it.
+  imageFor(id: BackgroundId, variant: number, focus?: BackgroundFocus): HTMLCanvasElement {
     const key = `${id}:${variant}`;
     if (this.painted !== key) {
-      paintBackground(this.ctx, id, variant, this.width, this.height);
+      paintBackground(this.ctx, id, variant, this.width, this.height, focus);
       this.painted = key;
     }
     return this.canvas;
@@ -417,12 +658,12 @@ export class BackgroundLayer {
   // The same field, thresholded to the tube's two tones. Reduced from the
   // colour layer rather than repainted through a 1-bit brush, so a theme is
   // authored once and its demade twin can never drift from it.
-  monoImageFor(id: BackgroundId, variant: number): HTMLCanvasElement {
+  monoImageFor(id: BackgroundId, variant: number, focus?: BackgroundFocus): HTMLCanvasElement {
     const key = `${id}:${variant}`;
     if (this.monoPainted === key) {
       return this.monoCanvas;
     }
-    this.monoCtx.drawImage(this.imageFor(id, variant), 0, 0);
+    this.monoCtx.drawImage(this.imageFor(id, variant, focus), 0, 0);
     const image = this.monoCtx.getImageData(0, 0, this.width, this.height);
     const { data } = image;
     const ink = toRgb(canvasPalette.demakeInk);

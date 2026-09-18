@@ -11,6 +11,7 @@
   },
   "ignorePatterns": [
     "dist/**",
+    "handoff-eye-shatter/**",
     "node_modules/**",
     ".pnpm-store/**",
     "e2e/demo/chapters.ts",

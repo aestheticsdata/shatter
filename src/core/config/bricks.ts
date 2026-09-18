@@ -58,6 +58,19 @@ export interface BrickDefinition {
   // gold spent its first two years dying in three hits while showing two.
   wear: readonly string[];
   grain?: BrickGrain;
+  // THE LID's kind mark (SHA-176): a line of rivets across the brick's middle,
+  // in its own `dark`. Absent on every other row, exactly like `grain` — and it
+  // carries its DEMAKE tell for free, because every brick's `dark` is a
+  // `DEMAKE_GROUND_TONES` member: on the tube the rivets are ground holes
+  // punched in an ink slab, which is granite's pits doing the same job.
+  rivets?: true;
+  // **`false` on the one brick that never holds one**, and absent everywhere
+  // else, which is the whole of the rule — the shape `ObserverDefinition.oculi`
+  // already uses for "a veil either has the plaques or it is the one that does
+  // not". `BrickGrid.load` skips the roll for these cells rather than rolling
+  // and discarding: the odds are per brick, and a cell that cannot pay is not a
+  // brick the bag was asked about.
+  capsules?: false;
 }
 
 // One row per brick, and it must stay one row: the points/hit-points ladder and
@@ -105,6 +118,18 @@ export const BRICKS = [
   // colour, and it clears 4.26:1 against the brightest playfield tone — room
   // over the 3:1 floor every brick body has to hold.
   { id: "F", points: 0, hitPoints: 1, laserDamage: 1, light: "#8ad152", flat: "#4a9e22", dark: "#1d4a0c", wear: [] },
+  // THE LID (SHA-176), and **the only armour in the game that is not the
+  // chamber's** — it is the Observer's own, which is why it is the one brick
+  // that never pays a capsule. A wall of these hands the player nothing; the
+  // ten silver bricks of its rim are the level's whole supply, which is what
+  // makes the rim worth breaking on a level whose middle is the objective.
+  //
+  // Bronze rather than gold: it shares gold's `light` and `dark` and takes a
+  // duller, greener body between them, so the two read as the same metal at
+  // different ages — the coins in the wall and the plate over the eye. Two hits
+  // and 250 points is silver's toughness at granite's price, which is what a
+  // brick you are made to break fifty of should be.
+  { id: "L", points: 250, hitPoints: 2, laserDamage: 1, light: "#ffe9a0", flat: "#c9a24a", dark: "#7a5a08", wear: [], rivets: true, capsules: false },
 ] as const satisfies readonly BrickDefinition[];
 
 export type BrickKind = (typeof BRICKS)[number]["id"];

@@ -18,6 +18,16 @@ export interface DevConsoleHost {
   // has no room for the whole line, in which case nothing was spawned.
   dropCapsules(kinds: readonly PowerUpKind[]): boolean;
   jumpToLevel(levelNumber: number): void;
+  // THE OBSERVER's levels, numbered among themselves rather than by where they
+  // sit in the roster. `false` when there is no such veil.
+  jumpToVeil(veilNumber: number): boolean;
+  // THE OCULI's door, opened now. `false` off a veil, or on the one that has no
+  // plaques to open it with.
+  openEye(): boolean;
+  // THE LID's seal, broken now. `false` anywhere but that veil, and on it once
+  // the Observer is already awake — twenty-four hits is a long way to test, and
+  // getting to the start of them should not be ten bricks of digging every time.
+  wakeObserver(): boolean;
   setBonusSpread(amount: number): void;
   // Pins what GAMBLE's reel lands on, or `null` to hand it back to chance.
   setGamblePin(kind: PowerUpKind | null): void;
@@ -50,6 +60,12 @@ const TYPABLE = /^[a-z0-9 .]$/i;
 const EXAMPLES: readonly (readonly [string, string])[] = [
   ["POWER <CAPSULE>", "DROP THAT CAPSULE · CATCH IT YOURSELF"],
   ["LEVEL <N>", "JUMP TO THAT LEVEL"],
+  // Short enough to stay on one line beside the others: the legend's whole
+  // shape is one command to a row, and a hint that wrapped would push every
+  // line under it down. `THE EYE'S LEVELS` says what `THE OBSERVER'S LEVELS`
+  // said in five characters less.
+  ["VEIL <N>", "JUMP TO THAT VEIL · THE EYE'S LEVELS"],
+  ["OPEN", "OPEN THE EYE · TAKES THE THREE OCULI"],
   ["BONUS <0-1>", "CHANCE A BRICK DROPS ONE · 1 = ALWAYS"],
   ["GAMBLE <CAPSULE>", "PIN WHAT GAMBLE PAYS · BARE = UNPIN"],
 ];
@@ -205,6 +221,12 @@ export class DevConsole {
         return this.dropCapsules(operands);
       case "level":
         return this.jumpToLevel(operands);
+      case "veil":
+        return this.jumpToVeil(operands);
+      case "open":
+        return this.host.openEye() ? null : "NO EYE TO OPEN";
+      case "wake":
+        return this.host.wakeObserver() ? null : "NOTHING TO WAKE";
       case "bonus":
         return this.setBonusSpread(operands);
       case "gamble":
@@ -256,6 +278,25 @@ export class DevConsole {
     }
     this.host.jumpToLevel(levelNumber);
     return null;
+  }
+
+  /**
+   * `veil 1` — the first of the Observer's levels, whatever number the roster
+   * gives it.
+   *
+   * Counted among the veils and not among the levels, which is the whole point:
+   * the five move as the roster grows and nobody should have to look up where
+   * they are this week. The upper bound is not written here either — the host
+   * answers `false` for a veil that does not exist, and the error says how many
+   * there are rather than asserting a number this file would have to be edited
+   * to keep true.
+   */
+  private jumpToVeil(operands: string[]): string | null {
+    const veilNumber = Number(operands[0]);
+    if (operands.length !== 1 || !Number.isInteger(veilNumber) || veilNumber < 1) {
+      return "VEILS START AT 1";
+    }
+    return this.host.jumpToVeil(veilNumber) ? null : "NO SUCH VEIL";
   }
 
   // `bonus 1` — the run's bonusSpreadAmount, the chance a destroyed brick drops

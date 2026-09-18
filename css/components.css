@@ -44,8 +44,12 @@
    Only the properties those tokens resolve into, and deliberately not
    `opacity` or `background-position`: PAYDAY's blink and the title coppers
    animate those, and a transition on either would fight an animation already
-   running. Nothing else in the stage changes a colour, so this can stand
-   declared rather than being switched on for the fade. */
+   running.
+
+   One element in the stage changes a colour for a reason that is not DEMAKE:
+   CHAIN's xN walking its ramp. It takes the same properties at its own duration
+   rather than opting out — see `#insetChain`. Everything else is still still,
+   so this can stand declared rather than being switched on for the fade. */
 #stage,
 #stage *,
 #panel::before,
@@ -250,10 +254,73 @@
   }
 }
 
+/* CHAIN (SHA-168): links standing, and what they pay.
+
+   **The one readout in this panel with no label over it**, and the only one that
+   could go without: every other inset holds a bare number and needs a word above
+   it to say what the number is, while this one prints its own unit. The panel is
+   300px tall and the column below POWER holds a divider, three hint rows and the
+   revision stamp — a sixth label is exactly the 10px that would not fit, and the
+   word HITS is the label.
+
+   Laid out like #insetLevel: the small half left, the big number right. The hit
+   count is the thing the player checks and the multiplier is the thing they
+   feel, so the multiplier gets the 12px. */
+#insetChain {
+  top: 209px;
+  justify-content: space-between;
+  padding: 0 5px;
+
+  /* The ramp, per step, as a variable rather than as eight colour rules: DEMAKE
+     greens the panel by overriding tokens on #stage, so a tone reached through
+     one is demade for free while an inline style set from the Panel could not
+     be reached at all. */
+  --chain-tone: var(--color-dim-text);
+
+  &[data-mult="2"] {
+    --chain-tone: var(--color-sky);
+  }
+
+  &[data-mult="3"] {
+    --chain-tone: var(--color-green);
+  }
+
+  /* Gold, on the same step `observer.chain.goldFrom` turns the deck's sheen: the
+     readout and the field say the same thing at the same moment, so a player
+     watching the ball never has to look away to learn the chain is paying. */
+  &[data-mult="4"],
+  &[data-mult="5"] {
+    --chain-tone: var(--color-yellow);
+  }
+
+  &[data-mult="6"],
+  &[data-mult="7"] {
+    --chain-tone: var(--color-orange);
+  }
+
+  &[data-mult="8"] {
+    --chain-tone: var(--color-red);
+  }
+
+  & #panelChainHits {
+    font: 400 7px var(--font-pixel);
+    color: var(--color-grey-text);
+  }
+
+  & #panelChainMult {
+    font: 400 12px var(--font-pixel);
+    color: var(--chain-tone);
+    /* Out of the stage's half-second colour ease and onto the chain's own — see
+       `--chain-step-fade`. This is the one element in #stage whose colour moves
+       for a reason that is not DEMAKE. */
+    transition-duration: var(--chain-step-fade);
+  }
+}
+
 .panel-divider {
   position: absolute;
   left: 8px;
-  top: 212px;
+  top: 236px;
   width: 92px;
   height: 1px;
   background: var(--color-panel-divider);
@@ -269,15 +336,27 @@
   }
 }
 
+/* Three rows where there were four, and the width stated rather than left to the
+   fader to decide: PAUSE and QUIT now share a line, which is what paid for the
+   CHAIN inset above. `P · PAUSE` and `ESC · QUIT` measure 40.25px and 42px at
+   7px Silkscreen, so the pair fits the 92px column with 9.75px between them —
+   measured, because Silkscreen is proportional and counting characters is how
+   this goes wrong. */
 #panelHints {
   position: absolute;
   left: 8px;
-  top: 226px;
+  top: 243px;
+  width: 92px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
   font: 400 7px var(--font-pixel);
   color: var(--color-panel-label);
+}
+
+.panel-hint-row {
+  display: flex;
+  justify-content: space-between;
 }
 
 /* The one mouse target in the panel: restore the cursor (body hides it) and give
@@ -328,12 +407,50 @@
   }
 }
 
-#panelRev {
+/* The foot of the panel: THE DIADEM's six pips on the left, the revision stamp
+   on the right, sharing the one line there is room for.
+
+   Sharing is not a nicety. The column below POWER holds a divider, three hint
+   rows and this, and SHA-168 spent the last of it getting REV out of
+   `ESC · QUIT`'s line box — at 284 the two were printed over each other in the
+   shipped panel. So the diadem takes no new height at all: `REV 2.0` measures
+   27.75px at 6px Silkscreen, which leaves 64 of the column's 92 for six pips
+   and their gaps. */
+#panelFoot {
   position: absolute;
   left: 8px;
-  top: 284px;
+  top: 288px;
+  width: 92px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#panelRev {
   font: 400 6px var(--font-pixel);
   color: var(--color-panel-divider);
+}
+
+#panelDiadem {
+  display: flex;
+  gap: 3px;
+}
+
+/* A pip is a square, and a lit one is a *filled* square against an outlined
+   one — a size and a fill before it is a colour, so DEMAKE's flattening leaves
+   the count readable. The field's stars twinkle; these do not. A row of six
+   blinking pips in the corner of the panel would pull the eye off the ball for
+   something that changes three times a level. */
+.panel-star {
+  width: 5px;
+  height: 5px;
+  box-sizing: border-box;
+  border: 1px solid var(--color-panel-divider);
+}
+
+.panel-star.lit {
+  background: var(--color-yellow);
+  border-color: var(--color-yellow);
 }
 
 /* ---------- shared animation ---------- */
@@ -367,6 +484,44 @@
 }
 
 /* ---------- playfield overlays ---------- */
+
+/* THE OBSERVER (SHA-169): the veil's name and its hint, over the serve prompt.
+
+   Bronze and still, against the prompt's sky blue and its blink: two blinking
+   lines would be a fairground, and of the two the one that has to be read is
+   the one that is about to disappear. 16px above the prompt, which is the gap
+   the pause card uses between its own heading and hint. */
+#serveVeil {
+  position: absolute;
+  left: 3px;
+  top: 199px;
+  width: 366px;
+  text-align: center;
+  font: 400 8px var(--font-pixel);
+  color: var(--color-yellow);
+  letter-spacing: 1px;
+}
+
+/* THE OCULI's call to action (SHA-171), and whatever asks for the ball after
+   it. Mid-field, over the band the brood walks and well clear of both the wall
+   and the deck, so it never sits on top of the thing it is telling you to aim
+   at. It blinks, because unlike the veil's own line this one is a window
+   closing. */
+#fieldNotice {
+  position: absolute;
+  left: 3px;
+  top: 150px;
+  width: 366px;
+  text-align: center;
+  font: 400 9px var(--font-pixel);
+  color: var(--color-yellow);
+  letter-spacing: 1px;
+
+  /* Clear of the pupil's orbit, and clear of the deck below it. */
+  &.at-foot {
+    top: 254px;
+  }
+}
 
 #screenServe {
   position: absolute;
@@ -428,10 +583,39 @@
   text-shadow: 3px 3px 0 var(--color-green-shadow);
 }
 
+/* THE LID's card says THE OBSERVER IS BLIND on this line (SHA-176), which is
+   twenty-one characters where every other level's name is at most ten — at 22px
+   it is 953 px wide in a 755 px card, and it wrapped into two lines that
+   overprinted each other.
+
+   **Characters are the right unit here and nowhere else in this file.** The
+   house rule is that text is measured in pixels because Silkscreen is
+   proportional; the display font is not — measured in a real browser, Press
+   Start 2P's advance is exactly the font size, 1 em a glyph and no kerning, so
+   a character count on this one element *is* a width. That is what lets
+   `Screens` decide this from a length.
+
+   The card is 366 px inside. At 22 px that holds sixteen characters (352) and
+   not seventeen (374), which is `CLEAR_NAME_CHARS`. 16 px is the largest size
+   that still fits the longest line the game can put here: twenty-one
+   characters at 336 px, with room for twenty-two before it would wrap. */
+#screenClear.clear--long-name #clearLevelName {
+  font-size: 16px;
+}
+
 .clear-divider {
   width: 210px;
   height: 1px;
   background: var(--color-blue);
+}
+
+/* THE DIADEM's count, over the bonus it is already inside. Smaller and in the
+   stars' own gold, so the card reads as one number with its working shown
+   above it rather than as two prizes. */
+#clearDiadem {
+  font: 400 9px var(--font-pixel);
+  color: var(--color-yellow);
+  letter-spacing: 1px;
 }
 
 #clearBonus {
@@ -465,6 +649,14 @@
   color: var(--color-white);
 }
 
+/* The run's other number, under the score and quieter than it: what the player
+   did, beside what they scored. Its own line and not a suffix, because the two
+   are counted in different things. */
+#overChain {
+  font: 400 9px var(--font-pixel);
+  color: var(--color-grey-text);
+}
+
 /* ---------- full-stage screens ---------- */
 
 .stage-screen {
@@ -488,7 +680,7 @@
   left: 0;
   top: 48px;
   width: 100%;
-  height: 66px;
+  height: 54px;
   background: repeating-linear-gradient(
     180deg,
     #0b0b26 0 2px,
@@ -520,10 +712,32 @@
   text-shadow: 4px 4px 0 var(--color-red);
 }
 
+/* THE OBSERVER, under the wordmark (SHA-177). The loop has an antagonist and
+   the title screen names it — the one line on this screen that is about the
+   game rather than about playing it.
+
+   It stands below the copper band and not on it. The band was 66 px and is 54,
+   which still leaves eight clear pixels under SHATTER's 35 px — the wordmark is
+   only legible up there because it is bigger than the stripe, and nine pixels
+   of Silkscreen over a two-pixel pattern that is scrolling is a line the eye
+   cannot hold still. In the wordmark's own red rather than the mockup's yellow:
+   the top score below is already yellow here, and the red is the colour SHATTER
+   casts its shadow in and the colour the eye is tinted in on all five veils. */
+#titleSubline {
+  position: absolute;
+  left: 0;
+  top: 108px;
+  width: 100%;
+  text-align: center;
+  font: 400 9px var(--font-pixel);
+  color: var(--color-red);
+  letter-spacing: 5px;
+}
+
 #titleTagline {
   position: absolute;
   left: 0;
-  top: 124px;
+  top: 128px;
   width: 100%;
   text-align: center;
   font: 400 8px var(--font-pixel);
@@ -534,7 +748,7 @@
 .title-divider {
   position: absolute;
   left: 140px;
-  top: 145px;
+  top: 150px;
   width: 200px;
   height: 1px;
   background: var(--color-title-divider);

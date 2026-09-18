@@ -1,4 +1,4 @@
-import { zeroPad } from "@shared/format";
+import { SCORE_DIGITS, zeroPad } from "@shared/format";
 
 import type { PanelView } from "@interfaces/types";
 
@@ -9,10 +9,21 @@ export interface PanelElements {
   stage: HTMLElement;
   score: HTMLElement;
   hiScore: HTMLElement;
+  // LEVEL, or VEIL on one of the Observer's five.
+  levelLabel: HTMLElement;
   levelNumber: HTMLElement;
   levelName: HTMLElement;
   lives: HTMLElement;
   power: HTMLElement;
+  // Three handles for one readout: the two spans print, and the inset carries
+  // the step as a data attribute so the ramp lives in the stylesheet. A colour
+  // set from here would be an inline style, and DEMAKE greens the panel by
+  // overriding tokens — an inline colour is the one thing it could not reach.
+  chainInset: HTMLElement;
+  chainHits: HTMLElement;
+  chainMultiplier: HTMLElement;
+  // THE DIADEM's row of pips, beside the revision stamp at the foot.
+  diadem: HTMLElement;
   soundHint: HTMLElement;
   volume: HTMLInputElement;
   volumeRow: HTMLElement;
@@ -43,16 +54,19 @@ export class Panel {
     const last = this.last;
 
     if (last?.score !== view.score) {
-      this.elements.score.textContent = zeroPad(view.score, 6);
+      this.elements.score.textContent = zeroPad(view.score, SCORE_DIGITS);
     }
     if (last?.hiScore !== view.hiScore) {
-      this.elements.hiScore.textContent = zeroPad(view.hiScore, 6);
+      this.elements.hiScore.textContent = zeroPad(view.hiScore, SCORE_DIGITS);
     }
     if (last?.levelNumber !== view.levelNumber) {
       this.elements.levelNumber.textContent = zeroPad(view.levelNumber, 2);
     }
     if (last?.levelName !== view.levelName) {
       this.elements.levelName.textContent = view.levelName;
+    }
+    if (last?.levelLabel !== view.levelLabel) {
+      this.elements.levelLabel.textContent = view.levelLabel;
     }
     if (last?.reserveLives !== view.reserveLives) {
       // The bar is new because a 1UP was caught, not because the number went up:
@@ -68,6 +82,19 @@ export class Panel {
     if (last?.powerLabel !== view.powerLabel) {
       this.elements.power.textContent = view.powerLabel;
     }
+    if (last?.chainHits !== view.chainHits) {
+      // Padded to two and never truncated: a rally past 99 prints three digits
+      // and still fits the column, which is the right way round — the readout
+      // is allowed to grow, and a chain that rolled over at 100 would be a lie.
+      this.elements.chainHits.textContent = `${zeroPad(view.chainHits, 2)} HITS`;
+    }
+    if (last?.chainMultiplier !== view.chainMultiplier) {
+      this.elements.chainMultiplier.textContent = `x${view.chainMultiplier}`;
+      this.elements.chainInset.dataset.mult = String(view.chainMultiplier);
+    }
+    if (last?.diademLit !== view.diademLit || last?.diademStars !== view.diademStars) {
+      this.renderDiadem(view.diademLit, view.diademStars);
+    }
     if (last?.demakeActive !== view.demakeActive) {
       this.elements.stage.classList.toggle("demake", view.demakeActive);
     }
@@ -79,6 +106,31 @@ export class Panel {
     }
 
     this.last = { ...view };
+  }
+
+  /**
+   * The diadem's pips: `stars` of them, the first `lit` of them filled.
+   *
+   * Diffed like the life rack rather than rebuilt, for the same reason — but
+   * with none of its animation. A star lighting is already announced on the
+   * field, loudly, by the beast coming apart and the constellation closing up;
+   * a second flourish in the corner of the panel would be the same event told
+   * twice, and the panel's job here is only to keep the count where the player
+   * can find it between rallies.
+   */
+  private renderDiadem(lit: number, stars: number): void {
+    const row = this.elements.diadem;
+    while (row.childElementCount > stars) {
+      row.lastElementChild?.remove();
+    }
+    while (row.childElementCount < stars) {
+      const pip = document.createElement("div");
+      pip.className = "panel-star";
+      row.append(pip);
+    }
+    for (const [index, pip] of [...row.children].entries()) {
+      pip.classList.toggle("lit", index < lit);
+    }
   }
 
   /**

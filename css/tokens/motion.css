@@ -9,4 +9,12 @@
   /* DEMAKE's dissolve. Must match `gameConfig.effects.demakeFadeTicks`
      (30 ticks at 60 Hz), or the panel and the field come apart mid-fade. */
   --demake-fade: 0.5s;
+  /* CHAIN's xN moving up the ramp. Short because it is a *step*: the count moves
+     every three hits, and a PIERCE ball down a column can take four inside a
+     third of a second — at the half-second every other colour in the stage
+     eases over, a good rally's tone would still be in transit when the next step
+     replaced it, and the cap's red would never be reached at all. Short rather
+     than instant so it is still a fade at both ends, and so DEMAKE's sag reaches
+     these two glyphs like everything else. */
+  --chain-step-fade: 0.12s;
 }
