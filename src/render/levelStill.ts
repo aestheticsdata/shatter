@@ -1,6 +1,8 @@
 import { gameConfig } from "@core/config/GameConfig";
 import { BrickGrid } from "@entities/bricks/BrickGrid";
-import { paintBackground } from "@render/backgrounds";
+import { cellSocket, cellWindow } from "@entities/effects/Observer";
+import { EYE_LAYER, EYE_TINT } from "@interfaces/eye";
+import { paintBackground, paintForeground } from "@render/backgrounds";
 import { drawBrick, drawEye } from "@render/CanvasRenderer";
 
 import type { LevelDefinition } from "@interfaces/types";
@@ -32,6 +34,40 @@ export function paintLevelStill(ctx: CanvasRenderingContext2D, level: LevelDefin
   if (socket && level.observer) {
     drawEye(ctx, socket, 1, { x: socket.x, y: socket.y }, level.observer.tint, 1);
   }
+  // An ordinary level's eye, at rest (SHA-188): behind the wall it goes down
+  // here, under the bricks; in front, after them. Same window and the same
+  // alpha the arena gives it — a still of SUNRISE without its sun half under
+  // the horizon would be a picture of another level.
+  const eye = level.eye;
+  // A brick-hosted eye rests in its first brick, seen through the brick's face.
+  const host = eye?.cells?.[0];
+  const placed = eye && {
+    socket: host ? cellSocket(host, eye.hw, eye.hh) : { x: eye.x, y: eye.y, hw: eye.hw, hh: eye.hh },
+    clip: host ? cellWindow(host) : eye.clip,
+    layer: host ? EYE_LAYER.FRONT : (eye.layer ?? EYE_LAYER.BEHIND),
+    opacity: eye.opacity ?? 1,
+    tint: EYE_TINT.BLUE,
+  };
+  const drawPlaced = (): void => {
+    if (!placed) {
+      return;
+    }
+    ctx.save();
+    if (placed.clip) {
+      ctx.beginPath();
+      ctx.rect(placed.clip.x, placed.clip.y, placed.clip.w, placed.clip.h);
+      ctx.clip();
+    }
+    ctx.globalAlpha = placed.opacity;
+    drawEye(ctx, placed.socket, 1, { x: placed.socket.x, y: placed.socket.y }, placed.tint, 1);
+    ctx.restore();
+  };
+  if (placed?.layer === EYE_LAYER.BEHIND) {
+    drawPlaced();
+  }
+  // What the theme stands in front of the eye — the horizon's ground and
+  // dunes — over it and under the wall, exactly as the arena layers them.
+  paintForeground(ctx, level.background, variant, width, height);
 
   // A wall built for this one paint. The grid is the only place that knows how
   // an ASCII row becomes bricks, and nothing can fall out of a still, so every
@@ -47,4 +83,7 @@ export function paintLevelStill(ctx: CanvasRenderingContext2D, level: LevelDefin
       }
     });
   });
+  if (placed?.layer === EYE_LAYER.FRONT) {
+    drawPlaced();
+  }
 }

@@ -2,10 +2,12 @@ import { BRICK_BY_ID, BRICK_RAMPS, BRICK_STRAIN_RAMPS } from "@core/config/brick
 import { gameConfig, peelFlightTicks } from "@core/config/GameConfig";
 import { MALUS_KINDS, POWER_UP_GLYPHS } from "@core/config/powerUps";
 import { type Ball, paceGhost } from "@entities/ball/Ball";
+import { SPECIES } from "@entities/creatures/species";
 import { eyePupilPoint } from "@entities/effects/Observer";
 import { OCULUS_HEIGHT, OCULUS_POSITIONS, OCULUS_WIDTH } from "@entities/effects/Oculi";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
 import { DROP_HEIGHT } from "@entities/powerups/DropPool";
+import { EYE_LAYER } from "@interfaces/eye";
 import { BACKGROUND_COLORS, BackgroundLayer, IrisLayer } from "@render/backgrounds";
 import { type BallRow, ballGlints, ballRows } from "@render/ballSprite";
 import { BROOD_BITMAPS, BROOD_FRAMES, BROOD_OUTLINE, broodPalette } from "@render/broodSprite";
@@ -20,6 +22,7 @@ import {
 
 import type { BrickGrain } from "@core/config/bricks";
 import type { WallErosion, WallSheet } from "@entities/bricks/BrickGrid";
+import type { Creature } from "@entities/creatures/Creature";
 import type { Beast } from "@entities/effects/Brood";
 import type { Critter } from "@entities/effects/Critter";
 import type { Decoherence } from "@entities/effects/Decoherence";
@@ -41,6 +44,7 @@ import type { Tunnelling } from "@entities/effects/Tunnelling";
 import type { Uncertainty } from "@entities/effects/Uncertainty";
 import type { Shot } from "@entities/laser/ShotPool";
 import type { Drop } from "@entities/powerups/DropPool";
+import type { EyeLayer } from "@interfaces/eye";
 import type {
   BackgroundId,
   BrickCell,
@@ -623,6 +627,8 @@ export interface RenderView {
   // drawn at opposite ends of the frame: the eye is behind the wall and its
   // creatures walk in front of it.
   brood: readonly Beast[];
+  // THE BESTIARY (SHA-207): the ordinary levels' creatures, drawn with the brood.
+  creatures: readonly Creature[];
   // THE TEAR's drops, falling. Beside the brood rather than inside it, because
   // a tear is not one of them yet — becoming one is the whole event.
   tears: readonly { x: number; y: number }[];
@@ -1801,6 +1807,34 @@ function drawBitmap(
 }
 
 /**
+ * One of THE BESTIARY's creatures (SHA-207), at whatever scale it is asked for.
+ *
+ * `drawBeast`'s runner and its flash, with the species handing over the
+ * frames, the palettes and the outline character — and, first, whatever it
+ * draws beside itself: a spider's thread goes down before the spider.
+ */
+export function drawCreature(
+  ctx: CanvasRenderingContext2D,
+  creature: Creature,
+  frameCount: number,
+  scale: number,
+  demade = false,
+): void {
+  const species = SPECIES[creature.kind];
+  const pixel = spriteBrush(ctx, scale, false);
+  const rows = species.frames[Math.floor(frameCount / species.frameTicks) % species.frames.length];
+  const palette = demade ? species.demade : species.palette;
+  const x = Math.round(creature.x);
+  const y = Math.round(creature.y);
+  const flash = creature.flashTicks / gameConfig.creatures.flashTicks;
+  const white = demade ? canvasPalette.demakeInk : canvasPalette.deathFlash;
+  species.decorate?.(pixel, creature, frameCount, demade);
+  drawBitmap(pixel, rows, palette, x, y, (character) =>
+    flash > 0.5 || (flash > 0 && character === species.outline) ? white : null,
+  );
+}
+
+/**
  * THE TEAR's drops (SHA-174), falling down the corridor.
  *
  * The same five-pixel sprite the whole way down, with no wobble and no trail:
@@ -2706,22 +2740,21 @@ export class CanvasRenderer {
     // under the deck, and a flipped field that left it there would be turning
     // the room around its own tenant — and a wall rattling in front of the eye
     // while the eye held still would read as two pictures, not one room.
-    if (chamber && view.observer.live) {
-      const socket = view.observer.level?.eye;
-      if (socket) {
-        drawEye(
-          this.ctx,
-          socket,
-          view.observer.open,
-          view.observer.target,
-          view.oculi.gap ? "gold" : (view.observer.level?.tint ?? "blue"),
-          SCALE,
-          this.demade,
-          view.observer.level?.mode === "tear",
-          view.observer.level?.mode === "wrath",
-          view.observer.hollow,
-        );
+    if (chamber) {
+      this.drawObserverEye(view, EYE_LAYER.BEHIND);
+      // The theme's foreground (SHA-188): what stands in front of the room's
+      // tenant — the horizon's ground and dunes — over the eye and under the
+      // wall, so a sun on that level sets behind the hills. Inside the turn and
+      // the shake with the eye it occludes, for the same reason the eye is.
+      const front = this.demade
+        ? this.background.monoFrontImageFor(view.background, view.backgroundVariant)
+        : this.background.frontImageFor(view.background, view.backgroundVariant);
+      if (front) {
+        this.ctx.drawImage(front, 0, 0, width * SCALE, height * SCALE);
       }
+    }
+    if (chamber && view.observer.live) {
+      const socket = view.observer.socket;
       // With the eye and not with the brood: the diadem is in the sky over the
       // socket, and a star is no more matter than the eye is.
       const stars = view.observer.level?.diadem;
@@ -2907,6 +2940,11 @@ export class CanvasRenderer {
         tone,
       );
     }
+    // THE 43 (SHA-188): an eye placed over the wall, drawn after it and before
+    // the brood. Still not matter — the ball passes over it as it does behind.
+    if (chamber) {
+      this.drawObserverEye(view, EYE_LAYER.FRONT);
+    }
     // THE OCULI, in the band of sky between the frame and the wall. With the
     // brood and not with the eye: a plaque is something the ball hits, and the
     // three of them are the only targets in the game that are not bricks and
@@ -2925,6 +2963,11 @@ export class CanvasRenderer {
       for (const beast of view.brood) {
         if (beast.alive) {
           drawBeast(this.ctx, beast, this.frameCount, SCALE, this.demade);
+        }
+      }
+      for (const creature of view.creatures) {
+        if (creature.alive) {
+          drawCreature(this.ctx, creature, this.frameCount, SCALE, this.demade);
         }
       }
       // With the brood and over the wall: a tear is out on the field where the
@@ -3574,6 +3617,115 @@ export class CanvasRenderer {
       this.halftoneFill = pattern;
     }
     return this.halftoneFill;
+  }
+
+  // THE 43's eye sheet (SHA-188): the almond is painted whole on it and cut to
+  // a halftone before it goes down, when DEMAKE has no alpha to fade it through.
+  private eyeSheetCanvas: HTMLCanvasElement | null = null;
+  private readonly halftoneMasks = new Map<1 | 2, CanvasPattern>();
+
+  /**
+   * THE OBSERVER's eye on this level, on the layer asked for (SHA-188).
+   *
+   * One call for both sides of the wall: a veil's eye is behind it and an
+   * ordinary level's is wherever its placement says. Under 1 opacity the
+   * almond goes through a veil of the field — the canvas's own alpha in colour,
+   * and in DEMAKE a halftone cut out of it, because a 1-bit tube has no half
+   * tones to fade through and a grey eye on it would be the one thing on
+   * screen that is not the machine's. `clip` is a window: what is outside it
+   * is simply not drawn, which is how a sun sits under a horizon.
+   */
+  private drawObserverEye(view: RenderView, layer: EyeLayer): void {
+    const eye = view.observer;
+    const socket = eye.socket;
+    if (!socket || eye.layer !== layer) {
+      return;
+    }
+    const paint = (ctx: CanvasRenderingContext2D): void => {
+      drawEye(
+        ctx,
+        socket,
+        eye.open,
+        eye.target,
+        view.oculi.gap ? "gold" : eye.tint,
+        SCALE,
+        this.demade,
+        eye.level?.mode === "tear",
+        eye.level?.mode === "wrath",
+        eye.hollow,
+      );
+    };
+    this.ctx.save();
+    const clip = eye.clip;
+    if (clip) {
+      this.ctx.beginPath();
+      this.ctx.rect(clip.x * SCALE, clip.y * SCALE, clip.w * SCALE, clip.h * SCALE);
+      this.ctx.clip();
+    }
+    const { opacity } = eye;
+    if (opacity >= 1) {
+      paint(this.ctx);
+    } else if (!this.demade) {
+      this.ctx.globalAlpha = opacity;
+      paint(this.ctx);
+    } else {
+      // One dot in four under a third, two in four above it: 20 % and 50 % are
+      // two different textures on the tube rather than two greys it cannot show.
+      const sheet = this.eyeSheet();
+      const sheetCtx = sheet.getContext("2d");
+      if (!sheetCtx) {
+        throw new Error("2D eye sheet context unavailable");
+      }
+      sheetCtx.setTransform(1, 0, 0, 1, 0, 0);
+      sheetCtx.globalCompositeOperation = "source-over";
+      sheetCtx.clearRect(0, 0, sheet.width, sheet.height);
+      paint(sheetCtx);
+      sheetCtx.globalCompositeOperation = "destination-in";
+      sheetCtx.fillStyle = this.halftoneMask(opacity < 0.34 ? 1 : 2);
+      sheetCtx.fillRect(0, 0, sheet.width, sheet.height);
+      this.ctx.drawImage(sheet, 0, 0);
+    }
+    this.ctx.restore();
+  }
+
+  private eyeSheet(): HTMLCanvasElement {
+    if (this.eyeSheetCanvas === null) {
+      const canvas = document.createElement("canvas");
+      canvas.width = gameConfig.field.width * SCALE;
+      canvas.height = gameConfig.field.height * SCALE;
+      this.eyeSheetCanvas = canvas;
+    }
+    return this.eyeSheetCanvas;
+  }
+
+  /**
+   * A two-by-two game-pixel tile with `keep` of its four cells opaque. Filled
+   * through `destination-in` it keeps that many of the sheet's pixels and
+   * drops the rest — a halftone, in the tube's own grain.
+   */
+  private halftoneMask(keep: 1 | 2): CanvasPattern {
+    const cached = this.halftoneMasks.get(keep);
+    if (cached) {
+      return cached;
+    }
+    const tile = document.createElement("canvas");
+    tile.width = 2 * SCALE;
+    tile.height = 2 * SCALE;
+    const ctx = tile.getContext("2d");
+    if (!ctx) {
+      throw new Error("2D halftone mask context unavailable");
+    }
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, SCALE, SCALE);
+    if (keep === 2) {
+      ctx.fillRect(SCALE, SCALE, SCALE, SCALE);
+    }
+    const pattern = this.mainCtx.createPattern(tile, "repeat");
+    if (!pattern) {
+      throw new Error("halftone mask unavailable");
+    }
+    this.halftoneMasks.set(keep, pattern);
+    return pattern;
   }
 
   /**

@@ -17,6 +17,9 @@ export interface DevConsoleHost {
   // Makes these capsules fall, rather than granting them: `false` when the pool
   // has no room for the whole line, in which case nothing was spawned.
   dropCapsules(kinds: readonly PowerUpKind[]): boolean;
+  // THE BESTIARY: one creature of this species, born over the deck. `false`
+  // for a name that is not a species.
+  dropCreature(name: string): boolean;
   jumpToLevel(levelNumber: number): void;
   // THE OBSERVER's levels, numbered among themselves rather than by where they
   // sit in the roster. `false` when there is no such veil.
@@ -219,6 +222,8 @@ export class DevConsole {
     switch (command) {
       case "power":
         return this.dropCapsules(operands);
+      case "creature":
+        return this.dropCreature(operands);
       case "level":
         return this.jumpToLevel(operands);
       case "veil":
@@ -271,6 +276,15 @@ export class DevConsole {
 
   // `level 12`, 1-based. Unbounded above: runs loop past the last level, and
   // level 30 is the honest way to see level 2 at its wrapped ball speed.
+  /** `creature moth` — one of the bestiary, over the deck, to look at. */
+  private dropCreature(operands: string[]): string | null {
+    const name = operands[0]?.toLowerCase() ?? "";
+    if (operands.length !== 1 || name === "") {
+      return "CREATURE WHICH";
+    }
+    return this.host.dropCreature(name) ? null : `NO SUCH CREATURE ${name.toUpperCase()}`;
+  }
+
   private jumpToLevel(operands: string[]): string | null {
     const levelNumber = Number(operands[0]);
     if (operands.length !== 1 || !Number.isInteger(levelNumber) || levelNumber < 1) {

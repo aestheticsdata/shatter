@@ -1821,6 +1821,94 @@ export const gameConfig = {
       popTicks: 26,
     },
   },
+  /**
+   * THE BESTIARY (SHA-207): the creatures on ordinary levels — every level's
+   * own, from level 1. The brood on the veils keeps its own block above.
+   */
+  creatures: {
+    // Ticks of white a struck creature wears: the brood's flinch. No hit lands
+    // while it is on, which is what keeps a ball passing through a moth from
+    // striking it every tick of the crossing.
+    flashTicks: 8,
+    moth: {
+      hitPoints: 1,
+      points: 100,
+      // On the hit that kills — with the capsule it was carrying.
+      killPoints: 300,
+      // The loop round the eye: half-axes, and how far round it goes a tick.
+      orbitX: 64,
+      orbitY: 28,
+      turn: 0.028,
+      // The wobble on the loop — a moth never flies a clean circle.
+      wobble: 4,
+      wobbleRate: 0.19,
+    },
+    frog: {
+      hitPoints: 2,
+      points: 120,
+      // The air kill's worth: a frog hit mid-leap dies at once, for this on top.
+      killPoints: 300,
+      // How near the ball has to come, in pixels from the frog's centre, to
+      // make it jump — and the leap: how long, how high, and how long it sits
+      // before it will jump again.
+      range: 70,
+      leapTicks: 30,
+      leapHeight: 26,
+      restTicks: 40,
+    },
+    snail: {
+      hitPoints: 3,
+      points: 80,
+      killPoints: 400,
+      // Pixels a tick along the skyline, and pixels a tick up or down it: the
+      // crawl is slow, the step down onto a lower brick is not, or it would
+      // trail the wall's edge by four columns on its first descent.
+      speed: 0.25,
+      climb: 1,
+    },
+    spider: {
+      hitPoints: 1,
+      points: 150,
+      killPoints: 350,
+      // The drop and the climb, in pixels a tick; how far either side of its
+      // column a ball has to pass to set it off; and how long it hangs before
+      // it will drop again.
+      dropSpeed: 2.2,
+      climbSpeed: 1.1,
+      triggerHalfWidth: 24,
+      restTicks: 60,
+      // How far above the deck a drop stops, whatever the ball's height was:
+      // the spider blocks the ball, it never lands on the paddle.
+      deckClearance: 30,
+    },
+    /**
+     * THE SPIDER QUEEN (SHA-209), the boss at the end of level 5. Ten hits;
+     * every one pays a brick's worth twice over, and the kill pays the level.
+     */
+    spiderQueen: {
+      hitPoints: 10,
+      points: 200,
+      killPoints: 2000,
+      // Where she hangs, and how she comes down to it from above the ceiling.
+      hangY: 22,
+      enterSpeed: 1,
+      // The stalk along the top toward the deck, in pixels a tick, and how
+      // close to over it she has to be before she drops.
+      stalkSpeed: 0.6,
+      aimWidth: 10,
+      dropSpeed: 3,
+      climbSpeed: 1.4,
+      // Ticks she hangs between drops: the whole of the player's window.
+      restTicks: 90,
+    },
+  },
+  /**
+   * THE BOSSES (SHA-209): the fight at the end of every fifth level. What a
+   * boss is worth on the clear card, on top of the ordinary bonus.
+   */
+  bosses: {
+    clearBonus: 5000,
+  },
   effects: {
     // Must hold a full-field NUKE: FINALE's 72 bricks x 10 chunks with 30-45
     // tick lifetimes peak above 512, which recycled the earliest bursts mid-air.

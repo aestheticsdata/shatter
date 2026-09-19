@@ -1,5 +1,7 @@
 import type { BrickKind } from "@core/config/bricks";
 import type { PowerUpKind } from "@core/config/powerUps";
+import type { CreaturePin } from "@interfaces/creatures";
+import type { EyeLayer } from "@interfaces/eye";
 
 export interface Vector2D {
   x: number;
@@ -309,13 +311,61 @@ export interface ObserverDefinition {
   oculi?: false;
 }
 
+/** A window of the field, in field pixels. */
+export interface FieldRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * THE 43 (SHA-188): the Observer's posture on an ordinary level.
+ *
+ * One eye — the almond of SHA-169, unchanged — and what differs from level to
+ * level is only where it is, how big, on which side of the wall, how visible,
+ * and how much of it the field lets you see. A veil has its own block
+ * (`ObserverDefinition`) and none of this; a level with neither has no eye.
+ */
+export interface EyePlacement {
+  // The socket: centre, half-width, half-height, in field pixels.
+  x: number;
+  y: number;
+  hw: number;
+  hh: number;
+  // Which side of the wall. `EYE_LAYER.BEHIND` is the veils' room: the wall
+  // is drawn over it and it shows through the gaps. `EYE_LAYER.FRONT` is over
+  // the wall, out where the ball is — and still not matter. Absent means behind.
+  layer?: EyeLayer;
+  // 1 is solid, which is what absent means. Under it the eye is drawn through
+  // the field — a translucent almond in colour, a halftone one in DEMAKE.
+  opacity?: number;
+  // Only this window of the field shows it: the sun under the horizon, the
+  // pilot through the porthole. Absent means the whole field.
+  clip?: FieldRect;
+  // No tint here on purpose: a placed eye is always the blue one. Red is a
+  // veil's state (THE WRATH, THE LID), not a colour a level may pick.
+  // THE BRICK EYE: the bricks it lives in, [column, row], in the order it moves
+  // through them. It sits inside the first one still standing — drawn over the
+  // brick and masked by the brick's face, a face pressed to a pane — and when
+  // that brick dies it blinks and opens in the next. While it holds a brick,
+  // `layer` and `clip` are the brick's; `x`, `y` and the rest are where it is
+  // left once none of them stands.
+  cells?: readonly (readonly [number, number])[];
+}
+
 export interface LevelDefinition {
   name: string;
   background: BackgroundId;
   rows: readonly string[];
-  // Present on the five veils and absent everywhere else; a level without it is
-  // a level exactly as it was.
+  // The five veils' block, and absent on the other thirty-eight — which carry
+  // the same eye in `eye` instead, at rest or acting. A level with neither has
+  // no eye.
   observer?: ObserverDefinition;
+  eye?: EyePlacement;
+  // THE BESTIARY (SHA-207): this level's creatures, species and pins. From
+  // level 1, and each level's own — the veils keep their brood beside these.
+  creatures?: readonly CreaturePin[];
   // Empty on all but three: SUPER MAZE, whose two LASERs are the only way
   // through a wall of 4-hit granite in anything under a very long while;
   // HOURGLASS, whose TEMPO and STASIS on the spine are the ticket's promise

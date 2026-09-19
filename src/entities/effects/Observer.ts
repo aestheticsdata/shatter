@@ -1,6 +1,8 @@
 import { gameConfig } from "@core/config/GameConfig";
+import { EYE_LAYER, EYE_TINT } from "@interfaces/eye";
 
-import type { ObserverDefinition } from "@interfaces/types";
+import type { EyeLayer, EyeTint } from "@interfaces/eye";
+import type { EyePlacement, FieldRect, ObserverDefinition } from "@interfaces/types";
 
 /** A socket: where the almond is, and how big. */
 export interface EyeSocket {
@@ -44,6 +46,36 @@ export function eyePupilPoint(
 }
 
 /**
+ * What a placed eye reads off the level each tick (SHA-188). The game builds
+ * it; the eye never touches the grid.
+ */
+export interface EyeSight {
+  standing(column: number, row: number): boolean;
+}
+
+/** A brick-hosted eye's socket: centred on its cell, at the placement's size. */
+export function cellSocket(cell: readonly [number, number], hw: number, hh: number): EyeSocket {
+  const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+  return {
+    x: left + cell[0] * brickWidth + brickWidth / 2,
+    y: top + cell[1] * brickHeight + brickHeight / 2,
+    hw,
+    hh,
+  };
+}
+
+/** The pane a brick-hosted eye is seen through: the brick's face inside its bevel. */
+export function cellWindow(cell: readonly [number, number]): FieldRect {
+  const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+  return {
+    x: left + cell[0] * brickWidth + 1,
+    y: top + cell[1] * brickHeight + 1,
+    w: brickWidth - 2,
+    h: brickHeight - 2,
+  };
+}
+
+/**
  * THE OBSERVER (SHA-167): the eye behind the wall, on the five veils.
  *
  * **It is not matter.** Nothing collides with it, nothing bounces off it, and
@@ -54,11 +86,26 @@ export function eyePupilPoint(
  * is one creature with a state, and the renderer reads it the way it reads the
  * wear off `Erosion` or the fog off `Decoherence`.
  *
- * Absent on the other thirty-eight levels. `live` is false and every reader is
- * expected to ask.
+ * On the other thirty-eight levels it is the same eye at rest or acting, from
+ * the level's `eye` placement (SHA-188): a socket, a side of the wall, an
+ * opacity, a clip window. `live` is false only on a level with neither block,
+ * and every reader is expected to ask.
  */
 export class Observer {
   private definition: ObserverDefinition | null = null;
+  /**
+   * THE 43 (SHA-188): the posture on an ordinary level. Null on a veil, whose
+   * block has its own socket, and on a level with no eye at all.
+   */
+  private placement: EyePlacement | null = null;
+  /**
+   * THE BRICK EYE's host: which of the placement's bricks it is in, whether it
+   * still holds one, and the one it is about to blink into — `-1` for none,
+   * which leaves it in the last hole.
+   */
+  private cellIndex = 0;
+  private cellHeld = false;
+  private pendingCell: number | null = null;
   /** Ticks left of the current blink, 0 while the eye is open. */
   private blinkLeft = 0;
   /** Ticks until the next one starts. */
@@ -88,11 +135,54 @@ export class Observer {
   private empty = false;
 
   get live(): boolean {
-    return this.definition !== null;
+    return this.definition !== null || this.placement !== null;
   }
 
   get level(): ObserverDefinition | null {
     return this.definition;
+  }
+
+  /**
+   * The socket this frame — a veil's, or the placement's — and null when
+   * there is no eye. Every reader of "where is the eye" comes through here:
+   * the renderer, the still, the look, the gaze's source.
+   */
+  get socket(): EyeSocket | null {
+    if (this.definition) {
+      return this.definition.eye;
+    }
+    const placed = this.placement;
+    if (!placed) {
+      return null;
+    }
+    const cell = this.hostCell;
+    return cell ? cellSocket(cell, placed.hw, placed.hh) : { x: placed.x, y: placed.y, hw: placed.hw, hh: placed.hh };
+  }
+
+  /** In front of the wall while it is in a brick — it is drawn on the brick's face. */
+  get layer(): EyeLayer {
+    return this.hostCell ? EYE_LAYER.FRONT : (this.placement?.layer ?? EYE_LAYER.BEHIND);
+  }
+
+  get opacity(): number {
+    return this.placement?.opacity ?? 1;
+  }
+
+  /** The brick's face while it is in one; otherwise whatever window the level gave it. */
+  get clip(): FieldRect | null {
+    const cell = this.hostCell;
+    return cell ? cellWindow(cell) : (this.placement?.clip ?? null);
+  }
+
+  /** The brick the eye is in right now, or null when it is not in one. */
+  private get hostCell(): readonly [number, number] | null {
+    const cells = this.placement?.cells;
+    return cells && this.cellHeld ? (cells[this.cellIndex] ?? null) : null;
+  }
+
+  /** A veil's tint; a placed eye is always blue. */
+  get tint(): EyeTint {
+    return this.definition?.tint ?? EYE_TINT.BLUE;
   }
 
   /**
@@ -158,20 +248,26 @@ export class Observer {
 
   /** Where the pupil is this frame — what THE IRIS's gaze fires out of. */
   get pupil(): { x: number; y: number } {
-    const socket = this.definition?.eye;
+    const socket = this.socket;
     return socket ? eyePupilPoint(socket, this.open, this.target) : { x: 0, y: 0 };
   }
 
   /**
-   * The veil's own block, or nothing on an ordinary level.
+   * The veil's own block, or the level's placement, or nothing.
    *
    * The look starts on the socket rather than anywhere else, so the first frame
    * of a veil is an eye looking straight out — the glide below carries it to
    * the deck over the next few ticks, which is a level opening by noticing the
    * player rather than by snapping to them.
    */
-  load(definition: ObserverDefinition | undefined): void {
+  load(definition: ObserverDefinition | undefined, placement: EyePlacement | undefined): void {
     this.definition = definition ?? null;
+    // A veil's socket wins outright: the two blocks are never both written on
+    // a level, and if one ever were the veil is the one with a mode to run.
+    this.placement = definition ? null : (placement ?? null);
+    this.cellIndex = 0;
+    this.cellHeld = (this.placement?.cells?.length ?? 0) > 0;
+    this.pendingCell = null;
     this.empty = false;
     this.blinkLeft = 0;
     this.nextBlink = this.drawNextBlink();
@@ -179,12 +275,13 @@ export class Observer {
     for (const _star of definition?.diadem ?? []) {
       this.stars.push(false);
     }
-    this.lookX = definition?.eye.x ?? 0;
-    this.lookY = definition?.eye.y ?? 0;
+    const socket = this.socket;
+    this.lookX = socket?.x ?? 0;
+    this.lookY = socket?.y ?? 0;
   }
 
   reset(): void {
-    this.load(undefined);
+    this.load(undefined, undefined);
   }
 
   /**
@@ -202,8 +299,8 @@ export class Observer {
    * the field and which one is nearest flips several times a second, and an iris
    * cutting between them would twitch. Eased, a switch is a glance.
    */
-  step(at: { x: number; y: number } | null): boolean {
-    if (!this.definition) {
+  step(at: { x: number; y: number } | null, sight: EyeSight): boolean {
+    if (!this.live) {
       return false;
     }
     const { blinkTicks } = gameConfig.observer.eye;
@@ -211,12 +308,22 @@ export class Observer {
     // THE LID does not blink, shut or woken: the clock is skipped rather than
     // having its result thrown away by `open`, so an eye that is later opened
     // by something else cannot come up mid-blink from a lid nobody watched.
-    if (this.definition.mode === "lid") {
+    if (this.definition?.mode === "lid") {
       this.lookAt(at);
       return false;
     }
+    this.stepHost(sight);
     if (this.blinkLeft > 0) {
       this.blinkLeft -= 1;
+      // A hop lands at the bottom of the blink: shut here, open there.
+      if (this.pendingCell !== null && this.blinkLeft === Math.floor(blinkTicks / 2)) {
+        if (this.pendingCell >= 0) {
+          this.cellIndex = this.pendingCell;
+        } else {
+          this.cellHeld = false;
+        }
+        this.pendingCell = null;
+      }
     } else if (--this.nextBlink <= 0) {
       this.blinkLeft = blinkTicks;
       this.nextBlink = this.drawNextBlink();
@@ -226,9 +333,38 @@ export class Observer {
     return blinked;
   }
 
+  /**
+   * THE BRICK EYE's move. Losing its brick does not teleport it: the lid comes
+   * down here and goes up there, so the hop is a blink and reads as one —
+   * there is no frame in which the eye is nowhere, or in two places. The next
+   * brick is the next one standing in the level's order, round again; with
+   * none left it is released into the last hole on the same blink.
+   */
+  private stepHost(sight: EyeSight): void {
+    const cells = this.placement?.cells;
+    const cell = this.hostCell;
+    if (!cells || !cell || this.pendingCell !== null || sight.standing(cell[0], cell[1])) {
+      return;
+    }
+    let next = -1;
+    for (let ahead = 1; ahead < cells.length; ahead += 1) {
+      const index = (this.cellIndex + ahead) % cells.length;
+      const candidate = cells[index];
+      if (sight.standing(candidate[0], candidate[1])) {
+        next = index;
+        break;
+      }
+    }
+    this.pendingCell = next;
+    if (this.blinkLeft <= 0) {
+      this.blinkLeft = gameConfig.observer.eye.blinkTicks;
+      this.nextBlink = this.drawNextBlink();
+    }
+  }
+
   private lookAt(at: { x: number; y: number } | null): void {
     const { trackEase } = gameConfig.observer.eye;
-    const to = at ?? this.definition?.eye ?? { x: this.lookX, y: this.lookY };
+    const to = at ?? this.socket ?? { x: this.lookX, y: this.lookY };
     this.lookX += (to.x - this.lookX) * trackEase;
     this.lookY += (to.y - this.lookY) * trackEase;
   }

@@ -142,6 +142,10 @@ Path aliases (`@core`, `@entities`, `@render`, `@ui`, `@input`, `@audio`,
 
     Observer     the eye itself: socket, blink, tracking, mode, diadem
     Brood        the three forms walking the band, and what a strike does
+  creatures/     THE BESTIARY (SHA-207): the ordinary levels' creatures
+    Creature     the contracts — Creature, Species, CreatureSight, CreatureEffects
+    Creatures    load / step / at / strike, shaped like Brood, species-blind
+    species/     one module per species (moth, …) and the registry `SPECIES`
     Oculi        the three plaques, their order, and the door
     Inside       the room behind the door, and the pupil orbiting in it
     Gaze         THE IRIS's beam, and the stone it leaves on the deck
@@ -612,8 +616,17 @@ which SUPER MAZE uses to hand out the two LASERs that make a wall of granite
 passable — but the rows themselves stay pure layout. A level may also carry an
 `observer` block, which is what makes it a **veil**: a socket, a `mode`, a hint,
 the brood's starting places and the diadem's six points. Five of the forty-three
-have one; the mode is the whole difference between them, and the thirty-eight
-without one never construct an eye at all. Add an entry and the level exists, is
+have one; the mode is the whole difference between them. The thirty-eight
+without one carry an `eye` block instead (`EyePlacement`, SHA-188): the same
+almond's socket, plus which side of the wall (`EYE_LAYER`, in
+`src/interfaces/eye.ts`), an opacity and a clip window — or `cells`,
+the bricks it lives in, one at a time, masked by the brick's face and blinking
+to the next when its own dies — the Observer at rest on that level, drawn by
+the arena and by the gallery still alike. A
+theme may paint a **foreground** over it (`paintForeground` in
+`backgrounds.ts`; only `horizon`'s ground and dunes so far), which is how
+SUNRISE's sun sets behind the hills. A level with neither block has no eye.
+Add an entry and the level exists, is
 playable, and appears in the LEVELS gallery — the gallery renders the roster, it
 does not have a list of its own.
 
@@ -748,17 +761,18 @@ shrinking the field list without pretending the rules are separable.
 
 ## Where to add things
 
-| You want to add    | Edit                                                                                                                  | And that is it                                                                 |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| A level            | one entry in [`levels.ts`](../src/core/levels/levels.ts)                                                              | plays, and appears in the LEVELS gallery                                       |
-| A veil             | an `observer` block on that entry + a `mode` branch in `ShatterGame`                                                  | eye, brood, diadem, hint, panel row and clear card all follow the block        |
-| A brood form       | one entry in `observer.brood.forms` ([`GameConfig.ts`](../src/core/config/GameConfig.ts)) + a case in `broodSprite`   | the ladder lengthens; the last form is still the one that dies and pays a star |
-| A brick            | one row in [`bricks.ts`](../src/core/config/bricks.ts)                                                                | union type, points, hit points, damage ramp and debris tones all derive        |
-| A capsule          | one row in [`powerUps.ts`](../src/core/config/powerUps.ts) + its rule in `ShatterGame` + its tell in `CanvasRenderer` | union type, glyph, tickets, timer, palette entry and catalogue page all derive |
-| A combo            | one pair in [`combos.ts`](../src/core/config/combos.ts)                                                               | both halves must be timed capsules                                             |
-| A background theme | a generator in [`backgrounds.ts`](../src/render/backgrounds.ts)                                                       | must pass `pnpm run check:backgrounds`                                         |
-| A sound            | one recipe in [`SoundBank.ts`](../src/audio/SoundBank.ts)                                                             | no file, no import                                                             |
-| A tunable          | one field in [`GameConfig.ts`](../src/core/config/GameConfig.ts)                                                      | one plain knob, no debug/shipped split                                         |
+| You want to add    | Edit                                                                                                                                                                             | And that is it                                                                                                    |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| A level            | one entry in [`levels.ts`](../src/core/levels/levels.ts)                                                                                                                         | plays, and appears in the LEVELS gallery                                                                          |
+| A veil             | an `observer` block on that entry + a `mode` branch in `ShatterGame`                                                                                                             | eye, brood, diadem, hint, panel row and clear card all follow the block                                           |
+| A brood form       | one entry in `observer.brood.forms` ([`GameConfig.ts`](../src/core/config/GameConfig.ts)) + a case in `broodSprite`                                                              | the ladder lengthens; the last form is still the one that dies and pays a star                                    |
+| A creature species | a name in `CREATURE` (`src/interfaces/creatures.ts`) + a module under `src/entities/creatures/species/` registered in `SPECIES` + its knobs under `creatures` in `GameConfig.ts` | the ball, the laser, the renderer and the console all know it; a level pins it with `creatures: [{ kind, x, y }]` |
+| A brick            | one row in [`bricks.ts`](../src/core/config/bricks.ts)                                                                                                                           | union type, points, hit points, damage ramp and debris tones all derive                                           |
+| A capsule          | one row in [`powerUps.ts`](../src/core/config/powerUps.ts) + its rule in `ShatterGame` + its tell in `CanvasRenderer`                                                            | union type, glyph, tickets, timer, palette entry and catalogue page all derive                                    |
+| A combo            | one pair in [`combos.ts`](../src/core/config/combos.ts)                                                                                                                          | both halves must be timed capsules                                                                                |
+| A background theme | a generator in [`backgrounds.ts`](../src/render/backgrounds.ts)                                                                                                                  | must pass `pnpm run check:backgrounds`                                                                            |
+| A sound            | one recipe in [`SoundBank.ts`](../src/audio/SoundBank.ts)                                                                                                                        | no file, no import                                                                                                |
+| A tunable          | one field in [`GameConfig.ts`](../src/core/config/GameConfig.ts)                                                                                                                 | one plain knob, no debug/shipped split                                                                            |
 
 ## Keeping this honest
 
@@ -771,6 +785,10 @@ grep -c 'name:' src/core/levels/levels.ts           # level count
 grep -c '^  {' src/core/config/bricks.ts            # brick count
 grep -c '^  {' src/core/config/powerUps.ts          # capsule count
 grep -c 'observer: {' src/core/levels/levels.ts     # veil count
+grep -c '^    eye: {' src/core/levels/levels.ts     # placed eyes (the other levels)
+grep -c 'kind: CREATURE' src/core/levels/levels.ts  # creature pins
+ls src/entities/creatures/species | grep -vc index  # species built (bosses included)
+grep -c ': CREATURE' src/core/levels/bosses.ts       # boss fights placed (levels.ts: isBossLevel)
 grep -c 'case "' src/core/DevConsole.ts             # console words
 pnpm run check:backgrounds                          # prints "N levels, N themes"
 ```

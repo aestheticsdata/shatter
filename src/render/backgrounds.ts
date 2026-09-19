@@ -399,17 +399,39 @@ function paintGrid(brush: BackgroundBrush): void {
   }
 }
 
+// The horizon sits below the deepest brick row (y 134) and above the paddle
+// lane, so neither the grid nor the paddle is ever read against a band edge.
+// Fixed at 180 rather than rolled ±12 per variant (SHA-188): SUNRISE sits the
+// Observer on this line, and the ground that hides its lower half has to be
+// where the level data thinks it is.
+function horizonLine(brush: BackgroundBrush): number {
+  return Math.round(brush.height * 0.6);
+}
+
 function paintHorizon(brush: BackgroundBrush): void {
   const { area, speck } = BACKGROUND_COLORS.horizon;
-  // The horizon sits below the deepest brick row (y 134) and above the paddle
-  // lane, so neither the grid nor the paddle is ever read against a band edge.
-  const horizon = Math.round(brush.height * 0.6) + brush.randomInt(-12, 13);
+  const horizon = horizonLine(brush);
   const bands = [area.sky1, area.sky2, area.sky3, area.glow];
   const bandHeight = 10;
   scatter(brush, 18, speck.star, 6, horizon - bands.length * bandHeight - 10);
   bands.forEach((color, index) => {
     brush.rect(0, horizon - (bands.length - index) * bandHeight, brush.width, bandHeight, color);
   });
+  // The ground is painted here too, so the sky is a whole picture on its own;
+  // what stands *in front of* the eye is the foreground's, below.
+  brush.rect(0, horizon, brush.width, brush.height - horizon, area.ground);
+}
+
+/**
+ * The horizon's foreground (SHA-188): the ground and the dunes, painted over
+ * the Observer rather than under it, so a sun on this level sets *behind* the
+ * hills. The one theme with a foreground so far; a sun cut off by a straight
+ * line while a dune passed behind it read as a rendering fault, which is what
+ * this layer exists to prevent.
+ */
+function paintHorizonGround(brush: BackgroundBrush): void {
+  const { area } = BACKGROUND_COLORS.horizon;
+  const horizon = horizonLine(brush);
   brush.rect(0, horizon, brush.width, brush.height - horizon, area.ground);
   // Only the cap above the horizon line is painted, off a circle far too big to
   // read as one: a wide shallow hill, not a ball sitting on the ground.
@@ -592,6 +614,33 @@ export function paintBackground(
   PAINTERS[id](brush, focus ?? { x: Math.round(width / 2), y: Math.round(height / 2) });
 }
 
+// What a theme paints *over* the room's tenant (SHA-188): drawn after the
+// Observer's eye and before the wall. Most themes have nothing in front.
+const FOREGROUNDS: Partial<Record<BackgroundId, (brush: BackgroundBrush) => void>> = {
+  horizon: paintHorizonGround,
+};
+
+/**
+ * Paints the theme's foreground onto `ctx` as it is — no base, nothing cleared
+ * — and says whether the theme has one. Seeded apart from the background, so
+ * the two layers roll their own dice and neither moves when the other is
+ * retouched.
+ */
+export function paintForeground(
+  ctx: CanvasRenderingContext2D,
+  id: BackgroundId,
+  variant: number,
+  width: number,
+  height: number,
+): boolean {
+  const painter = FOREGROUNDS[id];
+  if (!painter) {
+    return false;
+  }
+  painter(createBrush(ctx, width, height, hashSeed(`${id}:${variant}:front`)));
+  return true;
+}
+
 /**
  * The luma at or above which a theme pixel is ink under DEMAKE, out of 255.
  *
@@ -609,6 +658,27 @@ function toRgb(hex: string): readonly [number, number, number] {
   return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff];
 }
 
+/**
+ * The tube's reduction, in place: every painted pixel becomes ink or ground by
+ * its luma. Transparent pixels are left transparent, which is what lets the
+ * same pass serve the foreground — a sheet with holes in it — as well as the
+ * field.
+ */
+function reduceToMono(data: Uint8ClampedArray): void {
+  const ink = toRgb(canvasPalette.demakeInk);
+  const ground = toRgb(canvasPalette.demakeGround);
+  for (let index = 0; index < data.length; index += 4) {
+    if (data[index + 3] === 0) {
+      continue;
+    }
+    const luma = 0.2126 * data[index] + 0.7152 * data[index + 1] + 0.0722 * data[index + 2];
+    const tone = luma >= MONO_LUMA_THRESHOLD ? ink : ground;
+    data[index] = tone[0];
+    data[index + 1] = tone[1];
+    data[index + 2] = tone[2];
+  }
+}
+
 // Holds the painted field for the level on screen. Levels change rarely, so one
 // canvas repainted on change beats caching every theme (each layer is a full
 // field bitmap).
@@ -624,22 +694,66 @@ export class BackgroundLayer {
   private readonly monoCanvas = document.createElement("canvas");
   private readonly monoCtx: CanvasRenderingContext2D;
   private monoPainted: string | null = null;
+  // The foreground (SHA-188): a transparent sheet with the theme's front in it,
+  // and its own demade twin. Both keyed like the field, and both empty for the
+  // themes that have nothing in front.
+  private readonly frontCanvas = document.createElement("canvas");
+  private readonly frontCtx: CanvasRenderingContext2D;
+  private frontPainted: string | null = null;
+  private frontPresent = false;
+  private readonly monoFrontCanvas = document.createElement("canvas");
+  private readonly monoFrontCtx: CanvasRenderingContext2D;
+  private monoFrontPainted: string | null = null;
 
   constructor(
     private readonly width: number,
     private readonly height: number,
   ) {
-    this.canvas.width = width;
-    this.canvas.height = height;
-    this.monoCanvas.width = width;
-    this.monoCanvas.height = height;
+    for (const canvas of [this.canvas, this.monoCanvas, this.frontCanvas, this.monoFrontCanvas]) {
+      canvas.width = width;
+      canvas.height = height;
+    }
     const ctx = this.canvas.getContext("2d");
     const monoCtx = this.monoCanvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx || !monoCtx) {
+    const frontCtx = this.frontCanvas.getContext("2d");
+    const monoFrontCtx = this.monoFrontCanvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx || !monoCtx || !frontCtx || !monoFrontCtx) {
       throw new Error("2D background context unavailable");
     }
     this.ctx = ctx;
     this.monoCtx = monoCtx;
+    this.frontCtx = frontCtx;
+    this.monoFrontCtx = monoFrontCtx;
+  }
+
+  /** The theme's foreground, or null when it has none. Drawn over the eye, under the wall. */
+  frontImageFor(id: BackgroundId, variant: number): HTMLCanvasElement | null {
+    const key = `${id}:${variant}`;
+    if (this.frontPainted !== key) {
+      this.frontCtx.clearRect(0, 0, this.width, this.height);
+      this.frontPresent = paintForeground(this.frontCtx, id, variant, this.width, this.height);
+      this.frontPainted = key;
+    }
+    return this.frontPresent ? this.frontCanvas : null;
+  }
+
+  /** The foreground reduced to the tube's two tones, holes kept; null when the theme has none. */
+  monoFrontImageFor(id: BackgroundId, variant: number): HTMLCanvasElement | null {
+    const front = this.frontImageFor(id, variant);
+    if (!front) {
+      return null;
+    }
+    const key = `${id}:${variant}`;
+    if (this.monoFrontPainted === key) {
+      return this.monoFrontCanvas;
+    }
+    this.monoFrontCtx.clearRect(0, 0, this.width, this.height);
+    this.monoFrontCtx.drawImage(front, 0, 0);
+    const image = this.monoFrontCtx.getImageData(0, 0, this.width, this.height);
+    reduceToMono(image.data);
+    this.monoFrontCtx.putImageData(image, 0, 0);
+    this.monoFrontPainted = key;
+    return this.monoFrontCanvas;
   }
 
   // `focus` is not part of the key and must not be: it is a function of the
@@ -665,16 +779,7 @@ export class BackgroundLayer {
     }
     this.monoCtx.drawImage(this.imageFor(id, variant, focus), 0, 0);
     const image = this.monoCtx.getImageData(0, 0, this.width, this.height);
-    const { data } = image;
-    const ink = toRgb(canvasPalette.demakeInk);
-    const ground = toRgb(canvasPalette.demakeGround);
-    for (let index = 0; index < data.length; index += 4) {
-      const luma = 0.2126 * data[index] + 0.7152 * data[index + 1] + 0.0722 * data[index + 2];
-      const tone = luma >= MONO_LUMA_THRESHOLD ? ink : ground;
-      data[index] = tone[0];
-      data[index + 1] = tone[1];
-      data[index + 2] = tone[2];
-    }
+    reduceToMono(image.data);
     this.monoCtx.putImageData(image, 0, 0);
     this.monoPainted = key;
     return this.monoCanvas;

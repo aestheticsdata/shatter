@@ -1,6 +1,8 @@
 import { isBrickKind } from "@core/config/bricks";
 import { gameConfig } from "@core/config/GameConfig";
 import { wordRows } from "@core/levels/wordFont";
+import { CREATURE } from "@interfaces/creatures";
+import { EYE_LAYER } from "@interfaces/eye";
 
 import type { LevelDefinition, SeededDrop } from "@interfaces/types";
 
@@ -14,36 +16,115 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "SUNRISE",
     background: "horizon",
     rows: ["111111111111", "222222222222", "333333333333", "444444444444", "555555555555"],
+    // The sun: enormous, behind the wall at a fifth, half under the horizon —
+    // the theme's ground and dunes are painted over it, so it sets behind the
+    // hills rather than being cut at the line (y 180).
+    eye: { x: 186, y: 182, hw: 150, hh: 60, opacity: 0.2 },
+    // Three moths round the sun, each carrying a capsule.
+    creatures: [
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.MOTH, x: 186, y: 120 },
+    ],
   },
   {
     name: "SMILEY",
     background: "starfield",
     rows: ["..55....55..", "..55....55..", "............", ".3........3.", "..33....33..", "....3333...."],
+    // It lives in the smiley's left eye, one brick at a time, pressed to the
+    // pane; when a brick dies it blinks into the next, and the right eye last.
+    eye: {
+      x: 96,
+      y: 50,
+      hw: 20,
+      hh: 8,
+      cells: [
+        [2, 0],
+        [3, 0],
+        [2, 1],
+        [3, 1],
+        [8, 0],
+        [9, 0],
+        [8, 1],
+        [9, 1],
+      ],
+    },
+    // Three frogs on the smile's bricks, pinned with their feet on the brick.
+    creatures: [
+      { kind: CREATURE.FROG, x: 74, y: 26 },
+      { kind: CREATURE.FROG, x: 284, y: 26 },
+      { kind: CREATURE.FROG, x: 194, y: 86 },
+    ],
   },
   {
     name: "PYRAMID",
     background: "vault",
     rows: [".....55.....", "....5445....", "...433334...", "..32222223..", ".3111111113."],
+    // The eye on the dollar: floating in the sky over the apex, faint, where
+    // the bill puts it. It brightens as the pyramid comes down.
+    eye: { x: 186, y: 21, hw: 22, hh: 8, opacity: 0.35 },
+    // Two moths round the eye over the apex.
+    creatures: [
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+    ],
   },
   {
     name: "CHOMP",
     background: "cathode",
     rows: [".111.....22.", "1111....2222", "111...5.2222", "1111....2222", ".111....2.2."],
+    // In the mouth, between the jaws' upper teeth and above the uvula, so it
+    // is seen whole through the gap rather than half behind the 5.
+    eye: { x: 186, y: 50, hw: 40, hh: 11 },
+    // Two spiders at the ceiling over the mouth, and a frog on the lower jaw.
+    creatures: [
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+      { kind: CREATURE.FROG, x: 74, y: 26 },
+    ],
   },
   {
     name: "GATEWAY",
     background: "grid",
     rows: ["SS........SS", "SS4......4SS", "..44....44..", "...333333...", "....2222....", "SS...11...SS"],
+    // A sentry peering round the left pillar: half of it behind the silver,
+    // half out. It will patrol to the other pillar and back.
+    eye: { x: 66, y: 42, hw: 30, hh: 9 },
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.MOTH, x: 186, y: 120 },
+    ],
   },
   {
     name: "HEART",
     background: "nebula",
     rows: ["...55..55...", "..55555555..", "..44444444..", "...333333...", "....2222....", ".....11....."],
+    // Inside the heart, behind its bricks: revealed as it dies.
+    eye: { x: 186, y: 74, hw: 44, hh: 16 },
+    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.FROG, x: 104, y: 26 },
+      { kind: CREATURE.FROG, x: 254, y: 26 },
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+    ],
   },
   {
     name: "VORTEX",
     background: "planet",
     rows: ["111111111111", "1..........1", "1.SSSSSSSS.1", "1.S......S.1", "1.S.GGGG.S.1", "1.SSSSSSSS.1"],
+    // Discreet in a corner: small, at the bottom left just over the rail, at
+    // sixty percent — the storm's edge, watching the deck from beside it.
+    eye: { x: 26, y: 262, hw: 16, hh: 6, layer: EYE_LAYER.FRONT, opacity: 0.6 },
+    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.MOTH, x: 186, y: 120 },
+      { kind: CREATURE.SNAIL, x: 8, y: 28 },
+    ],
   },
   {
     name: "BOLT",
@@ -57,13 +138,34 @@ export const LEVELS: readonly LevelDefinition[] = [
       "...55.......",
       "..5.........",
     ],
+    // The charge at the tip of the bolt: small, out in front, just past the
+    // last brick. Later it runs the bolt's edge, a stair a blink.
+    eye: { x: 56, y: 131, hw: 16, hh: 6, layer: EYE_LAYER.FRONT },
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+      { kind: CREATURE.FROG, x: 104, y: 62 },
+    ],
+  },
+  {
+    name: "CHECKER",
+    background: "vault",
+    rows: ["1.2.3.4.5.1.", ".2.3.4.5.1.2", "3.4.5.1.2.3.", ".4.5.1.2.3.4", "5.1.2.3.4.5."],
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.MOTH, x: 186, y: 120 },
+    ],
   },
   /**
    * THE VEIL, the first of the Observer's five (SHA-167).
    *
-   * Ninth in the loop, between BOLT's circuit and CHECKER's vault, so the new
-   * `observer` theme sits beside neither of its own kind — the wrap rule holds
-   * and `check:backgrounds` passes.
+   * Tenth in the loop since EVERY FIVE (SHA-206) — the veils sit on 10, 20,
+   * 30, 40 and 43 so a boss ends every fifth level — between CHECKER's vault
+   * and INVADER's starfield, so the `observer` theme sits beside neither of
+   * its own kind: the wrap rule holds and `check:backgrounds` passes.
    *
    * The wall is built around the socket rather than over it: the two `S..S`
    * gaps in the middle rows are the only way to see what is behind them, so the
@@ -96,11 +198,6 @@ export const LEVELS: readonly LevelDefinition[] = [
     },
   },
   {
-    name: "CHECKER",
-    background: "vault",
-    rows: ["1.2.3.4.5.1.", ".2.3.4.5.1.2", "3.4.5.1.2.3.", ".4.5.1.2.3.4", "5.1.2.3.4.5."],
-  },
-  {
     name: "INVADER",
     background: "starfield",
     rows: [
@@ -113,11 +210,24 @@ export const LEVELS: readonly LevelDefinition[] = [
       ".2.2.....2.2",
       "....22.22...",
     ],
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.MOTH, x: 186, y: 120 },
+    ],
   },
   {
     name: "RAMPART",
     background: "grid",
     rows: ["SS.SS..SS.SS", "444444444444", "..3..33..3..", "222222222222", "1.1..11..1.1"],
+    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.FROG, x: 44, y: 26 },
+      { kind: CREATURE.FROG, x: 254, y: 26 },
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+    ],
   },
   {
     name: "ROCKET",
@@ -132,26 +242,89 @@ export const LEVELS: readonly LevelDefinition[] = [
       "..5.1111.5..",
       "...5.55.5...",
     ],
+    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.MOTH, x: 186, y: 120 },
+    ],
   },
   {
     name: "HELIX",
     background: "nebula",
     rows: ["55........55", "..44....44..", "....SSSS....", "....SSSS....", "..22....22..", "11........11"],
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+      { kind: CREATURE.FROG, x: 44, y: 26 },
+    ],
   },
   {
     name: "TETRA",
     background: "cathode",
     rows: ["........5...", "........5...", "............", "11224433.211", "22114433.112", "44332211.421"],
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.SNAIL, x: 8, y: 64 },
+      { kind: CREATURE.SNAIL, x: 228, y: 64 },
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+    ],
   },
   {
     name: "ORBIT",
     background: "starfield",
     rows: ["....5555....", "..55....55..", ".5..GGGG..5.", ".5..GGGG..5.", "..55....55..", "....5555...."],
+    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.FROG, x: 74, y: 38 },
+      { kind: CREATURE.FROG, x: 284, y: 38 },
+      { kind: CREATURE.FROG, x: 194, y: 26 },
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+    ],
   },
   {
     name: "COOL",
     background: "circuit",
     rows: wordRows("COOL", ["1", "2", "3", "4"]),
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.MOTH, x: 186, y: 120 },
+    ],
+  },
+  {
+    name: "HIVE",
+    background: "vault",
+    rows: ["3.3.3.3.3.3.", ".4.4.4.4.4.4", "3.3.3.3.3.3.", ".4.4.4.4.4.4", "S.S.S.S.S.S.", ".G.G.G.G.G.G"],
+    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.FROG, x: 74, y: 26 },
+      { kind: CREATURE.FROG, x: 254, y: 26 },
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+    ],
+  },
+  {
+    name: "DNA",
+    background: "nebula",
+    rows: [
+      ".1GGGGGGGG5.",
+      "..1......5..",
+      "...1....5...",
+      "....1GG5....",
+      "...5....1...",
+      "..5......1..",
+      ".5GGGGGGGG1.",
+    ],
+    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.MOTH, x: 186, y: 120 },
+      { kind: CREATURE.SNAIL, x: 38, y: 28 },
+    ],
   },
   /**
    * THE IRIS, the second veil (SHA-167).
@@ -188,52 +361,114 @@ export const LEVELS: readonly LevelDefinition[] = [
     },
   },
   {
-    name: "HIVE",
-    background: "vault",
-    rows: ["3.3.3.3.3.3.", ".4.4.4.4.4.4", "3.3.3.3.3.3.", ".4.4.4.4.4.4", "S.S.S.S.S.S.", ".G.G.G.G.G.G"],
-  },
-  {
-    name: "DNA",
-    background: "nebula",
-    rows: [
-      ".1GGGGGGGG5.",
-      "..1......5..",
-      "...1....5...",
-      "....1GG5....",
-      "...5....1...",
-      "..5......1..",
-      ".5GGGGGGGG1.",
-    ],
-  },
-  {
     name: "SERPENT",
     background: "horizon",
     rows: ["222222222222", "...........2", "333333333333", "3...........", "444444444444"],
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.SNAIL, x: 8, y: 28 },
+      { kind: CREATURE.SNAIL, x: 348, y: 28 },
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+    ],
   },
   {
     name: "SKULL",
     background: "cathode",
     rows: ["..44444444..", ".4444444444.", ".44..44..44.", ".4444..4444.", "..44444444..", "..S4S44S4S.."],
+    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.FROG, x: 74, y: 26 },
+      { kind: CREATURE.FROG, x: 284, y: 26 },
+      { kind: CREATURE.FROG, x: 194, y: 26 },
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+    ],
   },
   {
     name: "MIRROR",
     background: "grid",
     rows: ["111......SSS", "22........SS", "333......SSS", "22........SS", "111......SSS"],
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.MOTH, x: 186, y: 120 },
+    ],
   },
   {
     name: "BUNKER",
     background: "vault",
     rows: ["....GGGG....", "..SSSSSSSS..", ".S........S.", ".S.555555.S.", ".S.555555.S.", ".SSSSSSSSSS."],
+    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.FROG, x: 74, y: 38 },
+      { kind: CREATURE.FROG, x: 284, y: 38 },
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+    ],
   },
   {
     name: "CASCADE",
     background: "horizon",
     rows: ["GG..........", "11GG........", "..11GG......", "....11GG....", "......11GG..", "........11GG"],
+    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.MOTH, x: 186, y: 120 },
+    ],
   },
   {
     name: "PLAY",
     background: "circuit",
     rows: wordRows("PLAY", ["2", "3", "4", "5"]),
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+      { kind: CREATURE.FROG, x: 60, y: 60 },
+    ],
+  },
+  {
+    name: "MAZE",
+    background: "grid",
+    rows: [
+      "SSSSSSSSSSSS",
+      "S........S.S",
+      "S.SSSSSS.S.S",
+      "S.S.GG.S.S.S",
+      "S.S.GG.S.S.S",
+      "S.S....S...S",
+      "SS.SSSSSS.SS",
+    ],
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.SNAIL, x: 8, y: 28 },
+      { kind: CREATURE.SNAIL, x: 348, y: 28 },
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+    ],
+  },
+  {
+    name: "OMEGA",
+    background: "planet",
+    rows: ["...SSSSSS...", "..S......S..", "..S.2222.S..", "..S......S..", "...S....S...", ".GGG....GGG."],
+    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.FROG, x: 104, y: 26 },
+      { kind: CREATURE.FROG, x: 254, y: 26 },
+      { kind: CREATURE.FROG, x: 194, y: 26 },
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+    ],
+  },
+  {
+    name: "1991",
+    background: "cathode",
+    rows: wordRows("1991", ["G", "S", "G", "S"]),
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.MOTH, x: 186, y: 120 },
+    ],
   },
   /**
    * THE TEAR, the third veil (SHA-167).
@@ -269,29 +504,6 @@ export const LEVELS: readonly LevelDefinition[] = [
     },
   },
   {
-    name: "MAZE",
-    background: "grid",
-    rows: [
-      "SSSSSSSSSSSS",
-      "S........S.S",
-      "S.SSSSSS.S.S",
-      "S.S.GG.S.S.S",
-      "S.S.GG.S.S.S",
-      "S.S....S...S",
-      "SS.SSSSSS.SS",
-    ],
-  },
-  {
-    name: "OMEGA",
-    background: "planet",
-    rows: ["...SSSSSS...", "..S......S..", "..S.2222.S..", "..S......S..", "...S....S...", ".GGG....GGG."],
-  },
-  {
-    name: "1991",
-    background: "cathode",
-    rows: wordRows("1991", ["G", "S", "G", "S"]),
-  },
-  {
     name: "PILLARS",
     background: "vault",
     rows: [
@@ -302,6 +514,12 @@ export const LEVELS: readonly LevelDefinition[] = [
       "2.2.2.2.2.2.",
       "1.1.1.1.1.1.",
       "G.G.G.G.G.G.",
+    ],
+    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.MOTH, x: 186, y: 120 },
     ],
   },
   {
@@ -315,6 +533,12 @@ export const LEVELS: readonly LevelDefinition[] = [
       ".53..GG.....",
       ".55555......",
       ".S....555S..",
+    ],
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+      { kind: CREATURE.FROG, x: 74, y: 26 },
     ],
   },
   {
@@ -343,6 +567,12 @@ export const LEVELS: readonly LevelDefinition[] = [
     drops: [
       { row: 7, column: 4, kind: "L" },
       { row: 4, column: 7, kind: "L" },
+    ],
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.SNAIL, x: 8, y: 28 },
+      { kind: CREATURE.SNAIL, x: 348, y: 28 },
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
     ],
   },
   // The run's one exhale, and its only joke. SUPER MAZE before it is 212 hits of
@@ -374,6 +604,13 @@ export const LEVELS: readonly LevelDefinition[] = [
       "...........G",
       ".....5.....G",
     ],
+    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.FROG, x: 14, y: 26 },
+      { kind: CREATURE.FROG, x: 344, y: 74 },
+      { kind: CREATURE.FROG, x: 164, y: 26 },
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+    ],
   },
   // A peg board, and the ball is the ball. Sixteen lone gold pegs in four
   // staggered courses under a solid blue shelf. G is three hits, which is the
@@ -403,6 +640,12 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "PACHINKO",
     background: "vault",
     rows: ["555555555555", "G..G..G..G..", "..G..G..G..G", "G..G..G..G..", "..G..G..G..G"],
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.SNAIL, x: 8, y: 28 },
+    ],
   },
   // A padlock, gutted through its own keyhole. BUNKER's cousin and its
   // opposite: that one packs a core of blue inside a silver shell and the shell
@@ -443,6 +686,13 @@ export const LEVELS: readonly LevelDefinition[] = [
       ".SSSS..SSSS.",
       ".SSSS..SSSS.",
       "..SSS..SSS..",
+    ],
+    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.FROG, x: 104, y: 26 },
+      { kind: CREATURE.FROG, x: 254, y: 26 },
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+      { kind: CREATURE.SPIDER, x: 250, y: 4 },
     ],
   },
   // One eye, filling the wall, looking down the field at the deck. An eight-row
@@ -491,6 +741,103 @@ export const LEVELS: readonly LevelDefinition[] = [
       ".12SRRRRS21.",
       "..2SSSSSS2..",
       "....2222....",
+    ],
+    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.MOTH, x: 186, y: 120 },
+    ],
+  },
+  // An hourglass: two sand piles pinched at a one-brick gold neck. Each
+  // triangle grades 5-to-1 toward the waist in PYRAMID's two-tone rows — the
+  // outer tier rides the row's ends, the next one fills it — so all five tiers
+  // are present in three rows and the pinch is red-hot where it meets the gold.
+  //
+  // Twelve columns have no middle one, and a neck of one brick cannot sit on a
+  // seam. Rather than hang a lopsided neck under centred bulbs, the whole glass
+  // is centred on column 5: eleven columns of perfect symmetry and a clear
+  // shaft down the right wall, PACHINKO's lucky lane again — the one way a ball
+  // gets above the glass without going through it.
+  //
+  // The funnel is the air, not the sand. The wedges either side of the glass
+  // lose two cells of height per column and close to a one-row slot against the
+  // neck, so a ball working inward is squeezed onto the gold's flanks — and the
+  // neck is the only brick in its row, so cracking it opens a clean channel and
+  // visibly snaps the level in two, one pile drifting over the other.
+  //
+  // The ticket says TEMPO and STASIS are made for this level, so the level
+  // promises them: both pinned to the spine, bullet time in the top bulb where
+  // the sand still flows, full stop in the bottom one where it has already
+  // fallen. 43 bricks, 45 hits, 3600 points — the exhale after EYE's 122, the
+  // way PONG breathes out after SUPER MAZE.
+  {
+    name: "HOURGLASS",
+    background: "horizon",
+    rows: [
+      "54444444445.",
+      "..3222223...",
+      "....111.....",
+      ".....G......",
+      "....111.....",
+      "..3222223...",
+      "54444444445.",
+    ],
+    drops: [
+      { row: 2, column: 5, kind: "T" },
+      { row: 4, column: 5, kind: "I" },
+    ],
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+      { kind: CREATURE.FROG, x: 74, y: 26 },
+    ],
+  },
+  // The arcade bug, three lanes of it, winding down the field toward the deck.
+  // Alternating green and yellow segments along a single unbroken path — tail
+  // at the top-left, gold head at the bottom-right — over a field of lone
+  // silver mushrooms.
+  //
+  // **Every turn is a mushroom's fault, which is the whole homage.** In the
+  // cabinet the centipede does not wind because winding looks nice; it walks
+  // straight until something is in the way, then drops a row and reverses. So
+  // the mushroom at the end of each lane is the reason that lane ends there:
+  // one at the right of row 0, one at the left of row 3, and one directly in
+  // front of the head, which is the turn it has not taken yet. Take those three
+  // away and the shape stops meaning anything.
+  //
+  // The lanes sit three rows apart rather than two, and that spacing is load-
+  // bearing twice over. It gives each descent two cells instead of one, so a
+  // corner is four bricks tall and reads as a bend rather than a nick; and it
+  // puts one column three segments away from itself across a turn, which is
+  // odd, so the colour flips and each lane is staggered against the one above.
+  // With a one-cell descent that distance is two, the parity comes back around,
+  // and the body lands in vertical stripes — a checkerboard, not a bug.
+  //
+  // The wink at CRITTER is on the head, not in the flavour text: the gold is
+  // seeded, and cracking it lets a grub out to eat its way across the same wall
+  // the centipede is crawling over. 48 bricks, 65 hits, 5170 points — the
+  // exhale carrying on from HOURGLASS before FLOPPY's 138.
+  {
+    name: "CENTIPEDE",
+    background: "starfield",
+    rows: [
+      ".3434343434S",
+      "..S...S...3.",
+      "....S...S.4.",
+      "S4343434343.",
+      ".3.S...S...S",
+      ".4...S...S..",
+      ".34343434GS.",
+      ".S...S...S..",
+    ],
+    drops: [{ row: 6, column: 9, kind: "CR" }],
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.SNAIL, x: 38, y: 28 },
+      { kind: CREATURE.SNAIL, x: 348, y: 28 },
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
     ],
   },
   /**
@@ -544,85 +891,6 @@ export const LEVELS: readonly LevelDefinition[] = [
       ],
     },
   },
-  // An hourglass: two sand piles pinched at a one-brick gold neck. Each
-  // triangle grades 5-to-1 toward the waist in PYRAMID's two-tone rows — the
-  // outer tier rides the row's ends, the next one fills it — so all five tiers
-  // are present in three rows and the pinch is red-hot where it meets the gold.
-  //
-  // Twelve columns have no middle one, and a neck of one brick cannot sit on a
-  // seam. Rather than hang a lopsided neck under centred bulbs, the whole glass
-  // is centred on column 5: eleven columns of perfect symmetry and a clear
-  // shaft down the right wall, PACHINKO's lucky lane again — the one way a ball
-  // gets above the glass without going through it.
-  //
-  // The funnel is the air, not the sand. The wedges either side of the glass
-  // lose two cells of height per column and close to a one-row slot against the
-  // neck, so a ball working inward is squeezed onto the gold's flanks — and the
-  // neck is the only brick in its row, so cracking it opens a clean channel and
-  // visibly snaps the level in two, one pile drifting over the other.
-  //
-  // The ticket says TEMPO and STASIS are made for this level, so the level
-  // promises them: both pinned to the spine, bullet time in the top bulb where
-  // the sand still flows, full stop in the bottom one where it has already
-  // fallen. 43 bricks, 45 hits, 3600 points — the exhale after EYE's 122, the
-  // way PONG breathes out after SUPER MAZE.
-  {
-    name: "HOURGLASS",
-    background: "horizon",
-    rows: [
-      "54444444445.",
-      "..3222223...",
-      "....111.....",
-      ".....G......",
-      "....111.....",
-      "..3222223...",
-      "54444444445.",
-    ],
-    drops: [
-      { row: 2, column: 5, kind: "T" },
-      { row: 4, column: 5, kind: "I" },
-    ],
-  },
-  // The arcade bug, three lanes of it, winding down the field toward the deck.
-  // Alternating green and yellow segments along a single unbroken path — tail
-  // at the top-left, gold head at the bottom-right — over a field of lone
-  // silver mushrooms.
-  //
-  // **Every turn is a mushroom's fault, which is the whole homage.** In the
-  // cabinet the centipede does not wind because winding looks nice; it walks
-  // straight until something is in the way, then drops a row and reverses. So
-  // the mushroom at the end of each lane is the reason that lane ends there:
-  // one at the right of row 0, one at the left of row 3, and one directly in
-  // front of the head, which is the turn it has not taken yet. Take those three
-  // away and the shape stops meaning anything.
-  //
-  // The lanes sit three rows apart rather than two, and that spacing is load-
-  // bearing twice over. It gives each descent two cells instead of one, so a
-  // corner is four bricks tall and reads as a bend rather than a nick; and it
-  // puts one column three segments away from itself across a turn, which is
-  // odd, so the colour flips and each lane is staggered against the one above.
-  // With a one-cell descent that distance is two, the parity comes back around,
-  // and the body lands in vertical stripes — a checkerboard, not a bug.
-  //
-  // The wink at CRITTER is on the head, not in the flavour text: the gold is
-  // seeded, and cracking it lets a grub out to eat its way across the same wall
-  // the centipede is crawling over. 48 bricks, 65 hits, 5170 points — the
-  // exhale carrying on from HOURGLASS before FLOPPY's 138.
-  {
-    name: "CENTIPEDE",
-    background: "starfield",
-    rows: [
-      ".3434343434S",
-      "..S...S...3.",
-      "....S...S.4.",
-      "S4343434343.",
-      ".3.S...S...S",
-      ".4...S...S..",
-      ".34343434GS.",
-      ".S...S...S..",
-    ],
-    drops: [{ row: 6, column: 9, kind: "CR" }],
-  },
   // A 3.5-inch floppy, drawn the way the save icon draws it: label up, metal
   // shutter down. The icon is why — nobody has held one since the machines COOL
   // and 1991 are named after, but everybody still clicks one — and the deck is
@@ -656,11 +924,24 @@ export const LEVELS: readonly LevelDefinition[] = [
       ".SSGGGGGGSS.",
       ".SSGGGGGGSS.",
     ],
+    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.SNAIL, x: 38, y: 28 },
+    ],
   },
   {
     name: "FINALE",
     background: "starfield",
     rows: ["GGGGGGGGGGGG", "S5S5S5S5S5S5", "444444444444", "S3S3S3S3S3S3", "GG22222222GG", "S1S1S1S1S1S1"],
+    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    creatures: [
+      { kind: CREATURE.FROG, x: 74, y: 26 },
+      { kind: CREATURE.FROG, x: 284, y: 26 },
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+    ],
   },
   /**
    * THE LID, the last of the Observer's five and the last level of the loop
@@ -725,6 +1006,15 @@ export const LEVELS: readonly LevelDefinition[] = [
  * there is, not level 27.
  */
 export const VEIL_LEVELS: readonly number[] = LEVELS.flatMap((level, index) => (level.observer ? [index] : []));
+
+// How many levels a series is. EVERY FIVE (SHA-206): a boss fight ends
+// levels 5, 10, 15 … 40, and the last level of the loop whatever its number.
+export const BOSS_EVERY = 5;
+
+/** Whether this level (0-based) ends in a boss fight. Nothing in the level's own data says so. */
+export function isBossLevel(index: number): boolean {
+  return (index + 1) % BOSS_EVERY === 0 || index === LEVELS.length - 1;
+}
 
 // Runs loop past the last level; the wrapped index is also the background
 // variant, so a level's field art is the same on every visit.

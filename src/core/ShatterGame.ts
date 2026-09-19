@@ -12,10 +12,13 @@ import {
 } from "@core/config/powerUps";
 import { DemoHook } from "@core/DemoHook";
 import { DevConsole } from "@core/DevConsole";
-import { levelAt, levelIndexOf, VEIL_LEVELS, wallFor } from "@core/levels/levels";
+import { BOSS_NAME, BOSS_OF_LEVEL } from "@core/levels/bosses";
+import { isBossLevel, levelAt, levelIndexOf, VEIL_LEVELS, wallFor } from "@core/levels/levels";
 import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/PaddleBounce";
 import { Ball, ballSizeFor, paceGhost } from "@entities/ball/Ball";
 import { BrickGrid } from "@entities/bricks/BrickGrid";
+import { Creatures } from "@entities/creatures/Creatures";
+import { SPECIES } from "@entities/creatures/species";
 import { Brood } from "@entities/effects/Brood";
 import { BumperField } from "@entities/effects/BumperField";
 import { Critter } from "@entities/effects/Critter";
@@ -49,18 +52,22 @@ import { DropBag } from "@entities/powerups/DropBag";
 import { DropPool } from "@entities/powerups/DropPool";
 import { PowerUpTimers } from "@entities/powerups/PowerUpTimers";
 import { InputController } from "@input/InputController";
+import { CREATURE } from "@interfaces/creatures";
 import { SCORE_DIGITS, zeroPad } from "@shared/format";
 import { type HiScores, TABLE_SIZE } from "@state/HiScores";
 
 import type { SoundBank } from "@audio/SoundBank";
 import type { TraceRules } from "@core/ballTrace";
 import type { ComboId } from "@core/config/combos";
+import type { Creature, CreatureEffects, CreatureSight } from "@entities/creatures/Creature";
 import type { Beast } from "@entities/effects/Brood";
+import type { EyeSight } from "@entities/effects/Observer";
 import type { Landing } from "@entities/effects/Slump";
 import type { EchoContact } from "@entities/effects/Superposition";
 import type { Tear } from "@entities/effects/Tears";
 import type { LeapField } from "@entities/effects/Tunnelling";
 import type { WidthCurve } from "@entities/paddle/Paddle";
+import type { CreatureKind } from "@interfaces/creatures";
 import type {
   BrickFlash,
   BrickHit,
@@ -498,6 +505,16 @@ export class ShatterGame {
             this.dropPool.spawnAcrossTop(kinds);
             return true;
           },
+          // `creature moth`: one of that species, born over the deck.
+          dropCreature: (name) => {
+            const kind = (Object.values(CREATURE) as string[]).includes(name) ? (name as CreatureKind) : null;
+            if (kind === null) {
+              return false;
+            }
+            const species = SPECIES[kind];
+            this.creatures.add(kind, this.paddle.centerX - species.width / 2, this.paddle.y - 80);
+            return true;
+          },
           // `level N` is 1-based; rebuilding the grid serves at the new level.
           jumpToLevel: (levelNumber) => {
             this.level = levelNumber - 1;
@@ -584,6 +601,13 @@ export class ShatterGame {
   private readonly observer = new Observer();
   // And its brood (SHA-170), pinned by the same block.
   private readonly brood = new Brood();
+  // THE BESTIARY (SHA-207): the ordinary levels' creatures, beside the veils' brood.
+  private readonly creatures = new Creatures();
+  // THE BOSSES (SHA-209): the one creature that ends a boss level, in a pool of
+  // its own so the fight can be told from the roster — and the flag that says
+  // it is over, which is what lets the clear card follow.
+  private readonly bossPool = new Creatures();
+  private bossDone = false;
   // And the three plaques that open it (SHA-171).
   private readonly oculi = new Oculi();
   // And what is behind the door (SHA-172).
@@ -1006,6 +1030,10 @@ export class ShatterGame {
       // renderer needs all four.
       observer: this.observer,
       brood: this.brood.beasts,
+      // The boss last, so it is drawn over the roster it came to end.
+      creatures: this.bossPool.live
+        ? [...this.creatures.creatures, ...this.bossPool.creatures]
+        : this.creatures.creatures,
       tears: this.tears.drops,
       inside: this.inside,
       loosePupil: this.loosePupil.active ? this.loosePupil : null,
@@ -1220,7 +1248,7 @@ export class ShatterGame {
     // The blink, and the one veil that does something with it. `step` answers
     // `true` on the tick the lid starts to close — see `rebuildScar` for why
     // that tick and not the tick it opens again.
-    if (this.observer.step(this.eyeTarget()) && this.observer.level?.mode === "wrath") {
+    if (this.observer.step(this.eyeTarget(), this.eyeSight()) && this.observer.level?.mode === "wrath") {
       this.rebuildScar();
     }
     this.grid.stepScars();
@@ -1233,6 +1261,10 @@ export class ShatterGame {
     // is still on the deck, which is what says they are creatures and not
     // scenery.
     this.brood.step();
+    // THE BESTIARY walks on the serve screen for the brood's reason: a level is
+    // alive before the ball is.
+    this.creatures.step(this.creatureSight(), this.creatureEffects());
+    this.bossPool.step(this.creatureSight(), this.creatureEffects());
     // The pupil's orbit and the visit's clock. Above the serve's early return
     // like the eye and the brood: the fight opens on a serve screen, and a pupil
     // that only started moving on the launch would hand the player a free first
@@ -3052,7 +3084,7 @@ export class ShatterGame {
     if (this.grid.remaining > 0 || this.observer.level?.mode === "lid") {
       return;
     }
-    this.clearCountdown = gameConfig.effects.clearDelayTicks;
+    this.wallCleared();
   }
 
   /**
@@ -3150,19 +3182,7 @@ export class ShatterGame {
     if (!this.gaze.catches(this.paddle.x, this.paddle.x + this.paddle.width)) {
       return;
     }
-    const { petrifyTicks, shakeTicks } = gameConfig.observer.gaze;
-    this.petrifyTicks = petrifyTicks;
-    this.quake.rattle(shakeTicks, gameConfig.effects.quake.amplitude);
-    this.catchPops.push({
-      x: Math.max(40, Math.min(332, this.paddle.centerX)),
-      y: this.freeCatchPopY(),
-      label: "PETRIFIED",
-      // A trap's pink, because it is one: this is the only thing on a veil that
-      // takes something away from the player rather than giving them a target.
-      malus: true,
-      ticksLeft: gameConfig.powerUps.catchPopLifeTicks,
-    });
-    this.deps.sfx.petrified();
+    this.petrifyDeck();
   }
 
   /**
@@ -3361,6 +3381,19 @@ export class ShatterGame {
       if (beast) {
         shot.active = false;
         this.strikeBeast(beast, null);
+        continue;
+      }
+      // A bolt reaches a creature solid or not: it is a shot, not a ball.
+      const creature = this.creatures.at(shot.x, shot.y, 2, 9);
+      if (creature) {
+        shot.active = false;
+        this.strikeCreature(creature, null);
+        continue;
+      }
+      const boss = this.bossPool.at(shot.x, shot.y, 2, 9);
+      if (boss) {
+        shot.active = false;
+        this.strikeBoss(boss, null);
       }
     }
   }
@@ -4070,6 +4103,30 @@ export class ShatterGame {
         ball.y = fromAbove ? beast.y - size : beast.y + form.height;
         ball.velocity.y = fromAbove ? -Math.abs(ball.velocity.y) : Math.abs(ball.velocity.y);
         this.strikeBeast(beast, ball);
+      }
+
+      // THE BESTIARY (SHA-207): a solid creature is a shelf like a beast; the
+      // rest are passed through and struck on the way — once, the flash sees
+      // to that — which is what a ball through a moth should be.
+      const creature =
+        this.creatures.live && !this.inside.active ? this.creatures.at(ball.x, ball.y, size, size) : null;
+      if (creature) {
+        const species = SPECIES[creature.kind];
+        if (species.solid) {
+          const fromAbove = ball.y + size / 2 < creature.y + species.height / 2;
+          ball.y = fromAbove ? creature.y - size : creature.y + species.height;
+          ball.velocity.y = fromAbove ? -Math.abs(ball.velocity.y) : Math.abs(ball.velocity.y);
+        }
+        this.strikeCreature(creature, ball);
+      }
+      // THE BOSS (SHA-209): always solid, always a shelf, and every touch is a hit.
+      const boss = this.bossPool.live && !this.inside.active ? this.bossPool.at(ball.x, ball.y, size, size) : null;
+      if (boss) {
+        const species = SPECIES[boss.kind];
+        const fromAbove = ball.y + size / 2 < boss.y + species.height / 2;
+        ball.y = fromAbove ? boss.y - size : boss.y + species.height;
+        ball.velocity.y = fromAbove ? -Math.abs(ball.velocity.y) : Math.abs(ball.velocity.y);
+        this.strikeBoss(boss, ball);
       }
 
       // A disc is a free-standing thing to bounce off, so it sits with the
@@ -5341,7 +5398,7 @@ export class ShatterGame {
 
     // Same idempotent clear trigger as damageBrick: a rock can take the last brick.
     if (drilled && this.grid.remaining <= 0) {
-      this.clearCountdown = gameConfig.effects.clearDelayTicks;
+      this.wallCleared();
     }
   }
 
@@ -5693,8 +5750,11 @@ export class ShatterGame {
     // around it. It rides PAYDAY with the clear bonus it is added to, and takes
     // no chain: the rally that earned the stars ended several deck touches ago.
     const stars = awardBonus ? this.observer.starsLit * gameConfig.observer.diadem.starPoints : 0;
+    // THE BOSS's bounty rides the same card and the same PAYDAY (SHA-209).
+    const boss = awardBonus && this.bossDone ? gameConfig.bosses.clearBonus : 0;
     const bonus =
-      (awardBonus ? (this.level + 1) * gameConfig.scoring.clearBonusPerLevel + stars : 0) * this.paydayMultiplier();
+      (awardBonus ? (this.level + 1) * gameConfig.scoring.clearBonusPerLevel + stars + boss : 0) *
+      this.paydayMultiplier();
     this.score += bonus;
     // The board is won: every running effect dies with it, so no portal mouths,
     // ghost paddle or tethers stay painted behind the CLEARED overlay. After
@@ -5711,16 +5771,22 @@ export class ShatterGame {
     this.blinded = false;
     // The count and not the points: the stars are already inside the bonus, and
     // what a player wants off this card is how many of the six they got.
-    const onVeil = this.observer.live;
+    const onVeil = this.observer.level !== null;
     const diadem = `DIADEM ${this.observer.starsLit}/${this.observer.diadem.length}`;
     this.deps.screens.updateClear(
       blinding ? "THE OBSERVER IS BLIND" : levelAt(this.level).name,
       zeroPad(bonus, 5),
-      blinding ? `THE SKY IS YOURS · ${diadem}` : onVeil ? diadem : null,
+      blinding
+        ? `THE SKY IS YOURS · ${diadem}`
+        : onVeil
+          ? diadem
+          : this.bossDone
+            ? `${BOSS_NAME[BOSS_OF_LEVEL[this.level] ?? "moth"] ?? "THE BOSS"} IS DEAD`
+            : null,
       // GRID CLEARED is what thirty-eight levels are. A veil is a veil, and the
       // card is the one place in the run that can say the word without a hint
       // or a notice having to carry it (SHA-177).
-      blinding ? "THE FIFTH VEIL FALLS" : onVeil ? "VEIL BROKEN" : null,
+      blinding ? "THE FIFTH VEIL FALLS" : onVeil ? "VEIL BROKEN" : this.bossDone ? "BOSS DOWN" : null,
     );
     this.setScreen("clear");
     if (!blinding) {
@@ -5805,8 +5871,168 @@ export class ShatterGame {
    * `null` on the thirty-eight levels with no eye, which the observer reads as
    * "stay where you are" and never acts on.
    */
+  /**
+   * THE BESTIARY's strike (SHA-207): paid, popped, flashed, burst and sounded
+   * exactly as a beast's is — one idiom for a creature hit, whichever roster
+   * it came from. The brood's two sounds serve every species until each has
+   * its own.
+   */
+  /**
+   * THE BOSSES (SHA-209): the last brick of a boss level brings the boss down
+   * from above the ceiling instead of the clear card; the card follows its
+   * death. Every idempotent clear trigger in the game comes through here, so
+   * a rock, a capsule or a spent ball taking the last brick starts the same
+   * fight a rally would. A veil is its own boss and keeps its own ending.
+   */
+  private wallCleared(): void {
+    const kind = BOSS_OF_LEVEL[this.level];
+    if (this.bossDone || this.observer.level !== null || !isBossLevel(this.level) || kind === undefined) {
+      this.clearCountdown = gameConfig.effects.clearDelayTicks;
+      return;
+    }
+    if (!this.bossPool.live) {
+      const species = SPECIES[kind];
+      this.bossPool.add(kind, (gameConfig.field.width - species.width) / 2, -species.height);
+      this.deps.screens.updateFieldNotice(BOSS_NAME[kind] ?? null);
+      this.deps.sfx.observerWakes();
+    }
+  }
+
+  /** A boss hit: a creature's strike, and its death is the level's end. */
+  private strikeBoss(boss: Creature, by: Ball | null): void {
+    const species = SPECIES[boss.kind];
+    const centerX = boss.x + species.width / 2;
+    const centerY = boss.y + species.height / 2;
+    const { points, killed } = this.bossPool.strike(boss, by ? "ball" : "laser", this.creatureEffects());
+    this.bumpChain();
+    this.popGain(centerX, centerY, this.award(points, "ball", by), true);
+    if (!killed) {
+      this.deps.sfx.beastStruck(2);
+      return;
+    }
+    // Three bursts, because it is three creatures' worth of body.
+    for (const dx of [-12, 0, 12]) {
+      this.particles.burst(centerX + dx, centerY, "1", gameConfig.effects.brickDeathBurst);
+    }
+    this.deps.sfx.beastKilled();
+    this.deps.screens.updateFieldNotice(null);
+    this.bossDone = true;
+    this.clearCountdown = gameConfig.effects.clearDelayTicks;
+  }
+
+  /**
+   * The deck turns to stone: THE IRIS's gaze catching it, or a boss's sting.
+   * It still returns the ball; it cannot be steered. Not renewed while it is
+   * already stone — a second hit during the seventy ticks would be the trap
+   * renewing itself for as long as the player stood still, which is exactly
+   * what it has just forced them to do.
+   */
+  private petrifyDeck(): void {
+    if (this.petrifyTicks > 0) {
+      return;
+    }
+    const { petrifyTicks, shakeTicks } = gameConfig.observer.gaze;
+    this.petrifyTicks = petrifyTicks;
+    this.quake.rattle(shakeTicks, gameConfig.effects.quake.amplitude);
+    this.catchPops.push({
+      x: Math.max(40, Math.min(332, this.paddle.centerX)),
+      y: this.freeCatchPopY(),
+      label: "PETRIFIED",
+      // A trap's pink, because it is one: this is the only thing on a veil that
+      // takes something away from the player rather than giving them a target.
+      malus: true,
+      ticksLeft: gameConfig.powerUps.catchPopLifeTicks,
+    });
+    this.deps.sfx.petrified();
+  }
+
+  private strikeCreature(creature: Creature, by: Ball | null): void {
+    const species = SPECIES[creature.kind];
+    const centerX = creature.x + species.width / 2;
+    const centerY = creature.y + species.height / 2;
+    const { points, killed } = this.creatures.strike(creature, by ? "ball" : "laser", this.creatureEffects());
+    this.bumpChain();
+    this.popGain(centerX, centerY, this.award(points, "ball", by), true);
+    if (!killed) {
+      this.deps.sfx.beastStruck(0);
+      return;
+    }
+    this.particles.burst(centerX, centerY, "1", gameConfig.effects.brickDeathBurst);
+    this.deps.sfx.beastKilled();
+  }
+
+  /** The nearest ball in flight to a point, as a centre and a velocity, or null on a serve. */
+  private nearestBall(x: number, y: number): { x: number; y: number; vx: number; vy: number } | null {
+    let nearest: Ball | null = null;
+    let best = Number.POSITIVE_INFINITY;
+    for (const ball of this.balls) {
+      if (!ball.active) {
+        continue;
+      }
+      const distance = (ball.centerX - x) ** 2 + (ball.y + ball.size / 2 - y) ** 2;
+      if (distance < best) {
+        best = distance;
+        nearest = ball;
+      }
+    }
+    return nearest
+      ? { x: nearest.centerX, y: nearest.y + nearest.size / 2, vx: nearest.velocity.x, vy: nearest.velocity.y }
+      : null;
+  }
+
+  /** What a species reads off the level this tick (SHA-207). */
+  private creatureSight(): CreatureSight {
+    const socket = this.observer.socket;
+    return {
+      ball: this.nearestBall(this.paddle.centerX, this.paddle.y),
+      deck: { left: this.paddle.x, right: this.paddle.x + this.paddle.width, y: this.paddle.y },
+      wallRows: this.grid.rows.length,
+      standing: (column, row) => (this.grid.rows[row]?.[column] ?? null) !== null,
+      eye: socket ? { x: socket.x, y: socket.y } : null,
+    };
+  }
+
+  /** What a species may do to the field (SHA-207): one verb per thing. */
+  private creatureEffects(): CreatureEffects {
+    return {
+      dropCapsule: (x, y) => {
+        const kind = this.dropBag.draw(this.dropExcludes());
+        // Forced: the moth was carrying it, and a promise takes a slot.
+        if (this.dropPool.trySpawn(kind, x - gameConfig.grid.brickWidth / 2, y, true)) {
+          this.deps.sfx.capsuleSpawn();
+        }
+      },
+      mortar: (column, row) => {
+        const cell = this.grid.rows[row]?.[column] ?? null;
+        if (cell) {
+          cell.hitPoints = Math.min(BRICK_BY_ID[cell.kind].hitPoints, cell.hitPoints + 1);
+        }
+      },
+      petrifyDeck: () => this.petrifyDeck(),
+      pop: (x, y, label, malus) => {
+        this.catchPops.push({
+          x: Math.max(40, Math.min(332, x)),
+          y,
+          label,
+          malus,
+          ticksLeft: gameConfig.powerUps.catchPopLifeTicks,
+        });
+      },
+      burst: (x, y, material) => {
+        this.particles.burst(x, y, material, gameConfig.effects.brickDeathBurst);
+      },
+    };
+  }
+
+  /** What the placed eye reads off the level this tick (SHA-188). */
+  private eyeSight(): EyeSight {
+    return {
+      standing: (column, row) => (this.grid.rows[row]?.[column] ?? null) !== null,
+    };
+  }
+
   private eyeTarget(): { x: number; y: number } | null {
-    const socket = this.observer.level?.eye;
+    const socket = this.observer.socket;
     if (!socket) {
       return null;
     }
@@ -6660,7 +6886,7 @@ export class ShatterGame {
     // Same idempotent clear trigger as damageBrick: either capsule can take the
     // last row.
     if (this.grid.remaining <= 0) {
-      this.clearCountdown = gameConfig.effects.clearDelayTicks;
+      this.wallCleared();
     }
   }
 
@@ -6847,7 +7073,7 @@ export class ShatterGame {
     // The same idempotent clear trigger every other indirect kill uses: a spent
     // ball can take the last brick on the board.
     if (this.grid.remaining <= 0) {
-      this.clearCountdown = gameConfig.effects.clearDelayTicks;
+      this.wallCleared();
     }
   }
 
@@ -7060,8 +7286,11 @@ export class ShatterGame {
     // The eye, and the line that names it over the serve prompt. Both are the
     // level's, so both are set where the level is: a death re-serves without
     // coming through here, and neither may be re-read then.
-    this.observer.load(definition.observer);
+    this.observer.load(definition.observer, definition.eye);
     this.brood.load(definition.observer);
+    this.creatures.load(definition.creatures);
+    this.bossPool.reset();
+    this.bossDone = false;
     this.oculi.load(definition.observer);
     // THE IRIS is the veil whose eye does this. THE LID's loose pupil fires the
     // same gaze from a different place (SHA-176) and turns it on for itself.
@@ -7307,6 +7536,9 @@ export class ShatterGame {
     // an eye left blinking behind it would be the run still watching.
     this.observer.reset();
     this.brood.reset();
+    this.creatures.reset();
+    this.bossPool.reset();
+    this.bossDone = false;
     this.oculi.reset();
     this.inside.reset();
     this.gaze.reset();
@@ -7567,8 +7799,13 @@ export class ShatterGame {
       lifeRefusedCount: this.lifeRefusedCount,
       chainHits: this.chain,
       chainMultiplier: this.chainMultiplier(),
-      diademLit: this.observer.starsLit,
-      diademStars: this.observer.diadem.length,
+      // THE BOSS borrows the diadem's pips for its hit points (SHA-209): the
+      // row is empty on every level that is not a veil, and a fight is the one
+      // other thing on the field the player needs a count for.
+      diademLit: this.bossPool.live ? this.bossPool.creatures[0].hitPoints : this.observer.starsLit,
+      diademStars: this.bossPool.live
+        ? SPECIES[this.bossPool.creatures[0].kind].hitPoints
+        : this.observer.diadem.length,
       // The row says what it is showing. A veil is a level and is counted as
       // one — the number in the inset is unchanged — but it is not what the
       // player is being sent into, and the panel says so.
