@@ -1,6 +1,9 @@
 import { FROG } from "@entities/creatures/species/frog";
+import { FROG_KING } from "@entities/creatures/species/frogKing";
 import { MOTH } from "@entities/creatures/species/moth";
+import { MOTH_MOTHER } from "@entities/creatures/species/mothMother";
 import { SNAIL } from "@entities/creatures/species/snail";
+import { SNAIL_ELDER } from "@entities/creatures/species/snailElder";
 import { SPIDER } from "@entities/creatures/species/spider";
 import { SPIDER_QUEEN } from "@entities/creatures/species/spiderQueen";
 
@@ -18,4 +21,7 @@ export const SPECIES: Readonly<Record<CreatureKind, Species>> = {
   snail: SNAIL,
   spider: SPIDER,
   spiderQueen: SPIDER_QUEEN,
+  mothMother: MOTH_MOTHER,
+  frogKing: FROG_KING,
+  snailElder: SNAIL_ELDER,
 };

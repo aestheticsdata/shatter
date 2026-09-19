@@ -1556,6 +1556,47 @@ export const gameConfig = {
       trackEase: 0.35,
     },
     /**
+     * THE ZODIAC RING (SHA-211): the dial round the eye, from the mockup —
+     * two circles and ticks across the band between them — and how it turns.
+     * The field's is the veils'; the title's is bigger, with twice the ticks.
+     */
+    ring: {
+      field: { inner: 82, outer: 86, ticks: 12, alternate: false },
+      title: { inner: 98, outer: 104, ticks: 24, alternate: true },
+      // Ticks for one full turn: a minute. Slow enough to be a dial, fast
+      // enough that a player waiting on the serve sees it move.
+      turnTicks: 3600,
+      // The inner circle's dash: pixels on, pixels off, along its circumference.
+      dashOn: 4,
+      dashOff: 2,
+    },
+    /**
+     * THE CHART (SHA-212): the run's constellation on the dial. See `Chart`.
+     */
+    chart: {
+      // The figures, as the skip between the two stars a junction joins, in
+      // drawing order: the twelve-pointed star, the four triangles, the three
+      // squares, the two hexagons, then the six bars across the middle.
+      skips: [5, 4, 3, 2, 6],
+      // Strokes one junction takes. Three, so that a kill draws a third of a
+      // line rather than a whole one — a perfect run has about two hundred
+      // strokes in it and the fifty-four junctions should take most of them,
+      // or the cage would close by the middle of the run and the second half
+      // would have nothing left to draw.
+      strokesPerJunction: 3,
+      // What draws them.
+      clearStrokes: 1,
+      killStrokes: 1,
+      bossStrokes: 3,
+      // What a finished junction pays when the run ends — at GAME OVER, or on
+      // THE LID's card. Per junction and not per stroke: the chart is counted
+      // in lines, and a third of a line is not a line.
+      junctionPoints: 500,
+      // The new stroke's arrival: gold for this long, stepping down to the
+      // thread's bronze.
+      revealTicks: 40,
+    },
+    /**
      * THE BROOD (SHA-170): the eye's creatures, and what they are worth.
      *
      * **A beast that is struck does not die, it grows** — which is the whole
@@ -1901,6 +1942,69 @@ export const gameConfig = {
       // Ticks she hangs between drops: the whole of the player's window.
       restTicks: 90,
     },
+    /**
+     * THE MOTH MOTHER (SHA-213), the boss at the end of level 15. Twelve hits,
+     * a capsule out of her on every one; the dust on a clock.
+     */
+    mothMother: {
+      hitPoints: 12,
+      points: 200,
+      killPoints: 2000,
+      enterSpeed: 1.2,
+      // The figure of eight: its middle height, how far it reaches either
+      // side and up and down, and how fast she goes round it.
+      centreY: 120,
+      reachX: 130,
+      reachY: 44,
+      turn: 0.014,
+      wobble: 4,
+      wobbleRate: 0.17,
+      // The dust: how long she flies between shakes, how long a shake is, and
+      // how long the dark it brings lasts.
+      dustEvery: 540,
+      shakeTicks: 36,
+      dustTicks: 240,
+    },
+    /**
+     * THE FROG KING (SHA-213), the boss at the end of level 25. Eight hits,
+     * every one of them in the air.
+     */
+    frogKing: {
+      hitPoints: 8,
+      points: 250,
+      killPoints: 2500,
+      enterSpeed: 3,
+      // Ticks sitting between hops, the hop's length and height, and the
+      // landing's rattle.
+      restTicks: 75,
+      leapTicks: 48,
+      leapHeight: 70,
+      thudTicks: 8,
+      // The tongue: how far it reaches from the mouth, how fast the ball it
+      // catches is sent down, how much of that sideways, how long the tongue
+      // is out, and how long before it can flick again.
+      tongueRange: 56,
+      spitSpeed: 5,
+      spitSideways: 0.4,
+      tongueTicks: 12,
+      tongueRest: 60,
+    },
+    /**
+     * THE SNAIL ELDER (SHA-213), the boss at the end of level 35. Twelve hits
+     * on the head; the wall grows back under him while he lives.
+     */
+    snailElder: {
+      hitPoints: 12,
+      points: 200,
+      killPoints: 2000,
+      enterSpeed: 1,
+      speed: 0.45,
+      // The rows he lays in, from the top, one per pass; what he lays; and
+      // how much of his front is head rather than shell.
+      layRows: 2,
+      layKind: "2",
+      headWidth: 12,
+    },
   },
   /**
    * THE BOSSES (SHA-209): the fight at the end of every fifth level. What a
@@ -1908,6 +2012,13 @@ export const gameConfig = {
    */
   bosses: {
     clearBonus: 5000,
+  },
+  /**
+   * THE TITLE (SHA-211): the mockup's home. Where the Observer sits behind the
+   * wordmark, in stage pixels, and how big — it looks at the mouse.
+   */
+  title: {
+    eye: { x: 240, y: 92, hw: 80, hh: 28 },
   },
   effects: {
     // Must hold a full-field NUKE: FINALE's 72 bricks x 10 chunks with 30-45

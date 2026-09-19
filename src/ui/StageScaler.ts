@@ -27,6 +27,11 @@ export class StageScaler {
     return (clientX - this.stageRect.left) / this.currentScale;
   }
 
+  toStageY(clientY: number): number {
+    this.stageRect ??= this.stage.getBoundingClientRect();
+    return (clientY - this.stageRect.top) / this.currentScale;
+  }
+
   invalidateRect(): void {
     this.stageRect = null;
   }

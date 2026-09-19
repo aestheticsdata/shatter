@@ -10,6 +10,7 @@ import { LevelGallery } from "@ui/LevelGallery";
 import { Panel } from "@ui/Panel";
 import { Screens } from "@ui/Screens";
 import { StageScaler } from "@ui/StageScaler";
+import { TitleScene } from "@ui/TitleScene";
 
 document.addEventListener("DOMContentLoaded", () => {
   const stage = getElementByIdOrThrow<HTMLDivElement>("stage");
@@ -36,6 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const game = new ShatterGame({
     renderer: new CanvasRenderer(getElementByIdOrThrow<HTMLCanvasElement>("playfield")),
+    titleScene: new TitleScene(getElementByIdOrThrow<HTMLCanvasElement>("titleEye")),
     panel,
     screens: new Screens({
       title: getElementByIdOrThrow("screenTitle"),
@@ -52,6 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
       over: getElementByIdOrThrow("screenOver"),
       overScore: getElementByIdOrThrow("overScore"),
       overChain: getElementByIdOrThrow("overChain"),
+      overChart: getElementByIdOrThrow("overChart"),
       scores: getElementByIdOrThrow("screenScores"),
       scoreRows: getElementByIdOrThrow("scoreRows"),
       entryLine: getElementByIdOrThrow("entryLine"),

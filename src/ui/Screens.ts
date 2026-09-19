@@ -20,6 +20,8 @@ export interface ScreensElements {
   over: HTMLElement;
   overScore: HTMLElement;
   overChain: HTMLElement;
+  // THE CHART's count and what it paid, under the chain (SHA-212).
+  overChart: HTMLElement;
   scores: HTMLElement;
   scoreRows: HTMLElement;
   entryLine: HTMLElement;
@@ -135,9 +137,10 @@ export class Screens {
   // where the panel would have said VEIL, LEVEL 07 where it would have said
   // LEVEL. The same rule as the panel's row and the same number, so a player who
   // has been reading one all run recognises the other (SHA-177).
-  updateOver(scoreText: string, bestChainText: string, reachedText: string): void {
+  updateOver(scoreText: string, bestChainText: string, reachedText: string, chartText: string): void {
     this.elements.overScore.textContent = `SCORE ${scoreText}`;
     this.elements.overChain.textContent = `BEST CHAIN ${bestChainText} · ${reachedText}`;
+    this.elements.overChart.textContent = chartText;
   }
 
   updateScoreRows(rows: readonly ScoreRowView[]): void {

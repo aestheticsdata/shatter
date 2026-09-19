@@ -18,22 +18,48 @@ import type { BackgroundId } from "@interfaces/types";
 // Nothing here animates: a static layer can never be mistaken for a game object.
 
 interface BackgroundColorSet {
-  readonly area: { readonly base: string } & Readonly<Record<string, string>>;
-  readonly speck: Readonly<Record<string, string>>;
+  // Every theme carries the zodiac dial's three tones (SHA-212): the dial is
+  // on every level, and it is drawn in the level's own ink so that a sunrise's
+  // dial is a sunrise's and a circuit board's is a circuit board's. The two
+  // circles are `area` — a 1px circle 172px across is a line — and the ticks
+  // are `speck`, five pixels of dot each.
+  readonly area: { readonly base: string; readonly dialRing: string; readonly dialBand: string } & Readonly<
+    Record<string, string>
+  >;
+  readonly speck: { readonly dialTick: string } & Readonly<Record<string, string>>;
+}
+
+/** The zodiac dial's tones on one theme: the outer circle, the dashed inner one, the ticks. */
+export interface DialTones {
+  readonly ring: string;
+  readonly band: string;
+  readonly tick: string;
+}
+
+export function dialTonesFor(id: BackgroundId): DialTones {
+  const { area, speck } = BACKGROUND_COLORS[id];
+  return { ring: area.dialRing, band: area.dialBand, tick: speck.dialTick };
 }
 
 export const BACKGROUND_COLORS = {
   starfield: {
-    area: { base: "#0b0b26" },
-    speck: { starDim: "#232a52", starMid: "#3a4a86", starBright: "#7f92c8" },
+    area: { base: "#0b0b26", dialRing: "#151a38", dialBand: "#1b2244" },
+    speck: { starDim: "#232a52", starMid: "#3a4a86", starBright: "#7f92c8", dialTick: "#2b3a72" },
   },
   nebula: {
-    area: { base: "#120b1e", hazeEdge: "#160d24", hazeOuter: "#1a1029", hazeInner: "#221436" },
-    speck: { dust: "#402d5e", glint: "#6d54a0" },
+    area: {
+      base: "#120b1e",
+      hazeEdge: "#160d24",
+      hazeOuter: "#1a1029",
+      hazeInner: "#221436",
+      dialRing: "#1e1430",
+      dialBand: "#281b40",
+    },
+    speck: { dust: "#402d5e", glint: "#6d54a0", dialTick: "#402d5e" },
   },
   grid: {
-    area: { base: "#071119", column: "#0f2130", row: "#0c1a26" },
-    speck: { node: "#1a3a4e" },
+    area: { base: "#071119", column: "#0f2130", row: "#0c1a26", dialRing: "#0f2130", dialBand: "#10283a" },
+    speck: { node: "#1a3a4e", dialTick: "#1a3a4e" },
   },
   horizon: {
     area: {
@@ -44,16 +70,25 @@ export const BACKGROUND_COLORS = {
       glow: "#112733",
       ground: "#040c12",
       dune: "#020809",
+      dialRing: "#0f2436",
+      dialBand: "#11283a",
     },
-    speck: { star: "#2a4a5c" },
+    speck: { star: "#2a4a5c", dialTick: "#2a4a5c" },
   },
   planet: {
-    area: { base: "#0a0a1c", body: "#10152a", limb: "#182140", band: "#0c1122" },
-    speck: { star: "#2e3a63", glint: "#6a78ad" },
+    area: {
+      base: "#0a0a1c",
+      body: "#10152a",
+      limb: "#182140",
+      band: "#0c1122",
+      dialRing: "#141a33",
+      dialBand: "#1b2346",
+    },
+    speck: { star: "#2e3a63", glint: "#6a78ad", dialTick: "#2e3a63" },
   },
   circuit: {
-    area: { base: "#05130d", trace: "#0d281b", traceDim: "#0a1e15" },
-    speck: { pad: "#17482e" },
+    area: { base: "#05130d", trace: "#0d281b", traceDim: "#0a1e15", dialRing: "#0d281b", dialBand: "#0e2b1d" },
+    speck: { pad: "#17482e", dialTick: "#17482e" },
   },
   cathode: {
     area: {
@@ -63,30 +98,35 @@ export const BACKGROUND_COLORS = {
       bloom3: "#201a0f",
       bloom4: "#241d12",
       scan: "#0d0a06",
+      dialRing: "#201a0f",
+      dialBand: "#2a2215",
     },
-    speck: { fleck: "#3d2f1c" },
+    speck: { fleck: "#3d2f1c", dialTick: "#3d2f1c" },
   },
   vault: {
-    area: { base: "#0e0e13", mortar: "#17171f", stoneDark: "#0a0a0f", stoneLight: "#131319" },
-    speck: { chip: "#22222c" },
+    area: {
+      base: "#0e0e13",
+      mortar: "#17171f",
+      stoneDark: "#0a0a0f",
+      stoneLight: "#131319",
+      dialRing: "#17171f",
+      dialBand: "#1d1d28",
+    },
+    speck: { chip: "#22222c", dialTick: "#2a2a36" },
   },
-  // THE OBSERVER's field: the classic starfield with a zodiac ring cut into it
-  // around the eye's socket. The two rings are `area` because a 1px circle 172px
-  // across is a line and the class rule counts lines as area; the twelve ticks
-  // are `speck` because each is five pixels of dot, which is what the brighter
-  // tone is allowed to be.
+  // THE OBSERVER's field: the classic starfield, with the dial's tones the
+  // starfield's — the veils are where the dial came from (SHA-211).
   observer: {
-    area: { base: "#0b0b26", ringOuter: "#151a38", ringInner: "#1b2244" },
-    speck: { starDim: "#232a52", starMid: "#3a4a86", starBright: "#7f92c8", tick: "#2b3a72" },
+    area: { base: "#0b0b26", dialRing: "#151a38", dialBand: "#1b2244" },
+    speck: { starDim: "#232a52", starMid: "#3a4a86", starBright: "#7f92c8", dialTick: "#2b3a72" },
   },
 } as const satisfies Record<BackgroundId, BackgroundColorSet>;
 
 /**
- * Where a theme is painted *around*, in field pixels.
- *
- * One theme reads it — `observer`, whose ring belongs to the eye's socket and
- * moves veil by veil. Every other painter ignores it, and a caller with no
- * point to give (the capsule catalogue's scenes) leaves it out.
+ * Where the iris is painted *around*, in field pixels — the pupil's orbit
+ * centre. No level theme takes a point any more: the zodiac dial that used to
+ * be baked around a veil's socket is drawn by the frame on every level now
+ * (`drawZodiac`, SHA-212), so a theme is a function of its seed alone.
  */
 export interface BackgroundFocus {
   readonly x: number;
@@ -550,44 +590,24 @@ function ring(brush: BackgroundBrush, x: number, y: number, radius: number, colo
   }
 }
 
-// The zodiac ring: two circles and twelve ticks across the band between them.
-const RING_OUTER = 86;
-const RING_INNER = 82;
-const RING_TICKS = 12;
-
 /**
- * THE OBSERVER's field: a starfield with a zodiac ring around the eye's socket.
+ * THE OBSERVER's field (SHA-167): the starfield the veils stand on.
  *
- * The ring is here and not on the eye because it has to be there **before** the
- * eye is — on THE VEIL the wall covers the socket and only two gaps show any of
- * it, so a player who has not yet broken through still sees that this level's
- * field is built around a point. It is the one thing in this file painted at a
- * position the caller chooses, which is why `focus` exists.
- *
- * A veil's socket can sit near an edge (THE TEAR's is in the top-left corner)
- * and the ring simply runs off the field there; clipping it to fit would move
- * the centre, and the centre is the whole statement.
+ * It used to bake the dial's outer circle around the eye's socket, so that the
+ * field said it was built around a point before the eye was uncovered. The
+ * whole dial is the renderer's now (`drawZodiac`, SHA-211/212) and drawn on
+ * every level, so this is a starfield and nothing else — kept as its own theme
+ * because the roster names it, and because the veils' tones are these.
  */
-function paintObserver(brush: BackgroundBrush, focus: BackgroundFocus): void {
-  const { area, speck } = BACKGROUND_COLORS.observer;
+function paintObserver(brush: BackgroundBrush): void {
+  const { speck } = BACKGROUND_COLORS.observer;
   const tones = [speck.starDim, speck.starMid, speck.starBright];
   for (let index = 0; index < STAR_COUNT; index += 1) {
     scatter(brush, 1, tones[index % tones.length]);
   }
-  ring(brush, focus.x, focus.y, RING_OUTER, area.ringOuter);
-  ring(brush, focus.x, focus.y, RING_INNER, area.ringInner);
-  // The ticks are drawn across the whole band rather than as dots on one
-  // circle, so the two rings read as a dial with divisions rather than as two
-  // unrelated circles that happen to be concentric.
-  for (let index = 0; index < RING_TICKS; index += 1) {
-    const angle = (index / RING_TICKS) * Math.PI * 2;
-    for (let radius = RING_INNER; radius <= RING_OUTER; radius += 1) {
-      brush.rect(focus.x + Math.cos(angle) * radius, focus.y + Math.sin(angle) * radius, 1, 1, speck.tick);
-    }
-  }
 }
 
-const PAINTERS: Record<BackgroundId, (brush: BackgroundBrush, focus: BackgroundFocus) => void> = {
+const PAINTERS: Record<BackgroundId, (brush: BackgroundBrush) => void> = {
   starfield: paintStarfield,
   nebula: paintNebula,
   grid: paintGrid,
@@ -605,13 +625,10 @@ export function paintBackground(
   variant: number,
   width: number,
   height: number,
-  focus?: BackgroundFocus,
 ): void {
   const brush = createBrush(ctx, width, height, hashSeed(`${id}:${variant}`));
   brush.rect(0, 0, width, height, BACKGROUND_COLORS[id].area.base);
-  // The field's middle when the caller has nothing to say, which is every theme
-  // but one and every caller but the two that know which level they are on.
-  PAINTERS[id](brush, focus ?? { x: Math.round(width / 2), y: Math.round(height / 2) });
+  PAINTERS[id](brush);
 }
 
 // What a theme paints *over* the room's tenant (SHA-188): drawn after the
@@ -756,14 +773,10 @@ export class BackgroundLayer {
     return this.monoFrontCanvas;
   }
 
-  // `focus` is not part of the key and must not be: it is a function of the
-  // level, the variant already is the level, and a key carrying a point would
-  // repaint the field every time a veil's socket was nudged in the source
-  // without ever being able to be wrong about it.
-  imageFor(id: BackgroundId, variant: number, focus?: BackgroundFocus): HTMLCanvasElement {
+  imageFor(id: BackgroundId, variant: number): HTMLCanvasElement {
     const key = `${id}:${variant}`;
     if (this.painted !== key) {
-      paintBackground(this.ctx, id, variant, this.width, this.height, focus);
+      paintBackground(this.ctx, id, variant, this.width, this.height);
       this.painted = key;
     }
     return this.canvas;
@@ -772,12 +785,12 @@ export class BackgroundLayer {
   // The same field, thresholded to the tube's two tones. Reduced from the
   // colour layer rather than repainted through a 1-bit brush, so a theme is
   // authored once and its demade twin can never drift from it.
-  monoImageFor(id: BackgroundId, variant: number, focus?: BackgroundFocus): HTMLCanvasElement {
+  monoImageFor(id: BackgroundId, variant: number): HTMLCanvasElement {
     const key = `${id}:${variant}`;
     if (this.monoPainted === key) {
       return this.monoCanvas;
     }
-    this.monoCtx.drawImage(this.imageFor(id, variant, focus), 0, 0);
+    this.monoCtx.drawImage(this.imageFor(id, variant), 0, 0);
     const image = this.monoCtx.getImageData(0, 0, this.width, this.height);
     reduceToMono(image.data);
     this.monoCtx.putImageData(image, 0, 0);

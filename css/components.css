@@ -652,7 +652,8 @@
 /* The run's other number, under the score and quieter than it: what the player
    did, beside what they scored. Its own line and not a suffix, because the two
    are counted in different things. */
-#overChain {
+#overChain,
+#overChart {
   font: 400 9px var(--font-pixel);
   color: var(--color-grey-text);
 }
@@ -675,12 +676,24 @@
   visibility: hidden;
 }
 
+/* THE TITLE (SHA-211): the mockup's home. The eye's canvas fills the stage
+   under everything; the copper band sits at the mockup's 150, under the eye,
+   and the words stack under the band the way the mockup stacks them. */
+#titleEye {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 480px;
+  height: 300px;
+  image-rendering: pixelated;
+}
+
 #titleCopper {
   position: absolute;
   left: 0;
-  top: 48px;
+  top: 150px;
   width: 100%;
-  height: 54px;
+  height: 44px;
   background: repeating-linear-gradient(
     180deg,
     #0b0b26 0 2px,
@@ -703,7 +716,7 @@
 #titleWordmark {
   position: absolute;
   left: 0;
-  top: 59px;
+  top: 154px;
   width: 100%;
   text-align: center;
   font: 400 35px var(--font-display);
@@ -712,77 +725,54 @@
   text-shadow: 4px 4px 0 var(--color-red);
 }
 
-/* THE OBSERVER, under the wordmark (SHA-177). The loop has an antagonist and
-   the title screen names it — the one line on this screen that is about the
-   game rather than about playing it.
-
-   It stands below the copper band and not on it. The band was 66 px and is 54,
-   which still leaves eight clear pixels under SHATTER's 35 px — the wordmark is
-   only legible up there because it is bigger than the stripe, and nine pixels
-   of Silkscreen over a two-pixel pattern that is scrolling is a line the eye
-   cannot hold still. In the wordmark's own red rather than the mockup's yellow:
-   the top score below is already yellow here, and the red is the colour SHATTER
-   casts its shadow in and the colour the eye is tinted in on all five veils. */
+/* THE OBSERVER, under the wordmark (SHA-177, placed by the mockup in SHA-211).
+   The loop has an antagonist and the title screen names it — the one line on
+   this screen that is about the game rather than about playing it. Under the
+   copper band, in the mockup's yellow, with the eye itself above the band. */
 #titleSubline {
   position: absolute;
   left: 0;
-  top: 108px;
+  top: 202px;
   width: 100%;
   text-align: center;
   font: 400 9px var(--font-pixel);
-  color: var(--color-red);
+  color: var(--color-yellow);
   letter-spacing: 5px;
 }
 
 #titleTagline {
   position: absolute;
   left: 0;
-  top: 128px;
+  top: 218px;
   width: 100%;
   text-align: center;
   font: 400 8px var(--font-pixel);
   color: var(--color-sky);
-  letter-spacing: 4px;
-}
-
-.title-divider {
-  position: absolute;
-  left: 140px;
-  top: 150px;
-  width: 200px;
-  height: 1px;
-  background: var(--color-title-divider);
+  letter-spacing: 2px;
 }
 
 #titleInfo {
   position: absolute;
   left: 0;
-  top: 161px;
+  top: 233px;
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
 
   & #titleTopScore {
-    font: 400 11px var(--font-pixel);
+    font: 400 10px var(--font-pixel);
     color: var(--color-yellow);
-  }
-
-  & .title-controls {
-    font: 400 8px var(--font-pixel);
-    color: var(--color-grey-text);
-    letter-spacing: 1px;
   }
 }
 
 #titlePlayHint {
   position: absolute;
   left: 0;
-  top: 218px;
+  top: 252px;
   width: 100%;
   text-align: center;
-  font: 400 14px var(--font-pixel);
+  font: 400 13px var(--font-pixel);
   color: var(--color-green);
 }
 
@@ -792,7 +782,7 @@
 #titleMenuHints {
   position: absolute;
   left: 0;
-  top: 248px;
+  top: 269px;
   width: 100%;
   display: flex;
   justify-content: center;
@@ -805,7 +795,7 @@
 #titleFooter {
   position: absolute;
   left: 0;
-  top: 274px;
+  top: 284px;
   width: 100%;
   text-align: center;
   font: 400 7px var(--font-pixel);

@@ -3,12 +3,13 @@ import { gameConfig, peelFlightTicks } from "@core/config/GameConfig";
 import { MALUS_KINDS, POWER_UP_GLYPHS } from "@core/config/powerUps";
 import { type Ball, paceGhost } from "@entities/ball/Ball";
 import { SPECIES } from "@entities/creatures/species";
+import { Chart } from "@entities/effects/Chart";
 import { eyePupilPoint } from "@entities/effects/Observer";
 import { OCULUS_HEIGHT, OCULUS_POSITIONS, OCULUS_WIDTH } from "@entities/effects/Oculi";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
 import { DROP_HEIGHT } from "@entities/powerups/DropPool";
 import { EYE_LAYER } from "@interfaces/eye";
-import { BACKGROUND_COLORS, BackgroundLayer, IrisLayer } from "@render/backgrounds";
+import { BACKGROUND_COLORS, BackgroundLayer, dialTonesFor, IrisLayer } from "@render/backgrounds";
 import { type BallRow, ballGlints, ballRows } from "@render/ballSprite";
 import { BROOD_BITMAPS, BROOD_FRAMES, BROOD_OUTLINE, broodPalette } from "@render/broodSprite";
 import {
@@ -50,18 +51,20 @@ import type {
   BrickCell,
   BrickFlash,
   BrickFlashKind,
+  BrickKind,
   Bumper,
   CatchPop,
   ChainBolt,
   PaddleShard,
   Peel,
+  PowerUpKind,
   PyreBlast,
   RailMark,
-  PowerUpKind,
   SnapMark,
-  TracerThread,
   StasisRing,
+  TracerThread,
 } from "@interfaces/types";
+import type { DialTones } from "@render/backgrounds";
 
 // The speed streak, as how far back along this tick's displacement each copy of
 // the ball is laid. Far first, so the near copy paints over it and the smear
@@ -623,6 +626,8 @@ export interface RenderView {
   // well as this frame's lid and look, and the renderer reads all four off it —
   // the same arrangement the wear, the fog and the couples arrive under.
   observer: Observer;
+  // THE CHART (SHA-212): the run's constellation, read off the object.
+  chart: ChartView;
   // Its brood. A second field and not a property of the eye, because the two are
   // drawn at opposite ends of the frame: the eye is behind the wall and its
   // creatures walk in front of it.
@@ -1141,7 +1146,47 @@ export function drawBrick(
   // un-seats itself before a single pixel of it moves.
   pixel(bodyX + 1, bodyY + bodyHeight - 1, bodyWidth - 2, 1, scarred(unmoored ? sheen : definition.dark));
   pixel(bodyX + bodyWidth - 1, bodyY + 1, 1, bodyHeight - 2, scarred(definition.dark));
+  // The face's mark (SHA-211), the mockup's engraving per kind in the brick's
+  // own dark: a plain brick carries a tick over a bar, silver a cross over a
+  // bar, gold a lozenge with a lit heart. THE LID's bronze keeps its rivets
+  // and granite its grain — each already has a face of its own — and a worn
+  // brick has no whole face left to engrave.
+  if (bodyWidth === gameConfig.grid.brickWidth - 2 && bodyHeight === gameConfig.grid.brickHeight - 2) {
+    drawFaceMark(pixel, bodyX, bodyY, cell.kind, scarred(definition.dark), scarred(sheen));
+  }
   ctx.globalAlpha = 1;
+}
+
+function drawFaceMark(
+  pixel: (left: number, top: number, width: number, height: number, color: string) => void,
+  x: number,
+  y: number,
+  kind: BrickKind,
+  dark: string,
+  sheen: string,
+): void {
+  switch (kind) {
+    case "S":
+      pixel(x + 12, y + 3, 4, 1, dark);
+      pixel(x + 13, y + 2, 2, 3, dark);
+      pixel(x + 7, y + 6, 14, 1, dark);
+      return;
+    case "G":
+      pixel(x + 13, y + 2, 2, 6, dark);
+      pixel(x + 11, y + 4, 6, 2, dark);
+      pixel(x + 13, y + 4, 2, 2, sheen);
+      return;
+    case "1":
+    case "2":
+    case "3":
+    case "4":
+    case "5":
+      pixel(x + 4, y + 7, 20, 1, dark);
+      pixel(x + 13, y + 2, 2, 4, dark);
+      return;
+    default:
+      return;
+  }
 }
 
 /**
@@ -1547,6 +1592,143 @@ const EYE_TONES: Record<"blue" | "red" | "gold" | "demade", EyeTones> = {
   },
 };
 
+/** A zodiac dial's geometry: the two circles, and the ticks across the band between them. */
+export interface ZodiacRing {
+  inner: number;
+  outer: number;
+  ticks: number;
+  /** Every other tick in the dimmer tone, as the title's dial has them. */
+  alternate: boolean;
+}
+
+/** Where the dial stands on a level: round a veil's socket, at the field's middle everywhere else (SHA-212). */
+export function chartCentre(socket: { x: number; y: number } | undefined): { x: number; y: number } {
+  const { width, height } = gameConfig.field;
+  return socket ? { x: socket.x, y: socket.y } : { x: Math.round(width / 2), y: Math.round(height / 2) };
+}
+
+/** How far round the dial has turned this frame, in radians. */
+function dialSpin(frame: number): number {
+  const { turnTicks } = gameConfig.observer.ring;
+  return ((frame % turnTicks) / turnTicks) * Math.PI * 2;
+}
+
+/** The dial's `index`th star — the inner end of its tick — as a whole pixel, this frame. */
+function dialStar(cx: number, cy: number, ring: ZodiacRing, index: number, spin: number): readonly [number, number] {
+  const angle = (index / ring.ticks) * Math.PI * 2 + spin;
+  return [Math.round(cx + Math.cos(angle) * ring.inner), Math.round(cy + Math.sin(angle) * ring.inner)];
+}
+
+/**
+ * THE ZODIAC RING (SHA-211): the dial round the eye, turning.
+ *
+ * The mockup bakes the dial into the field. Here the whole of it is drawn
+ * every frame a little further round, so the dial turns once a minute — the
+ * one thing on the field that is moving before the ball is. One point per
+ * pixel of circumference, the dash counted along it, the ticks and the dashed
+ * circle rotated by the spin: what a dial drawn on a tube would do. The outer
+ * circle does not turn, because a circle turned is the same circle.
+ *
+ * On every level since SHA-212, in the level's own tones — see `dialTonesFor`.
+ */
+export function drawZodiac(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  ring: ZodiacRing,
+  frame: number,
+  scale: number,
+  demade = false,
+  tones: DialTones = dialTonesFor("observer"),
+): void {
+  const pixel = spriteBrush(ctx, scale, false);
+  const { dashOn, dashOff } = gameConfig.observer.ring;
+  const outerTone = demade ? canvasPalette.demakeInk : tones.ring;
+  const innerTone = demade ? canvasPalette.demakeInk : tones.band;
+  const tickTone = demade ? canvasPalette.demakeInk : tones.tick;
+  const spin = dialSpin(frame);
+  const dot = (radius: number, angle: number, tone: string): void => {
+    pixel(Math.round(cx + Math.cos(angle) * radius), Math.round(cy + Math.sin(angle) * radius), 1, 1, tone);
+  };
+  const outerSteps = Math.round(Math.PI * 2 * ring.outer);
+  for (let index = 0; index < outerSteps; index += 1) {
+    dot(ring.outer, (index / outerSteps) * Math.PI * 2, outerTone);
+  }
+  const innerSteps = Math.round(Math.PI * 2 * ring.inner);
+  const period = dashOn + dashOff;
+  for (let index = 0; index < innerSteps; index += 1) {
+    if (index % period < dashOn) {
+      dot(ring.inner, (index / innerSteps) * Math.PI * 2 + spin, innerTone);
+    }
+  }
+  for (let index = 0; index < ring.ticks; index += 1) {
+    const angle = (index / ring.ticks) * Math.PI * 2 + spin;
+    const tone = ring.alternate && index % 2 === 1 ? innerTone : tickTone;
+    for (let radius = ring.inner; radius <= ring.outer; radius += 1) {
+      dot(radius, angle, tone);
+    }
+  }
+}
+
+/** What the renderer reads off the chart this frame. */
+export interface ChartView {
+  readonly complete: number;
+  readonly pending: number;
+  readonly latest: number;
+  readonly reveal: number;
+  readonly caged: boolean;
+}
+
+/**
+ * THE CHART (SHA-212): the run's junctions on the dial, between the ticks'
+ * inner ends. Every whole junction, then the one being drawn as far as it has
+ * got, from its first star toward its second — the stroke a kill just added is
+ * the line's new end growing, not a line switching on. The junction the last
+ * stroke touched is gold while the reveal runs, stepping down to the thread's
+ * bronze: the arrival, in the two tones the diadem's stars already use.
+ *
+ * Drawn every frame with the dial, so it turns with it. `barsOnly` draws the
+ * diameters alone, which is the cage's front: on a veil with the chart closed
+ * they are painted again *over* the eye, and the eye is behind bars.
+ */
+export function drawChart(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  ring: ZodiacRing,
+  chart: ChartView,
+  frame: number,
+  scale: number,
+  demade = false,
+  barsOnly = false,
+): void {
+  const pixel = spriteBrush(ctx, scale, false);
+  const spin = dialSpin(frame);
+  const thread = demade ? canvasPalette.demakeInk : BRICK_COLORS.G.dark;
+  const junctions = Chart.junctions;
+  const half = ring.ticks / 2;
+  const last = Math.min(chart.complete, junctions.length - 1);
+  for (let index = 0; index <= last; index += 1) {
+    const [a, b] = junctions[index];
+    if (barsOnly && (b - a + ring.ticks) % ring.ticks !== half) {
+      continue;
+    }
+    const fraction = index < chart.complete ? 1 : chart.pending;
+    if (fraction <= 0) {
+      continue;
+    }
+    const from = dialStar(cx, cy, ring, a, spin);
+    const to = dialStar(cx, cy, ring, b, spin);
+    const end: readonly [number, number] = [
+      Math.round(from[0] + (to[0] - from[0]) * fraction),
+      Math.round(from[1] + (to[1] - from[1]) * fraction),
+    ];
+    const arriving = index === chart.latest && chart.reveal > 0 && !demade;
+    const tone = arriving ? (chart.reveal > 0.5 ? canvasPalette.diademTwinkle : canvasPalette.diademStar) : thread;
+    drawPixelLine(pixel, from, end, tone);
+  }
+}
+
 /**
  * THE OBSERVER's eye, at whatever scale it is asked for (SHA-169).
  *
@@ -1765,7 +1947,7 @@ export function drawBeast(
   // The shadow first, under the body: a beast walking the band is a thing in
   // the room rather than a sticker on it, and one dark row is the whole of what
   // says so.
-  pixel(x + Math.round(form.width / 2) - 3, y + form.height + 2, 6, 1, BACKGROUND_COLORS.observer.area.ringOuter);
+  pixel(x + Math.round(form.width / 2) - 3, y + form.height + 2, 6, 1, BACKGROUND_COLORS.observer.area.dialRing);
 
   drawBitmap(pixel, rows, palette, x, y, (character) =>
     flash > 0.5 || (flash > 0 && character === outline) ? white : null,
@@ -2691,14 +2873,10 @@ export class CanvasRenderer {
     // One flag read once, here, and the four places below that would otherwise
     // paint a level the player is not standing in.
     const chamber = !view.inside.active;
-    // The veil's socket, so the zodiac ring is painted around the eye rather
-    // than around the middle of the field. Undefined on every other level,
-    // which every other theme ignores.
-    const focus = view.observer.level?.eye;
     const layer = chamber
       ? this.demade
-        ? this.background.monoImageFor(view.background, view.backgroundVariant, focus)
-        : this.background.imageFor(view.background, view.backgroundVariant, focus)
+        ? this.background.monoImageFor(view.background, view.backgroundVariant)
+        : this.background.imageFor(view.background, view.backgroundVariant)
       : this.iris.imageFor(view.observer.level?.tint ?? "blue", this.demade);
     this.ctx.drawImage(layer, 0, 0, width * SCALE, height * SCALE);
 
@@ -2741,7 +2919,20 @@ export class CanvasRenderer {
     // the room around its own tenant — and a wall rattling in front of the eye
     // while the eye held still would read as two pictures, not one room.
     if (chamber) {
+      // THE ZODIAC DIAL on every level (SHA-211/212), under everything: round a
+      // veil's socket, at the field's middle elsewhere, in the theme's own
+      // ink; and THE CHART on it, the run's lines between its stars.
+      const dial = chartCentre(view.observer.level?.eye);
+      const ring = gameConfig.observer.ring.field;
+      const tones = dialTonesFor(view.background);
+      drawZodiac(this.ctx, dial.x, dial.y, ring, this.frameCount, SCALE, this.demade, tones);
+      drawChart(this.ctx, dial.x, dial.y, ring, view.chart, this.frameCount, SCALE, this.demade);
       this.drawObserverEye(view, EYE_LAYER.BEHIND);
+      // The cage closed (SHA-212): on a veil the eye is the dial's centre, and
+      // the bars go over it.
+      if (view.chart.caged && view.observer.level) {
+        drawChart(this.ctx, dial.x, dial.y, ring, view.chart, this.frameCount, SCALE, this.demade, true);
+      }
       // The theme's foreground (SHA-188): what stands in front of the room's
       // tenant — the horizon's ground and dunes — over the eye and under the
       // wall, so a sun on that level sets behind the hills. Inside the turn and

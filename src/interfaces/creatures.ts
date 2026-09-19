@@ -11,8 +11,11 @@ export const CREATURE = {
   FROG: "frog",
   SNAIL: "snail",
   SPIDER: "spider",
-  // The bosses are species too, only bigger (SHA-209).
+  // The bosses are species too, only bigger (SHA-209, SHA-213).
   SPIDER_QUEEN: "spiderQueen",
+  MOTH_MOTHER: "mothMother",
+  FROG_KING: "frogKing",
+  SNAIL_ELDER: "snailElder",
 } as const;
 
 export type CreatureKind = (typeof CREATURE)[keyof typeof CREATURE];

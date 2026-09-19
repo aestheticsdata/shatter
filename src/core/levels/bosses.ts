@@ -10,8 +10,14 @@ import type { CreatureKind } from "@interfaces/creatures";
  */
 export const BOSS_OF_LEVEL: Readonly<Partial<Record<number, CreatureKind>>> = {
   4: CREATURE.SPIDER_QUEEN,
+  14: CREATURE.MOTH_MOTHER,
+  24: CREATURE.FROG_KING,
+  34: CREATURE.SNAIL_ELDER,
 };
 
 export const BOSS_NAME: Readonly<Partial<Record<CreatureKind, string>>> = {
   spiderQueen: "THE SPIDER QUEEN",
+  mothMother: "THE MOTH MOTHER",
+  frogKing: "THE FROG KING",
+  snailElder: "THE SNAIL ELDER",
 };

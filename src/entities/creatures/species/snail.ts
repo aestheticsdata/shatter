@@ -72,6 +72,9 @@ const CRAWL_B: readonly string[] = [
   ".k.kkk.kk.kkk.k.",
 ];
 
+/** Both frames, for the elder to grow out of (SHA-213). */
+export const SNAIL_FRAMES: readonly (readonly string[])[] = [CRAWL_A, CRAWL_B];
+
 function columnUnder(creature: Creature): number {
   const { left, brickWidth } = gameConfig.grid;
   return Math.floor((creature.x + WIDTH / 2 - left) / brickWidth);
@@ -101,7 +104,7 @@ export const SNAIL: Species = {
     return gameConfig.creatures.snail.killPoints;
   },
   solid: true,
-  frames: [CRAWL_A, CRAWL_B],
+  frames: SNAIL_FRAMES,
   frameTicks: 12,
   // The orange brick's three tones for the shell, the spiral and outline in
   // its dark, and the same orange's light for the paler foot under it.

@@ -119,15 +119,15 @@ export interface Species {
 | ----- | ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
 | 5     | THE SPIDER QUEEN         | built (SHA-209): hangs from the top, stalks along it to over the deck, drops; caught under her the deck is stone for the gaze's span; ten hits |
 | 10    | THE VEIL (+ boss phase)  | the wyvern mother comes out of the socket; she lays eggs on the band while you hit her                               |
-| 15    | THE BEETLE               | rolls across the field, charges the deck; only its flipped belly takes hits                                          |
+| 15    | THE MOTH MOTHER          | built (SHA-213): flies a figure of eight, the ball passes through her, a capsule out of her on every hit; on a clock she shakes and her dust puts the lights out (BLACKOUT's pools) |
 | 20    | THE IRIS (+ boss phase)  | the eye leaves the wall: a loose iris firing the gaze on the move                                                    |
-| 25    | THE JELLYFISH            | floats down in pulses; touching the deck stings it (petrify 1 s); pop it from below                                  |
+| 25    | THE FROG KING            | built (SHA-213): hops the floor, lands with a thud; armour sitting (HIDE), soft in the air; his tongue flicks a ball at his mouth straight down |
 | 30    | THE TEAR (+ boss phase)  | the weeping eye out in the room, raining                                                                             |
-| 35    | THE WYVERN               | the brood's last form, giant, diving at the ball                                                                     |
+| 35    | THE SNAIL ELDER          | built (SHA-213): crawls the ceiling, lays a brick under every column he passes in the top rows; shell armour (SHELL), soft head |
 | 40    | THE WRATH (+ boss phase) | the bloodshot eye rebuilding the wall around itself while it is hit                                                  |
 | 43    | THE LID                  | as shipped: the pupil in the room                                                                                    |
 
-The names and attacks of 15, 25, 35 and the veils' phases are proposals to confirm one at a time when their tickets start. Level 5's SPIDER QUEEN is the first built, with the framework.
+**The rule that replaced the proposals (2026-09-20, the user's):** every boss is one of the bestiary's species grown huge — the same bitmap doubled (`bitmap.ts`), the same mechanic turned into the whole fight. 5, 15, 25 and 35 are built to it. The veils' boss phases at 10, 20, 30 and 40 remain proposals to confirm one at a time. Two framework additions came with SHA-213: `Species.armour?(creature, x, y)` — the label a body refuses a touch with, or null — and the effects `dust`, `kick`, `lay`, `rattle`.
 
 ## Tickets
 

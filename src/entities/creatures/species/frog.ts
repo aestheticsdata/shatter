@@ -24,7 +24,7 @@ const HEIGHT = 12;
 
 // The body: two eyes bulging over a wide head, the smile on the level that is
 // one. The legs go under it, painted by state.
-const BODY: readonly string[] = [
+export const FROG_BODY: readonly string[] = [
   "..kkk....kkk..",
   ".kwwwk..kwwwk.",
   ".kwpwk..kwpwk.",
@@ -37,10 +37,10 @@ const BODY: readonly string[] = [
 ];
 
 // Legs folded under the body, feet on the brick.
-const LEGS_SIT: readonly string[] = ["..kkk....kkk..", "..kk......kk..", "...kk....kk..."];
+export const FROG_LEGS_SIT: readonly string[] = ["..kkk....kkk..", "..kk......kk..", "...kk....kk..."];
 
 // Legs kicked out and down, the way a frog hangs in the air.
-const LEGS_LEAP: readonly string[] = ["...kk....kk...", ".kk........kk.", "kk..........kk"];
+export const FROG_LEGS_LEAP: readonly string[] = ["...kk....kk...", ".kk........kk.", "kk..........kk"];
 
 type Cell = { column: number; row: number };
 
@@ -74,7 +74,8 @@ function pickBrick(sight: CreatureSight, seat: Cell): Cell | null {
   return cells[Math.floor(Math.random() * cells.length)];
 }
 
-function paint(pixel: Pixel, rows: readonly string[], x: number, y: number, tone: string): void {
+/** Every marked pixel of the rows in one tone: the legs, and the king's (SHA-213). */
+export function paintRows(pixel: Pixel, rows: readonly string[], x: number, y: number, tone: string): void {
   for (const [row, line] of rows.entries()) {
     for (let index = 0; index < line.length; index += 1) {
       if (line[index] !== ".") {
@@ -100,7 +101,7 @@ export const FROG: Species = {
   solid: true,
   // One frame: the renderer's frame clock is the field's, not the frog's, so
   // the pose chosen by state goes through `decorate`, under the body.
-  frames: [BODY],
+  frames: [FROG_BODY],
   frameTicks: 12,
   // The green brick's three, white eyes with the eye's own pupil in them, and
   // nothing yellow: the house keeps that colour for what pays.
@@ -173,9 +174,9 @@ export const FROG: Species = {
   // The legs by state, in the outline's tone — the flash's while it is on, so
   // the whole frog flinches as one.
   decorate(pixel, creature, _frame, demade) {
-    const legs = creature.state === FROG_STATE.LEAP ? LEGS_LEAP : LEGS_SIT;
+    const legs = creature.state === FROG_STATE.LEAP ? FROG_LEGS_LEAP : FROG_LEGS_SIT;
     const tone = creature.flashTicks > 0 ? canvasPalette.deathFlash : BRICK_COLORS["4"].dark;
     const y = Math.round(creature.y) + HEIGHT - legs.length;
-    paint(pixel, legs, Math.round(creature.x), y, demade ? canvasPalette.demakeInk : tone);
+    paintRows(pixel, legs, Math.round(creature.x), y, demade ? canvasPalette.demakeInk : tone);
   },
 };

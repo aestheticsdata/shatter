@@ -21,6 +21,7 @@ import { Creatures } from "@entities/creatures/Creatures";
 import { SPECIES } from "@entities/creatures/species";
 import { Brood } from "@entities/effects/Brood";
 import { BumperField } from "@entities/effects/BumperField";
+import { Chart } from "@entities/effects/Chart";
 import { Critter } from "@entities/effects/Critter";
 import { Decoherence } from "@entities/effects/Decoherence";
 import { Detonation } from "@entities/effects/Detonation";
@@ -92,6 +93,7 @@ import type { LevelGallery } from "@ui/LevelGallery";
 import type { Panel } from "@ui/Panel";
 import type { Screens } from "@ui/Screens";
 import type { StageScaler } from "@ui/StageScaler";
+import type { TitleScene } from "@ui/TitleScene";
 
 export interface ShatterGameDeps {
   renderer: CanvasRenderer;
@@ -103,6 +105,9 @@ export interface ShatterGameDeps {
   hiScores: HiScores;
   scaler: StageScaler;
   lockTarget: HTMLElement;
+  // THE TITLE's canvas (SHA-211): the eye behind the wordmark, drawn by the
+  // game's own frame while the title is up.
+  titleScene: TitleScene;
 }
 
 const ENTRY_LENGTH = 3;
@@ -523,6 +528,9 @@ export class ShatterGame {
           setGamblePin: (kind) => {
             this.gamblePin = kind;
           },
+          setChart: (strokes) => {
+            this.chart.set(strokes ?? Chart.strokesTotal);
+          },
           // `veil 1` is the first of the Observer's levels, whatever number it
           // holds in the roster — the point of the word is that nobody has to
           // remember that THE VEIL is level 9, and nobody has to edit this when
@@ -607,6 +615,13 @@ export class ShatterGame {
   // its own so the fight can be told from the roster — and the flag that says
   // it is over, which is what lets the clear card follow.
   private readonly bossPool = new Creatures();
+  // THE MOTH MOTHER's dust (SHA-213): ticks of dark left. Drives the blackout
+  // blend beside BLACKOUT's own timer, so her dark fades in and out the way
+  // the capsule's does.
+  private dustTicks = 0;
+  // THE CHART (SHA-212): the run's constellation on the dial. Run state, not
+  // level state — `startRun` is the one thing that empties it.
+  private readonly chart = new Chart();
   private bossDone = false;
   // And the three plaques that open it (SHA-171).
   private readonly oculi = new Oculi();
@@ -954,6 +969,8 @@ export class ShatterGame {
   }
 
   private readonly input: InputController;
+  // Where the mouse is on the stage, unlocked: the title's eye looks at it.
+  private pointer = { x: gameConfig.stage.width / 2, y: gameConfig.stage.height / 2 };
   private lastTime = 0;
   private accumulator = 0;
   private animationFrameId: number | null = null;
@@ -961,7 +978,10 @@ export class ShatterGame {
 
   constructor(private readonly deps: ShatterGameDeps) {
     this.input = new InputController(deps.lockTarget, deps.scaler, {
-      onPointerMoveTo: (stageX) => this.pointToStage(stageX),
+      onPointerMoveTo: (stageX, stageY) => {
+        this.pointer = { x: stageX, y: stageY };
+        this.pointToStage(stageX);
+      },
       // Under pointer lock the mouse names a movement, not a place: a skid drops
       // the deltas it arrives with and nothing is owed afterwards — there is no
       // absolute position for the deck to be out of step with.
@@ -1029,6 +1049,7 @@ export class ShatterGame {
       // veil's socket and tint as well as this frame's lid and look, and the
       // renderer needs all four.
       observer: this.observer,
+      chart: this.chart,
       brood: this.brood.beasts,
       // The boss last, so it is drawn over the roster it came to end.
       creatures: this.bossPool.live
@@ -1236,6 +1257,9 @@ export class ShatterGame {
       tideDrip: this.tideDrip,
     });
     this.deps.panel.update(this.panelView());
+    if (this.screen === "title") {
+      this.deps.titleScene.draw(this.pointer);
+    }
   };
 
   private stepSimulation(): void {
@@ -1265,6 +1289,10 @@ export class ShatterGame {
     // alive before the ball is.
     this.creatures.step(this.creatureSight(), this.creatureEffects());
     this.bossPool.step(this.creatureSight(), this.creatureEffects());
+    this.chart.step();
+    if (this.dustTicks > 0) {
+      this.dustTicks -= 1;
+    }
     // The pupil's orbit and the visit's clock. Above the serve's early return
     // like the eye and the brood: the fight opens on a serve screen, and a pupil
     // that only started moving on the launch would hand the player a free first
@@ -1427,7 +1455,7 @@ export class ShatterGame {
     // iris must not leave the light frozen mid-collapse behind the shockwave.
     this.blackoutBlend = stepBlend(
       this.blackoutBlend,
-      this.timers.isActive("BK"),
+      this.timers.isActive("BK") || this.dustTicks > 0,
       gameConfig.effects.blackoutFadeTicks,
     );
     // Above the gates with the rest: a door caught halfway by a shockwave is a
@@ -2995,10 +3023,17 @@ export class ShatterGame {
     const socket = this.observer.level?.eye;
     this.observer.wake();
     this.loosePupil.wake(socket?.x ?? gameConfig.field.width / 2);
-    this.gaze.load(true, gameConfig.observer.lid.gazeIdleTicks);
+    // THE CHART closed is the cage (SHA-212): a caged pupil is still loose in
+    // the room and still has to be struck, but its gaze does not get out
+    // through the bars. The one thing a perfect run buys on the last veil.
+    const caged = this.chart.caged;
+    this.gaze.load(!caged, gameConfig.observer.lid.gazeIdleTicks);
     this.quake.rattle(gameConfig.observer.lid.wakeShakeTicks, gameConfig.effects.quake.amplitude);
     this.popSeal("IT WAKES");
-    this.deps.screens.updateFieldNotice("THE PUPIL IS LOOSE · BLIND IT", true);
+    this.deps.screens.updateFieldNotice(
+      caged ? "THE PUPIL IS LOOSE · IT IS CAGED · BLIND IT" : "THE PUPIL IS LOOSE · BLIND IT",
+      true,
+    );
     this.deps.sfx.observerWakes();
   }
 
@@ -3033,6 +3068,7 @@ export class ShatterGame {
     this.deps.screens.updateFieldNotice(null);
     this.deps.sfx.observerBlinded();
     this.blinded = true;
+    this.chart.stroke(gameConfig.observer.chart.bossStrokes);
     this.clearCountdown = gameConfig.effects.clearDelayTicks;
   }
 
@@ -3313,6 +3349,8 @@ export class ShatterGame {
     for (let star = 0; star < killStars; star += 1) {
       this.observer.lightStar();
     }
+    // A boss's worth of strokes: the pupil is the veil's boss (SHA-212).
+    this.chart.stroke(gameConfig.observer.chart.bossStrokes);
     this.deps.sfx.pupilKilled();
     this.exitEye(true);
   }
@@ -3393,7 +3431,7 @@ export class ShatterGame {
       const boss = this.bossPool.at(shot.x, shot.y, 2, 9);
       if (boss) {
         shot.active = false;
-        this.strikeBoss(boss, null);
+        this.strikeBoss(boss, null, { x: shot.x + 1, y: shot.y });
       }
     }
   }
@@ -4126,7 +4164,7 @@ export class ShatterGame {
         const fromAbove = ball.y + size / 2 < boss.y + species.height / 2;
         ball.y = fromAbove ? boss.y - size : boss.y + species.height;
         ball.velocity.y = fromAbove ? -Math.abs(ball.velocity.y) : Math.abs(ball.velocity.y);
-        this.strikeBoss(boss, ball);
+        this.strikeBoss(boss, ball, { x: ball.centerX, y: ball.y + size / 2 });
       }
 
       // A disc is a free-standing thing to bounce off, so it sits with the
@@ -5550,8 +5588,10 @@ export class ShatterGame {
     this.popGain(centerX, centerY - 8, this.award(gameConfig.observer.brood.killPoints, "ball", by), true);
     this.particles.burst(centerX, centerY, "1", gameConfig.effects.brickDeathBurst);
     // A star for a creature sent back. It can refuse — six is all the sky holds
-    // — and a veil that earns a seventh simply keeps the points.
+    // — and a veil that earns a seventh simply keeps the points. And a stroke
+    // on the chart, which is the run's and keeps counting (SHA-212).
     this.observer.lightStar();
+    this.chart.stroke(gameConfig.observer.chart.killStrokes);
     this.deps.sfx.beastKilled();
   }
 
@@ -5707,6 +5747,7 @@ export class ShatterGame {
     this.xraySweepSpan = 0;
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
+    this.dustTicks = 0;
     this.portalBlend = 0;
     this.flipTurn = 0;
     this.turboSpool = 0;
@@ -5750,6 +5791,8 @@ export class ShatterGame {
     // around it. It rides PAYDAY with the clear bonus it is added to, and takes
     // no chain: the rally that earned the stars ended several deck touches ago.
     const stars = awardBonus ? this.observer.starsLit * gameConfig.observer.diadem.starPoints : 0;
+    // THE CHART's stroke for the level (SHA-212), before the card reads it.
+    this.chart.stroke(gameConfig.observer.chart.clearStrokes);
     // THE BOSS's bounty rides the same card and the same PAYDAY (SHA-209).
     const boss = awardBonus && this.bossDone ? gameConfig.bosses.clearBonus : 0;
     const bonus =
@@ -5773,16 +5816,25 @@ export class ShatterGame {
     // what a player wants off this card is how many of the six they got.
     const onVeil = this.observer.level !== null;
     const diadem = `DIADEM ${this.observer.starsLit}/${this.observer.diadem.length}`;
+    // THE CHART on every card (SHA-212): how many of its lines the run has so
+    // far. On THE LID's card it is cashed — the loop is over, and the run that
+    // goes on past it starts a new chart — and the card says what it paid.
+    const chart = `CHART ${zeroPad(this.chart.complete, 2)}/${Chart.junctions.length}`;
+    const chartCash = blinding ? this.chart.complete * gameConfig.observer.chart.junctionPoints : 0;
+    this.score += chartCash;
+    if (blinding) {
+      this.chart.reset();
+    }
     this.deps.screens.updateClear(
       blinding ? "THE OBSERVER IS BLIND" : levelAt(this.level).name,
       zeroPad(bonus, 5),
       blinding
-        ? `THE SKY IS YOURS · ${diadem}`
+        ? `THE SKY IS YOURS · ${diadem} · ${chart} · +${zeroPad(chartCash, 5)}`
         : onVeil
-          ? diadem
+          ? `${diadem} · ${chart}`
           : this.bossDone
-            ? `${BOSS_NAME[BOSS_OF_LEVEL[this.level] ?? "moth"] ?? "THE BOSS"} IS DEAD`
-            : null,
+            ? `${BOSS_NAME[BOSS_OF_LEVEL[this.level] ?? "moth"] ?? "THE BOSS"} IS DEAD · ${chart}`
+            : chart,
       // GRID CLEARED is what thirty-eight levels are. A veil is a veil, and the
       // card is the one place in the run that can say the word without a hint
       // or a notice having to carry it (SHA-177).
@@ -5898,11 +5950,21 @@ export class ShatterGame {
     }
   }
 
-  /** A boss hit: a creature's strike, and its death is the level's end. */
-  private strikeBoss(boss: Creature, by: Ball | null): void {
+  /**
+   * A boss hit: a creature's strike, and its death is the level's end. `at` is
+   * where the touch landed, for the bosses that are armour in places (SHA-213):
+   * a refused touch says so over the body and takes nothing off it.
+   */
+  private strikeBoss(boss: Creature, by: Ball | null, at: { x: number; y: number }): void {
     const species = SPECIES[boss.kind];
     const centerX = boss.x + species.width / 2;
     const centerY = boss.y + species.height / 2;
+    const refused = species.armour?.(boss, at.x, at.y) ?? null;
+    if (refused !== null) {
+      this.creatureEffects().pop(centerX, boss.y - 6, refused, true);
+      this.deps.sfx.beastStruck(1);
+      return;
+    }
     const { points, killed } = this.bossPool.strike(boss, by ? "ball" : "laser", this.creatureEffects());
     this.bumpChain();
     this.popGain(centerX, centerY, this.award(points, "ball", by), true);
@@ -5917,6 +5979,7 @@ export class ShatterGame {
     this.deps.sfx.beastKilled();
     this.deps.screens.updateFieldNotice(null);
     this.bossDone = true;
+    this.chart.stroke(gameConfig.observer.chart.bossStrokes);
     this.clearCountdown = gameConfig.effects.clearDelayTicks;
   }
 
@@ -5958,6 +6021,8 @@ export class ShatterGame {
       return;
     }
     this.particles.burst(centerX, centerY, "1", gameConfig.effects.brickDeathBurst);
+    // A stroke on the chart for a creature sent back (SHA-212).
+    this.chart.stroke(gameConfig.observer.chart.killStrokes);
     this.deps.sfx.beastKilled();
   }
 
@@ -6021,6 +6086,33 @@ export class ShatterGame {
       burst: (x, y, material) => {
         this.particles.burst(x, y, material, gameConfig.effects.brickDeathBurst);
       },
+      dust: (ticks) => {
+        this.dustTicks = Math.max(this.dustTicks, ticks);
+      },
+      kick: (x, y, width, height, vx, vy) => {
+        let kicked = false;
+        for (const ball of this.balls) {
+          if (
+            ball.active &&
+            ball.x < x + width &&
+            ball.x + ball.size > x &&
+            ball.y < y + height &&
+            ball.y + ball.size > y
+          ) {
+            ball.velocity.x = vx;
+            ball.velocity.y = vy;
+            kicked = true;
+          }
+        }
+        return kicked;
+      },
+      lay: (column, row, kind) => {
+        // The wrath's own repair, at the brick's full strength: a laid brick
+        // is a whole brick, and it flickers in the way a scar does.
+        this.grid.scar(row, column, kind, BRICK_BY_ID[kind].hitPoints, gameConfig.observer.wrath.flickerTicks);
+        this.deps.sfx.wallScars();
+      },
+      rattle: (ticks) => this.quake.rattle(ticks, gameConfig.effects.quake.amplitude),
     };
   }
 
@@ -7264,6 +7356,7 @@ export class ShatterGame {
     // A fresh pass for a fresh run. Inheriting the tail of the last one would
     // open the game on whatever the previous player happened not to draw.
     this.dropBag.reset();
+    this.chart.reset();
     // The one thing `resetServe()` below will not clear, so the new run clears
     // it here: a save carries across levels, never across runs.
     this.angelCharged = false;
@@ -7412,6 +7505,7 @@ export class ShatterGame {
     this.xraySweepSpan = 0;
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
+    this.dustTicks = 0;
     this.portalBlend = 0;
     this.flipTurn = 0;
     this.turboSpool = 0;
@@ -7501,6 +7595,7 @@ export class ShatterGame {
     this.xraySweepSpan = 0;
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
+    this.dustTicks = 0;
     this.portalBlend = 0;
     this.flipTurn = 0;
     this.turboSpool = 0;
@@ -7571,7 +7666,17 @@ export class ShatterGame {
     // one too many (SHA-177). `this.level` is still the level that ended the
     // run; nothing above this line touches it.
     const reached = `${levelAt(this.level).observer ? "VEIL" : "LEVEL"} ${zeroPad(this.level + 1, 2)}`;
-    this.deps.screens.updateOver(zeroPad(this.score, SCORE_DIGITS), zeroPad(this.bestChain, 2), reached);
+    // THE CHART cashes in with the run (SHA-212): every whole junction pays,
+    // into the score the card prints and the table records. The chart itself
+    // stays on the field behind the card — it is what the run drew.
+    const chartCash = this.chart.complete * gameConfig.observer.chart.junctionPoints;
+    this.score += chartCash;
+    this.deps.screens.updateOver(
+      zeroPad(this.score, SCORE_DIGITS),
+      zeroPad(this.bestChain, 2),
+      reached,
+      `CHART ${zeroPad(this.chart.complete, 2)}/${Chart.junctions.length} · +${zeroPad(chartCash, 5)}`,
+    );
     this.setScreen("over");
     this.deps.sfx.gameOver();
   }

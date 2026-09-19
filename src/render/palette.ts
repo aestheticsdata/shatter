@@ -511,6 +511,12 @@ export const canvasPalette = {
   // rather than as a hole in the screen.
   demakeInk: "#6cf08a",
   demakeGround: "#07160c",
+  // THE TITLE (SHA-211): the mockup's home sky — near-black, and three star
+  // tones from dim to bright.
+  titleBase: "#05050f",
+  titleStarDim: "#1b2244",
+  titleStarMid: "#333f78",
+  titleStarBright: "#6c7cb4",
   // BLACKOUT: the dark the field goes under for 5 seconds. Near-black with just
   // enough blue left in it to read as the lights going out rather than as a
   // hole cut in the canvas — and it is never seen flat, since the pools around

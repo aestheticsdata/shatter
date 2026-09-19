@@ -1,3 +1,4 @@
+import type { BrickKind } from "@core/config/bricks";
 import type { CreatureKind } from "@interfaces/creatures";
 import type { ChunkMaterial } from "@interfaces/types";
 
@@ -57,6 +58,14 @@ export interface CreatureEffects {
   /** The deck turns to stone for THE IRIS's span — a boss's sting (SPIDER QUEEN). */
   petrifyDeck(): void;
   burst(x: number, y: number, material: ChunkMaterial): void;
+  /** The lights go out for this long — BLACKOUT's pools (MOTH MOTHER). Longer of the two if already dark. */
+  dust(ticks: number): void;
+  /** Every ball in this box is sent off at this velocity. True when one was (FROG KING's tongue). */
+  kick(x: number, y: number, width: number, height: number, vx: number, vy: number): boolean;
+  /** A brick of this kind in that empty cell, at its kind's full hit points (SNAIL ELDER). */
+  lay(column: number, row: number, kind: BrickKind): void;
+  /** The field rattles for this long — a landing (FROG KING). */
+  rattle(ticks: number): void;
 }
 
 /**
@@ -90,6 +99,12 @@ export interface Species {
   step(creature: Creature, sight: CreatureSight, effects: CreatureEffects): void;
   /** A hit landed; the hit point and the flash are already taken. True when it dies of this. */
   struck(creature: Creature, by: "ball" | "laser", effects: CreatureEffects): boolean;
+  /**
+   * A touch at this field point, before it is a hit: the label the body
+   * refuses it with — a shell, a hide — or null to take it (SHA-213). A
+   * refused touch still bounces the ball; it takes no hit point and no flash.
+   */
+  armour?(creature: Creature, x: number, y: number): string | null;
   /** Extra drawing under the bitmap — a spider's thread, a snail's trail. Ink-only on the tube. */
   decorate?(pixel: Pixel, creature: Creature, frame: number, demade: boolean): void;
 }

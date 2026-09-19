@@ -48,6 +48,9 @@ const RAISED: readonly string[] = [
   ".......kk.......",
 ];
 
+/** Both frames, for the mother to grow out of (SHA-213). */
+export const MOTH_FRAMES: readonly (readonly string[])[] = [SPREAD, RAISED];
+
 function centre(creature: Creature, sight: CreatureSight): { x: number; y: number } {
   return sight.eye ?? creature.home;
 }
@@ -66,7 +69,7 @@ export const MOTH: Species = {
     return gameConfig.creatures.moth.killPoints;
   },
   solid: false,
-  frames: [SPREAD, RAISED],
+  frames: MOTH_FRAMES,
   frameTicks: 6,
   // Dusty silver wings with a blue eyespot each, on a brown body, outlined in
   // the silver's dark. None of it yellow: the house keeps that colour for what

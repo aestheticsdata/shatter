@@ -2,8 +2,8 @@ import { gameConfig } from "@core/config/GameConfig";
 import { BrickGrid } from "@entities/bricks/BrickGrid";
 import { cellSocket, cellWindow } from "@entities/effects/Observer";
 import { EYE_LAYER, EYE_TINT } from "@interfaces/eye";
-import { paintBackground, paintForeground } from "@render/backgrounds";
-import { drawBrick, drawEye } from "@render/CanvasRenderer";
+import { dialTonesFor, paintBackground, paintForeground } from "@render/backgrounds";
+import { chartCentre, drawBrick, drawEye, drawZodiac } from "@render/CanvasRenderer";
 
 import type { LevelDefinition } from "@interfaces/types";
 
@@ -30,7 +30,12 @@ import type { LevelDefinition } from "@interfaces/types";
 export function paintLevelStill(ctx: CanvasRenderingContext2D, level: LevelDefinition, variant: number): void {
   const { width, height } = gameConfig.field;
   const socket = level.observer?.eye;
-  paintBackground(ctx, level.background, variant, width, height, socket);
+  paintBackground(ctx, level.background, variant, width, height);
+  // The dial at rest, as the arena's first frame has it: round a veil's socket,
+  // at the field's middle on every other level (SHA-212). Empty — the chart on
+  // it is the run's, and a still is a level nobody has played.
+  const dial = chartCentre(socket);
+  drawZodiac(ctx, dial.x, dial.y, gameConfig.observer.ring.field, 0, 1, false, dialTonesFor(level.background));
   if (socket && level.observer) {
     drawEye(ctx, socket, 1, { x: socket.x, y: socket.y }, level.observer.tint, 1);
   }

@@ -34,6 +34,9 @@ export interface DevConsoleHost {
   setBonusSpread(amount: number): void;
   // Pins what GAMBLE's reel lands on, or `null` to hand it back to chance.
   setGamblePin(kind: PowerUpKind | null): void;
+  // THE CHART drawn to this many strokes, or the whole of it for `null` — the
+  // cage takes a run that kills nearly everything, and seeing it should not.
+  setChart(strokes: number | null): void;
 }
 
 // A stuck key may not grow the buffer forever; nothing useful is this long.
@@ -236,6 +239,8 @@ export class DevConsole {
         return this.setBonusSpread(operands);
       case "gamble":
         return this.setGamblePin(operands);
+      case "chart":
+        return this.setChart(operands);
       default:
         return suggestionFor(line);
     }
@@ -283,6 +288,24 @@ export class DevConsole {
       return "CREATURE WHICH";
     }
     return this.host.dropCreature(name) ? null : `NO SUCH CREATURE ${name.toUpperCase()}`;
+  }
+
+  /** `chart 30` — that many strokes on the chart; `chart full` — the cage closed. */
+  private setChart(operands: string[]): string | null {
+    const word = operands[0] ?? "";
+    if (operands.length !== 1 || word === "") {
+      return "CHART HOW MANY";
+    }
+    if (word === "full") {
+      this.host.setChart(null);
+      return null;
+    }
+    const strokes = Number(word);
+    if (!Number.isInteger(strokes) || strokes < 0) {
+      return "CHART HOW MANY";
+    }
+    this.host.setChart(strokes);
+    return null;
   }
 
   private jumpToLevel(operands: string[]): string | null {

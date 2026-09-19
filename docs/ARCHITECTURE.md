@@ -713,8 +713,12 @@ rattle arriving over a stronger is dropped rather than taken —
 `ParticleField`'s twin and deliberately not a mode of it, because GRAVEL's chips
 are worth points: a pool that refuses instead of recycling its oldest slot, a
 capped fall, and a catch test are all things debris has no use for and a reward
-cannot do without. Those nine left the class cleanly because each is a
-simulation of its own that `ShatterGame` merely steps and reads — and `Erosion`
+cannot do without — and [`Chart`](../src/entities/effects/Chart.ts), THE CHART
+(SHA-212), whose whole state is one stroke count the run adds to and `startRun`
+alone empties; which junctions are whole and which is half-drawn are both read
+off it, so the field and the cards cannot disagree. Those ten left the class
+cleanly because each is a simulation of its own that `ShatterGame` merely steps
+and reads — and `Erosion`
 is the only one the wall itself reads back, through the `WallErosion` interface
 `BrickGrid` declares for it, which is what keeps ERODE's hitbox out of the
 grid's vocabulary the way `topOffset` keeps QUAKE's out of it. `WallSheet` and
