@@ -1,0 +1,1254 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap"
+          rel="stylesheet"
+        />
+        <style>
+          html,
+          body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+          }
+          a {
+            color: #ffcf1c;
+          }
+          a:hover {
+            color: #fff;
+          }
+          @keyframes shBlink {
+            0%,
+            55% {
+              opacity: 1;
+            }
+            56%,
+            100% {
+              opacity: 0;
+            }
+          }
+        </style>
+      </helmet>
+      <div
+        ref="{{ rootRef }}"
+        style="
+          position: fixed;
+          inset: 0;
+          background: #000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          user-select: none;
+          cursor: none;
+          font-family: Silkscreen, ui-monospace, monospace;
+        "
+      >
+        <div
+          data-stage
+          style="
+            position: relative;
+            flex: none;
+            width: 1440px;
+            height: 900px;
+            background: #000;
+            transform-origin: center center;
+          "
+        >
+          <canvas
+            data-canvas
+            width="1116"
+            height="900"
+            style="position: absolute; left: 0; top: 0; width: 1116px; height: 900px"
+          ></canvas>
+
+          <div
+            data-screen-label="Panneau"
+            style="position: absolute; left: 1116px; top: 0; width: 324px; height: 900px; background: #a8aabb"
+          >
+            <div style="position: absolute; left: 0; top: 0; width: 1px; height: 900px; background: #2a2c3c"></div>
+            <div style="position: absolute; left: 1px; top: 0; width: 2px; height: 900px; background: #e6e8f4"></div>
+
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 24px;
+                width: 276px;
+                height: 54px;
+                background: #0b4fa8;
+                box-shadow:
+                  inset 2px 2px 0 #3c7fd8,
+                  inset -2px -2px 0 #062c60;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              <span
+                style="
+                  font:
+                    400 16px &quot;Press Start 2P&quot;,
+                    monospace;
+                  color: #fff;
+                  letter-spacing: 4px;
+                  text-shadow: 2px 2px 0 #062c60;
+                "
+                >SHATTER</span
+              >
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 102px;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #3b3d4e;
+                letter-spacing: 2px;
+              "
+            >
+              SCORE
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 132px;
+                width: 276px;
+                height: 57px;
+                background: #0d0d24;
+                box-shadow:
+                  inset 2px 2px 0 #05051a,
+                  inset -2px -2px 0 #e6e8f4;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+              "
+            >
+              <span
+                style="
+                  font:
+                    400 24px Silkscreen,
+                    monospace;
+                  color: #ffcf1c;
+                  padding-right: 14px;
+                "
+                >{{ scoreText }}</span
+              >
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 213px;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #3b3d4e;
+                letter-spacing: 2px;
+              "
+            >
+              HI-SCORE
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 243px;
+                width: 276px;
+                height: 57px;
+                background: #0d0d24;
+                box-shadow:
+                  inset 2px 2px 0 #05051a,
+                  inset -2px -2px 0 #e6e8f4;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+              "
+            >
+              <span
+                style="
+                  font:
+                    400 24px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                  padding-right: 14px;
+                "
+                >{{ hiText }}</span
+              >
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 324px;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #3b3d4e;
+                letter-spacing: 2px;
+              "
+            >
+              LEVEL
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 354px;
+                width: 276px;
+                height: 57px;
+                background: #0d0d24;
+                box-shadow:
+                  inset 2px 2px 0 #05051a,
+                  inset -2px -2px 0 #e6e8f4;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 14px;
+                box-sizing: border-box;
+              "
+            >
+              <span
+                style="
+                  font:
+                    400 24px Silkscreen,
+                    monospace;
+                  color: #fff;
+                "
+                >01</span
+              ><span
+                style="
+                  font:
+                    400 16px Silkscreen,
+                    monospace;
+                  color: #f07d10;
+                  letter-spacing: 1px;
+                "
+                >SUNRISE</span
+              >
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 435px;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #3b3d4e;
+                letter-spacing: 2px;
+              "
+            >
+              LIVES
+            </div>
+            <div style="position: absolute; left: 24px; top: 468px; display: flex; gap: 12px">
+              <sc-for list="{{ livesArr }}" as="l" hint-placeholder-count="2"
+                ><div style="display: flex; flex: none">
+                  <div
+                    style="
+                      width: 9px;
+                      height: 12px;
+                      background: #e8384f;
+                      box-shadow:
+                        inset 0 2px 0 #ff8a9c,
+                        inset 0 -2px 0 #8e1220;
+                    "
+                  ></div>
+                  <div
+                    style="
+                      width: 30px;
+                      height: 12px;
+                      background: #2d7fe0;
+                      box-shadow:
+                        inset 0 2px 0 #a8d8ff,
+                        inset 0 -2px 0 #0b3a78;
+                    "
+                  ></div>
+                  <div
+                    style="
+                      width: 9px;
+                      height: 12px;
+                      background: #e8384f;
+                      box-shadow:
+                        inset 0 2px 0 #ff8a9c,
+                        inset 0 -2px 0 #8e1220;
+                    "
+                  ></div></div
+              ></sc-for>
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 504px;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #3b3d4e;
+                letter-spacing: 2px;
+              "
+            >
+              POWER
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 534px;
+                width: 276px;
+                height: 57px;
+                background: #0d0d24;
+                box-shadow:
+                  inset 2px 2px 0 #05051a,
+                  inset -2px -2px 0 #e6e8f4;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              <span
+                style="
+                  font:
+                    400 16px Silkscreen,
+                    monospace;
+                  color: #3fbf4f;
+                  letter-spacing: 2px;
+                "
+                >{{ powerText }}</span
+              >
+            </div>
+
+            <div
+              style="position: absolute; left: 24px; top: 624px; width: 276px; height: 1px; background: #7a7c90"
+            ></div>
+            <div
+              style="position: absolute; left: 24px; top: 625px; width: 276px; height: 1px; background: #e6e8f4"
+            ></div>
+            <div style="position: absolute; left: 24px; top: 648px; display: flex; flex-direction: column; gap: 12px">
+              <span
+                style="
+                  font:
+                    400 16px Silkscreen,
+                    monospace;
+                  color: #3b3d4e;
+                "
+                >P · PAUSE</span
+              >
+              <span
+                style="
+                  font:
+                    400 16px Silkscreen,
+                    monospace;
+                  color: #3b3d4e;
+                "
+                >M · {{ soundText }}</span
+              >
+              <span
+                style="
+                  font:
+                    400 16px Silkscreen,
+                    monospace;
+                  color: #3b3d4e;
+                "
+                >{{ artHint }}</span
+              >
+              <span
+                style="
+                  font:
+                    400 16px Silkscreen,
+                    monospace;
+                  color: #3b3d4e;
+                "
+                >V · SPLIT VIEW</span
+              >
+              <span
+                style="
+                  font:
+                    400 16px Silkscreen,
+                    monospace;
+                  color: #3b3d4e;
+                "
+                >ESC · QUIT</span
+              >
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 804px;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #0b4fa8;
+                letter-spacing: 1px;
+              "
+            >
+              RENDER · {{ artText }}
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 852px;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #7a7c90;
+              "
+            >
+              REV 2.0 · HD PIXEL ART
+            </div>
+          </div>
+
+          <sc-if value="{{ isServe }}" hint-placeholder-val="{{ true }}"
+            ><div
+              style="
+                position: absolute;
+                left: 9px;
+                top: 645px;
+                width: 1098px;
+                text-align: center;
+                font:
+                  400 24px Silkscreen,
+                  monospace;
+                color: #8fd0ff;
+                text-shadow: 2px 2px 0 #0b0b26;
+                animation: shBlink 1s steps(1) infinite;
+              "
+            >
+              CLICK TO LAUNCH
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isPause }}" hint-placeholder-val="{{ false }}"
+            ><div
+              data-screen-label="Pause"
+              style="
+                position: absolute;
+                left: 9px;
+                top: 9px;
+                width: 1098px;
+                height: 891px;
+                background: #0b0b26;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 40px;
+              "
+            >
+              <div
+                style="
+                  font:
+                    400 40px &quot;Press Start 2P&quot;,
+                    monospace;
+                  color: #ffcf1c;
+                  text-shadow: 5px 5px 0 #8a3d00;
+                "
+              >
+                PAUSE
+              </div>
+              <div style="width: 420px; height: 3px; background: #f07d10"></div>
+              <div
+                style="
+                  font:
+                    400 24px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                "
+              >
+                PRESS P TO RESUME
+              </div>
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isClear }}" hint-placeholder-val="{{ false }}"
+            ><div
+              data-screen-label="Niveau termine"
+              style="
+                position: absolute;
+                left: 9px;
+                top: 9px;
+                width: 1098px;
+                height: 891px;
+                background: #0b0b26;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 30px;
+              "
+            >
+              <div
+                style="
+                  font:
+                    400 24px Silkscreen,
+                    monospace;
+                  color: #3fbf4f;
+                  letter-spacing: 4px;
+                "
+              >
+                GRID CLEARED
+              </div>
+              <div
+                style="
+                  font:
+                    400 40px &quot;Press Start 2P&quot;,
+                    monospace;
+                  color: #fff;
+                  text-shadow: 5px 5px 0 #155c1f;
+                "
+              >
+                SUNRISE
+              </div>
+              <div style="width: 600px; height: 2px; background: #2d7fe0"></div>
+              <div
+                style="
+                  font:
+                    400 24px Silkscreen,
+                    monospace;
+                  color: #ffcf1c;
+                "
+              >
+                BONUS {{ bonusText }}
+              </div>
+              <div
+                style="
+                  font:
+                    400 20px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                  animation: shBlink 1s steps(1) infinite;
+                "
+              >
+                CLICK TO CONTINUE
+              </div>
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isOver }}" hint-placeholder-val="{{ false }}"
+            ><div
+              data-screen-label="Game over"
+              style="
+                position: absolute;
+                left: 9px;
+                top: 9px;
+                width: 1098px;
+                height: 891px;
+                background: #0b0b26;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 34px;
+              "
+            >
+              <div
+                style="
+                  font:
+                    400 40px &quot;Press Start 2P&quot;,
+                    monospace;
+                  color: #e8384f;
+                  text-shadow: 5px 5px 0 #55000f;
+                "
+              >
+                GAME OVER
+              </div>
+              <div style="width: 600px; height: 3px; background: #e8384f"></div>
+              <div
+                style="
+                  font:
+                    400 24px Silkscreen,
+                    monospace;
+                  color: #fff;
+                "
+              >
+                SCORE {{ scoreText }}
+              </div>
+              <div
+                style="
+                  font:
+                    400 20px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                  animation: shBlink 1s steps(1) infinite;
+                "
+              >
+                CLICK TO CONTINUE
+              </div>
+            </div></sc-if
+          >
+        </div>
+      </div>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{"hdArt":{"editor":"boolean","default":true,"tsType":"boolean","section":"Rendu"},"splitCompare":{"editor":"boolean","default":false,"tsType":"boolean","section":"Rendu"},"ballTrail":{"editor":"boolean","default":true,"tsType":"boolean","section":"Rendu"},"crt":{"editor":"boolean","default":false,"tsType":"boolean","section":"Rendu"},"ballSpeed":{"editor":"range","default":1,"min":0.6,"max":1.6,"step":0.05,"tsType":"number","section":"Règles"},"dropRate":{"editor":"range","default":0.13,"min":0,"max":0.4,"step":0.01,"tsType":"number","section":"Règles"}}'
+    >
+      // Same 372x300 game grid as SHATTER.dc.html; the art is drawn on a 3x finer grid
+      // (the backing store the shipped renderer already has, SCALE = 3).
+      const S = 3;
+      const W = 372, H = 300, FW = W * S, FH = H * S;
+      const FX0 = 3, FX1 = 369, FY0 = 3, PY = 276, PH = 7;
+      const GX = 6, GY = 38, BW = 30, BH = 12, COLS = 12, BALL = 8;
+      const LEVEL = { name: 'SUNRISE', rows: ['111111111111', '222222222222', '333333333333', '444444444444', '555555555555'] };
+      // The roster's own tones (src/core/config/bricks.ts).
+      const BRICKS = {
+        '1': { light: '#ff8a9c', flat: '#e8384f', dark: '#8e1220', pts: 60 },
+        '2': { light: '#ffc27a', flat: '#f07d10', dark: '#8a3d00', pts: 70 },
+        '3': { light: '#fff59a', flat: '#ffcf1c', dark: '#8a6a00', pts: 80 },
+        '4': { light: '#a6f0a6', flat: '#3fbf4f', dark: '#155c1f', pts: 90 },
+        '5': { light: '#a8d8ff', flat: '#2d7fe0', dark: '#0b3a78', pts: 100 }
+      };
+      const PAL = { wallLight: '#dbe4ff', wallShade: '#8f9ac8', body: '#2d7fe0', cap: '#e8384f', sheen: '#a8d8ff', shade: '#0b3a78', ball: '#ffe14a', ballHi: '#fff9d0', ballShade: '#c98f0a', laser: '#ffcf1c', charge: '#fff9d0', ink: '#0b0b26' };
+      // The `horizon` theme SUNRISE ships with (src/render/backgrounds.ts).
+      const SKY = { base: '#061019', sky1: '#08161f', sky2: '#0b1b26', sky3: '#0e202c', glow: '#112733', glowHi: '#152f3c', dome: '#183744', ground: '#040c12', dune: '#020809', star: '#2a4a5c' };
+      const POWER_NAMES = { E: 'WIDE', M: 'MULTI', L: 'LASER', P: 'PIERCE' };
+      const DROP_COL = { E: '#2d7fe0', M: '#3fbf4f', L: '#e8384f', P: '#ffcf1c' };
+      const BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
+      const BALL_ROWS = [[2, 4], [1, 6], [0, 8], [0, 8], [0, 8], [0, 8], [1, 6], [2, 4]];
+
+      function hexRgb(h) { const v = parseInt(h.slice(1), 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; }
+      function mix(a, b, t) {
+        const A = hexRgb(a), B = hexRgb(b);
+        return '#' + [0, 1, 2].map(i => Math.round(A[i] + (B[i] - A[i]) * t).toString(16).padStart(2, '0')).join('');
+      }
+      // mulberry32 + FNV-1a, as the shipped backgrounds: same seed, same horizon, same stars.
+      function makeRandom(seed) { let s = seed >>> 0; return () => { s = (s + 0x6d2b79f5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+      function hashSeed(key) { let h = 0x811c9dc5; for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 0x01000193); return h >>> 0; }
+      function pillRows(h) { const r = h / 2, out = []; for (let y = 0; y < h; y++) { const dy = y + 0.5 - r; out.push(Math.round(r - Math.sqrt(Math.max(0, r * r - dy * dy)))); } return out; }
+
+      // A tiny software raster: sprites and the field are painted pixel by pixel, then baked to canvases.
+      class Pix {
+        constructor(w, h) { this.w = w; this.h = h; this.d = new Uint8ClampedArray(w * h * 4); this.c = {}; }
+        set(x, y, hex) {
+          x |= 0; y |= 0;
+          if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
+          const c = this.c[hex] || (this.c[hex] = hexRgb(hex)), i = (y * this.w + x) * 4;
+          this.d[i] = c[0]; this.d[i + 1] = c[1]; this.d[i + 2] = c[2]; this.d[i + 3] = 255;
+        }
+        rect(x, y, w, h, hex) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.set(x + i, y + j, hex); }
+        dither(x, y, w, h, hex, t) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (BAYER[(y + j) & 3][(x + i) & 3] < t * 16) this.set(x + i, y + j, hex); }
+        vgrad(x, w, stops) {
+          for (let k = 0; k < stops.length - 1; k++) {
+            const y0 = stops[k][0], c0 = stops[k][1], y1 = stops[k + 1][0], c1 = stops[k + 1][1];
+            for (let y = y0; y < y1; y++) { const t = (y - y0) / (y1 - y0) * 16; for (let i = 0; i < w; i++) this.set(x + i, y, BAYER[y & 3][(x + i) & 3] < t ? c1 : c0); }
+          }
+        }
+        disc(cx, cy, r, hex, t) {
+          for (let y = Math.ceil(cy - r); y <= Math.floor(cy + r); y++) {
+            const dy = y + 0.5 - cy, half = Math.round(Math.sqrt(Math.max(0, r * r - dy * dy)));
+            if (half <= 0) continue;
+            const x0 = Math.round(cx) - half;
+            if (t === undefined) this.rect(x0, y, half * 2, 1, hex); else this.dither(x0, y, half * 2, 1, hex, t);
+          }
+        }
+        // Radial gradient, ordered-dithered through `tones` (first tone = leave as is) from the rim to the centre.
+        rgrad(cx, cy, r, tones) {
+          const n = tones.length - 1;
+          for (let y = Math.max(0, Math.ceil(cy - r)); y <= Math.min(this.h - 1, Math.floor(cy + r)); y++) {
+            for (let x = Math.max(0, Math.ceil(cx - r)); x <= Math.min(this.w - 1, Math.floor(cx + r)); x++) {
+              const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+              if (d >= r) continue;
+              const u = (1 - d / r) * n, band = Math.min(n - 1, Math.floor(u)), frac = u - band;
+              const tone = BAYER[y & 3][x & 3] < frac * 16 ? tones[band + 1] : tones[band];
+              if (tone) this.set(x, y, tone);
+            }
+          }
+        }
+        discBand(cx, cy, r, top, bh, hex, k) {
+          k = k || 1;
+          const from = Math.max(Math.ceil(cy - r), top), to = Math.min(Math.floor(cy + r), top + bh - 1);
+          for (let row = from; row <= to; row++) {
+            const off = row + 0.5 - cy, half = Math.round(Math.sqrt(Math.max(0, r * r - off * off)));
+            if (half > 0) this.rect((Math.round(cx) - half) * k, row * k, half * 2 * k, k, hex);
+          }
+        }
+        toCanvas() { const c = document.createElement('canvas'); c.width = this.w; c.height = this.h; c.getContext('2d').putImageData(new ImageData(this.d, this.w, this.h), 0, 0); return c; }
+      }
+
+      class Component extends DCLogic {
+        state = { screen: 'serve', score: 0, lives: 3, power: '', bonus: 0, muted: false, hi: 0, hd: null, split: null };
+
+        componentDidMount() {
+          this.stage = this.root.querySelector('[data-stage]');
+          this.cv = this.root.querySelector('[data-canvas]');
+          this.ctx = this.cv.getContext('2d');
+          this.alt = document.createElement('canvas'); this.alt.width = FW; this.alt.height = FH;
+          this.altCtx = this.alt.getContext('2d');
+          this.spr = {}; this.round = 0;
+          this.layout = this.horizonLayout();
+          this.px = 163; this.pw = 46;
+          this.grid = []; this.remaining = 0;
+          this.timers = { E: 0, L: 0, P: 0, M: 0 }; this.fireT = 0;
+          this.balls = [0, 1, 2].map(() => ({ x: 0, y: 0, vx: 0, vy: 0, on: false, tr: [] }));
+          this.drops = [0, 1, 2].map(() => ({ x: 0, y: 0, k: '', on: false }));
+          this.shots = [0, 1, 2, 3, 4, 5].map(() => ({ x: 0, y: 0, on: false }));
+          this.chunks = []; this.flashes = [];
+          try { const v = parseInt(localStorage.getItem('shatter.hd.hiscore') || '0', 10); if (v > 0) this.setState({ hi: v }); } catch (err) { /* ignore */ }
+          this.buildLevel();
+
+          this.onResize = () => {
+            const s = Math.min(window.innerWidth * 0.99 / 1440, window.innerHeight * 0.99 / 900);
+            this.scale = s;
+            this.stage.style.transform = 'scale(' + s + ')';
+            this.cv.style.imageRendering = s >= 1 ? 'pixelated' : 'auto';
+          };
+          this.onMove = (e) => {
+            const r = this.stage.getBoundingClientRect();
+            const x = (e.clientX - r.left) / this.scale / S;
+            this.px = Math.max(FX0, Math.min(FX1 - this.pw, x - this.pw / 2));
+          };
+          this.onDown = () => this.advance();
+          this.onKey = (e) => this.key(e);
+          window.addEventListener('resize', this.onResize);
+          window.addEventListener('mousemove', this.onMove);
+          window.addEventListener('mousedown', this.onDown);
+          window.addEventListener('keydown', this.onKey);
+          this.onResize();
+          this.raf = requestAnimationFrame(this.tick);
+        }
+
+        componentWillUnmount() {
+          cancelAnimationFrame(this.raf);
+          window.removeEventListener('resize', this.onResize);
+          window.removeEventListener('mousemove', this.onMove);
+          window.removeEventListener('mousedown', this.onDown);
+          window.removeEventListener('keydown', this.onKey);
+        }
+
+        isHD() { return this.state.hd === null ? (this.props.hdArt ?? true) : this.state.hd; }
+        isSplit() { return this.state.split === null ? (this.props.splitCompare ?? false) : this.state.split; }
+
+        beep(f, d, type, vol) {
+          if (this.state.muted) return;
+          try {
+            if (!this.ac) this.ac = new (window.AudioContext || window.webkitAudioContext)();
+            const t = this.ac.currentTime, o = this.ac.createOscillator(), g = this.ac.createGain();
+            o.type = type || 'square'; o.frequency.setValueAtTime(f, t);
+            g.gain.setValueAtTime(vol || 0.05, t);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+            o.connect(g); g.connect(this.ac.destination); o.start(t); o.stop(t + d);
+          } catch (err) { /* audio unavailable */ }
+        }
+        arp(list, step) { list.forEach((f, i) => setTimeout(() => this.beep(f, 0.09, 'square', 0.05), i * (step || 60))); }
+
+        // ---------- rules (unchanged from SHATTER.dc.html) ----------
+        buildLevel() {
+          this.grid = []; this.remaining = 0;
+          LEVEL.rows.forEach((row) => {
+            const line = [];
+            for (let c = 0; c < COLS; c++) {
+              const ch = row[c] || '.';
+              if (!BRICKS[ch]) { line.push(null); continue; }
+              line.push({ hp: 1, ch, pts: BRICKS[ch].pts });
+              this.remaining++;
+            }
+            this.grid.push(line);
+          });
+          this.chunks = []; this.flashes = [];
+          this.resetBall();
+        }
+
+        resetBall() {
+          this.balls.forEach((b, i) => { b.on = i === 0; b.tr = []; });
+          this.setPaddle(46);
+          this.timers = { E: 0, L: 0, P: 0, M: 0 };
+          this.drops.forEach(d => { d.on = false; });
+          this.shots.forEach(s => { s.on = false; });
+          this.setState({ screen: 'serve', power: '' });
+        }
+
+        setPaddle(w) { this.pw = w; this.px = Math.max(FX0, Math.min(FX1 - w, this.px)); }
+        speed() { return Math.min(4.6, 3.1 + this.round * 0.25) * (this.props.ballSpeed ?? 1); }
+
+        launch() {
+          const b = this.balls[0];
+          b.on = true; b.tr = [];
+          const sp = this.speed();
+          b.x = this.px + this.pw / 2 - BALL / 2; b.y = PY - BALL - 1;
+          b.vx = (Math.random() < 0.5 ? -1 : 1) * sp * 0.55; b.vy = -sp * 0.83;
+          this.setState({ screen: 'play' });
+          this.beep(520, 0.07);
+        }
+
+        key(e) {
+          const s = this.state.screen, k = e.key.toLowerCase();
+          if (k === 'p' && (s === 'play' || s === 'pause')) { this.setState({ screen: s === 'play' ? 'pause' : 'play' }); this.beep(300, 0.06); }
+          if (k === 'm') this.setState({ muted: !this.state.muted });
+          if (k === 'c') this.setState({ hd: !this.isHD() });
+          if (k === 'v') this.setState({ split: !this.isSplit() });
+          if (k === ' ') { e.preventDefault(); this.advance(); }
+          if (e.key === 'Escape' && (s === 'play' || s === 'pause' || s === 'serve')) this.gameOver();
+        }
+
+        advance() {
+          const s = this.state.screen;
+          if (s === 'serve') this.launch();
+          else if (s === 'clear') { this.round++; this.buildLevel(); }
+          else if (s === 'over') { this.round = 0; this.setState({ score: 0, lives: 3 }, () => this.buildLevel()); this.arp([392, 523, 659]); }
+        }
+
+        gameOver() {
+          const hi = Math.max(this.state.hi, this.state.score);
+          try { localStorage.setItem('shatter.hd.hiscore', String(hi)); } catch (err) { /* ignore */ }
+          this.setState({ screen: 'over', hi });
+          this.arp([392, 330, 262, 196], 130);
+        }
+
+        tick = (t) => {
+          this.raf = requestAnimationFrame(this.tick);
+          const dt = Math.min(50, t - (this.last || t)); this.last = t;
+          this.acc = (this.acc || 0) + dt;
+          let guard = 0;
+          while (this.acc >= 16.667 && guard++ < 4) { this.step(); this.acc -= 16.667; }
+          this.draw();
+        };
+
+        step() {
+          const s = this.state.screen;
+          if (s === 'pause') return;
+          this.stepFx();
+          if (s !== 'play' && s !== 'serve') return;
+          if (s === 'serve') { const b = this.balls[0]; b.x = this.px + this.pw / 2 - BALL / 2; b.y = PY - BALL - 1; return; }
+
+          let changed = false;
+          ['E', 'L', 'P', 'M'].forEach(k => {
+            if (this.timers[k] > 0 && --this.timers[k] === 0) { changed = true; if (k === 'E') this.setPaddle(46); }
+          });
+          if (changed) this.syncPower();
+
+          if (this.timers.L > 0 && --this.fireT <= 0) {
+            this.fireT = 26;
+            this.shots.filter(x => !x.on).slice(0, 2).forEach((sh, i) => {
+              sh.on = true; sh.x = this.px + (i === 0 ? 5 : this.pw - 8); sh.y = PY - 9;
+            });
+            this.beep(880, 0.04, 'square', 0.035);
+          }
+          this.shots.forEach(sh => {
+            if (!sh.on) return;
+            sh.y -= 5.5;
+            if (sh.y < FY0) { sh.on = false; return; }
+            const cell = this.cellAt(sh.x + 1, sh.y);
+            if (cell) { this.damage(cell); sh.on = false; }
+          });
+
+          this.balls.forEach(b => { if (b.on) this.moveBall(b); });
+          if (!this.balls.some(b => b.on)) this.die();
+
+          this.drops.forEach(d => {
+            if (!d.on) return;
+            d.y += 1.3;
+            if (d.y > H) { d.on = false; return; }
+            if (d.y + 8 >= PY && d.y <= PY + PH && d.x + 20 > this.px && d.x < this.px + this.pw) {
+              d.on = false; this.apply(d.k);
+            }
+          });
+        }
+
+        stepFx() {
+          this.flashes = this.flashes.filter(f => --f.t > 0);
+          this.chunks.forEach(c => { c.x += c.vx; c.y += c.vy; c.vy += 0.22; c.life--; });
+          this.chunks = this.chunks.filter(c => c.life > 0 && c.y < FH);
+        }
+
+        moveBall(b) {
+          b.tr.unshift([b.x, b.y]); if (b.tr.length > 4) b.tr.pop();
+          const steps = Math.max(1, Math.ceil(Math.max(Math.abs(b.vx), Math.abs(b.vy)) / 2));
+          const dx = b.vx / steps, dy = b.vy / steps;
+          for (let i = 0; i < steps; i++) {
+            b.x += dx;
+            let cell = this.overlap(b);
+            if (cell) { if (this.timers.P <= 0) { b.x -= dx; b.vx = -b.vx; } this.damage(cell); }
+            b.y += dy;
+            cell = this.overlap(b);
+            if (cell) { if (this.timers.P <= 0) { b.y -= dy; b.vy = -b.vy; } this.damage(cell); }
+
+            if (b.x <= FX0) { b.x = FX0; b.vx = Math.abs(b.vx); this.beep(240, 0.03, 'square', 0.03); }
+            if (b.x >= FX1 - BALL) { b.x = FX1 - BALL; b.vx = -Math.abs(b.vx); this.beep(240, 0.03, 'square', 0.03); }
+            if (b.y <= FY0) { b.y = FY0; b.vy = Math.abs(b.vy); this.beep(240, 0.03, 'square', 0.03); }
+
+            if (b.vy > 0 && b.y + BALL >= PY && b.y + BALL <= PY + PH + 3 && b.x + BALL > this.px && b.x < this.px + this.pw) {
+              const rel = Math.max(-1, Math.min(1, (b.x + BALL / 2 - (this.px + this.pw / 2)) / (this.pw / 2)));
+              const a = rel * 1.05, sp = this.speed();
+              b.vx = Math.sin(a) * sp; b.vy = -Math.abs(Math.cos(a) * sp);
+              b.y = PY - BALL;
+              this.beep(420 + rel * 90, 0.05);
+            }
+            if (b.y > H) { b.on = false; return; }
+          }
+        }
+
+        cellAt(x, y) {
+          const c = Math.floor((x - GX) / BW), r = Math.floor((y - GY) / BH);
+          if (r < 0 || c < 0 || c >= COLS || r >= this.grid.length) return null;
+          const cell = this.grid[r][c];
+          return cell ? { cell, r, c } : null;
+        }
+        overlap(b) {
+          const pts = [[b.x + 1, b.y + 1], [b.x + BALL - 1, b.y + 1], [b.x + 1, b.y + BALL - 1], [b.x + BALL - 1, b.y + BALL - 1]];
+          for (const p of pts) { const hit = this.cellAt(p[0], p[1]); if (hit) return hit; }
+          return null;
+        }
+
+        damage(hit) {
+          const { cell, r, c } = hit;
+          cell.hp--;
+          if (cell.hp > 0) { cell.hurt = true; this.beep(180, 0.04, 'square', 0.045); return; }
+          this.grid[r][c] = null;
+          this.remaining--;
+          const bx = GX + c * BW, by = GY + r * BH;
+          this.flashes.push({ x: bx, y: by, k: cell.ch, t: 3 });
+          this.burst(bx, by, cell.ch);
+          this.setState(st => ({ score: st.score + cell.pts }));
+          this.beep(560 + (5 - r) * 45, 0.05);
+          if (Math.random() < (this.props.dropRate ?? 0.13)) this.spawnDrop(bx, by);
+          if (this.remaining <= 0) {
+            const bonus = 500 * (this.round + 1);
+            this.setState(st => ({ screen: 'clear', bonus, score: st.score + bonus }));
+            this.arp([523, 659, 784, 1046]);
+          }
+        }
+
+        // Debris in the brick's own three tones, at fine-pixel size.
+        burst(x, y, k) {
+          const c = BRICKS[k], tones = [c.light, c.flat, c.dark];
+          for (let i = 0; i < 10; i++) {
+            this.chunks.push({ x: (x + 2 + Math.random() * 26) * S, y: (y + 2 + Math.random() * 8) * S, vx: (Math.random() - 0.5) * 5, vy: -1 - Math.random() * 4, life: 22 + Math.floor(Math.random() * 18), col: tones[i % 3], sz: 2 + (i % 2) });
+          }
+          if (this.chunks.length > 240) this.chunks.splice(0, this.chunks.length - 240);
+        }
+
+        spawnDrop(x, y) {
+          const d = this.drops.find(k => !k.on); if (!d) return;
+          const kinds = ['E', 'M', 'L', 'P'];
+          d.k = kinds[Math.floor(Math.random() * kinds.length)];
+          d.x = x + 5; d.y = y; d.on = true;
+        }
+
+        apply(k) {
+          if (k === 'E') { this.setPaddle(72); this.timers.E = 720; }
+          if (k === 'L') { this.timers.L = 720; this.fireT = 10; }
+          if (k === 'P') { this.timers.P = 480; }
+          if (k === 'M') {
+            this.timers.M = 180;
+            const src = this.balls.find(b => b.on); if (!src) return;
+            const sp = this.speed();
+            this.balls.filter(b => !b.on).slice(0, 2).forEach((b, i) => {
+              b.on = true; b.x = src.x; b.y = src.y; b.tr = [];
+              const a = (i === 0 ? -0.6 : 0.6);
+              b.vx = Math.sin(a) * sp; b.vy = -Math.abs(Math.cos(a) * sp);
+            });
+          }
+          this.syncPower();
+          this.arp([659, 880], 50);
+        }
+
+        syncPower() {
+          const on = ['E', 'M', 'L', 'P'].filter(k => this.timers[k] > 0).map(k => POWER_NAMES[k]);
+          this.setState({ power: on.join(' ') });
+        }
+
+        die() {
+          this.beep(140, 0.3, 'sawtooth', 0.06);
+          const lives = this.state.lives - 1;
+          this.setState({ lives });
+          if (lives <= 0) this.gameOver(); else this.resetBall();
+        }
+
+        // ---------- the field: same seeded layout as the shipped `horizon` theme ----------
+        horizonLayout() {
+          const rnd = makeRandom(hashSeed('horizon:0')), ri = (a, b) => a + Math.floor(rnd() * (b - a));
+          const horizon = Math.round(H * 0.6) + ri(-12, 13);
+          const stars = []; for (let i = 0; i < 18; i++) { const x = ri(4, W - 4); stars.push([x, ri(6, horizon - 50)]); }
+          const dunes = [[0.3, 110], [0.7, 150]].map(([f, r]) => { const x = Math.round(f * W) + ri(-30, 31); return { x, r, rise: ri(9, 26) }; });
+          // HD-only detail, drawn from the same generator after the shipped calls.
+          const fine = []; for (let i = 0; i < 90; i++) { const x = ri(12, FW - 12); fine.push([x, ri(12, (horizon - 55) * S)]); }
+          const grit = []; for (let i = 0; i < 160; i++) { const x = ri(0, FW); grit.push([x, ri(horizon * S + 4, FH)]); }
+          return { horizon, stars, dunes, fine, grit };
+        }
+
+        bg(hd) { const key = hd ? 'bgH' : 'bgC'; return this.spr[key] || (this.spr[key] = this.paintHorizon(hd)); }
+
+        paintHorizon(hd) {
+          const L = this.layout, p = new Pix(FW, FH);
+          if (!hd) {
+            const B = (x, y, w, h, c) => p.rect(x * S, y * S, w * S, h * S, c);
+            B(0, 0, W, H, SKY.base);
+            L.stars.forEach(([x, y]) => B(x, y, 1, 1, SKY.star));
+            [SKY.sky1, SKY.sky2, SKY.sky3, SKY.glow].forEach((c, i) => B(0, L.horizon - (4 - i) * 10, W, 10, c));
+            B(0, L.horizon, W, H - L.horizon, SKY.ground);
+            L.dunes.forEach(d => p.discBand(d.x, L.horizon + d.r - d.rise, d.r, L.horizon - d.rise, d.rise, SKY.dune, S));
+            return p.toCanvas();
+          }
+          const hz = L.horizon * S;
+          p.rect(0, 0, FW, FH, SKY.base);
+          p.vgrad(0, FW, [[Math.max(0, hz - 210), SKY.base], [hz - 120, SKY.sky1], [hz - 90, SKY.sky2], [hz - 60, SKY.sky3], [hz - 30, SKY.glow], [hz - 8, SKY.glowHi]]);
+          p.rect(0, hz - 8, FW, 8, SKY.glowHi);
+          // Pre-dawn dome under the horizon line, ordered-dithered so it reads as light, not as a disc.
+          const sx = Math.round(FW * 0.56);
+          p.rgrad(sx, hz, 260, [null, SKY.sky3, SKY.glow, SKY.glowHi, SKY.dome]);
+          L.fine.forEach(([x, y]) => p.set(x, y, '#1d3846'));
+          L.stars.forEach(([x, y]) => {
+            const fx = x * S + 1, fy = y * S + 1;
+            p.set(fx, fy, '#5a89a0'); p.set(fx - 1, fy, SKY.star); p.set(fx + 1, fy, SKY.star); p.set(fx, fy - 1, SKY.star); p.set(fx, fy + 1, SKY.star);
+          });
+          p.rect(0, hz - 1, FW, 1, '#1e4050');
+          p.rect(0, hz, FW, FH - hz, SKY.ground);
+          L.grit.forEach(([x, y]) => p.set(x, y, '#08141c'));
+          L.dunes.forEach(d => {
+            const cx = d.x * S, r = d.r * S, rise = d.rise * S, cy = hz + r - rise;
+            p.discBand(cx, cy, r + 1, hz - rise - 1, rise + 1, '#0a1a22');
+            p.discBand(cx, cy, r, hz - rise, rise, SKY.dune);
+          });
+          return p.toCanvas();
+        }
+
+        // ---------- sprites, baked once per kind and per art mode ----------
+        sprite(key, make) { return this.spr[key] || (this.spr[key] = make()); }
+
+        brickSprite(k, hd) {
+          return this.sprite('b' + k + (hd ? 'h' : 'c'), () => {
+            const c = BRICKS[k], p = new Pix(BW * S, BH * S);
+            if (!hd) {
+              const B = (x, y, w, h, col) => p.rect(x * S, y * S, w * S, h * S, col);
+              B(1, 1, 28, 10, c.flat); B(2, 1, 26, 1, c.light); B(1, 2, 1, 8, c.light); B(2, 10, 26, 1, c.dark); B(28, 2, 1, 8, c.dark);
+              return p.toCanvas();
+            }
+            const ox = S, oy = S, w = BW * S - 2 * S, h = BH * S - 2 * S;
+            const L2 = mix(c.light, '#ffffff', 0.5), L1 = c.light, M1 = mix(c.flat, c.light, 0.3), M0 = c.flat;
+            const D1 = mix(c.flat, c.dark, 0.45), D2 = c.dark, D3 = mix(c.dark, '#000000', 0.4);
+            p.rect(ox + 2, oy + h, w, 2, '#03080e'); p.rect(ox + w, oy + 2, 2, h, '#03080e');
+            p.rect(ox + 1, oy, w - 2, h, D3); p.rect(ox, oy + 1, w, h - 2, D3);
+            p.rect(ox + 1, oy + 1, w - 2, h - 2, M0);
+            p.rect(ox + 1, oy + 1, w - 2, 5, M1);
+            p.dither(ox + 1, oy + 6, w - 2, 4, M1, 0.5);
+            p.dither(ox + 1, oy + h - 12, w - 2, 4, D1, 0.5);
+            p.rect(ox + 1, oy + h - 8, w - 2, 7, D1);
+            p.rect(ox + 2, oy + 1, w - 4, 1, L1); p.rect(ox + 1, oy + 2, 1, h - 4, L1);
+            p.rect(ox + 2, oy + h - 2, w - 4, 1, D2); p.rect(ox + w - 2, oy + 2, 1, h - 4, D2);
+            p.rect(ox + 4, oy + 3, 14, 1, L2); p.rect(ox + 4, oy + 4, 6, 1, L2); p.rect(ox + w - 14, oy + 3, 5, 1, L2);
+            return p.toCanvas();
+          });
+        }
+
+        ballSprite(hd) {
+          return this.sprite('ball' + (hd ? 'h' : 'c'), () => {
+            const p = new Pix(BALL * S, BALL * S);
+            if (!hd) {
+              const B = (x, y, w, h, c) => p.rect(x * S, y * S, w * S, h * S, c);
+              BALL_ROWS.forEach((row, i) => B(row[0], i, row[1], 1, PAL.ball));
+              B(2, 1, 2, 1, PAL.ballHi); B(1, 2, 1, 2, PAL.ballHi); B(3, 6, 3, 1, PAL.ballShade); B(6, 4, 1, 2, PAL.ballShade);
+              return p.toCanvas();
+            }
+            p.disc(12, 12, 12, mix(PAL.ballShade, '#000000', 0.4));
+            p.disc(12, 12, 11, PAL.ballShade);
+            p.disc(11, 11, 10, PAL.ball);
+            p.disc(11.5, 11.5, 10.5, PAL.ball, 0.5);
+            p.disc(9, 9, 4.5, PAL.ballHi);
+            p.disc(9.5, 9.5, 5.5, PAL.ballHi, 0.5);
+            p.rect(7, 7, 2, 2, '#ffffff'); p.set(9, 7, '#ffffff'); p.set(7, 9, '#ffffff');
+            return p.toCanvas();
+          });
+        }
+
+        paddleSprite(w, hd) {
+          return this.sprite('pad' + w + (hd ? 'h' : 'c'), () => {
+            const Wf = w * S, Hf = PH * S, p = new Pix(Wf, Hf);
+            if (!hd) {
+              const B = (x, y, ww, hh, c) => p.rect(x * S, y * S, ww * S, hh * S, c);
+              B(1, 0, w - 2, PH, PAL.body); B(0, 1, w, PH - 2, PAL.body);
+              B(1, 0, 7, 1, PAL.cap); B(0, 1, 8, PH - 2, PAL.cap); B(1, PH - 1, 7, 1, PAL.cap);
+              B(w - 8, 0, 7, 1, PAL.cap); B(w - 8, 1, 8, PH - 2, PAL.cap); B(w - 8, PH - 1, 7, 1, PAL.cap);
+              B(9, 1, w - 18, 1, PAL.sheen); B(9, PH - 1, w - 18, 1, PAL.shade);
+              return p.toCanvas();
+            }
+            const O = mix(PAL.shade, '#000000', 0.5), CL = mix(PAL.cap, '#ffffff', 0.4), CD = mix(PAL.cap, '#000000', 0.45);
+            const BL = mix(PAL.body, PAL.sheen, 0.4), BD = mix(PAL.body, PAL.shade, 0.55), BM = mix(PAL.body, PAL.sheen, 0.5);
+            const outer = pillRows(Hf), inner = pillRows(Hf - 2), cap = 8 * S;
+            for (let y = 0; y < Hf; y++) p.rect(outer[y], y, Wf - 2 * outer[y], 1, O);
+            for (let y = 1; y < Hf - 1; y++) {
+              const ins = inner[y - 1] + 1;
+              for (let x = ins; x < Wf - ins; x++) {
+                const isCap = x < cap || x >= Wf - cap, dith = BAYER[y & 3][x & 3] < 8;
+                let c;
+                if (x === cap - 1 || x === Wf - cap) c = O;
+                else if (isCap) c = y <= 2 ? CL : y <= 13 ? PAL.cap : y <= 16 ? (dith ? PAL.cap : CD) : CD;
+                else {
+                  c = y <= 2 ? PAL.sheen : y <= 5 ? BL : y <= 13 ? PAL.body : y <= 16 ? (dith ? PAL.body : BD) : y <= 18 ? BD : PAL.shade;
+                  if (y >= 9 && y <= 11 && x >= cap + 6 && x < Wf - cap - 6 && ((x - cap - 6) % 15) < 13) c = y === 10 ? PAL.sheen : BM;
+                }
+                p.set(x, y, c);
+              }
+            }
+            return p.toCanvas();
+          });
+        }
+
+        dropSprite(k, hd) {
+          return this.sprite('drop' + k + (hd ? 'h' : 'c'), () => {
+            const col = DROP_COL[k], p = new Pix(20 * S, 8 * S);
+            if (!hd) {
+              const B = (x, y, w, h, c) => p.rect(x * S, y * S, w * S, h * S, c);
+              B(1, 0, 18, 8, col); B(0, 1, 20, 6, col); B(2, 1, 16, 1, '#ffffff'); B(2, 7, 16, 1, PAL.ink);
+              return p.toCanvas();
+            }
+            const O = mix(col, '#000000', 0.5), HI = mix(col, '#ffffff', 0.45), LO = mix(col, PAL.ink, 0.5);
+            const outer = pillRows(24), inner = pillRows(22);
+            for (let y = 0; y < 24; y++) p.rect(outer[y], y, 60 - 2 * outer[y], 1, O);
+            for (let y = 1; y < 23; y++) {
+              const ins = inner[y - 1] + 1;
+              for (let x = ins; x < 60 - ins; x++) {
+                const dith = BAYER[y & 3][x & 3] < 8;
+                p.set(x, y, y <= 1 ? '#ffffff' : y <= 4 ? HI : y <= 15 ? col : y <= 18 ? (dith ? col : LO) : y <= 21 ? LO : PAL.ink);
+              }
+            }
+            return p.toCanvas();
+          });
+        }
+
+        crtLayer() {
+          return this.sprite('crt', () => {
+            const c = document.createElement('canvas'); c.width = FW; c.height = FH;
+            const g = c.getContext('2d'); g.fillStyle = 'rgba(0,0,0,0.22)';
+            for (let y = 0; y < FH; y += 3) g.fillRect(0, y, FW, 1);
+            return c;
+          });
+        }
+
+        drawFrame(g, hd) {
+          if (!hd) {
+            const B = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x * S, y * S, w * S, h * S); };
+            B(0, 0, 3, H, PAL.wallLight); B(2, 0, 1, H, PAL.wallShade);
+            B(W - 3, 0, 3, H, PAL.wallLight); B(W - 3, 0, 1, H, PAL.wallShade);
+            B(0, 0, W, 3, PAL.wallLight); B(0, 2, W, 1, PAL.wallShade);
+            return;
+          }
+          // A machined rail: nine fine tones across the 3 game px, mitred at the corners.
+          const T = ['#6f7aa8', '#eef2ff', '#dbe4ff', '#dbe4ff', '#c9d2f2', '#b4bee6', '#a0aad6', '#8f9ac8', '#5c6690'];
+          T.forEach((c, i) => { g.fillStyle = c; g.fillRect(i, i, 1, FH - i); g.fillRect(FW - 1 - i, i, 1, FH - i); g.fillRect(i, i, FW - 2 * i, 1); });
+          const riv = (x, y) => { g.fillStyle = '#5c6690'; g.fillRect(x, y, 3, 3); g.fillStyle = '#f4f7ff'; g.fillRect(x, y, 1, 1); g.fillStyle = '#8f9ac8'; g.fillRect(x + 2, y + 2, 1, 1); };
+          [40, FH / 2 - 1, FH - 43].forEach(y => { riv(3, y); riv(FW - 6, y); });
+          [40, FW / 2 - 1, FW - 43].forEach(x => riv(x, 3));
+        }
+
+        paint(g, hd) {
+          g.imageSmoothingEnabled = false;
+          g.globalAlpha = 1;
+          g.drawImage(this.bg(hd), 0, 0);
+          for (let r = 0; r < this.grid.length; r++) {
+            for (let c = 0; c < COLS; c++) {
+              const cell = this.grid[r][c];
+              if (cell) g.drawImage(this.brickSprite(cell.ch, hd), (GX + c * BW) * S, (GY + r * BH) * S);
+            }
+          }
+          this.flashes.forEach(f => { g.fillStyle = f.t > 1 ? '#ffffff' : BRICKS[f.k].light; g.fillRect((f.x + 1) * S, (f.y + 1) * S, 28 * S, 10 * S); });
+          // Classic art snaps to whole game pixels; HD art steps on the fine grid.
+          const snap = (v) => hd ? Math.round(v * S) : Math.round(v) * S;
+          this.drops.forEach(d => {
+            if (!d.on) return;
+            const x = snap(d.x), y = snap(d.y);
+            g.drawImage(this.dropSprite(d.k, hd), x, y);
+            g.font = (hd ? 16 : 21) + 'px Silkscreen, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+            const cx = x + 10 * S, cy = y + 4 * S + 1;
+            if (hd && d.k !== 'P') { g.fillStyle = PAL.ink; g.fillText(d.k, cx + 2, cy + 2); }
+            g.fillStyle = d.k === 'P' ? PAL.ink : '#ffffff'; g.fillText(d.k, cx, cy);
+          });
+          this.shots.forEach(s => {
+            if (!s.on) return;
+            const x = snap(s.x), y = snap(s.y);
+            if (hd) { g.fillStyle = PAL.laser; g.fillRect(x + 1, y, 4, 27); g.fillStyle = PAL.charge; g.fillRect(x + 2, y + 2, 2, 22); g.fillRect(x + 1, y, 4, 2); }
+            else { g.fillStyle = PAL.laser; g.fillRect(x, y, 2 * S, 9 * S); }
+          });
+          this.chunks.forEach(ch => {
+            g.fillStyle = ch.col;
+            const sz = hd ? ch.sz : S, x = hd ? Math.round(ch.x) : Math.round(ch.x / S) * S, y = hd ? Math.round(ch.y) : Math.round(ch.y / S) * S;
+            g.fillRect(x, y, sz, sz);
+          });
+          const px = snap(this.px), py = PY * S;
+          g.drawImage(this.paddleSprite(this.pw, hd), px, py);
+          if (this.timers.L > 0) {
+            [5, this.pw - 7].forEach(o => {
+              const x = px + o * S, y = py - 3 * S;
+              if (hd) { g.fillStyle = mix(PAL.shade, '#000000', 0.5); g.fillRect(x, y, 6, 9); g.fillStyle = PAL.laser; g.fillRect(x + 1, y + 1, 4, 8); g.fillStyle = PAL.charge; g.fillRect(x + 1, y, 4, 2); }
+              else { g.fillStyle = PAL.laser; g.fillRect(x, y, 2 * S, 3 * S); }
+            });
+          }
+          const trail = hd && (this.props.ballTrail ?? true);
+          this.balls.forEach(b => {
+            if (!b.on) return;
+            if (trail) {
+              b.tr.forEach((pt, i) => {
+                g.globalAlpha = 0.3 - i * 0.07; g.fillStyle = PAL.ball;
+                const sz = 12 - i * 3;
+                g.fillRect(Math.round((pt[0] + BALL / 2) * S - sz / 2), Math.round((pt[1] + BALL / 2) * S - sz / 2), sz, sz);
+              });
+              g.globalAlpha = 1;
+            }
+            g.drawImage(this.ballSprite(hd), snap(b.x), snap(b.y));
+          });
+          this.drawFrame(g, hd);
+        }
+
+        draw() {
+          const g = this.ctx;
+          if (this.isSplit()) {
+            this.paint(this.altCtx, false); this.paint(g, true);
+            const sx = FW >> 1;
+            g.drawImage(this.alt, 0, 0, sx, FH, 0, 0, sx, FH);
+            g.fillStyle = '#ffffff'; g.fillRect(sx - 1, 0, 2, FH);
+            g.font = '16px Silkscreen, monospace'; g.textBaseline = 'middle'; g.textAlign = 'left';
+            const tag = (t, x, right, col) => {
+              const w = Math.ceil(g.measureText(t).width) + 16, bx = right ? x - w : x;
+              g.fillStyle = PAL.ink; g.fillRect(bx, 22, w, 26); g.fillStyle = col; g.fillText(t, bx + 8, 36);
+            };
+            tag('CLASSIC 1X', sx - 10, true, '#dbe4ff'); tag('HD 3X', sx + 10, false, '#ffcf1c');
+          } else this.paint(g, this.isHD());
+          if (this.props.crt) g.drawImage(this.crtLayer(), 0, 0);
+        }
+
+        pad(n, w) { let s = String(n); while (s.length < w) s = '0' + s; return s; }
+
+        renderVals() {
+          const st = this.state, hd = this.isHD(), split = this.isSplit();
+          return {
+            rootRef: (el) => { if (el) this.root = el; },
+            isServe: st.screen === 'serve',
+            isPause: st.screen === 'pause',
+            isClear: st.screen === 'clear',
+            isOver: st.screen === 'over',
+            scoreText: this.pad(st.score, 6),
+            hiText: this.pad(Math.max(st.hi, st.score), 6),
+            bonusText: this.pad(st.bonus, 5),
+            powerText: st.power || '- - -',
+            soundText: st.muted ? 'SOUND OFF' : 'SOUND ON',
+            artHint: hd ? 'C · CLASSIC ART' : 'C · HD ART',
+            artText: split ? 'SPLIT' : hd ? 'HD 3X' : 'CLASSIC 1X',
+            livesArr: Array.from({ length: Math.max(0, st.lives - 1) }, (_, i) => i)
+          };
+        }
+      }
+    </script>
+  </body>
+</html>

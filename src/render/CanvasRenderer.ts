@@ -8,6 +8,7 @@ import { eyePupilPoint } from "@entities/effects/Observer";
 import { OCULUS_HEIGHT, OCULUS_POSITIONS, OCULUS_WIDTH } from "@entities/effects/Oculi";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
 import { DROP_HEIGHT } from "@entities/powerups/DropPool";
+import { ART_MODE, type ArtMode } from "@interfaces/art";
 import { EYE_LAYER } from "@interfaces/eye";
 import { BACKGROUND_COLORS, BackgroundLayer, dialTonesFor, IrisLayer } from "@render/backgrounds";
 import { type BallRow, ballGlints, ballRows } from "@render/ballSprite";
@@ -20,6 +21,7 @@ import {
   DEMAKE_GROUND_TONES,
   DROP_COLORS,
 } from "@render/palette";
+import { mix, SpriteCache } from "@render/pix";
 
 import type { BrickGrain } from "@core/config/bricks";
 import type { WallErosion, WallSheet } from "@entities/bricks/BrickGrid";
@@ -282,6 +284,16 @@ export const SCALE = 3;
 
 // The capsule letter must stay inside the pill's sheen span (x+2 … x+18).
 export const DROP_GLYPH_SPAN = 16;
+
+// SPLIT's two tags, in fine pixels: they label a dev view rather than the game,
+// so they are set against the backing store directly instead of being drawn in
+// game pixels like everything else on the field.
+const SPLIT_TAG_PX = 21;
+const SPLIT_TAG_GAP = 9;
+// The deck's own cap red. A tone from the palette rather than a new one, but a
+// local constant rather than an entry in `canvasPalette`: the seam is dev
+// furniture, and the palette is checked for readability as the game's art.
+const SPLIT_SEAM = "#e8384f";
 
 // How solid a capsule revealed by XRAY is drawn. Measured against the cases that
 // decide it — the six capsules wearing their own brick's colour, LASER on the red
@@ -554,17 +566,15 @@ const STONE_CRACKS: ReadonlyArray<readonly [number, number, number]> = [
   [0.74, 1, 5],
 ];
 
-// Two channels mixed, `weight` of the second. The one place this file
-// interpolates a colour rather than stepping between two: stone arrives over a
+// Two channels mixed, `weight` of the second. Petrified stone arrives over a
 // few ticks and washes out over a few more, and a deck that snapped to grey and
 // back would be the one effect in the game with no fade at either end.
-function mixTone(from: string, to: string, weight: number): string {
-  const a = Number.parseInt(from.slice(1), 16);
-  const b = Number.parseInt(to.slice(1), 16);
-  const blend = (shift: number): number =>
-    Math.round(((a >> shift) & 0xff) * (1 - weight) + ((b >> shift) & 0xff) * weight);
-  return `#${((blend(16) << 16) | (blend(8) << 8) | blend(0)).toString(16).padStart(6, "0")}`;
-}
+//
+// It used to be this file's own function, and is now `mix` from the fine-grid
+// toolkit (SHA-215): the HD pass derives every intermediate tone with exactly
+// this arithmetic, and two blends that were meant to agree and were written
+// down twice are two blends that eventually do not.
+const mixTone = mix;
 
 /**
  * The deck's tint, once the capsules and the chain have both had their say.
@@ -2779,6 +2789,11 @@ export class CanvasRenderer {
   // one field.
   private readonly mainCtx: CanvasRenderingContext2D;
   private ctx: CanvasRenderingContext2D;
+  // Where a whole frame is composited — the canvas normally, and SPLIT's
+  // offscreen twin while the classic half is being painted. `ctx` is the brush
+  // and moves within a frame (DEMAKE's dissolve borrows it); this is the sheet
+  // the frame ends up on, and moves only between frames.
+  private target: CanvasRenderingContext2D;
   private fadeCtx: CanvasRenderingContext2D | null = null;
   // UMBRA's 1-bit shadow fill, made on first use and kept: see `halftone`.
   private halftoneFill: CanvasPattern | null = null;
@@ -2790,6 +2805,15 @@ export class CanvasRenderer {
   // threading it through twenty private draw methods would be the same fact
   // written twenty times.
   private demade = false;
+  // THE HD PASS (SHA-215): which set of sprites to paint. Classic until the
+  // pass is done, and a field rather than a parameter for `demade`'s reason —
+  // it applies to every sprite, and threading it through would be the same fact
+  // written a hundred times.
+  private artMode: ArtMode = ART_MODE.CLASSIC;
+  // The offscreen twin `split` paints classic into. Made on first use, like the
+  // dissolve's: a session that never types the word never pays for it.
+  private splitCtx: CanvasRenderingContext2D | null = null;
+  readonly sprites = new SpriteCache();
 
   constructor(canvas: HTMLCanvasElement) {
     const { width, height } = gameConfig.field;
@@ -2801,6 +2825,7 @@ export class CanvasRenderer {
     }
     this.mainCtx = ctx;
     this.ctx = ctx;
+    this.target = ctx;
     this.ctx.imageSmoothingEnabled = false;
     this.background = new BackgroundLayer(width, height);
     this.iris = new IrisLayer(width, height);
@@ -2823,6 +2848,60 @@ export class CanvasRenderer {
    */
   draw(view: RenderView): void {
     this.frameCount++;
+
+    // SPLIT (SHA-215): the same frame twice, classic down the left half.
+    //
+    // **The whole frame, not a clipped one.** Painting classic into a left-hand
+    // clip and HD into a right-hand one would leave every sprite that straddles
+    // the seam drawn half in one art and half in the other, which is the one
+    // comparison the word exists to make impossible to misread. Two full
+    // frames, one blitted over the other's left half, and a sprite on the seam
+    // is simply the classic one — cut, but whole.
+    if (this.artMode === ART_MODE.SPLIT) {
+      const classic = this.splitContext();
+      this.withArt(ART_MODE.HD, () => this.frame(view, this.mainCtx));
+      this.withArt(ART_MODE.CLASSIC, () => this.frame(view, classic));
+      const half = Math.floor(this.mainCtx.canvas.width / 2);
+      this.mainCtx.drawImage(classic.canvas, 0, 0, half, classic.canvas.height, 0, 0, half, classic.canvas.height);
+      this.drawSplitSeam(half);
+      return;
+    }
+
+    this.frame(view, this.mainCtx);
+  }
+
+  /** One frame in the current art, into `target`. */
+  private frame(view: RenderView, target: CanvasRenderingContext2D): void {
+    const previousTarget = this.target;
+    const previousCtx = this.ctx;
+    this.target = target;
+    this.ctx = target;
+    this.paintFrame(view);
+    this.target = previousTarget;
+    this.ctx = previousCtx;
+  }
+
+  // The art mode for the length of one call, and back however it ends.
+  private withArt(mode: ArtMode, paint: () => void): void {
+    const previous = this.artMode;
+    this.artMode = mode;
+    try {
+      paint();
+    } finally {
+      this.artMode = previous;
+    }
+  }
+
+  /**
+   * Which art the renderer paints. Anything but a known mode is refused rather
+   * than silently taken as classic — the console would otherwise answer a typo
+   * by appearing to work.
+   */
+  setArtMode(mode: ArtMode): void {
+    this.artMode = mode;
+  }
+
+  private paintFrame(view: RenderView): void {
     const blend = view.demakeBlend;
 
     if (blend <= 0 || blend >= 1) {
@@ -2838,11 +2917,11 @@ export class CanvasRenderer {
     const fade = this.fadeContext();
     this.ctx = fade;
     this.paint(view);
-    this.ctx = this.mainCtx;
+    this.ctx = this.target;
 
-    this.mainCtx.globalAlpha = blend;
-    this.mainCtx.drawImage(fade.canvas, 0, 0);
-    this.mainCtx.globalAlpha = 1;
+    this.target.globalAlpha = blend;
+    this.target.drawImage(fade.canvas, 0, 0);
+    this.target.globalAlpha = 1;
   }
 
   // The offscreen twin the dissolve needs, made on first use. Never cleared:
@@ -2860,6 +2939,46 @@ export class CanvasRenderer {
       this.fadeCtx = ctx;
     }
     return this.fadeCtx;
+  }
+
+  // SPLIT's offscreen twin, made on first use and kept. Never cleared: a whole
+  // frame is painted over every pixel of it each time it is used.
+  private splitContext(): CanvasRenderingContext2D {
+    if (this.splitCtx === null) {
+      const canvas = document.createElement("canvas");
+      canvas.width = this.mainCtx.canvas.width;
+      canvas.height = this.mainCtx.canvas.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        throw new Error("2D split context unavailable");
+      }
+      ctx.imageSmoothingEnabled = false;
+      this.splitCtx = ctx;
+    }
+    return this.splitCtx;
+  }
+
+  /**
+   * The seam, and the two words that say which side is which.
+   *
+   * Labelled because without them the comparison is a Rorschach test: whichever
+   * half somebody expects to be the new one is the half that looks newer. The
+   * rule is drawn in the deck's own red so it cannot be taken for a frame rail,
+   * and both tags sit on the same baseline so neither reads as a caption for
+   * the other.
+   */
+  private drawSplitSeam(half: number): void {
+    const height = this.mainCtx.canvas.height;
+    this.mainCtx.fillStyle = SPLIT_SEAM;
+    this.mainCtx.fillRect(half - 1, 0, 2, height);
+    this.mainCtx.font = `400 ${SPLIT_TAG_PX}px "Silkscreen", monospace`;
+    this.mainCtx.textBaseline = "top";
+    this.mainCtx.textAlign = "right";
+    this.mainCtx.fillText("CLASSIC 1X", half - SPLIT_TAG_GAP, SPLIT_TAG_GAP);
+    this.mainCtx.textAlign = "left";
+    this.mainCtx.fillText("HD 3X", half + SPLIT_TAG_GAP, SPLIT_TAG_GAP);
+    this.mainCtx.textAlign = "start";
+    this.mainCtx.textBaseline = "alphabetic";
   }
 
   // One machine's worth of frame, into whatever `this.ctx` currently is.

@@ -14,6 +14,9 @@ import { TitleScene } from "@ui/TitleScene";
 
 document.addEventListener("DOMContentLoaded", () => {
   const stage = getElementByIdOrThrow<HTMLDivElement>("stage");
+  // Held rather than looked up twice: the renderer paints it and the scaler
+  // decides how it is filtered, and both want the same element.
+  const playfield = getElementByIdOrThrow<HTMLCanvasElement>("playfield");
 
   const panel = new Panel({
     stage,
@@ -36,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
   panel.bindVolume(sfx.volume, (volume) => sfx.setVolume(volume));
 
   const game = new ShatterGame({
-    renderer: new CanvasRenderer(getElementByIdOrThrow<HTMLCanvasElement>("playfield")),
+    renderer: new CanvasRenderer(playfield),
     titleScene: new TitleScene(getElementByIdOrThrow<HTMLCanvasElement>("titleEye")),
     panel,
     screens: new Screens({
@@ -79,7 +82,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }),
     sfx,
     hiScores: new HiScores(new ScoreApi()),
-    scaler: new StageScaler(stage),
+    scaler: new StageScaler(stage, playfield),
     lockTarget: stage,
   });
 

@@ -6,9 +6,11 @@ import {
   POWER_UP_NAMES,
   POWER_UPS,
 } from "@core/config/powerUps";
+import { ART_MODE } from "@interfaces/art";
 import { getElementByIdOrThrow } from "@shared/dom";
 import { renderPageIndicator } from "@ui/pagePips";
 
+import type { ArtMode } from "@interfaces/art";
 import type { PowerUpKind } from "@interfaces/types";
 
 // What a command is allowed to do to the running game — the console never
@@ -37,6 +39,8 @@ export interface DevConsoleHost {
   // THE CHART drawn to this many strokes, or the whole of it for `null` — the
   // cage takes a run that kills nearly everything, and seeing it should not.
   setChart(strokes: number | null): void;
+  // THE HD PASS: which set of sprites the renderer paints.
+  setArtMode(mode: ArtMode): void;
 }
 
 // A stuck key may not grow the buffer forever; nothing useful is this long.
@@ -74,7 +78,12 @@ const EXAMPLES: readonly (readonly [string, string])[] = [
   ["OPEN", "OPEN THE EYE · TAKES THE THREE OCULI"],
   ["BONUS <0-1>", "CHANCE A BRICK DROPS ONE · 1 = ALWAYS"],
   ["GAMBLE <CAPSULE>", "PIN WHAT GAMBLE PAYS · BARE = UNPIN"],
+  ["ART <MODE>", "CLASSIC · HD · SPLIT COMPARES THEM"],
 ];
+
+// The modes, as the line is typed. Off the constant rather than written out, so
+// a mode added there is typable here without a second edit.
+const ART_WORDS: readonly ArtMode[] = Object.values(ART_MODE);
 // The roster is printed underneath, whole, a page at a time: fifty-nine capsules is
 // far more than anyone keeps in their head, and it grows with the registry it is
 // built from. Not one count here is written down — how many cells fit a row is
@@ -241,6 +250,8 @@ export class DevConsole {
         return this.setGamblePin(operands);
       case "chart":
         return this.setChart(operands);
+      case "art":
+        return this.setArtMode(operands);
       default:
         return suggestionFor(line);
     }
@@ -288,6 +299,26 @@ export class DevConsole {
       return "CREATURE WHICH";
     }
     return this.host.dropCreature(name) ? null : `NO SUCH CREATURE ${name.toUpperCase()}`;
+  }
+
+  /**
+   * `art classic`, `art hd`, `art split` — which sprites the renderer paints.
+   *
+   * The whole roster of modes rather than a toggle, because there are three of
+   * them and the third is the one worth typing: SPLIT is how a retouched sprite
+   * gets judged against the one it replaces rather than against a memory of it.
+   */
+  private setArtMode(operands: string[]): string | null {
+    const word = operands[0] ?? "";
+    if (operands.length !== 1 || word === "") {
+      return `ART WHICH · ${ART_WORDS.join(" ").toUpperCase()}`;
+    }
+    const mode = ART_WORDS.find((name) => name === word);
+    if (mode === undefined) {
+      return `NO SUCH ART: ${word.toUpperCase()}`;
+    }
+    this.host.setArtMode(mode);
+    return null;
   }
 
   /** `chart 30` — that many strokes on the chart; `chart full` — the cage closed. */

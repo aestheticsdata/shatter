@@ -531,6 +531,11 @@ export class ShatterGame {
           setChart: (strokes) => {
             this.chart.set(strokes ?? Chart.strokesTotal);
           },
+          // `art hd`, `art split`: a rendering choice, not game state, so it
+          // goes straight to the renderer and nothing here remembers it.
+          setArtMode: (mode) => {
+            this.deps.renderer.setArtMode(mode);
+          },
           // `veil 1` is the first of the Observer's levels, whatever number it
           // holds in the roster — the point of the word is that nobody has to
           // remember that THE VEIL is level 9, and nobody has to edit this when
