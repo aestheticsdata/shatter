@@ -38,6 +38,10 @@
 //  11. The HD capsule is `pillRows` too, with its glare on top and its ink
 //      underfoot. Fifty-eight kinds share this one body, so a recipe that came
 //      out a pixel wrong would be wrong fifty-eight times.
+//  12. The frame's rail ramp is exactly as wide as the rail, still made of the
+//      wall's own tones where it can be, and still descends. It is the one
+//      authored ramp the pass added to the palette, and the rail it is painted
+//      into is three game pixels and not negotiable.
 //
 // Run with: pnpm run check:pix
 import { registerHooks } from "node:module";
@@ -66,7 +70,7 @@ const { FINE } = await import("../src/interfaces/art.ts");
 const { hdPillPix } = await import("../src/render/hdPaddle.ts");
 const { gameConfig } = await import("../src/core/config/GameConfig.ts");
 const { hdCapsulePix } = await import("../src/render/hdCapsule.ts");
-const { canvasPalette } = await import("../src/render/palette.ts");
+const { canvasPalette, FRAME_RAILS, FRAME_RIVET } = await import("../src/render/palette.ts");
 const { DROP_HEIGHT, DROP_WIDTH } = await import("../src/entities/powerups/DropPool.ts");
 
 const failures = [];
@@ -85,6 +89,12 @@ function read(pix, x, y) {
     return null;
   }
   return `#${hex(pix.data[index])}${hex(pix.data[index + 1])}${hex(pix.data[index + 2])}`;
+}
+
+// Rec. 601 brightness, for the one check that asks whether a ramp descends.
+function luma(tone) {
+  const value = Number.parseInt(tone.slice(1), 16);
+  return 0.299 * ((value >> 16) & 0xff) + 0.587 * ((value >> 8) & 0xff) + 0.114 * (value & 0xff);
 }
 
 function litCount(pix) {
@@ -427,8 +437,38 @@ for (const r of [3, 5.5, 10, 12]) {
   }
 }
 
+// 12. The frame's rails
+{
+  check(FRAME_RAILS.length === 3 * FINE, `the frame ramp is ${FRAME_RAILS.length} tones, want ${3 * FINE}`);
+  for (const tone of FRAME_RAILS) {
+    check(/^#[0-9a-f]{6}$/.test(tone), `a frame rail is not a 6-digit hex: ${tone}`);
+  }
+  // The rail is still the wall: two pixels of its own light at the top of the
+  // bevel and its own shade near the bottom, with the authored tones only in
+  // between. A ramp that drifted off those would be a frame that no longer
+  // matches the silver brick it was drawn to match.
+  check(
+    FRAME_RAILS[2] === canvasPalette.wallLight && FRAME_RAILS[3] === canvasPalette.wallLight,
+    `the frame's light rails are ${FRAME_RAILS[2]} / ${FRAME_RAILS[3]}, want ${canvasPalette.wallLight}`,
+  );
+  check(
+    FRAME_RAILS[7] === canvasPalette.wallShade,
+    `the frame's shade rail is ${FRAME_RAILS[7]}, want ${canvasPalette.wallShade}`,
+  );
+  // Monotone from the highlight inward, which is what makes it read as one
+  // surface curving away rather than as stripes.
+  for (let index = 2; index < FRAME_RAILS.length; index++) {
+    check(
+      luma(FRAME_RAILS[index]) <= luma(FRAME_RAILS[index - 1]),
+      `the frame ramp brightens at rail ${index}: ${FRAME_RAILS[index - 1]} then ${FRAME_RAILS[index]}`,
+    );
+  }
+  check(FRAME_RIVET.body === FRAME_RAILS[8], `the rivet's body is ${FRAME_RIVET.body}, want the innermost rail`);
+  check(luma(FRAME_RIVET.light) > luma(FRAME_RIVET.dark), "the rivet is not lit from the upper left");
+}
+
 console.log(
-  `Checked mix, BAYER, dither, pillRows, disc, ring, vgrad, scale3x, the HD ball, the HD deck and the HD capsule.`,
+  `Checked mix, BAYER, dither, pillRows, disc, ring, vgrad, scale3x, the HD ball, the HD deck, the HD capsule and the frame's rails.`,
 );
 
 if (failures.length > 0) {

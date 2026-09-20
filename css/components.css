@@ -20,6 +20,7 @@
   --color-panel-divider: #6cf08a;
   --color-panel-label: #6cf08a;
   --color-inset: #07160c;
+  --color-inset-shadow: #07160c;
   --color-logo-tile: #07160c;
   --color-white: #6cf08a;
   --color-red: #6cf08a;
@@ -58,6 +59,7 @@
     color var(--demake-fade) linear,
     background-color var(--demake-fade) linear,
     border-color var(--demake-fade) linear,
+    box-shadow var(--demake-fade) linear,
     text-shadow var(--demake-fade) linear;
 }
 
@@ -131,6 +133,17 @@
   width: 92px;
   height: 19px;
   background: var(--color-inset);
+  /* THE HD PASS (SHA-220): the readout sits in a cut, not on a dark rectangle —
+     shadow along the top and left, catch of light along the bottom and right.
+     Two pixels, which is the bevel the rest of the panel's chrome is drawn at.
+
+     Through tokens so DEMAKE collapses it with everything else, and `box-shadow`
+     is in the stage's transition list for the same reason: without it the bevel
+     would snap while the panel around it sags. It costs no layout — every inset
+     already holds its content 5px in from the edge. */
+  box-shadow:
+    inset 2px 2px 0 var(--color-inset-shadow),
+    inset -2px -2px 0 var(--color-panel-edge-light);
   display: flex;
   align-items: center;
   box-sizing: border-box;

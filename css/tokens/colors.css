@@ -9,6 +9,9 @@
   --color-panel-divider: #7a7c90;
   --color-panel-label: #3b3d4e;
   --color-inset: #0d0d24;
+  /* The inset's sunken bevel (SHA-220): darker than the inset itself, so the
+     top-left edge reads as a cut into the panel rather than as a border on it. */
+  --color-inset-shadow: #05051a;
   --color-logo-tile: #0b4fa8;
 
   --color-white: #fff;

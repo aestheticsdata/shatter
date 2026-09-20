@@ -23,6 +23,8 @@ import {
   DARK_LETTER_DROP_KINDS,
   DEMAKE_GROUND_TONES,
   DROP_COLORS,
+  FRAME_RAILS,
+  FRAME_RIVET,
   type PaddleBandColors,
 } from "@render/palette";
 import { ditherTile, mix, SpriteCache } from "@render/pix";
@@ -1261,6 +1263,14 @@ const HD_CANNON_WIDTH = 6;
 // is lost against a dark body and three reads as a second letter behind the
 // first at the sizes the glyph ladder actually uses.
 const HD_LETTER_SHADOW = 2;
+
+// THE HD PASS (SHA-220): where the frame's rivets are driven, in fine pixels.
+// Two from each end of a rail and one at its middle — enough to say the rail is
+// a machined part bolted down rather than a painted border, and few enough that
+// the eye does not start counting them during a rally.
+const HD_RIVET_FROM_START = 40;
+const HD_RIVET_FROM_END = 43;
+const HD_RIVET = 3;
 const HD_BOLT_WIDTH = 4;
 const HD_BOLT_HEIGHT = 27;
 
@@ -6557,6 +6567,11 @@ export class CanvasRenderer {
    * exactly the pixels that are missing.
    */
   private drawWalls(gap: { left: number; right: number } | null = null): void {
+    if (this.artMode === ART_MODE.HD && !this.demade) {
+      this.paintHdWalls(gap);
+      return;
+    }
+
     const { width, height } = gameConfig.field;
     this.pixel(0, 0, 3, height, canvasPalette.wallLight);
     this.pixel(2, 0, 1, height, canvasPalette.wallShade);
@@ -6571,5 +6586,65 @@ export class CanvasRenderer {
     this.pixel(0, 2, gap.left, 1, canvasPalette.wallShade);
     this.pixel(gap.right, 0, width - gap.right, 3, canvasPalette.wallLight);
     this.pixel(gap.right, 2, width - gap.right, 1, canvasPalette.wallShade);
+  }
+
+  /**
+   * The same three pixels of rail, machined: nine fine tones across them,
+   * mitred at the corners, with rivets driven into the middle of the run.
+   *
+   * Classic paints the rail as one flat band with a shade line down its inner
+   * edge, which is what three game pixels can say. Nine fine ones can say a
+   * bevel — a dark contour outside, a blown highlight, the wall's own tone held
+   * for two, then four steps down to the lip the field sits behind. The rail
+   * does not move or change width: every tone is one fine pixel of the three it
+   * has always occupied.
+   *
+   * The mitre is the `index` in both coordinates. Rail `i` starts at `(i, i)`,
+   * so the corners come out as a staircase of nine steps rather than as one
+   * tone turning a right angle — which is what stops the frame reading as two
+   * bands crossing.
+   *
+   * THE OCULI's door is still genuinely a hole: the top rail is painted as two
+   * spans with nothing between them, exactly as classic does, and a rivet that
+   * would fall in the opening is not driven at all rather than being painted
+   * and then cut.
+   */
+  private paintHdWalls(gap: { left: number; right: number } | null): void {
+    const width = gameConfig.field.width * SCALE;
+    const height = gameConfig.field.height * SCALE;
+    const door = gap === null ? null : { left: Math.round(gap.left * SCALE), right: Math.round(gap.right * SCALE) };
+
+    FRAME_RAILS.forEach((tone, index) => {
+      this.ctx.fillStyle = tone;
+      this.ctx.fillRect(index, index, 1, height - index);
+      this.ctx.fillRect(width - 1 - index, index, 1, height - index);
+      if (door === null) {
+        this.ctx.fillRect(index, index, width - 2 * index, 1);
+        return;
+      }
+      this.ctx.fillRect(index, index, Math.max(0, door.left - index), 1);
+      this.ctx.fillRect(door.right, index, Math.max(0, width - index - door.right), 1);
+    });
+
+    for (const y of [HD_RIVET_FROM_START, Math.round(height / 2) - 1, height - HD_RIVET_FROM_END]) {
+      this.paintHdRivet(FINE, y);
+      this.paintHdRivet(width - 2 * FINE, y);
+    }
+    for (const x of [HD_RIVET_FROM_START, Math.round(width / 2) - 1, width - HD_RIVET_FROM_END]) {
+      if (door !== null && x + HD_RIVET > door.left && x < door.right) {
+        continue;
+      }
+      this.paintHdRivet(x, FINE);
+    }
+  }
+
+  /** One rivet: a head in the rail's own dark, lit from the upper left. */
+  private paintHdRivet(x: number, y: number): void {
+    this.ctx.fillStyle = FRAME_RIVET.body;
+    this.ctx.fillRect(x, y, HD_RIVET, HD_RIVET);
+    this.ctx.fillStyle = FRAME_RIVET.light;
+    this.ctx.fillRect(x, y, 1, 1);
+    this.ctx.fillStyle = FRAME_RIVET.dark;
+    this.ctx.fillRect(x + HD_RIVET - 1, y + HD_RIVET - 1, 1, 1);
   }
 }

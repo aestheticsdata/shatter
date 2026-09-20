@@ -87,11 +87,21 @@ The deck's *capsule* overlays — GLUE's resin, ENGLISH's felt, PYRE's ember, SP
 
 Three callers reach this sprite at `SCALE` and all three take the HD path: the falling drops, XRAY's reveal inside a brick, and GAMBLE's reel over the deck. The capsule catalogue draws at `SCALE` too but never asks for HD, and the level gallery draws at 1 — both are SHA-224.
 
-**Frame.** The silver nine-rail recipe with rivets.
+**Frame.** The silver nine-rail recipe with rivets, drawn straight on the fine grid — one tone per fine pixel across the three game pixels the rail has always been, mitred at the corners by starting rail `i` at `(i, i)`. The rail does not move or change width. THE OCULI's door stays a genuine hole: the top rail is painted as two spans with nothing between them, exactly as classic does, and a rivet that would fall in the opening is not driven rather than painted and then cut.
+
+The ramp is the one place the pass **adds authored hexes**, and the rule above is amended for it: no hex is written inside a recipe, but an artist's ramp that is not derivable belongs in `palette.ts` beside the brick ramps, which is what "the palette is the single source of truth" has always meant. Three of the nine rails are tones this game already has (`wallLight` twice, `wallShade`) and two more are exact `mix()` of them; the other four are Claude Design's reading of light across a bevelled rail, and blending toward them would be redrawing the thing the bundle was picked for. They live in `FRAME_RAILS`, and `check:pix` pins the ramp's width, its two anchors in the wall's own tones, and that it descends.
 
 **Backgrounds.** All nine painters, `observer` included. Each keeps its existing generator calls in the same order, then draws HD-only detail from the *continuing* generator — the RNG in the prototypes is byte-identical to `createRandom`/`hashSeed`, so classic and HD share every star and dune and `check:backgrounds` stays green.
 
-**Panel.** Silkscreen and Press Start 2P are already loaded; insets and lives glyphs as specified.
+**Panel.** Most of this section describes what the game already does, and one part of it does not transfer.
+
+Already true: the panel is set in Silkscreen with Press Start 2P for the wordmark, both loaded, and `--color-inset` is already `#0d0d24` — the handoff's exact tone.
+
+Does not transfer: the handoff's "Silkscreen 16/24 px" is its prototype's *in-canvas* panel measured in fine pixels. This panel is DOM, measured in CSS pixels, and its columns are tuned to the pixel at 6, 7, 11 and 12 px — `checkCapsuleBlurbs` exists because Silkscreen is proportional and counting characters is how a column overflows. Restating those sizes would break every measured column to match a number that means something else. Same for "lives as small paddle glyphs": the rack is five 16x5 bars in the deck's own blue, which is already a paddle glyph at a size where a nine-row pill recipe has nothing to say, and they are `div`s rather than canvas.
+
+Shipped: the insets get the handoff's 2 px bevel — `inset 2px 2px 0` in a new `--color-inset-shadow`, `inset -2px -2px 0` in the existing `--color-panel-edge-light` — so a readout sits in a cut rather than on a dark rectangle. It costs no layout, because every inset already holds its content 5 px in from the edge.
+
+**This one change is not behind the flag.** The panel is DOM: there is one of it, and it looks the same in `classic` as in `hd`. It is written through tokens so DEMAKE collapses it with everything else, and `box-shadow` was added to the stage's transition list so the bevel sags with the panel instead of snapping. In the tube the light edge is ink and the dark edge is ground, which is how every other bevel in this panel is already demade.
 
 Where the bundle's README and its prototypes disagree on a value, **the Observer prototype wins** — the README names it the spec of record for the art. The brick drop shadow is one such case and it is not a conflict after all: `SHATTER Observer HD.dc.html` and the README both say `#05050f`, and only the level-1 file says `#03080e`. It is `canvasPalette.brickJoint` now.
 

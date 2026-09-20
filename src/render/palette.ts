@@ -553,6 +553,49 @@ export const canvasPalette = {
 } as const;
 
 /**
+ * THE HD PASS (SHA-220): the arena frame, as nine tones from its outer edge
+ * inward — one fine pixel each across the three game pixels the rail has always
+ * been.
+ *
+ * Claude Design's ramp, and **authored rather than derived**: three of the nine
+ * are tones this game already has and two more are exact `mix()` of them, but
+ * `#6f7aa8`, `#b4bee6`, `#a0aad6` and `#5c6690` are none of that — they are an
+ * artist's reading of light falling across a bevelled rail, and approximating
+ * them with a blend would be redrawing the thing the owner picked the bundle
+ * for. The pass's rule is that no hex is written *inside a recipe*; an authored
+ * ramp belongs here, beside the brick ramps, which is what "the palette is the
+ * single source of truth" means.
+ *
+ * Read outward-in: a dark contour, a blown highlight, the wall's own light held
+ * for two pixels, then four steps down to the dark lip the field sits behind.
+ */
+export const FRAME_RAILS: readonly string[] = [
+  "#6f7aa8",
+  "#eef2ff",
+  canvasPalette.wallLight,
+  canvasPalette.wallLight,
+  "#c9d2f2",
+  "#b4bee6",
+  "#a0aad6",
+  canvasPalette.wallShade,
+  "#5c6690",
+];
+
+/**
+ * A rivet in the rail: three fine pixels square, lit from the upper left.
+ *
+ * Its body is the rail's own innermost tone and its shadow is the wall's shade,
+ * so a rivet is made of the thing it is driven into. Only the catch of light on
+ * its head is new, and that is the highlight rail taken the rest of the way to
+ * white.
+ */
+export const FRAME_RIVET = {
+  body: FRAME_RAILS[8],
+  light: "#f4f7ff",
+  dark: canvasPalette.wallShade,
+} as const;
+
+/**
  * A chunk of debris, by what it broke off.
  *
  * The bricks bring their own three tones; the deck's are its bands, minus the
