@@ -23,7 +23,7 @@
 > - **Silver `S`** takes this document's tones (`#8f9ac8` / `#dbe4ff` / `#3c50a0`), confirmed by the owner; `bricks.ts` is updated for both paths.
 > - **Capsule `20 × 8` is right** — verified against `drawCapsule`.
 > - **The capsule's letter cannot be baked into its sprite.** A fixed 16 px overflows a four-character glyph, `uprightText` has to turn it back over under FLIP, and DEMAKE punches it out of the pill in ground. It stays live text and takes the 2 px ink shadow — except on a dark-lettered kind, where ink under ink says nothing.
-> - **Part B is a version behind.** `2026-09-18-observer-43-levels`, `2026-09-19-observer-one-eye-43-placements` and `2026-09-19-bestiary-and-bosses` landed after this bundle; its eye art knows nothing of the bestiary, the bosses grown by `doubled()`, or THE CHART. Deferred to its own spec.
+> - **Part B is a version behind, and now has its own spec: `docs/superpowers/specs/2026-09-21-observer-hd-design.md`.** `2026-09-18-observer-43-levels`, `2026-09-19-observer-one-eye-43-placements` and `2026-09-19-bestiary-and-bosses` landed after this bundle; its eye art knows nothing of the bestiary, the bosses grown by `doubled()`, or THE CHART. The three corrections that matter most: the eye is **fourteen sockets** from hw 16 to hw 150, not THE VEIL's one, so every feature is a fraction of the socket with a floor of one fine pixel rather than an absolute offset off `HW`; the sclera is **drawn, not baked**, for the bricks' reason; and **the Chariot is not adopted** — there is no bronze paddle in the game.
 > - Where this README and its prototypes disagree, the Observer file wins — this README names it the spec of record. The brick drop shadow turned out not to be a disagreement: the Observer prototype and this README both say `#05050f`; only `SHATTER HD.dc.html` says `#03080e`.
 > - `PROMPT-claude-code.md`, named in the delivery instructions, is not in the bundle. This README was used as the brief.
 
@@ -134,6 +134,8 @@ Type: **Silkscreen** 16 / 24 px for labels and readouts, **Press Start 2P** 16 p
 Console words: `art classic`, `art hd`, `art split` (the prototype's **C** / **V** keys). Split draws the classic frame to an offscreen canvas and blits its left half over the HD frame, with two tags `CLASSIC 1X` / `HD 3X`. Optional `crt` flag: 1-px `rgba(0,0,0,.22)` scanline every 3 fine px.
 
 ## Part B — the Observer in HD (`SHATTER Observer HD.dc.html`)
+
+> **Superseded by `docs/superpowers/specs/2026-09-21-observer-hd-design.md`** (SHA-225), which measures everything below against the Observer that actually ships. The art is the target; the inventory and the absolute offsets are not.
 
 Only if the Observer proposal ships. Rules: `docs/2026-09-17-observer-veils-design.md`. Art:
 

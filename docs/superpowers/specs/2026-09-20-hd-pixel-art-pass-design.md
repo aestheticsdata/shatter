@@ -162,7 +162,7 @@ Two bugs the screenshots caught, both older than this ticket and both invisible 
 
 ## Out of scope here
 
-Part B (the Observer in HD) is deferred and will need its own spec: the bundle predates `2026-09-18-observer-43-levels`, `2026-09-19-observer-one-eye-43-placements` and `2026-09-19-bestiary-and-bosses`, so its eye/veil art covers roughly half of what is on screen — it knows nothing of the twenty-species bestiary, the bosses grown by `doubled()`, or THE CHART.
+Part B (the Observer in HD) has one of its own: `2026-09-21-observer-hd-design.md` (SHA-225). The bundle predates `2026-09-18-observer-43-levels`, `2026-09-19-observer-one-eye-43-placements` and `2026-09-19-bestiary-and-bosses`, so its eye/veil art covers roughly half of what is on screen — it knows nothing of the twenty-species bestiary, the bosses grown by `doubled()`, or THE CHART.
 
 ## The figures (SHA-227)
 
