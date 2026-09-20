@@ -9,6 +9,22 @@ export interface BrickColorSet {
   dark: string;
 }
 
+/**
+ * Which deck is being painted: the player's, MIRROR's ghost, a BOMB's whiteout,
+ * or the stone THE IRIS turns it into.
+ *
+ * Here rather than beside the sets themselves because two modules draw a pill
+ * now — `CanvasRenderer` in whole game pixels and `@render/hdPaddle` on the fine
+ * grid — and a type owned by one of them would have the other importing the
+ * renderer for four strings.
+ */
+export interface PaddleBandColors {
+  body: string;
+  cap: string;
+  sheen: string;
+  shade: string;
+}
+
 // The body and its two bevels, per brick, off the roster in
 // `@core/config/bricks` — one row per brick, exactly as the capsule bodies come
 // off theirs. The damage tones *between* `flat` and `dark` live there as well

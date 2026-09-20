@@ -30,6 +30,11 @@
 //      The ball is the one sprite this game is never allowed to reshape, and
 //      the HD recipe draws it out of six overlapping discs — the outermost of
 //      which has to come back as exactly the rows the simulation collides.
+//  10. The HD deck's silhouette is `pillRows` at every width the roster can
+//      produce, its cap welds are where the recipe says, and its light bar is
+//      lit. The deck telescopes a pixel an edge a tick, so "every width" is not
+//      a figure of speech — a recipe that came apart at one of them would come
+//      apart for the twelve ticks a capsule takes to arrive.
 //
 // Run with: pnpm run check:pix
 import { registerHooks } from "node:module";
@@ -55,6 +60,8 @@ const { hdBallPix, hdBallShellPix } = await import("../src/render/hdBall.ts");
 const { ballRows } = await import("../src/render/ballSprite.ts");
 const { ballSizeFor } = await import("../src/entities/ball/Ball.ts");
 const { FINE } = await import("../src/interfaces/art.ts");
+const { hdPillPix } = await import("../src/render/hdPaddle.ts");
+const { gameConfig } = await import("../src/core/config/GameConfig.ts");
 
 const failures = [];
 const check = (condition, message) => {
@@ -318,7 +325,60 @@ for (const r of [3, 5.5, 10, 12]) {
   }
 }
 
-console.log(`Checked mix, BAYER, dither, pillRows, disc, ring, vgrad, scale3x and the HD ball.`);
+// 10. The HD deck
+{
+  const TONES = { body: "#2d7fe0", cap: "#e8384f", sheen: "#a8d8ff", shade: "#0b3a78" };
+  const OUTLINE = mix(TONES.shade, "#000000", 0.5);
+  const height = gameConfig.paddle.height * FINE;
+  const outer = pillRows(height);
+  const cap = 8 * FINE;
+  // The roster's own widths, the halves a SPLIT deck is cut into, and two odd
+  // ones — MIRROR's ghost is a fraction of the deck and lands wherever it lands.
+  const widths = [30, 46, 66, 72, 144, 23, 20, 17].map((width) => width * FINE).concat([139, 200]);
+
+  for (const width of widths) {
+    const pix = hdPillPix(width, TONES);
+    check(
+      pix.width === width && pix.height === height,
+      `the HD deck at ${width} is ${pix.width}x${pix.height}, want ${width}x${height}`,
+    );
+
+    let rowFailures = 0;
+    for (let y = 0; y < height; y++) {
+      const lit = [];
+      for (let x = 0; x < width; x++) {
+        if (read(pix, x, y) !== null) {
+          lit.push(x);
+        }
+      }
+      const wantSpan = width - 2 * outer[y];
+      const contiguous = lit.length === 0 || lit[lit.length - 1] - lit[0] + 1 === lit.length;
+      if (lit.length !== wantSpan || (wantSpan > 0 && lit[0] !== outer[y]) || !contiguous) {
+        rowFailures++;
+      }
+    }
+    check(rowFailures === 0, `the HD deck at ${width} differs from pillRows(${height}) on ${rowFailures} row(s)`);
+
+    if (width < 18 * FINE) {
+      continue;
+    }
+    // The weld: one column of outline between each cap and the body, without
+    // which the two materials blend into one smear.
+    check(
+      read(pix, cap - 1, 10) === OUTLINE && read(pix, width - cap, 10) === OUTLINE,
+      `the HD deck at ${width} lost a cap weld: ${read(pix, cap - 1, 10)} / ${read(pix, width - cap, 10)}`,
+    );
+    let bar = 0;
+    for (let x = cap; x < width - cap; x++) {
+      if (read(pix, x, 10) === TONES.sheen) {
+        bar++;
+      }
+    }
+    check(bar > 0, `the HD deck at ${width} has no light bar on its middle row`);
+  }
+}
+
+console.log(`Checked mix, BAYER, dither, pillRows, disc, ring, vgrad, scale3x, the HD ball and the HD deck.`);
 
 if (failures.length > 0) {
   console.error(`\n${failures.length} raster failure(s):`);

@@ -14,6 +14,7 @@ import { BACKGROUND_COLORS, BackgroundLayer, dialTonesFor, IrisLayer } from "@re
 import { type BallRow, ballGlints, ballRows } from "@render/ballSprite";
 import { BROOD_BITMAPS, BROOD_FRAMES, BROOD_OUTLINE, broodPalette } from "@render/broodSprite";
 import { hdBallDisc, hdBallShell, hdBallSprite } from "@render/hdBall";
+import { hdPill } from "@render/hdPaddle";
 import {
   BRICK_COLORS,
   canvasPalette,
@@ -21,6 +22,7 @@ import {
   DARK_LETTER_DROP_KINDS,
   DEMAKE_GROUND_TONES,
   DROP_COLORS,
+  type PaddleBandColors,
 } from "@render/palette";
 import { ditherTile, mix, SpriteCache } from "@render/pix";
 
@@ -504,13 +506,6 @@ export interface PaddleRenderState extends DeckSeamState {
 
 // The four tones a paddle is banded from. The ghost is the same sprite in a
 // dimmer set, which is what makes it read as the paddle's reflection.
-export interface PaddleBandColors {
-  body: string;
-  cap: string;
-  sheen: string;
-  shade: string;
-}
-
 // Game pixels between the dots of a magnet tether.
 const TETHER_DASH_SPACING = 4;
 
@@ -1257,6 +1252,13 @@ interface HdBrick {
 // The body's five-band treatment needs room to read as five bands. Below this
 // an eroded brick gets a top and a bottom and nothing in between, which is all
 // a 20x6 sliver can carry anyway.
+// THE HD PASS (SHA-218): the laser hardware, in fine pixels. The stud is the
+// two game pixels classic draws and the bolt is its two by nine — neither grows,
+// both gain an edge and a core.
+const HD_CANNON_WIDTH = 6;
+const HD_BOLT_WIDTH = 4;
+const HD_BOLT_HEIGHT = 27;
+
 const HD_BANDED_MIN_HEIGHT = 24;
 // Granite's fleck, in fine pixels. Two rather than one: at one the stone reads
 // as noise on a flat slab, and at three it is simply the classic fleck again.
@@ -3693,10 +3695,26 @@ export class CanvasRenderer {
     // blackout veil — that carve-out exists so a trap cannot be caught blind,
     // and there is no such thing as a pip you regret taking.
     this.drawPips(view);
+    const hdShots = this.artMode === ART_MODE.HD && !this.demade;
     for (const shot of view.shots) {
-      if (shot.active) {
-        this.spritePixel(shot.x, shot.y, 2, 9, canvasPalette.laserShot);
+      if (!shot.active) {
+        continue;
       }
+      if (!hdShots) {
+        this.spritePixel(shot.x, shot.y, 2, 9, canvasPalette.laserShot);
+        continue;
+      }
+      // THE HD PASS (SHA-218): the same bolt, thinner and with a core. Two game
+      // pixels of solid yellow is all an 8 px grid can say; six fine ones can
+      // say a hot centre inside a cooler sheath, with the head brightest — the
+      // read that makes a bolt look like it is travelling.
+      const boltLeft = Math.round(shot.x * SCALE);
+      const boltTop = Math.round(shot.y * SCALE);
+      this.ctx.fillStyle = canvasPalette.laserShot;
+      this.ctx.fillRect(boltLeft + 1, boltTop, HD_BOLT_WIDTH, HD_BOLT_HEIGHT);
+      this.ctx.fillStyle = canvasPalette.laserCharge;
+      this.ctx.fillRect(boltLeft + 2, boltTop + 2, HD_BOLT_WIDTH - 2, HD_BOLT_HEIGHT - 5);
+      this.ctx.fillRect(boltLeft + 1, boltTop, HD_BOLT_WIDTH, 2);
     }
     // Under the deck: a peel is on the rail the paddle slides along, and the
     // paddle sliding over one has to be seen covering it. The rail marks sit in
@@ -4745,11 +4763,47 @@ export class CanvasRenderer {
       return;
     }
     const top = y - barrel;
+    const hd = this.artMode === ART_MODE.HD && !this.demade;
     for (const stud of [paddle.x + 5, paddle.x + paddle.width - 7]) {
+      if (hd) {
+        this.paintHdCannon(stud, top, Math.round(barrel * SCALE), paddle.laserBlend < 1);
+        continue;
+      }
       this.spritePixel(stud, top, 2, barrel, canvasPalette.laserCannon);
       if (paddle.laserBlend < 1) {
         this.spritePixel(stud, top, 2, 1 / 3, canvasPalette.laserCharge);
       }
+    }
+  }
+
+  /**
+   * One stud on the fine grid: a dark bore, a barrel inset a pixel either side,
+   * and the muzzle running white while the gun is still coming out.
+   *
+   * Six fine pixels wide is exactly the two game pixels classic draws, so the
+   * hardware has not grown — what it has gained is an edge, which is the whole
+   * difference between a yellow rectangle and a barrel. The muzzle still cools
+   * on the frame the gun locks: the handoff paints its charge cap on a finished
+   * turret too, and that would spend the one cue saying the cannon is not ready
+   * yet. Cooled, the top row is left as the bore, which reads as the opening it
+   * is.
+   *
+   * Drawn rather than baked. Six pixels wide by nine tall is three fills, and a
+   * sprite cache keyed on a barrel that steps in thirds would cost more to look
+   * up than to paint.
+   */
+  private paintHdCannon(x: number, y: number, height: number, charging: boolean): void {
+    const left = Math.round(x * SCALE);
+    const top = Math.round(y * SCALE);
+    this.ctx.fillStyle = mix(canvasPalette.paddleBottomShade, "#000000", 0.5);
+    this.ctx.fillRect(left, top, HD_CANNON_WIDTH, height);
+    if (height > 1) {
+      this.ctx.fillStyle = canvasPalette.laserCannon;
+      this.ctx.fillRect(left + 1, top + 1, HD_CANNON_WIDTH - 2, height - 1);
+    }
+    if (charging) {
+      this.ctx.fillStyle = canvasPalette.laserCharge;
+      this.ctx.fillRect(left + 1, top, HD_CANNON_WIDTH - 2, Math.min(2, height));
     }
   }
 
@@ -4893,7 +4947,16 @@ export class CanvasRenderer {
     english = 0,
     ember = 0,
   ): void {
-    if (width >= 18) {
+    if (this.artMode === ART_MODE.HD && !this.demade) {
+      // THE HD PASS (SHA-218): the pill as a cylinder, baked at this exact
+      // width. The narrow case is the recipe's own as well, so the branch that
+      // follows is classic's alone.
+      this.ctx.drawImage(
+        hdPill(Math.max(1, Math.round(width * SCALE)), colors),
+        Math.round(x * SCALE),
+        Math.round(y * SCALE),
+      );
+    } else if (width >= 18) {
       this.drawPaddleBands(x, y, width, colors);
     } else {
       const { height } = gameConfig.paddle;
