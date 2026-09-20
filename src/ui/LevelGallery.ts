@@ -1,8 +1,11 @@
 import { gameConfig } from "@core/config/GameConfig";
 import { LEVELS, levelIndexOf } from "@core/levels/levels";
+import { ART_MODE, FINE } from "@interfaces/art";
 import { paintLevelStill } from "@render/levelStill";
 import { zeroPad } from "@shared/format";
 import { renderPageIndicator } from "@ui/pagePips";
+
+import type { ArtMode } from "@interfaces/art";
 
 export interface LevelGalleryElements {
   tiles: HTMLElement;
@@ -26,10 +29,11 @@ const TILE_SCALE = 3;
 const TILE_WIDTH = gameConfig.field.width / TILE_SCALE;
 const TILE_HEIGHT = gameConfig.field.height / TILE_SCALE;
 
-function createStillContext(): CanvasRenderingContext2D {
+function createStillContext(hd: boolean): CanvasRenderingContext2D {
+  const scale = hd ? FINE : 1;
   const canvas = document.createElement("canvas");
-  canvas.width = gameConfig.field.width;
-  canvas.height = gameConfig.field.height;
+  canvas.width = gameConfig.field.width * scale;
+  canvas.height = gameConfig.field.height * scale;
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     throw new Error("2D level still context unavailable");
@@ -51,14 +55,32 @@ export class LevelGallery {
   // 124×100 tile is ~50 KB, so the whole roster is ~1.4 MB at 28 levels and
   // still nothing at any roster a person would author. Nothing on this screen
   // animates, and no tile is ever painted twice.
-  private readonly tiles = new Map<number, HTMLCanvasElement>();
+  private readonly tiles = new Map<string, HTMLCanvasElement>();
   // One field-sized canvas for every still ever painted: a still is blitted down
   // into its own tile the moment it is drawn, so the next level paints straight
   // over it. Made on first sight of the screen — a player who never opens it
   // never pays for it.
   private stillCtx: CanvasRenderingContext2D | null = null;
+  // Which art that canvas was made for. The two are different sizes, so a mode
+  // change gets a new one rather than a resize — and the tiles already painted
+  // stay, keyed by their own art, which is what makes `art classic` / `art hd`
+  // a flick back and forth rather than a repaint of the roster each way.
+  private stillArt: boolean | null = null;
 
-  constructor(private readonly elements: LevelGalleryElements) {}
+  /**
+   * `art` is read at paint time rather than held (SHA-224), because the dev
+   * console can change it between two openings of this screen and a gallery
+   * showing the art the game is no longer in is the wrong picture of it.
+   *
+   * Anything but `classic` paints the fine grid, which is the one place this
+   * screen cannot follow the arena exactly: under `split` the arena is showing
+   * both arts at once and a 124 px tile has no room to be cut in half, so it
+   * takes the new one — the half that mode exists to look at.
+   */
+  constructor(
+    private readonly elements: LevelGalleryElements,
+    private readonly art: () => ArtMode = () => ART_MODE.CLASSIC,
+  ) {}
 
   // At least one page, whatever the roster does — a roster under seven has a
   // single page, and it pages nowhere.
@@ -120,7 +142,9 @@ export class LevelGallery {
   }
 
   private tile(index: number): HTMLCanvasElement {
-    const painted = this.tiles.get(index);
+    const hd = this.art() !== ART_MODE.CLASSIC;
+    const key = `${hd ? "hd" : "classic"}:${index}`;
+    const painted = this.tiles.get(key);
     if (painted) {
       return painted;
     }
@@ -139,19 +163,29 @@ export class LevelGallery {
     // Nearest-neighbour at 1/3 keeps one pixel row in three: brick bevels vanish
     // unevenly and the theme's specks flicker from tile to tile. Smoothed, a
     // tile reads as a photographed screen, which is what a miniature is.
+    //
+    // **And it is why HD needs no second thought about legibility** (SHA-224).
+    // The still is three times bigger there and the box filter is nine times
+    // wider, so an authored mark is the same fraction of a tile it always was —
+    // a 3 px line is one tile pixel either way — while everything the recipes
+    // draw below a field pixel arrives as tone rather than being dropped. A
+    // finer photograph of the same screen.
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(this.paintStill(index), 0, 0, TILE_WIDTH, TILE_HEIGHT);
+    ctx.drawImage(this.paintStill(index, hd), 0, 0, TILE_WIDTH, TILE_HEIGHT);
 
-    this.tiles.set(index, tile);
+    this.tiles.set(key, tile);
     return tile;
   }
 
-  private paintStill(index: number): HTMLCanvasElement {
-    this.stillCtx ??= createStillContext();
+  private paintStill(index: number, hd: boolean): HTMLCanvasElement {
+    if (this.stillCtx === null || this.stillArt !== hd) {
+      this.stillCtx = createStillContext(hd);
+      this.stillArt = hd;
+    }
     // `levelIndexOf` rather than the index itself: it is what the run seeds the
     // field art with, and saying so here is what keeps the two the same picture.
-    paintLevelStill(this.stillCtx, LEVELS[index], levelIndexOf(index));
+    paintLevelStill(this.stillCtx, LEVELS[index], levelIndexOf(index), hd);
     return this.stillCtx.canvas;
   }
 }

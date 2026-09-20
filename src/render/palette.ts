@@ -1,5 +1,6 @@
 import { BRICK_BY_ID, byBrickId } from "@core/config/bricks";
 import { byId, POWER_UPS } from "@core/config/powerUps";
+import { parentTone } from "@render/pix";
 
 import type { BrickKind, ChunkMaterial, PowerUpKind } from "@interfaces/types";
 
@@ -643,4 +644,69 @@ export const DEMAKE_GROUND_TONES: ReadonlySet<string> = new Set([
   canvasPalette.dropShade,
   canvasPalette.singularityCore,
   canvasPalette.portalDark,
+  // The rail's dark contour and the dark lip the field sits behind (SHA-223).
+  // Authored tones rather than blends, so nothing can infer their role: they
+  // are the two ends of the frame's ramp, and they are the frame's *edges* —
+  // ink there and the arena has no outline against the page and no lip under
+  // the wall, which is a bright bar where a machined rail was. The four steps
+  // between them stay ink, because those are the light falling across it.
+  FRAME_RAILS[0],
+  FRAME_RAILS[8],
+  // The mortar seam's shadow, which the HD wall paints and the classic one
+  // leaves as bare field (SHA-223). Ink there would weld sixty bricks into one
+  // sheet and take the wall's grid with it — the exact cost the rule above is
+  // written to avoid. `titleBase` shares its value and is covered with it.
+  canvasPalette.brickJoint,
+  // Black, which is not a sprite tone and is not drawn anywhere on the classic
+  // path — `umbraCast` is the only `#000000` in the roster and DEMAKE replaces
+  // it with a halftone before it reaches the filter. It is here for the HD
+  // recipes, which reach for it as the end of a blend whenever they want a
+  // contour: the ball's, the deck's, the capsule's and the brick's outermost
+  // pixel are all `mix(<shade>, "#000000", …)`. Pure black is the shadow role
+  // by definition, and saying so once is what lets those four silhouettes
+  // resolve to ground without a word in any of the recipes.
+  "#000000",
 ]);
+
+/**
+ * One colour, on the tube — the whole of DEMAKE's palette, for any tone the art
+ * can produce.
+ *
+ * The rule is `DEMAKE_GROUND_TONES`' rule and has not changed: the tones that
+ * carry a *shape* go to ground and everything else to ink. What is new
+ * (SHA-223) is that it now answers for the tones the HD recipes derive as well
+ * as the ones the roster authored — five per material where three were written
+ * down, none of them in any set.
+ *
+ * **A derived tone takes the role of the tone it came out nearest**, which
+ * `@render/pix` records as the blend is made. So the brick's `d3` — its body's
+ * dark pulled 40% toward black — is ground because the dark it came off is,
+ * while `d1`, the same dark blended 45% of the way *into* the body, is ink
+ * because the body is. One is the brick's outline and the other is the shaded
+ * half of its face, and no recipe had to say so.
+ *
+ * The walk is a loop rather than one step because a derived tone is routinely
+ * derived from a derived tone: the brick's specular is `mix(sheen, white, 0.5)`
+ * on a sheen that THE WRATH may already have mixed toward the death flash.
+ *
+ * The alternative the ticket floated was a luma threshold. It is the right tool
+ * one layer down — `@render/backgrounds` thresholds the *painted field* at 22,
+ * because those tones were authored dark by the `check:backgrounds` rules and
+ * a whole theme is one material. It is the wrong tool here: sprite tones run
+ * the full range, so any single number turns the dark bricks to ground and the
+ * light ones to a slab, which is the flattening this filter exists to avoid.
+ */
+export function demakeTone(color: string): string {
+  let tone: string | undefined = color;
+  // Capped rather than walked to the end. The chain is three deep at the worst
+  // the roster can build, and `mix` never records a tone as its own parent —
+  // but two blends *can* land on each other's inputs, and an unbounded walk
+  // over a map the art writes into is a render loop that can hang on a colour.
+  for (let step = 0; step < 8 && tone !== undefined; step++) {
+    if (DEMAKE_GROUND_TONES.has(tone)) {
+      return canvasPalette.demakeGround;
+    }
+    tone = parentTone(tone);
+  }
+  return canvasPalette.demakeInk;
+}

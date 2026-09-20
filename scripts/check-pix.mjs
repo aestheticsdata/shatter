@@ -42,6 +42,26 @@
 //      wall's own tones where it can be, and still descends. It is the one
 //      authored ramp the pass added to the palette, and the rail it is painted
 //      into is three game pixels and not negotiable.
+//  13. A dashed line converted to the fine grid weighs what it weighed on the
+//      coarse one. `finePitch` has to close the pitch by FINE *twice* — once
+//      for the pitch and once for the thickness it lost — and dropping the
+//      second factor leaves every thread in the game at a third of its ink,
+//      which looks like a considered choice and is not one. This pass shipped
+//      that bug for an hour.
+//  14. Every HD sprite under DEMAKE is the tube's two tones and no others, and
+//      is neither all ink nor all ground. The recipes derive five tones per
+//      material out of the roster's three, and a derived tone belongs to no
+//      set — so without a mapping of its own the whole sprite resolves to one
+//      ink slab, which is a picture that looks deliberate and lasts exactly as
+//      long as the capsule does. Also that the tones the roster *did* author
+//      still resolve the way classic has always resolved them.
+//  15. The four baked figures hold the silhouettes something else already
+//      defines: GRAVEL's chip is the square the simulation scatters and wears
+//      both a lit and a shadowed edge at each of its four tumble faces; a
+//      METEOR is a rock rather than a square, which is to say its widest row is
+//      its diameter and its first row is not; BANANA's peel is `pillRows`; and
+//      CRITTER's grub is exactly three times its own bitmap with its jaw, eye
+//      and belly still on it, at the end it is walking toward.
 //
 // Run with: pnpm run check:pix
 import { registerHooks } from "node:module";
@@ -66,12 +86,14 @@ const { BAYER, Pix, mix, pillRows, scale3x } = await import("../src/render/pix.t
 const { hdBallPix, hdBallShellPix } = await import("../src/render/hdBall.ts");
 const { ballRows } = await import("../src/render/ballSprite.ts");
 const { ballSizeFor } = await import("../src/entities/ball/Ball.ts");
-const { FINE } = await import("../src/interfaces/art.ts");
+const { FINE, finePitch } = await import("../src/interfaces/art.ts");
 const { hdPillPix } = await import("../src/render/hdPaddle.ts");
 const { gameConfig } = await import("../src/core/config/GameConfig.ts");
 const { hdCapsulePix } = await import("../src/render/hdCapsule.ts");
-const { canvasPalette, FRAME_RAILS, FRAME_RIVET } = await import("../src/render/palette.ts");
+const { canvasPalette, DEMAKE_GROUND_TONES, demakeTone, DROP_COLORS, FRAME_RAILS, FRAME_RIVET, BRICK_COLORS } =
+  await import("../src/render/palette.ts");
 const { DROP_HEIGHT, DROP_WIDTH } = await import("../src/entities/powerups/DropPool.ts");
+const { hdGravelChipPix, hdMeteorPix, hdPeelPix, hdCritterPix } = await import("../src/render/hdFigures.ts");
 
 const failures = [];
 const check = (condition, message) => {
@@ -89,6 +111,12 @@ function read(pix, x, y) {
     return null;
   }
   return `#${hex(pix.data[index])}${hex(pix.data[index + 1])}${hex(pix.data[index + 2])}`;
+}
+
+// Ink laid down per fine pixel of a line's length: how thick it is, times the
+// fraction of it that is dash rather than gap.
+function weight(thickness, dash, pitch) {
+  return (thickness * dash) / pitch;
 }
 
 // Rec. 601 brightness, for the one check that asks whether a ramp descends.
@@ -467,8 +495,321 @@ for (const r of [3, 5.5, 10, 12]) {
   check(luma(FRAME_RIVET.light) > luma(FRAME_RIVET.dark), "the rivet is not lit from the upper left");
 }
 
+// 13. What a dashed line weighs on the fine grid
+{
+  // Classic lays a whole game pixel — FINE thick and FINE long — every
+  // `gamePitch` game pixels; HD lays a single fine pixel and has only the pitch
+  // left to pay with.
+  const classic = (gamePitch) => weight(FINE, FINE, gamePitch * FINE);
+  const fine = (gamePitch, keep) => weight(1, 1, finePitch(gamePitch, keep) * FINE);
+
+  // **This is the check that would have caught the bug this ticket shipped for
+  // an hour.** Converting a thread at `gamePitch / FINE` rather than
+  // `gamePitch / (FINE * FINE)` drops a factor of three, and what comes out is
+  // a cue the player has to hunt for — which looks exactly like a considered
+  // choice and is not one. Every pitch the renderer walks, plus a sweep either
+  // side, so the rule holds for one somebody adds later too.
+  const pitches = [gameConfig.powerUps.twin.dotPitch, gameConfig.powerUps.tracer.dotPitch, 1, 2, 3, 4, 5, 6, 8, 12];
+  for (const pitch of pitches) {
+    for (const keep of [1, 2 / 3, 0.5]) {
+      const want = classic(pitch) * keep;
+      const got = fine(pitch, keep);
+      // Above the floor the trade is exact, and `keep` is literally the share
+      // of classic's weight the line comes away with.
+      //
+      // Below it the pitch has nowhere left to go: a line whose classic dashes
+      // were already almost touching was heavier than a solid fine hairline can
+      // ever be, because a hairline is a third of the thickness and that is the
+      // one thing the fine grid does not give back. So the floor hands over
+      // everything it has — a solid line, weight exactly 1 — and the check says
+      // so rather than pretending the trade balanced. TRACER's guide is the one
+      // line in the file that lands here.
+      if (pitch < FINE * keep) {
+        check(
+          Math.abs(got - 1) < 1e-9,
+          `a floored line at pitch ${pitch} keeping ${keep.toFixed(2)} weighs ${got.toFixed(4)}, want a solid 1`,
+        );
+        check(got <= classic(pitch) + 1e-9, `a floored line at pitch ${pitch} came out heavier than classic`);
+        continue;
+      }
+      check(
+        Math.abs(got - want) < 1e-9,
+        `a line at pitch ${pitch} keeping ${keep.toFixed(2)} is off its trade: ${got.toFixed(4)} for ${want.toFixed(4)}`,
+      );
+    }
+  }
+  // A gap is bought with weight, never for free: the whole reason MAGNET's
+  // tether is allowed to keep its dashes is that it pays for them.
+  check(finePitch(4, 2 / 3) > finePitch(4), "keeping less than the whole trade did not open a gap");
+  check(fine(4, 2 / 3) < fine(4, 1), "keeping less than the whole trade cost nothing");
+  // And never so much that the cue falls under half of what the player has been
+  // reading for the life of the game.
+  check(fine(4, 2 / 3) >= classic(4) / 2, "a dashed line is under half its classic weight");
+}
+
+// 14. DEMAKE on the HD path
+//
+// The failure this exists to catch is one line long: an HD sprite under the
+// tube coming out a solid ink slab, because every tone its recipe derived with
+// `mix` fell outside `DEMAKE_GROUND_TONES` and there was nothing to say which
+// of them were shadows. It is not a crash and not a type error — it is
+// fifty-eight capsules, sixty bricks and the ball all going blank for the eight
+// seconds the capsule holds, and only while it holds.
+{
+  const INK = canvasPalette.demakeInk;
+  const GROUND = canvasPalette.demakeGround;
+
+  // What a demade surface is allowed to contain: the tube's two tones and
+  // nothing else. A third colour means a tone reached the raster around the
+  // filter.
+  const census = (pix) => {
+    const tally = new Map();
+    for (let y = 0; y < pix.height; y++) {
+      for (let x = 0; x < pix.width; x++) {
+        const tone = read(pix, x, y);
+        if (tone !== null) {
+          tally.set(tone, (tally.get(tone) ?? 0) + 1);
+        }
+      }
+    }
+    return tally;
+  };
+
+  // Both tones present, in a share that says the sprite still has a picture in
+  // it. The bound is loose on purpose — this is not pinning a design, it is
+  // refusing a slab.
+  const twoTone = (name, pix, leastGround = 0.05) => {
+    const tally = census(pix);
+    const painted = [...tally.values()].reduce((sum, count) => sum + count, 0);
+    const strays = [...tally.keys()].filter((tone) => tone !== INK && tone !== GROUND);
+    check(strays.length === 0, `demade ${name} painted ${strays.length} tone(s) off the tube: ${strays.join(", ")}`);
+    const ground = (tally.get(GROUND) ?? 0) / painted;
+    check(
+      ground >= leastGround && ground <= 1 - leastGround,
+      `demade ${name} is ${(ground * 100).toFixed(1)}% ground — a slab, not a sprite`,
+    );
+  };
+
+  // The roster's authored ground tones still resolve to ground, which is the
+  // whole of "classic DEMAKE is untouched": the filter gained a fallback, it
+  // did not change its rule.
+  for (const tone of DEMAKE_GROUND_TONES) {
+    check(demakeTone(tone) === GROUND, `the authored ground tone ${tone} no longer demakes to ground`);
+  }
+  for (const tone of [
+    canvasPalette.ballBody,
+    canvasPalette.ballHighlight,
+    canvasPalette.dropSheen,
+    BRICK_COLORS.G.flat,
+  ]) {
+    check(demakeTone(tone) === INK, `the lit tone ${tone} demakes to ground`);
+  }
+  // A tone nobody ever blended is ink, not a crash: the filter has to answer
+  // for a colour it has never seen, because the art is allowed to add one.
+  check(demakeTone("#123456") === INK, "an unknown tone does not fall through to ink");
+
+  // The brick's four derived tones, which are the ones the ticket is named
+  // after. `d3` is the outline and `d1` is the shaded half of the face — same
+  // two authored tones, opposite roles, and the blend is the only thing that
+  // knows which is which.
+  {
+    const l1 = BRICK_COLORS.G.light;
+    const m0 = BRICK_COLORS.G.flat;
+    const d2 = BRICK_COLORS.G.dark;
+    check(demakeTone(mix(d2, "#000000", 0.4)) === GROUND, "the brick's outline (d3) demakes to ink");
+    check(demakeTone(mix(m0, d2, 0.45)) === INK, "the brick's shaded band (d1) demakes to ground");
+    check(demakeTone(mix(m0, l1, 0.3)) === INK, "the brick's lit band (m1) demakes to ground");
+    check(demakeTone(mix(l1, "#ffffff", 0.5)) === INK, "the brick's specular (l2) demakes to ground");
+    // Two deep: THE WRATH mixes the sheen toward the death flash before the
+    // specular is mixed out of it, and the walk has to reach past the first
+    // parent to find a tone anything is known about.
+    check(
+      demakeTone(mix(mix(l1, canvasPalette.deathFlash, 0.5), "#ffffff", 0.5)) === INK,
+      "a twice-derived specular demakes to ground",
+    );
+  }
+
+  // The ball: a ground contour round an ink body, at every size GIANT can
+  // swell it to — off the capsule's own ramp, as check 9 takes it.
+  for (const size of new Set(Array.from({ length: 41 }, (_, step) => ballSizeFor(step / 40)))) {
+    const pix = hdBallPix(size, true);
+    twoTone(`ball at ${size}`, pix);
+    const rows = ballRows(size * FINE);
+    const [offset, span] = rows[Math.floor(rows.length / 2)];
+    check(read(pix, offset, Math.floor(rows.length / 2)) === GROUND, `the demade ball at ${size} has no contour`);
+    check(
+      read(pix, offset + Math.floor(span / 2), Math.floor(rows.length / 2)) === INK,
+      `the demade ball at ${size} has no body`,
+    );
+  }
+
+  // The capsule, in every colour the roster actually drops. Fifty-eight kinds
+  // share this one body, so a recipe that came out a slab would come out a slab
+  // fifty-eight times — and the colours are taken from `DROP_COLORS` rather
+  // than invented here, because which hues exist is the roster's business and
+  // an invented one can be a tone the palette means something else by. The
+  // first draft of this check picked silver's body and found it: granite's pit
+  // is the same hex, so it is a ground tone, and the pill came back 97% ground.
+  // Correct behaviour on a colour no capsule wears.
+  for (const hue of new Set(Object.values(DROP_COLORS))) {
+    const pix = hdCapsulePix(hue, true);
+    twoTone(`capsule ${hue}`, pix);
+    check(
+      read(pix, DROP_WIDTH * FINE - 1, (DROP_HEIGHT * FINE) / 2) === GROUND,
+      `the demade capsule ${hue} has no contour`,
+    );
+    check(read(pix, (DROP_WIDTH * FINE) / 2, 1) === INK, `the demade capsule ${hue} has no glare`);
+  }
+
+  // The deck, at the widths the roster produces: an ink cylinder with a ground
+  // outline and a ground underside, which is the cylinder read in one bit.
+  {
+    const TONES = { body: "#2d7fe0", cap: "#e8384f", sheen: "#a8d8ff", shade: "#0b3a78" };
+    const height = gameConfig.paddle.height * FINE;
+    for (const width of [30, 46, 66, 72, 144, 17].map((game) => game * FINE)) {
+      const pix = hdPillPix(width, TONES, true);
+      twoTone(`deck at ${width}`, pix);
+      check(read(pix, Math.floor(width / 2), height - 1) === GROUND, `the demade deck at ${width} has no underside`);
+      check(read(pix, Math.floor(width / 2), 1) === INK, `the demade deck at ${width} has no lit face`);
+    }
+  }
+
+  // The frame, which is an authored ramp rather than a blend and so is the one
+  // place the palette still has to say the role out loud.
+  check(demakeTone(FRAME_RAILS[0]) === GROUND, "the frame's outer contour demakes to ink");
+  check(demakeTone(FRAME_RAILS[8]) === GROUND, "the frame's inner lip demakes to ink");
+  check(demakeTone(FRAME_RAILS[1]) === INK, "the frame's highlight demakes to ground");
+  check(
+    FRAME_RAILS.filter((tone) => demakeTone(tone) === INK).length >= 5,
+    "the demade frame has no lit run left between its edges",
+  );
+  check(demakeTone(FRAME_RIVET.light) === INK, "the rivet loses its catch of light on the tube");
+  check(demakeTone(FRAME_RIVET.body) === GROUND, "the rivet's head demakes to ink");
+  // The mortar seam, which classic leaves as bare field and HD paints: ink
+  // there welds the wall into one sheet and takes its grid with it.
+  check(demakeTone(canvasPalette.brickJoint) === GROUND, "the mortar seam demakes to ink");
+}
+
+// 15. The figures (SHA-227)
+//
+// The four effects whose mark is a *drawing* rather than a sample, baked. Each
+// has a silhouette something else in the game already defines — a chip is the
+// square the simulation scatters, a peel is `pillRows`, a grub is its own
+// bitmap at three times the size — and the failure they share is silent: a
+// recipe that came out a pixel wide or a row short is a sprite nobody looks at
+// closely, on an effect that is on screen for half a second at a time.
+{
+  const tally = (pix) => {
+    const seen = new Set();
+    for (let y = 0; y < pix.height; y++) {
+      for (let x = 0; x < pix.width; x++) {
+        const tone = read(pix, x, y);
+        if (tone !== null) {
+          seen.add(tone);
+        }
+      }
+    }
+    return seen;
+  };
+
+  // GRAVEL's chip: the square the simulation scatters, at every face its tumble
+  // walks through, wearing both a lit edge and a shadowed one — which is the
+  // whole of what makes it a stone rather than a die.
+  for (let corner = 0; corner < 4; corner++) {
+    const pix = hdGravelChipPix(4, corner);
+    check(
+      pix.width === 4 * FINE && pix.height === 4 * FINE,
+      `the HD chip at face ${corner} is not the 4 px it falls as`,
+    );
+    const tones = tally(pix);
+    check(tones.has(canvasPalette.gravelChipLit), `the HD chip at face ${corner} has no lit edge`);
+    check(tones.has(canvasPalette.gravelCrack), `the HD chip at face ${corner} has no shadowed edge`);
+    // The corners are knocked off, which is what stops twelve pixels of stone
+    // reading as a tile.
+    check(read(pix, 0, 0) === null, `the HD chip at face ${corner} kept its square corner`);
+  }
+
+  // METEOR: a rock, which is to say its widest row is its full diameter and its
+  // first row is not. A square would pass every other check here.
+  for (const size of [4, 3, 2, 1]) {
+    const capped = size === 4;
+    const pix = hdMeteorPix(size, capped);
+    check(pix.width === size * FINE, `the HD meteor at ${size} is ${pix.width} wide, want ${size * FINE}`);
+    const rowWidth = (y) => {
+      let count = 0;
+      for (let x = 0; x < pix.width; x++) {
+        if (read(pix, x, y) !== null) {
+          count++;
+        }
+      }
+      return count;
+    };
+    const widest = Math.max(...Array.from({ length: pix.height }, (_, y) => rowWidth(y)));
+    check(widest === size * FINE, `the HD meteor at ${size} is ${widest} across at its widest, want ${size * FINE}`);
+    if (size > 1) {
+      check(rowWidth(0) < widest, `the HD meteor at ${size} is a square — its first row is its widest`);
+    }
+    if (capped) {
+      check(tally(pix).has(canvasPalette.meteorFlame), "a whole HD meteor lost its ember cap");
+      check(pix.height === size * FINE + 6, `a capped HD meteor is ${pix.height} tall, want its rock plus a cap`);
+    }
+  }
+
+  // BANANA's peel: `pillRows` like every other rounded thing in this pass, with
+  // the gold brick's dark underfoot.
+  {
+    const width = 12;
+    const height = 5;
+    const pix = hdPeelPix(width, height);
+    const rows = pillRows(height * FINE);
+    let peelFailures = 0;
+    for (let y = 0; y < pix.height; y++) {
+      let first = -1;
+      for (let x = 0; x < pix.width; x++) {
+        if (read(pix, x, y) !== null) {
+          first = x;
+          break;
+        }
+      }
+      if (first !== rows[y]) {
+        peelFailures++;
+      }
+    }
+    check(peelFailures === 0, `the HD peel is off pillRows on ${peelFailures} of its ${pix.height} rows`);
+    check(tally(pix).has(canvasPalette.peelShade), "the HD peel has no underside");
+  }
+
+  // CRITTER's grub: exactly three times its bitmap, with the two tells that say
+  // which end is the head still on it. Scale3x rounds the outline and must
+  // round nothing else.
+  {
+    const body = canvasPalette.critterBody;
+    const right = hdCritterPix(body, true, 0);
+    const left = hdCritterPix(body, false, 0);
+    check(right.width === 10 * FINE && right.height === 8 * FINE, `the HD grub is ${right.width}x${right.height}`);
+    const tones = tally(right);
+    check(tones.has(canvasPalette.critterJaw), "the HD grub lost its jaw");
+    check(tones.has(canvasPalette.critterEye), "the HD grub lost its eye");
+    check(tones.has(canvasPalette.critterUnder), "the HD grub lost its belly");
+    // Turned round, the jaw has to be at the other end — a mirror that did
+    // nothing would leave a grub walking backwards into its own face.
+    const jawSide = (pix) => {
+      for (let x = pix.width - 1; x >= 0; x--) {
+        for (let y = 0; y < pix.height; y++) {
+          if (read(pix, x, y) === canvasPalette.critterJaw) {
+            return x;
+          }
+        }
+      }
+      return -1;
+    };
+    check(jawSide(right) > right.width / 2, "the HD grub facing right has its jaw behind it");
+    check(jawSide(left) < left.width / 2, "the HD grub facing left has its jaw behind it");
+  }
+}
+
 console.log(
-  `Checked mix, BAYER, dither, pillRows, disc, ring, vgrad, scale3x, the HD ball, the HD deck, the HD capsule and the frame's rails.`,
+  `Checked mix, BAYER, dither, pillRows, disc, ring, vgrad, scale3x, the HD ball, the HD deck, the HD capsule, the frame's rails, the weight of a dashed line, the tube's reading of all four, and the four baked figures.`,
 );
 
 if (failures.length > 0) {

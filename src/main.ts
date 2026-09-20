@@ -38,8 +38,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const sfx = new SoundBank();
   panel.bindVolume(sfx.volume, (volume) => sfx.setVolume(volume));
 
+  // Named rather than inlined: the LEVELS gallery and the CAPSULES catalogue
+  // paint miniatures of the arena, so they have to be able to ask it which art
+  // it is in (SHA-224). A thunk and not the mode itself — the dev console can
+  // change it long after this line has run.
+  const renderer = new CanvasRenderer(playfield);
   const game = new ShatterGame({
-    renderer: new CanvasRenderer(playfield),
+    renderer,
     titleScene: new TitleScene(getElementByIdOrThrow<HTMLCanvasElement>("titleEye")),
     panel,
     screens: new Screens({
@@ -66,20 +71,26 @@ document.addEventListener("DOMContentLoaded", () => {
       levels: getElementByIdOrThrow("screenLevels"),
       capsules: getElementByIdOrThrow("screenCapsules"),
     }),
-    levels: new LevelGallery({
-      tiles: getElementByIdOrThrow("levelTiles"),
-      pages: getElementByIdOrThrow("levelsPages"),
-      arrows: getElementByIdOrThrow("levelsArrows"),
-      count: getElementByIdOrThrow("levelsCount"),
-      facts: getElementByIdOrThrow("levelsFacts"),
-    }),
-    capsules: new CapsuleCatalogue({
-      entries: getElementByIdOrThrow("capsuleEntries"),
-      pages: getElementByIdOrThrow("capsulesPages"),
-      arrows: getElementByIdOrThrow("capsulesArrows"),
-      count: getElementByIdOrThrow("capsulesCount"),
-      facts: getElementByIdOrThrow("capsulesFacts"),
-    }),
+    levels: new LevelGallery(
+      {
+        tiles: getElementByIdOrThrow("levelTiles"),
+        pages: getElementByIdOrThrow("levelsPages"),
+        arrows: getElementByIdOrThrow("levelsArrows"),
+        count: getElementByIdOrThrow("levelsCount"),
+        facts: getElementByIdOrThrow("levelsFacts"),
+      },
+      () => renderer.art,
+    ),
+    capsules: new CapsuleCatalogue(
+      {
+        entries: getElementByIdOrThrow("capsuleEntries"),
+        pages: getElementByIdOrThrow("capsulesPages"),
+        arrows: getElementByIdOrThrow("capsulesArrows"),
+        count: getElementByIdOrThrow("capsulesCount"),
+        facts: getElementByIdOrThrow("capsulesFacts"),
+      },
+      () => renderer.art,
+    ),
     sfx,
     hiScores: new HiScores(new ScoreApi()),
     scaler: new StageScaler(stage, playfield),

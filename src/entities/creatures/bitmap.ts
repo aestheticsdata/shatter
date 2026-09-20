@@ -24,3 +24,15 @@ export function doubled(rows: readonly string[]): readonly string[] {
 export function flipped(rows: readonly string[]): readonly string[] {
   return rows.toReversed();
 }
+
+/**
+ * Left for right: a grub walking the other way (SHA-227).
+ *
+ * `flipped`'s other axis, and the one a creature that *travels* needs — a
+ * sprite with a jaw at one end and an eye behind it has to turn round when it
+ * does, and authoring the same drawing twice is two places for a leg to be
+ * moved in one of them.
+ */
+export function mirrored(rows: readonly string[]): readonly string[] {
+  return rows.map((row) => row.split("").toReversed().join(""));
+}

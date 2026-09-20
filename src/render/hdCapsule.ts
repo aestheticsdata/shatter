@@ -21,7 +21,7 @@
 
 import { DROP_HEIGHT, DROP_WIDTH } from "@entities/powerups/DropPool";
 import { FINE } from "@interfaces/art";
-import { canvasPalette } from "@render/palette";
+import { canvasPalette, demakeTone } from "@render/palette";
 import { BAYER, mix, Pix, pillRows, SpriteCache } from "@render/pix";
 
 const WIDTH = DROP_WIDTH * FINE;
@@ -41,8 +41,8 @@ const PILLS = new SpriteCache();
  * Separate from `hdCapsule` so the recipe can be checked under plain node;
  * `scripts/check-pix.mjs` pins the silhouette against `pillRows`.
  */
-export function hdCapsulePix(hex: string): Pix {
-  const pix = new Pix(WIDTH, HEIGHT);
+export function hdCapsulePix(hex: string, demade = false): Pix {
+  const pix = new Pix(WIDTH, HEIGHT, demade ? demakeTone : undefined);
   const outline = mix(hex, "#000000", 0.5);
   const glare = mix(hex, canvasPalette.dropSheen, 0.45);
   const low = mix(hex, canvasPalette.dropShade, 0.5);
@@ -83,7 +83,16 @@ export function hdCapsulePix(hex: string): Pix {
   return pix;
 }
 
-/** One capsule body, baked. At most one per colour the roster uses. */
-export function hdCapsule(hex: string): HTMLCanvasElement {
-  return PILLS.get(hex, () => hdCapsulePix(hex).toCanvas());
+/**
+ * One capsule body, baked. At most one per colour the roster uses, and one more
+ * per colour while the tube holds (SHA-223).
+ *
+ * The pill comes out of the filter as more than the flat ink slab classic
+ * draws: the contour and the ink underfoot are ground, the glare and the body
+ * above the waterline are ink, and the waterline's own dither survives as a
+ * halftone between them — which is what a 1-bit port of a capsule looks like.
+ * The letter is still punched out of it in ground by `drawCapsule`.
+ */
+export function hdCapsule(hex: string, demade = false): HTMLCanvasElement {
+  return PILLS.get(`${hex}:${demade}`, () => hdCapsulePix(hex, demade).toCanvas());
 }

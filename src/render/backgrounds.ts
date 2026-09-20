@@ -1,5 +1,7 @@
 import { gameConfig } from "@core/config/GameConfig";
+import { FINE } from "@interfaces/art";
 import { canvasPalette } from "@render/palette";
+import { mix, Pix } from "@render/pix";
 
 import type { BackgroundId } from "@interfaces/types";
 
@@ -307,6 +309,34 @@ export interface BackgroundBrush {
   random(): number;
   // Lower bound included, upper bound excluded.
   randomInt(min: number, max: number): number;
+
+  /**
+   * THE HD PASS (SHA-221): whether this brush paints on the fine grid.
+   *
+   * **The rule the themes are written to is that the *generator* calls never
+   * change.** A painter may draw its own elements differently at the two
+   * resolutions — a lattice line is one fine pixel in HD and one game pixel in
+   * classic — but `random()` and `randomInt()` must be called the same number
+   * of times, in the same order, with the same arguments. That is what keeps
+   * every star, dune and stone in the same place on both paths, which is what
+   * makes `art split` a comparison of *drawing* rather than of two layouts, and
+   * what keeps `check:backgrounds` meaningful.
+   *
+   * The verbs above take game pixels on both paths and are three times finer in
+   * their *rendering* when this is set — a disc is a disc of `radius * 3`, so
+   * it is round rather than a 3x nearest-neighbour blow-up of a small one.
+   * The verbs below take fine pixels and are only defined when this is set.
+   */
+  readonly hd: boolean;
+  readonly fineWidth: number;
+  readonly fineHeight: number;
+  finePixel(x: number, y: number, color: string): void;
+  fineRect(x: number, y: number, width: number, height: number, color: string): void;
+  fineDither(x: number, y: number, width: number, height: number, color: string, coverage: number): void;
+  fineVgrad(x: number, width: number, stops: readonly (readonly [number, string])[]): void;
+  fineRgrad(x: number, y: number, radius: number, tones: readonly (string | null)[]): void;
+  fineDisc(x: number, y: number, radius: number, color: string, coverage?: number): void;
+  fineDiscBand(x: number, y: number, radius: number, top: number, height: number, color: string): void;
 }
 
 // mulberry32: the layouts must be identical on every visit to a level, so the
@@ -329,6 +359,13 @@ function hashSeed(key: string): number {
     hash = Math.imul(hash ^ key.charCodeAt(index), 0x01000193);
   }
   return hash >>> 0;
+}
+
+// What a brush that cannot draw on the fine grid answers when asked to. The
+// painters guard every one of these with `brush.hd`; this is what makes the
+// omission loud rather than silent if one ever forgets.
+function noFineGrid(): never {
+  throw new Error("this background brush paints in game pixels — guard fine-grid work with `brush.hd`");
 }
 
 function createBrush(ctx: CanvasRenderingContext2D, width: number, height: number, seed: number): BackgroundBrush {
@@ -362,29 +399,211 @@ function createBrush(ctx: CanvasRenderingContext2D, width: number, height: numbe
     randomInt(min, max) {
       return min + Math.floor(random() * (max - min));
     },
+    hd: false,
+    fineWidth: width,
+    fineHeight: height,
+    finePixel: noFineGrid,
+    fineRect: noFineGrid,
+    fineDither: noFineGrid,
+    fineVgrad: noFineGrid,
+    fineRgrad: noFineGrid,
+    fineDisc: noFineGrid,
+    fineDiscBand: noFineGrid,
   };
 }
 
-function scatter(brush: BackgroundBrush, count: number, color: string, minY = 4, maxY = brush.height - 4): void {
+/**
+ * The same brush on the fine grid, backed by a software raster.
+ *
+ * **A `Pix` and not the context.** A dithered sky asks a question of every one
+ * of a million pixels, and a `fillRect` apiece against a context that
+ * re-validates state on each one is not a thing that finishes. The whole field
+ * reaches the canvas as one `putImageData` instead — and `Pix` already carries
+ * `rect`, `disc`, `discBand`, `dither`, `vgrad` and `rgrad`, which is the
+ * "one toolkit, two resolutions" the spec asks for rather than a second
+ * toolkit that drifts.
+ *
+ * Game-pixel coordinates are **rounded and then multiplied**, exactly as
+ * classic's `pixel()` does, so every element lands where its classic twin does
+ * rather than half a game pixel off. Radii are multiplied unrounded: the row
+ * arithmetic is what turns a scaled radius into a round disc instead of a
+ * blown-up small one, and that is most of what this ticket buys.
+ */
+function createFineBrush(pix: Pix, width: number, height: number, seed: number): BackgroundBrush {
+  const random = createRandom(seed);
+  const at = (value: number): number => Math.round(value) * FINE;
+
+  return {
+    width,
+    height,
+    rect(x, y, rectWidth, rectHeight, color) {
+      pix.rect(at(x), at(y), at(rectWidth), at(rectHeight), color);
+    },
+    disc(x, y, radius, color) {
+      pix.disc(at(x), at(y), radius * FINE, color);
+    },
+    discBand(x, y, radius, top, bandHeight, color) {
+      pix.discBand(at(x), at(y), radius * FINE, at(top), at(bandHeight), color);
+    },
+    random,
+    randomInt(min, max) {
+      return min + Math.floor(random() * (max - min));
+    },
+    hd: true,
+    fineWidth: pix.width,
+    fineHeight: pix.height,
+    finePixel(x, y, color) {
+      pix.set(x, y, color);
+    },
+    fineRect(x, y, rectWidth, rectHeight, color) {
+      pix.rect(x, y, rectWidth, rectHeight, color);
+    },
+    fineDither(x, y, rectWidth, rectHeight, color, coverage) {
+      pix.dither(x, y, rectWidth, rectHeight, color, coverage);
+    },
+    fineVgrad(x, gradWidth, stops) {
+      pix.vgrad(x, gradWidth, stops);
+    },
+    fineRgrad(x, y, radius, tones) {
+      pix.rgrad(x, y, radius, tones);
+    },
+    fineDisc(x, y, radius, color, coverage) {
+      pix.disc(x, y, radius, color, coverage);
+    },
+    fineDiscBand(x, y, radius, top, bandHeight, color) {
+      pix.discBand(x, y, radius, top, bandHeight, color);
+    },
+  };
+}
+
+/**
+ * One theme onto `ctx`, in whichever art is asked for.
+ *
+ * The HD path paints into a raster and lands in one `putImageData`, which
+ * replaces rather than composites — an opaque field writes its base over
+ * whatever was there, and a foreground's holes come back as holes.
+ */
+function paintWith(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  seed: number,
+  hd: boolean,
+  paint: (brush: BackgroundBrush) => void,
+  // Whether the layer goes *over* what is already on the target rather than
+  // replacing it (SHA-224).
+  //
+  // `Pix.blitTo` is `putImageData`, which replaces alpha and all — which is
+  // exactly right for a field, since an opaque base clearing whatever the last
+  // theme left is how the layer is reused. It is exactly wrong for a sheet with
+  // holes in it: the level gallery paints a still's background and its
+  // foreground into *one* canvas, and a replacing blit of the horizon's dunes
+  // punched the sky back out to transparent — a sunrise with no sunrise in it.
+  // The arena never saw it because there the two layers have a canvas each.
+  compose = false,
+): void {
+  if (!hd) {
+    paint(createBrush(ctx, width, height, seed));
+    return;
+  }
+  const pix = new Pix(width * FINE, height * FINE);
+  paint(createFineBrush(pix, width, height, seed));
+  pix.blitTo(ctx, compose);
+}
+
+/**
+ * A star on the fine grid: a lit centre with four dim arms, where classic
+ * paints a solid 3x3 block.
+ *
+ * **The halo is always darker than the star**, never brighter. `check:backgrounds`
+ * caps what a `speck` tone may be, and it only sees the tones named in
+ * `BACKGROUND_COLORS` — a derived tone that crept *up* from one would be
+ * outside the one rule this module exists to keep. Dimming outward is also the
+ * better picture: a point of light with a glow around it rather than a square.
+ */
+function fineStar(brush: BackgroundBrush, x: number, y: number, color: string, halo: string): void {
+  const fx = Math.round(x) * FINE + 1;
+  const fy = Math.round(y) * FINE + 1;
+  brush.finePixel(fx, fy, color);
+  brush.finePixel(fx - 1, fy, halo);
+  brush.finePixel(fx + 1, fy, halo);
+  brush.finePixel(fx, fy - 1, halo);
+  brush.finePixel(fx, fy + 1, halo);
+}
+
+/** Single fine pixels: the depth behind a star field, too small for classic to hold. */
+function fineDust(
+  brush: BackgroundBrush,
+  count: number,
+  color: string,
+  minY = FINE * 4,
+  maxY = brush.fineHeight - FINE * 4,
+): void {
   for (let index = 0; index < count; index += 1) {
-    brush.rect(brush.randomInt(4, brush.width - 4), brush.randomInt(minY, maxY), 1, 1, color);
+    brush.finePixel(brush.randomInt(FINE * 4, brush.fineWidth - FINE * 4), brush.randomInt(minY, maxY), color);
+  }
+}
+
+function scatter(
+  brush: BackgroundBrush,
+  count: number,
+  color: string,
+  minY = 4,
+  maxY = brush.height - 4,
+  halo?: string,
+): void {
+  for (let index = 0; index < count; index += 1) {
+    const x = brush.randomInt(4, brush.width - 4);
+    const y = brush.randomInt(minY, maxY);
+    if (brush.hd && halo !== undefined) {
+      fineStar(brush, x, y, color, halo);
+      continue;
+    }
+    brush.rect(x, y, 1, 1, color);
   }
 }
 
 const STAR_COUNT = 58;
 
 function paintStarfield(brush: BackgroundBrush): void {
-  const { speck } = BACKGROUND_COLORS.starfield;
+  const { area, speck } = BACKGROUND_COLORS.starfield;
   const tones = [speck.starDim, speck.starMid, speck.starBright];
+  const halos = tones.map((tone) => mix(tone, area.base, 0.55));
   for (let index = 0; index < STAR_COUNT; index += 1) {
-    scatter(brush, 1, tones[index % tones.length]);
+    scatter(brush, 1, tones[index % tones.length], undefined, undefined, halos[index % halos.length]);
   }
   // Three cross-shaped stars: the largest detail in the theme, still 3px wide.
   for (let index = 0; index < 3; index += 1) {
     const x = brush.randomInt(24, brush.width - 24);
     const y = brush.randomInt(24, brush.height - 24);
+    if (brush.hd) {
+      // The same cross, drawn as a diffraction spike: one fine pixel wide with
+      // arms that fade out, instead of three game pixels of solid light.
+      fineCross(brush, x, y, speck.starBright, mix(speck.starBright, area.base, 0.5));
+      continue;
+    }
     brush.rect(x - 1, y, 3, 1, speck.starBright);
     brush.rect(x, y - 1, 1, 3, speck.starBright);
+  }
+  if (brush.hd) {
+    // The field behind the field. Drawn from the generator where it now stands,
+    // so not one of the 58 above moves.
+    fineDust(brush, 150, mix(speck.starDim, area.base, 0.35));
+    fineDust(brush, 60, speck.starDim);
+  }
+}
+
+/** A star with diffraction spikes: a lit core, four arms of four fine pixels. */
+function fineCross(brush: BackgroundBrush, x: number, y: number, color: string, arm: string): void {
+  const fx = Math.round(x) * FINE + 1;
+  const fy = Math.round(y) * FINE + 1;
+  brush.finePixel(fx, fy, color);
+  for (const step of [1, 2, 3, 4]) {
+    const tone = step <= 2 ? color : arm;
+    brush.finePixel(fx - step, fy, tone);
+    brush.finePixel(fx + step, fy, tone);
+    brush.finePixel(fx, fy - step, tone);
+    brush.finePixel(fx, fy + step, tone);
   }
 }
 
@@ -409,17 +628,33 @@ function paintNebula(brush: BackgroundBrush): void {
     [0.72, 0.46],
     [0.44, 0.8],
   ] as const;
+  const centres: Array<readonly [number, number]> = [];
   for (const [fractionX, fractionY] of spots) {
     const x = Math.round(fractionX * brush.width) + brush.randomInt(-16, 17);
     const y = Math.round(fractionY * brush.height) + brush.randomInt(-12, 13);
+    centres.push([x, y]);
     // Three layers, each a lumpier ring of lobes than the one inside it, so the
     // haze fades out over ~30px instead of ending on a circle.
     cloud(brush, x, y, 58, area.hazeEdge, 7);
     cloud(brush, x, y, 40, area.hazeOuter, 6);
     cloud(brush, x, y, 20, area.hazeInner, 4);
   }
-  scatter(brush, 30, speck.dust);
-  scatter(brush, 7, speck.glint);
+  if (brush.hd) {
+    // Where the haze stops being haze. Classic ends each spot on the outermost
+    // ring of lobes, which at 3x is a lumpy but hard edge; a dithered shell a
+    // little wider than it lets the cloud run out into the field instead. The
+    // centres are kept from the loop above rather than rolled again, so the
+    // shells sit on the clouds they belong to.
+    for (const [x, y] of centres) {
+      brush.fineDisc(Math.round(x) * FINE, Math.round(y) * FINE, 74 * FINE, mix(area.hazeEdge, area.base, 0.45), 0.5);
+      brush.fineDisc(Math.round(x) * FINE, Math.round(y) * FINE, 62 * FINE, area.hazeEdge, 0.45);
+    }
+  }
+  scatter(brush, 30, speck.dust, undefined, undefined, mix(speck.dust, area.base, 0.5));
+  scatter(brush, 7, speck.glint, undefined, undefined, mix(speck.glint, area.base, 0.5));
+  if (brush.hd) {
+    fineDust(brush, 220, mix(speck.dust, area.base, 0.4));
+  }
 }
 
 function paintGrid(brush: BackgroundBrush): void {
@@ -430,15 +665,43 @@ function paintGrid(brush: BackgroundBrush): void {
   const rowStep = 12;
   const columnOffset = brush.randomInt(0, columnStep);
   const rowOffset = brush.randomInt(0, rowStep);
+  // A ruled line is one fine pixel in HD and one game pixel in classic. It is
+  // the same lattice in the same place either way — what changes is that
+  // blueprint paper is ruled with a pen and not with a brush three times its
+  // width. Drawing calls only: the generator has already been asked for its two
+  // offsets and is asked for nothing here, so the lattice cannot shift.
+  const rule = brush.hd ? 1 : 0;
   for (let x = columnOffset; x < brush.width; x += columnStep) {
+    if (rule) {
+      brush.fineRect(Math.round(x) * FINE + 1, 0, 1, brush.fineHeight, area.column);
+      continue;
+    }
     brush.rect(x, 0, 1, brush.height, area.column);
   }
   for (let y = rowOffset; y < brush.height; y += rowStep) {
+    if (rule) {
+      brush.fineRect(0, Math.round(y) * FINE + 1, brush.fineWidth, 1, area.row);
+      continue;
+    }
     brush.rect(0, y, brush.width, 1, area.row);
   }
+  const nodeGlow = mix(speck.node, area.base, 0.5);
   for (let x = columnOffset; x < brush.width; x += columnStep) {
     for (let y = rowOffset; y < brush.height; y += rowStep) {
       if (brush.random() < 0.14) {
+        if (brush.hd) {
+          // A drawn junction rather than a 2x2 blot: a lit cross on the
+          // intersection with a dimmer ring of four around it.
+          const fx = Math.round(x) * FINE + 1;
+          const fy = Math.round(y) * FINE + 1;
+          brush.fineRect(fx - 1, fy - 1, 3, 3, nodeGlow);
+          brush.finePixel(fx, fy, speck.node);
+          brush.finePixel(fx - 2, fy, speck.node);
+          brush.finePixel(fx + 2, fy, speck.node);
+          brush.finePixel(fx, fy - 2, speck.node);
+          brush.finePixel(fx, fy + 2, speck.node);
+          continue;
+        }
         brush.rect(x - 1, y - 1, 2, 2, speck.node);
       }
     }
@@ -459,13 +722,38 @@ function paintHorizon(brush: BackgroundBrush): void {
   const horizon = horizonLine(brush);
   const bands = [area.sky1, area.sky2, area.sky3, area.glow];
   const bandHeight = 10;
-  scatter(brush, 18, speck.star, 6, horizon - bands.length * bandHeight - 10);
-  bands.forEach((color, index) => {
-    brush.rect(0, horizon - (bands.length - index) * bandHeight, brush.width, bandHeight, color);
-  });
+  scatter(brush, 18, speck.star, 6, horizon - bands.length * bandHeight - 10, mix(speck.star, area.base, 0.5));
+  if (brush.hd) {
+    // The four bands become one gradient. Classic has to step from the base to
+    // the glow in four 10 px slabs, and the steps are the one thing a sunrise
+    // must not have; ordered dither walks the same four tones over seventy
+    // pixels without inventing a fifth. The stops are the bands' own edges, so
+    // the sky is the same sky — it just stops having edges.
+    const line = horizon * FINE;
+    brush.fineVgrad(0, brush.fineWidth, [
+      [Math.max(0, line - 210), area.base],
+      [line - 120, area.sky1],
+      [line - 90, area.sky2],
+      [line - 60, area.sky3],
+      [line - 30, area.glow],
+      [line, area.glow],
+    ]);
+    // The dome: the sun is still under the horizon, and what says so is the
+    // light standing above where it will come up. Dithered radially, so it
+    // reads as a glow and not as a disc sitting on the ground.
+    brush.fineRgrad(Math.round(brush.fineWidth * 0.56), line, 260, [null, area.sky3, area.glow]);
+    brush.fineRect(0, line - 1, brush.fineWidth, 1, mix(area.glow, area.ground, 0.45));
+  } else {
+    bands.forEach((color, index) => {
+      brush.rect(0, horizon - (bands.length - index) * bandHeight, brush.width, bandHeight, color);
+    });
+  }
   // The ground is painted here too, so the sky is a whole picture on its own;
   // what stands *in front of* the eye is the foreground's, below.
   brush.rect(0, horizon, brush.width, brush.height - horizon, area.ground);
+  if (brush.hd) {
+    fineDust(brush, 260, mix(area.ground, "#000000", 0.4), horizon * FINE + 2, brush.fineHeight);
+  }
 }
 
 /**
@@ -488,7 +776,27 @@ function paintHorizonGround(brush: BackgroundBrush): void {
   for (const [fractionX, radius] of dunes) {
     const x = Math.round(fractionX * brush.width) + brush.randomInt(-30, 31);
     const rise = brush.randomInt(9, 26);
+    if (brush.hd) {
+      // A rim of shadow a pixel outside the hill, so one dune passing in front
+      // of another reads as two hills rather than as one shape with a dent in
+      // it. Drawn from the same three numbers — the generator is untouched.
+      const cx = Math.round(x) * FINE;
+      const cy = (horizon + radius - rise) * FINE;
+      brush.fineDiscBand(
+        cx,
+        cy,
+        radius * FINE + 1,
+        (horizon - rise) * FINE - 1,
+        rise * FINE + 1,
+        mix(area.dune, "#000000", 0.45),
+      );
+      brush.fineDiscBand(cx, cy, radius * FINE, (horizon - rise) * FINE, rise * FINE, area.dune);
+      continue;
+    }
     brush.discBand(x, horizon + radius - rise, radius, horizon - rise, rise, area.dune);
+  }
+  if (brush.hd) {
+    fineDust(brush, 300, mix(area.ground, "#000000", 0.45), horizon * FINE + 2, brush.fineHeight);
   }
 }
 
@@ -502,6 +810,19 @@ function paintPlanet(brush: BackgroundBrush): void {
   const x = brush.random() < 0.5 ? brush.randomInt(-36, 24) : brush.randomInt(brush.width - 24, brush.width + 36);
   const y = brush.randomInt(216, 272);
   brush.disc(x, y, radius, area.limb);
+  if (brush.hd) {
+    // The step between the limb and the body is four game pixels of hard edge
+    // in classic. A dithered disc half way between the two turns it into a
+    // terminator — the same crescent, with the light running out across it
+    // rather than stopping. Drawing only; the generator has already rolled.
+    brush.fineDisc(
+      Math.round(x + 2) * FINE,
+      Math.round(y + 2) * FINE,
+      radius * FINE,
+      mix(area.limb, area.body, 0.5),
+      0.5,
+    );
+  }
   brush.disc(x + 4, y + 4, radius, area.body);
   for (let index = 0; index < 3; index += 1) {
     const top = y - radius + brush.randomInt(12, 40) + index * 34;
@@ -519,13 +840,37 @@ function paintCircuit(brush: BackgroundBrush): void {
     const legs = brush.randomInt(2, 5);
     for (let leg = 0; leg < legs; leg += 1) {
       const drop = brush.randomInt(18, 55);
-      brush.rect(x, y, 1, drop, color);
+      if (brush.hd) {
+        brush.fineRect(Math.round(x) * FINE + 1, Math.round(y) * FINE, 1, drop * FINE, color);
+      } else {
+        brush.rect(x, y, 1, drop, color);
+      }
       y += drop;
       const jog = brush.randomInt(-3, 4) * pitch;
       const next = Math.min(brush.width - 8, Math.max(8, x + jog));
       if (next !== x) {
-        brush.rect(Math.min(x, next), y, Math.abs(next - x) + 1, 1, color);
+        if (brush.hd) {
+          brush.fineRect(
+            Math.round(Math.min(x, next)) * FINE + 1,
+            Math.round(y) * FINE + 1,
+            (Math.abs(next - x) + 1) * FINE - 1,
+            1,
+            color,
+          );
+        } else {
+          brush.rect(Math.min(x, next), y, Math.abs(next - x) + 1, 1, color);
+        }
         x = next;
+      }
+      if (brush.hd) {
+        // An etched pad rather than a 3x3 blot: a lit square with a hole in it,
+        // which is what a via looks like and what a trace is soldered to.
+        const fx = Math.round(x) * FINE + 1;
+        const fy = Math.round(y) * FINE + 1;
+        brush.fineRect(fx - 2, fy - 2, 5, 5, mix(speck.pad, area.base, 0.45));
+        brush.fineRect(fx - 1, fy - 1, 3, 3, speck.pad);
+        brush.finePixel(fx, fy, mix(speck.pad, area.base, 0.7));
+        continue;
       }
       brush.rect(x - 1, y - 1, 3, 3, speck.pad);
     }
@@ -546,13 +891,38 @@ function paintCathode(brush: BackgroundBrush): void {
     [140, area.bloom3],
     [85, area.bloom4],
   ] as const;
-  for (const [radius, color] of bloom) {
-    brush.disc(x, y, radius, color);
+  if (brush.hd) {
+    // Four discs become one radial ramp through the same four tones. The
+    // classic stack exists because a gradient banded badly once blitted at 3x;
+    // ordered dither is the answer that was not available then, and a tube's
+    // bloom is the one thing in the roster that most wants it.
+    brush.fineRgrad(Math.round(x) * FINE, Math.round(y) * FINE, 250 * FINE, [
+      null,
+      area.bloom1,
+      area.bloom2,
+      area.bloom3,
+      area.bloom4,
+    ]);
+  } else {
+    for (const [radius, color] of bloom) {
+      brush.disc(x, y, radius, color);
+    }
   }
-  for (let row = brush.randomInt(0, 3); row < brush.height; row += 3) {
-    brush.rect(0, row, brush.width, 1, area.scan);
+  const scanStart = brush.randomInt(0, 3);
+  if (brush.hd) {
+    // The same third of the field covered, at a third of the pitch: a game
+    // pixel of ribbing every three is a grille, and a fine pixel every three is
+    // a scanline. The phase is the generator's own, so both arts start on the
+    // same row.
+    for (let row = scanStart * FINE; row < brush.fineHeight; row += 3) {
+      brush.fineRect(0, row, brush.fineWidth, 1, area.scan);
+    }
+  } else {
+    for (let row = scanStart; row < brush.height; row += 3) {
+      brush.rect(0, row, brush.width, 1, area.scan);
+    }
   }
-  scatter(brush, 12, speck.fleck);
+  scatter(brush, 12, speck.fleck, undefined, undefined, mix(speck.fleck, area.base, 0.5));
 }
 
 function paintVault(brush: BackgroundBrush): void {
@@ -574,8 +944,28 @@ function paintVault(brush: BackgroundBrush): void {
         brush.rect(x + stoneWidth - 6, y + courseHeight - 5, 2, 2, speck.chip);
       }
       brush.rect(x, y, 1, courseHeight, area.mortar);
+      if (brush.hd) {
+        // The joint keeps its width — it is what makes the wall a wall — and
+        // gains a lit lip on the stone's left edge and a dithered shadow along
+        // its foot, so a course reads as blocks set into mortar rather than as
+        // a grid ruled over a fill.
+        const fx = Math.round(x) * FINE;
+        const fy = Math.round(y) * FINE;
+        brush.fineRect(fx + FINE, fy + 2, 1, courseHeight * FINE - 2, mix(area.mortar, area.stoneLight, 0.5));
+        brush.fineDither(
+          fx + FINE,
+          fy + courseHeight * FINE - 4,
+          stoneWidth * FINE - FINE,
+          3,
+          mix(area.stoneDark, "#000000", 0.4),
+          0.5,
+        );
+      }
     }
     brush.rect(0, y, brush.width, 1, area.mortar);
+    if (brush.hd) {
+      brush.fineRect(0, Math.round(y) * FINE + FINE, brush.fineWidth, 1, mix(area.mortar, area.stoneLight, 0.45));
+    }
     course += 1;
   }
 }
@@ -606,10 +996,17 @@ function ring(brush: BackgroundBrush, x: number, y: number, radius: number, colo
  * because the roster names it, and because the veils' tones are these.
  */
 function paintObserver(brush: BackgroundBrush): void {
-  const { speck } = BACKGROUND_COLORS.observer;
+  const { area, speck } = BACKGROUND_COLORS.observer;
   const tones = [speck.starDim, speck.starMid, speck.starBright];
+  const halos = tones.map((tone) => mix(tone, area.base, 0.55));
   for (let index = 0; index < STAR_COUNT; index += 1) {
-    scatter(brush, 1, tones[index % tones.length]);
+    scatter(brush, 1, tones[index % tones.length], undefined, undefined, halos[index % halos.length]);
+  }
+  if (brush.hd) {
+    // Deeper than the starfield's: this is the sky the veils stand on, and the
+    // eye reads as further away the more there is behind it.
+    fineDust(brush, 190, mix(speck.starDim, area.base, 0.4));
+    fineDust(brush, 70, speck.starDim);
   }
 }
 
@@ -631,10 +1028,12 @@ export function paintBackground(
   variant: number,
   width: number,
   height: number,
+  hd = false,
 ): void {
-  const brush = createBrush(ctx, width, height, hashSeed(`${id}:${variant}`));
-  brush.rect(0, 0, width, height, BACKGROUND_COLORS[id].area.base);
-  PAINTERS[id](brush);
+  paintWith(ctx, width, height, hashSeed(`${id}:${variant}`), hd, (brush) => {
+    brush.rect(0, 0, width, height, BACKGROUND_COLORS[id].area.base);
+    PAINTERS[id](brush);
+  });
 }
 
 // What a theme paints *over* the room's tenant (SHA-188): drawn after the
@@ -655,12 +1054,18 @@ export function paintForeground(
   variant: number,
   width: number,
   height: number,
+  hd = false,
 ): boolean {
   const painter = FOREGROUNDS[id];
   if (!painter) {
     return false;
   }
-  painter(createBrush(ctx, width, height, hashSeed(`${id}:${variant}:front`)));
+  // Composed, never replaced: the foreground is a sheet with holes in it, and
+  // whatever it is painted over has to go on showing through them. On the
+  // arena's own front canvas — cleared before every repaint — the two are the
+  // same picture; in the level gallery, where the still is one canvas, they are
+  // not (SHA-224).
+  paintWith(ctx, width, height, hashSeed(`${id}:${variant}:front`), hd, painter, true);
   return true;
 }
 
@@ -727,6 +1132,7 @@ export class BackgroundLayer {
   private readonly monoFrontCanvas = document.createElement("canvas");
   private readonly monoFrontCtx: CanvasRenderingContext2D;
   private monoFrontPainted: string | null = null;
+  private monoFrontPresent = false;
 
   constructor(
     private readonly width: number,
@@ -749,55 +1155,84 @@ export class BackgroundLayer {
     this.monoFrontCtx = monoFrontCtx;
   }
 
+  /**
+   * A layer canvas sized for the art it is about to be painted in.
+   *
+   * Resizing clears the canvas, which is exactly what a repaint wants and why
+   * the art mode is part of every key below: a theme painted at one resolution
+   * is never reused at the other.
+   */
+  private size(canvas: HTMLCanvasElement, hd: boolean): void {
+    const scale = hd ? FINE : 1;
+    if (canvas.width !== this.width * scale) {
+      canvas.width = this.width * scale;
+      canvas.height = this.height * scale;
+    }
+  }
+
   /** The theme's foreground, or null when it has none. Drawn over the eye, under the wall. */
-  frontImageFor(id: BackgroundId, variant: number): HTMLCanvasElement | null {
-    const key = `${id}:${variant}`;
+  frontImageFor(id: BackgroundId, variant: number, hd = false): HTMLCanvasElement | null {
+    const key = `${id}:${variant}:${hd}`;
     if (this.frontPainted !== key) {
-      this.frontCtx.clearRect(0, 0, this.width, this.height);
-      this.frontPresent = paintForeground(this.frontCtx, id, variant, this.width, this.height);
+      this.size(this.frontCanvas, hd);
+      this.frontCtx.clearRect(0, 0, this.frontCanvas.width, this.frontCanvas.height);
+      this.frontPresent = paintForeground(this.frontCtx, id, variant, this.width, this.height, hd);
       this.frontPainted = key;
     }
     return this.frontPresent ? this.frontCanvas : null;
   }
 
   /** The foreground reduced to the tube's two tones, holes kept; null when the theme has none. */
-  monoFrontImageFor(id: BackgroundId, variant: number): HTMLCanvasElement | null {
-    const front = this.frontImageFor(id, variant);
-    if (!front) {
-      return null;
+  monoFrontImageFor(id: BackgroundId, variant: number, hd = false): HTMLCanvasElement | null {
+    const key = `${id}:${variant}:${hd}`;
+    if (this.monoFrontPainted !== key) {
+      this.size(this.monoFrontCanvas, hd);
+      const { width, height } = this.monoFrontCanvas;
+      this.monoFrontCtx.clearRect(0, 0, width, height);
+      this.monoFrontPresent = paintForeground(this.monoFrontCtx, id, variant, this.width, this.height, hd);
+      if (this.monoFrontPresent) {
+        const image = this.monoFrontCtx.getImageData(0, 0, width, height);
+        reduceToMono(image.data);
+        this.monoFrontCtx.putImageData(image, 0, 0);
+      }
+      this.monoFrontPainted = key;
     }
-    const key = `${id}:${variant}`;
-    if (this.monoFrontPainted === key) {
-      return this.monoFrontCanvas;
-    }
-    this.monoFrontCtx.clearRect(0, 0, this.width, this.height);
-    this.monoFrontCtx.drawImage(front, 0, 0);
-    const image = this.monoFrontCtx.getImageData(0, 0, this.width, this.height);
-    reduceToMono(image.data);
-    this.monoFrontCtx.putImageData(image, 0, 0);
-    this.monoFrontPainted = key;
-    return this.monoFrontCanvas;
+    return this.monoFrontPresent ? this.monoFrontCanvas : null;
   }
 
-  imageFor(id: BackgroundId, variant: number): HTMLCanvasElement {
-    const key = `${id}:${variant}`;
+  imageFor(id: BackgroundId, variant: number, hd = false): HTMLCanvasElement {
+    const key = `${id}:${variant}:${hd}`;
     if (this.painted !== key) {
-      paintBackground(this.ctx, id, variant, this.width, this.height);
+      this.size(this.canvas, hd);
+      paintBackground(this.ctx, id, variant, this.width, this.height, hd);
       this.painted = key;
     }
     return this.canvas;
   }
 
-  // The same field, thresholded to the tube's two tones. Reduced from the
-  // colour layer rather than repainted through a 1-bit brush, so a theme is
-  // authored once and its demade twin can never drift from it.
-  monoImageFor(id: BackgroundId, variant: number): HTMLCanvasElement {
-    const key = `${id}:${variant}`;
+  // The same field, thresholded to the tube's two tones. Painted through the
+  // theme's own painter and *then* reduced, rather than through a 1-bit brush,
+  // so a theme is authored once and its demade twin can never drift from it.
+  //
+  // It takes the art mode now (SHA-223), because the tube is no longer pinned
+  // to classic: a fine-grid wall standing on a coarse field is the exact
+  // mismatch the pass's first rule exists to catch, and the threshold does not
+  // care how many pixels it is given — the tones are the same either way.
+  //
+  // It runs the painter itself rather than borrowing the colour layer, which it
+  // used to do. The colour layer may be on the fine grid now (SHA-221), and
+  // asking it for a classic field would repaint it at the other resolution —
+  // twice a frame for the whole of DEMAKE's crossfade, where both machines are
+  // painted. Same painter, same seed, same picture; only the canvas differs.
+  monoImageFor(id: BackgroundId, variant: number, hd = false): HTMLCanvasElement {
+    const key = `${id}:${variant}:${hd}`;
     if (this.monoPainted === key) {
       return this.monoCanvas;
     }
-    this.monoCtx.drawImage(this.imageFor(id, variant), 0, 0);
-    const image = this.monoCtx.getImageData(0, 0, this.width, this.height);
+    this.size(this.monoCanvas, hd);
+    const { width, height } = this.monoCanvas;
+    paintBackground(this.monoCtx, id, variant, this.width, this.height, hd);
+    const image = this.monoCtx.getImageData(0, 0, width, height);
     reduceToMono(image.data);
     this.monoCtx.putImageData(image, 0, 0);
     this.monoPainted = key;

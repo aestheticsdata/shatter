@@ -47,8 +47,54 @@ export function mix(from: string, to: string, t: number): string {
   const a = Number.parseInt(from.slice(1), 16);
   const b = Number.parseInt(to.slice(1), 16);
   const blend = (shift: number): number => Math.round(((a >> shift) & 0xff) * (1 - t) + ((b >> shift) & 0xff) * t);
-  return `#${((blend(16) << 16) | (blend(8) << 8) | blend(0)).toString(16).padStart(6, "0")}`;
+  const hex = `#${((blend(16) << 16) | (blend(8) << 8) | blend(0)).toString(16).padStart(6, "0")}`;
+  // A blend that landed back on one of its own ends is not a new tone and has
+  // nothing to remember — recording it would map a palette tone to itself and
+  // put a cycle in the walk below.
+  if (hex !== from && hex !== to) {
+    PARENTS.set(hex, t < 0.5 ? from : to);
+  }
+  return hex;
 }
+
+// Every derived tone, and the end of its blend it came out nearest. Written by
+// `mix` and read by `@render/palette`'s demake filter; see `parentTone`.
+const PARENTS = new Map<string, string>();
+
+/**
+ * The authored tone a derived one takes after, or `undefined` if it is authored.
+ *
+ * **Why a blend has to leave a trail.** DEMAKE is not a brightness threshold —
+ * it is a *role*: the tones that carry a shape go to the tube's ground and
+ * everything else to its ink, which is why `DEMAKE_GROUND_TONES` is a list of
+ * shadows rather than a number to compare against. An HD recipe derives five
+ * tones per material out of the roster's three, and the blend that made them is
+ * the only thing that knows whether a given one is a shade or a silhouette. A
+ * bare `#5a2e33` handed to the filter afterwards does not.
+ *
+ * So the blend says which end it came out nearest, and the role follows the
+ * tone it is nearest to. A midpoint is genuinely neither, and takes `to` — the
+ * end the recipe named as the direction it was pulling toward, which is the
+ * argument that carries the intent (`mix(body, shade, 0.5)` is the body going
+ * under; `mix(body, sheen, 0.5)` is the body coming up).
+ *
+ * Two different blends can land on the same hex, and the later one wins. That
+ * is a tone flipping which side of a 1-bit picture it is on, on a filter that
+ * is presentational and lasts eight seconds — not worth a key wider than the
+ * colour every consumer already holds.
+ */
+export function parentTone(hex: string): string | undefined {
+  return PARENTS.get(hex);
+}
+
+/**
+ * What a colour becomes on the machine it is being painted on.
+ *
+ * Declared here rather than imported because this module imports nothing (see
+ * the header) — the filter arrives as a function and the raster never learns
+ * what a palette is.
+ */
+export type Ink = (hex: string) => string;
 
 /**
  * The inset of each row of a pill `height` fine pixels tall, top to bottom.
@@ -101,12 +147,26 @@ export class Pix {
   // Hex is what the palette speaks and what a recipe reads; the raster needs
   // bytes. Parsing is the hot path's one avoidable cost, so each tone is parsed
   // once per surface — a sprite uses a handful of tones over tens of thousands
-  // of pixels.
+  // of pixels. The cache is keyed on what the *recipe* asked for and holds what
+  // the filter answered, so a filtered surface parses no more than a lit one.
   private readonly tones = new Map<string, Rgb>();
 
+  /**
+   * `ink` is the machine this surface is being painted on (SHA-223): left out,
+   * the tones go down as authored; passed, every one of them is resolved on the
+   * way in.
+   *
+   * **One filter at the bottom of the raster rather than at four hundred call
+   * sites.** Every verb below funnels through `set`, so a recipe written once
+   * bakes its own demade twin with no branch anywhere in it — which is the
+   * property that keeps the two pictures from drifting as sprites are
+   * retouched, and the reason a sprite added later is demade by construction
+   * rather than by remembering to.
+   */
   constructor(
     readonly width: number,
     readonly height: number,
+    private readonly ink?: Ink,
   ) {
     this.data = new Uint8ClampedArray(new ArrayBuffer(width * height * 4));
   }
@@ -119,7 +179,7 @@ export class Pix {
     }
     let tone = this.tones.get(hex);
     if (tone === undefined) {
-      tone = hexRgb(hex);
+      tone = hexRgb(this.ink ? this.ink(hex) : hex);
       this.tones.set(hex, tone);
     }
     const index = (py * this.width + px) * 4;
@@ -307,7 +367,50 @@ export class Pix {
     }
   }
 
-  /** The surface as a canvas, ready to blit. The one method that needs a DOM. */
+  /**
+   * The surface straight into an existing context, alpha and all.
+   *
+   * `putImageData` *replaces* rather than composites, which is what the
+   * background layers want: an opaque field writes its base over whatever was
+   * there, and a foreground's holes come back as holes rather than as black.
+   *
+   * `compose` is for the other case (SHA-224): a sheet with holes in it, landed
+   * on a target that already has something under it. The level gallery paints a
+   * still's field and the theme's foreground into *one* canvas, and replacing
+   * there punches the sky back out to transparent through every hole.
+   *
+   * **The blend is "an opaque pixel wins", and that is the whole of it**, with
+   * no alpha arithmetic anywhere — because `set` is the only way a pixel is
+   * ever written here and it writes 255. A surface that could be half
+   * transparent would need the real formula; this one cannot be, by
+   * construction, and the pass's whole argument is that a tone between two
+   * tones is spelled with dither rather than with alpha.
+   *
+   * Arithmetic over two arrays rather than a canvas and a `drawImage`, so the
+   * guard scripts can go on running the painters under plain node — which is
+   * the rule the head of this module states and the reason `toCanvas` is the
+   * only method in it that knows what a DOM is.
+   */
+  blitTo(ctx: CanvasRenderingContext2D, compose = false): void {
+    if (!compose) {
+      ctx.putImageData(new ImageData(this.data, this.width, this.height), 0, 0);
+      return;
+    }
+    const under = ctx.getImageData(0, 0, this.width, this.height);
+    const over = this.data;
+    for (let alpha = 3; alpha < over.length; alpha += 4) {
+      if (over[alpha] === 0) {
+        continue;
+      }
+      under.data[alpha - 3] = over[alpha - 3];
+      under.data[alpha - 2] = over[alpha - 2];
+      under.data[alpha - 1] = over[alpha - 1];
+      under.data[alpha] = over[alpha];
+    }
+    ctx.putImageData(under, 0, 0);
+  }
+
+  /** The surface as a canvas, ready to blit. The other method that needs a DOM. */
   toCanvas(): HTMLCanvasElement {
     const canvas = document.createElement("canvas");
     canvas.width = this.width;
@@ -411,11 +514,11 @@ export class SpriteCache {
  * `palette` maps a character to a tone; a character it has no entry for is a
  * hole, which is how `.` stays transparent.
  */
-export function scale3x(rows: readonly string[], palette: Readonly<Record<string, string>>): Pix {
+export function scale3x(rows: readonly string[], palette: Readonly<Record<string, string>>, ink?: Ink): Pix {
   const height = rows.length;
   const width = rows[0]?.length ?? 0;
   const at = (x: number, y: number): string => (x < 0 || y < 0 || x >= width || y >= height ? "." : rows[y][x]);
-  const out = new Pix(width * 3, height * 3);
+  const out = new Pix(width * 3, height * 3, ink);
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {

@@ -8,20 +8,21 @@ import { eyePupilPoint } from "@entities/effects/Observer";
 import { OCULUS_HEIGHT, OCULUS_POSITIONS, OCULUS_WIDTH } from "@entities/effects/Oculi";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
 import { DROP_HEIGHT } from "@entities/powerups/DropPool";
-import { ART_MODE, type ArtMode, FINE } from "@interfaces/art";
+import { ART_MODE, type ArtMode, FINE, finePitch } from "@interfaces/art";
 import { EYE_LAYER } from "@interfaces/eye";
 import { BACKGROUND_COLORS, BackgroundLayer, dialTonesFor, IrisLayer } from "@render/backgrounds";
 import { type BallRow, ballGlints, ballRows } from "@render/ballSprite";
 import { BROOD_BITMAPS, BROOD_FRAMES, BROOD_OUTLINE, broodPalette } from "@render/broodSprite";
 import { hdBallDisc, hdBallShell, hdBallSprite } from "@render/hdBall";
 import { hdCapsule } from "@render/hdCapsule";
+import { hdCritter, hdGravelChip, hdMeteor, hdPeel } from "@render/hdFigures";
 import { hdPill } from "@render/hdPaddle";
 import {
   BRICK_COLORS,
   canvasPalette,
   CHUNK_COLORS,
   DARK_LETTER_DROP_KINDS,
-  DEMAKE_GROUND_TONES,
+  demakeTone,
   DROP_COLORS,
   FRAME_RAILS,
   FRAME_RIVET,
@@ -997,21 +998,20 @@ export interface RenderView {
 
 // A palette filter: what a colour becomes on the machine it is being painted on.
 // Off, the identity. On, the sprite palette collapses to the tube's two tones:
-// the shadow role goes to ground, everything else to ink — see
-// `DEMAKE_GROUND_TONES`. One implementation, shared by the class and by the
-// sprites lifted out of it, so a capsule added later is demade by construction
-// rather than by remembering to.
+// the shadow role goes to ground, everything else to ink — see `demakeTone`,
+// which answers for the tones the HD recipes derive as well as the ones the
+// roster authored. One implementation, shared by the class and by the sprites
+// lifted out of it, so a capsule added later is demade by construction rather
+// than by remembering to.
 type InkFilter = (color: string) => string;
 
 // The identity, for a caller painting on nothing but a colour screen — the level
 // gallery's stills and the capsule catalogue's pills, neither of which is ever
 // demade.
 const litInk: InkFilter = (color) => color;
-const demakeInk: InkFilter = (color) =>
-  DEMAKE_GROUND_TONES.has(color) ? canvasPalette.demakeGround : canvasPalette.demakeInk;
 
 function inkFor(demade: boolean): InkFilter {
-  return demade ? demakeInk : litInk;
+  return demade ? demakeTone : litInk;
 }
 
 /**
@@ -1163,12 +1163,12 @@ export function drawBrick(
 
   // THE HD PASS (SHA-216): the same brick on the fine grid.
   //
-  // DEMAKE stays on the classic path until it has a 1-bit mapping of its own
-  // (SHA-223): every tone the HD recipe derives with `mix` falls outside
-  // `DEMAKE_GROUND_TONES`, so the tube would resolve the whole sprite to one
-  // ink slab. A tube brick is the classic brick, which is the right picture
-  // anyway — that capsule is the game pretending to be older, not newer.
-  if (paint.hd === true && !demade && scale >= SCALE) {
+  // DEMAKE goes through it as well (SHA-223). The filter is handed down rather
+  // than the brick being sent back to classic: every tone the recipe derives
+  // now resolves through `demakeTone`, so the contour and the kind's own shade
+  // come out ground while the body, its bands and its speculars come out ink —
+  // a tube brick with its grid, its bevel and its damage still on it.
+  if (paint.hd === true && scale >= SCALE) {
     paintHdBrick(ctx, scale, {
       bodyX,
       bodyY,
@@ -1182,6 +1182,7 @@ export function drawBrick(
       sheen,
       scarred,
       unmoored,
+      ink,
     });
     ctx.globalAlpha = 1;
     return;
@@ -1250,6 +1251,7 @@ interface HdBrick {
   sheen: string;
   scarred: (tone: string) => string;
   unmoored: boolean;
+  ink: InkFilter;
 }
 
 // The body's five-band treatment needs room to read as five bands. Below this
@@ -1303,7 +1305,8 @@ const HD_SPECULAR_MIN_WIDTH = 40;
  * bands, the bevel, the speculars, the cracks — is the handoff's.
  */
 function paintHdBrick(ctx: CanvasRenderingContext2D, scale: number, brick: HdBrick): void {
-  const { bodyX, bodyY, bodyWidth, bodyHeight, cell, definition, ramp, stage, hurt, sheen, scarred, unmoored } = brick;
+  const { bodyX, bodyY, bodyWidth, bodyHeight, cell, definition, ramp, stage, hurt, sheen, scarred, unmoored, ink } =
+    brick;
 
   // The body in fine pixels. At SCALE this is the handoff's 84x30 inside a
   // 90x36 cell, and it follows the erosion down from there.
@@ -1324,14 +1327,14 @@ function paintHdBrick(ctx: CanvasRenderingContext2D, scale: number, brick: HdBri
   const d3 = mix(d2, "#000000", 0.4);
 
   const fill = (x: number, y: number, w: number, h: number, tone: string): void => {
-    ctx.fillStyle = tone;
+    ctx.fillStyle = ink(tone);
     ctx.fillRect(left + x, top + y, w, h);
   };
   // A dithered band, aligned to the body rather than to the canvas — which is
   // what makes two touching bands interlock instead of seam, and what makes
   // every brick in the wall wear the same texture in the same place.
   const band = (x: number, y: number, w: number, h: number, tone: string, t: number): void => {
-    const pattern = ditherPattern(ctx, tone, t);
+    const pattern = ditherPattern(ctx, ink(tone), t);
     if (pattern === null) {
       return;
     }
@@ -1345,7 +1348,7 @@ function paintHdBrick(ctx: CanvasRenderingContext2D, scale: number, brick: HdBri
   // The shadow the brick drops into its own mortar seam, which is most of what
   // makes the wall read as laid rather than printed. It goes outside the body,
   // into the 3 fine px the seam has always been.
-  ctx.fillStyle = canvasPalette.brickJoint;
+  ctx.fillStyle = ink(canvasPalette.brickJoint);
   ctx.fillRect(left + 2, top + height, width, 2);
   ctx.fillRect(left + width, top + 2, 2, height);
 
@@ -1414,7 +1417,7 @@ function paintHdBrick(ctx: CanvasRenderingContext2D, scale: number, brick: HdBri
   // size is a mark read a third as often — the fine grid buys the material,
   // not the lettering.
   const markPixel = (x: number, y: number, w: number, h: number, tone: string): void => {
-    ctx.fillStyle = tone;
+    ctx.fillStyle = ink(tone);
     ctx.fillRect(Math.round(x) * scale, Math.round(y) * scale, w * scale, h * scale);
   };
   if (definition.rivets) {
@@ -1430,18 +1433,21 @@ function paintHdBrick(ctx: CanvasRenderingContext2D, scale: number, brick: HdBri
   const faceShows = d2 !== m0;
   if (faceShows && bodyWidth === gameConfig.grid.brickWidth - 2 && bodyHeight === gameConfig.grid.brickHeight - 2) {
     drawFaceMark(markPixel, bodyX, bodyY, cell.kind, d2, l1);
+    // On the tube the engraving is the one line of the mark that is *not*
+    // ground, which is what keeps a shape cut into a face rather than a blank
+    // hole in one.
     // The engraving: one fine pixel of sheen under each block of the mark, so
     // it reads as cut into the face rather than printed on it. This is the
     // whole of what the fine grid adds to a mark, and it is the reason the
     // marks did not simply stay classic.
-    engraveFaceMark(ctx, scale, bodyX, bodyY, cell.kind, l1);
+    engraveFaceMark(ctx, scale, bodyX, bodyY, cell.kind, ink(l1));
   }
 
   // The handoff's cracks, over the ramp rather than instead of it: one zig-zag
   // per hit the brick has taken. Granite is exempt — its pits already multiply
   // with the damage, and a cracked speckle is a smudge.
   if (hurt > 0 && !definition.grain && height >= HD_BANDED_MIN_HEIGHT) {
-    ctx.fillStyle = d3;
+    ctx.fillStyle = ink(d3);
     for (let index = 0; index < Math.min(hurt, HD_CRACKS.length); index++) {
       const [startX, startY, direction] = HD_CRACKS[index];
       let x = startX;
@@ -1649,9 +1655,9 @@ export function drawCapsule(
   // waterline. Gated on the exact scale because the sprite is baked in fine
   // pixels; the catalogue draws at SCALE but never asks for HD, and the level
   // gallery draws at 1 (both SHA-224).
-  const pill = hd && !demade && scale === FINE;
+  const pill = hd && scale === FINE;
   if (pill) {
-    ctx.drawImage(hdCapsule(color), Math.round(x * scale), Math.round(y * scale));
+    ctx.drawImage(hdCapsule(color, demade), Math.round(x * scale), Math.round(y * scale));
   } else {
     const pixel = spriteBrush(ctx, scale, demade);
     pixel(x + 1, y, 18, 8, color);
@@ -1692,7 +1698,7 @@ export function drawCapsule(
   // letter gets none — ink under ink says nothing. Both fills go inside one
   // `uprightText` so a flipped label keeps its shadow on the side it was drawn.
   uprightText(ctx, glyphX, glyphY, () => {
-    if (pill && !dark) {
+    if (pill && !dark && !demade) {
       ctx.fillStyle = canvasPalette.dropShade;
       ctx.fillText(glyph, glyphX + HD_LETTER_SHADOW, glyphY + HD_LETTER_SHADOW);
     }
@@ -1848,6 +1854,53 @@ export function drawPaddleBands(
   pixel(x + 9, y + 1, width - 18, 1, colors.sheen);
   pixel(x + 9, y + height - 1, width - 18, 1, colors.shade);
 }
+
+/**
+ * The deck, in whichever art is asked for — the arena's own choice of the three
+ * ways a pill can be painted.
+ *
+ * Module-level and scale-taking for `drawBrick`'s reason (SHA-224): two things
+ * paint this sprite, the renderer into the arena and the capsule catalogue into
+ * a miniature, and a second copy of the branch would drift the first time a
+ * deck is retouched. The narrow fallback is not decoration — MIRROR's ghost
+ * spends its first frames under 18 px, where two 8 px caps overlap and the
+ * sheen inset between them goes negative.
+ *
+ * HD is gated on the exact scale because the pill is baked in fine pixels, and
+ * `hdPill` is the recipe's own answer at every width including the narrow one.
+ */
+export function drawDeckBody(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  colors: PaddleBandColors,
+  scale: number,
+  demade = false,
+  hd = false,
+): void {
+  if (hd && scale === FINE) {
+    ctx.drawImage(
+      hdPill(Math.max(1, Math.round(width * scale)), colors, demade),
+      Math.round(x * scale),
+      Math.round(y * scale),
+    );
+    return;
+  }
+  if (width >= NARROW_DECK) {
+    drawPaddleBands(ctx, x, y, width, colors, scale, demade);
+    return;
+  }
+  const pixel = spriteBrush(ctx, scale, demade);
+  pixel(x, y, width, gameConfig.paddle.height, colors.body);
+  pixel(x, y, width, 1, colors.sheen);
+}
+
+/**
+ * The narrowest deck that is still a pill, in game pixels — classic's number,
+ * and `@render/hdPaddle` keeps its own copy of the reason.
+ */
+const NARROW_DECK = 18;
 
 // The nine tones an eye is painted from.
 interface EyeTones {
@@ -2964,18 +3017,19 @@ export function drawBall(
   //
   // Gated on the exact scale because the sprite is baked in fine pixels and
   // composes at one size only: three of them to the game pixel, which is what
-  // the arena draws at and what the catalogue at scale 1 does not. DEMAKE stays
-  // classic until it has a 1-bit mapping of its own (SHA-223) — the tube is the
-  // game pretending to be older, and the old ball is the right picture for it.
+  // the arena draws at and what the catalogue at scale 1 does not. DEMAKE bakes
+  // its own twin of it (SHA-223): the contour and the terminator are ground,
+  // the body and the specular ink, and the dithered rim between them survives
+  // as the halftone it already was.
   //
   // The newborn's pip is a disc here rather than the square classic draws. It
   // was never meant to be a square: the round rows simply *are* one when they
   // are clipped to four pixels, and the fine grid has the room to show what the
   // mask actually is.
-  if (sprite.hd === true && !demade && scale === FINE) {
+  if (sprite.hd === true && scale === FINE) {
     const canvas = birth
-      ? hdBallDisc(Math.max(1, Math.round((birth[1] * size) / BALL_SIZE)) * FINE, birth[2])
-      : hdBallSprite(size);
+      ? hdBallDisc(Math.max(1, Math.round((birth[1] * size) / BALL_SIZE)) * FINE, birth[2], demade)
+      : hdBallSprite(size, demade);
     const inset = (size * scale - canvas.width) / 2;
     ctx.drawImage(canvas, Math.round(x * scale + inset), Math.round(y * scale + inset));
     return;
@@ -3022,6 +3076,42 @@ export function drawBall(
  * that cost them the rally it was warning them about. The flash is bright
  * because it has seven ticks to be caught out of the corner of an eye.
  */
+// THE HD PASS (SHA-227): the homing reticle's corner, in fine pixels — how far
+// each arm runs along the brick's edge, and how thick it is. Six and two: the
+// arm has to be long enough to read as an edge rather than as a tick, and thin
+// enough that the brick's own bevel stays legible under it, which is the whole
+// reason the mark corners a brick instead of outlining it.
+const HOMING_ARM = 6;
+const HOMING_TICK = 2;
+
+// THE HD PASS (SHA-227): how thick LEAP's two marks are drawn on the fine grid.
+// Two rather than three, which is the trade the bracket and the tether take —
+// both of these are cues the player reads past rather than at, and both keep
+// their whole geometry at two thirds of their old ink.
+const LEAP_PIP_SPAN = 2;
+const LEAP_FLASH_EDGE = 2;
+
+// THE HD PASS (SHA-227), in fine pixels: the CHAIN arc's mint sheath and the
+// white filament inside it, the NUKE front's body, the XRAY beam over its wake,
+// and what is left of a deck on the rail. Each is the one number its drawing
+// could not have on a grid three times coarser — a core under half the width of
+// its sheath, a trail lighter than the beam it follows, a trace thinner than the
+// thing that left it.
+const CHAIN_SHEATH = 5;
+const CHAIN_CORE = 2;
+const NUKE_RING = 6;
+const XRAY_BEAM = 2;
+const XRAY_TRAIL = 1;
+const RAIL_MARK_HEIGHT = 2;
+// How far a whole METEOR's ember cap reaches above its rock, in fine pixels —
+// `@render/hdFigures`' own number, needed here because the sprite carries the
+// cap and so hangs that much higher than the rock it is drawn for.
+const MET_CAP = 6;
+// BANANA's peel on the tick it lands: four fine rows rather than the two game
+// ones classic flattens to, which is the one frame that says a thrown thing
+// arrived rather than appeared.
+const PEEL_SQUASH = 4;
+
 const LEAP_PIP_ALPHA = 0.5;
 const LEAP_FLASH_ALPHA = 0.85;
 
@@ -3276,6 +3366,18 @@ export class CanvasRenderer {
     this.artMode = mode;
   }
 
+  /**
+   * Which art the arena is in, for the two screens that paint a picture of it.
+   *
+   * The LEVELS gallery and the CAPSULES catalogue are miniatures of this field
+   * (SHA-224), and a miniature of the wrong art is a picture of a different
+   * game. They read it at paint time — `art hd` is a word the console can type
+   * between two openings of either screen.
+   */
+  get art(): ArtMode {
+    return this.artMode;
+  }
+
   private paintFrame(view: RenderView): void {
     const blend = view.demakeBlend;
 
@@ -3367,10 +3469,16 @@ export class CanvasRenderer {
     // One flag read once, here, and the four places below that would otherwise
     // paint a level the player is not standing in.
     const chamber = !view.inside.active;
+    // THE HD PASS (SHA-221): the theme on the fine grid. The layer is blitted to
+    // the same rectangle either way, so all that changes is how much is in it.
+    // DEMAKE's twin follows it there (SHA-223) — same painter, same seed, same
+    // threshold, three times the pixels. INSIDE THE EYE's iris stays classic:
+    // it is the Observer's chamber and goes with the rest of it (SHA-225).
+    const hdField = this.fine;
     const layer = chamber
       ? this.demade
-        ? this.background.monoImageFor(view.background, view.backgroundVariant)
-        : this.background.imageFor(view.background, view.backgroundVariant)
+        ? this.background.monoImageFor(view.background, view.backgroundVariant, hdField)
+        : this.background.imageFor(view.background, view.backgroundVariant, hdField)
       : this.iris.imageFor(view.observer.level?.tint ?? "blue", this.demade);
     this.ctx.drawImage(layer, 0, 0, width * SCALE, height * SCALE);
 
@@ -3432,8 +3540,8 @@ export class CanvasRenderer {
       // wall, so a sun on that level sets behind the hills. Inside the turn and
       // the shake with the eye it occludes, for the same reason the eye is.
       const front = this.demade
-        ? this.background.monoFrontImageFor(view.background, view.backgroundVariant)
-        : this.background.frontImageFor(view.background, view.backgroundVariant);
+        ? this.background.monoFrontImageFor(view.background, view.backgroundVariant, this.fine)
+        : this.background.frontImageFor(view.background, view.backgroundVariant, this.fine);
       if (front) {
         this.ctx.drawImage(front, 0, 0, width * SCALE, height * SCALE);
       }
@@ -3519,7 +3627,7 @@ export class CanvasRenderer {
             erodeX: erodeX + Math.round(fog * fogInsetX),
             erodeY: erodeY + Math.round(fog * fogInsetY),
             strain: view.jelly.strainAt(rowIndex, columnIndex),
-            hd: this.artMode === ART_MODE.HD,
+            hd: this.fine,
             // SLUMP's arrival: for four ticks every brick's bottom bevel goes
             // to its own shade, which is the picture of something that is no
             // longer resting on anything.
@@ -3733,7 +3841,7 @@ export class CanvasRenderer {
     // blackout veil — that carve-out exists so a trap cannot be caught blind,
     // and there is no such thing as a pip you regret taking.
     this.drawPips(view);
-    const hdShots = this.artMode === ART_MODE.HD && !this.demade;
+    const hdShots = this.fine;
     for (const shot of view.shots) {
       if (!shot.active) {
         continue;
@@ -3748,9 +3856,9 @@ export class CanvasRenderer {
       // read that makes a bolt look like it is travelling.
       const boltLeft = Math.round(shot.x * SCALE);
       const boltTop = Math.round(shot.y * SCALE);
-      this.ctx.fillStyle = canvasPalette.laserShot;
+      this.ctx.fillStyle = this.ink(canvasPalette.laserShot);
       this.ctx.fillRect(boltLeft + 1, boltTop, HD_BOLT_WIDTH, HD_BOLT_HEIGHT);
-      this.ctx.fillStyle = canvasPalette.laserCharge;
+      this.ctx.fillStyle = this.ink(canvasPalette.laserCharge);
       this.ctx.fillRect(boltLeft + 2, boltTop + 2, HD_BOLT_WIDTH - 2, HD_BOLT_HEIGHT - 5);
       this.ctx.fillRect(boltLeft + 1, boltTop, HD_BOLT_WIDTH, 2);
     }
@@ -3790,7 +3898,7 @@ export class CanvasRenderer {
           SCALE,
           this.frameCount,
           this.demade,
-          this.artMode === ART_MODE.HD,
+          this.fine,
         );
       }
     }
@@ -4047,7 +4155,9 @@ export class CanvasRenderer {
     const { brickWidth, brickHeight } = gameConfig.grid;
     const { fogGrains } = gameConfig.powerUps.collapse;
     this.ctx.globalAlpha = fog;
-    for (let index = 0; index < fogGrains; index++) {
+    // Half the grain and twice as many, the trade GRAVEL's grit states.
+    const motes = this.fine ? fogGrains * 2 : fogGrains;
+    for (let index = 0; index < motes; index++) {
       const hash = grainHash(seed, index + 64);
       // Around the rim rather than anywhere in the cell: a grain in the middle
       // of a brick is a speck on its face, which is granite's picture.
@@ -4055,7 +4165,7 @@ export class CanvasRenderer {
       const flip = (hash & 1) === 1;
       const grainX = along < brickWidth ? along : flip ? 0 : brickWidth - 1;
       const grainY = along < brickWidth ? (flip ? 0 : brickHeight - 1) : along - brickWidth;
-      this.pixel(x + grainX, y + grainY, 1, 1, canvasPalette.collapseGrain);
+      this.grain(x + grainX, y + grainY, 2, canvasPalette.collapseGrain);
     }
     this.ctx.globalAlpha = 1;
   }
@@ -4175,12 +4285,31 @@ export class CanvasRenderer {
         dotX = thread.ax + unitX * walked - unitY * wave;
         dotY = thread.ay + unitY * walked + unitX * wave + sag;
       };
-      for (let walked = 0; walked <= length; walked += dotPitch) {
+      // **THE HD PASS (SHA-222): a wire, not a string of beads.**
+      //
+      // A line's weight is its thickness times its duty, and the fine grid
+      // takes the thickness from three pixels to one. Carrying the dash pattern
+      // over unchanged — the first thing I did — leaves a thread a third as
+      // bright, which against this field is a thread that is not there; the
+      // capsule's whole job is saying *which two bricks are wired together*,
+      // and a cue that needs looking for is a broken cue. Three times the duty
+      // puts the weight back, and at a third of a game pixel the dashes close.
+      // What is left is a hairline with the shiver running along it as a curve
+      // rather than as a dotted approximation of one — which is what a thread
+      // pulled between two bricks looks like. The dash was never the idiom; it
+      // was the coarse grid's only way of keeping a 3 px line from reading as a
+      // rope, and a 1 px line does not have that problem.
+      //
+      // Floored at one fine pixel so a short pitch cannot walk the same pixel
+      // twice. MAGNET's tether takes the same arithmetic and stops short of it,
+      // for a reason it states there.
+      const pitch = this.fine ? finePitch(dotPitch) : dotPitch;
+      for (let walked = 0; walked <= length; walked += pitch) {
         if (Math.min(walked, length - walked) > reach) {
           continue;
         }
         at(walked);
-        this.spritePixel(dotX, dotY, 1, 1, canvasPalette.twinThread);
+        this.mote(dotX, dotY, 1, canvasPalette.twinThread);
         // **DEMAKE, and the one thing a 1 px line owes itself on a 1-bit tube.**
         // The demake flattens every tone on the field to one ink, so a thread
         // laid over a brick is the brick's own colour and simply is not there —
@@ -4195,7 +4324,7 @@ export class CanvasRenderer {
         // Not through `ink()`: that maps a tone to ink or ground by a set
         // membership, and what is wanted here is the ground itself.
         if (this.demade) {
-          at(walked + dotPitch / 2);
+          at(walked + pitch / 2);
           this.ctx.fillStyle = canvasPalette.demakeGround;
           this.ctx.fillRect(Math.round(dotX * SCALE), Math.round(dotY * SCALE), SCALE, SCALE);
         }
@@ -4218,7 +4347,11 @@ export class CanvasRenderer {
       const unitX = alongX / length;
       const unitY = alongY / length;
       const head = length * gone;
-      for (let back = 0; back < snapHead; back += 1) {
+      // The comet keeps its length in game pixels and gains samples, for the
+      // thread's reason above: a head drawn at the coarse step with fine pixels
+      // would be a dotted flash instead of a streak.
+      const step = this.fine ? finePitch(1) : 1;
+      for (let back = 0; back < snapHead; back += step) {
         const at = head - back;
         if (at < 0 || at > length) {
           continue;
@@ -4226,8 +4359,8 @@ export class CanvasRenderer {
         // Brightest at the head and dimming behind it, so the flash reads as
         // something arriving rather than as a bar sliding along the line.
         this.ctx.globalAlpha = (1 - back / snapHead) * (1 - gone * gone);
-        this.spritePixel(snap.ax + unitX * at, snap.ay + unitY * at, 1, 1, canvasPalette.twinFlash);
-        this.spritePixel(snap.bx - unitX * at, snap.by - unitY * at, 1, 1, canvasPalette.twinFlash);
+        this.mote(snap.ax + unitX * at, snap.ay + unitY * at, 1, canvasPalette.twinFlash);
+        this.mote(snap.bx - unitX * at, snap.by - unitY * at, 1, canvasPalette.twinFlash);
       }
     }
     this.ctx.globalAlpha = 1;
@@ -4644,10 +4777,27 @@ export class CanvasRenderer {
       this.pixel(0, 0, gameConfig.field.width, gameConfig.field.height, canvasPalette.nukeFlash);
     }
     if (detonation.radius > 0) {
+      const x = detonation.x * SCALE;
+      const y = detonation.y * SCALE;
+      const radius = detonation.radius * SCALE;
+      // THE HD PASS (SHA-227): six fine pixels rather than nine.
+      //
+      // The wave is the one drawing of what a NUKE reaches, so it may not
+      // thin to a hairline — but three whole game pixels is a *band*, and a
+      // band expanding across the field reads as a ring being drawn rather
+      // than as a front arriving. Two thirds is where it stops being a shape
+      // and starts being an edge, which is the same trade every other mark in
+      // this pass takes and the only one available to a stroke that has to
+      // stay bold.
+      //
+      // A second, brighter stroke outside it was the obvious next thing and is
+      // deliberately not here: `nukeRing` is `#eaf7ff` and `nukeFlash` is
+      // `#ffffff`, so a front drawn in the flash would be a wider ring and a
+      // comment claiming something nobody can see.
       this.ctx.strokeStyle = this.ink(canvasPalette.nukeRing);
-      this.ctx.lineWidth = 3 * SCALE;
+      this.ctx.lineWidth = this.fine ? NUKE_RING : 3 * SCALE;
       this.ctx.beginPath();
-      this.ctx.arc(detonation.x * SCALE, detonation.y * SCALE, detonation.radius * SCALE, 0, Math.PI * 2);
+      this.ctx.arc(x, y, radius, 0, Math.PI * 2);
       this.ctx.stroke();
     }
   }
@@ -4657,14 +4807,11 @@ export class CanvasRenderer {
    *
    * Off, this is the identity. On, the sprite palette collapses to the tube's
    * two tones: the shadow role goes to ground, everything else to ink — see
-   * `DEMAKE_GROUND_TONES`. One choke point, so a capsule added later is demade
-   * by construction rather than by remembering to.
+   * `demakeTone`. One choke point, so a capsule added later is demade by
+   * construction rather than by remembering to.
    */
   private ink(color: string): string {
-    if (!this.demade) {
-      return color;
-    }
-    return DEMAKE_GROUND_TONES.has(color) ? canvasPalette.demakeGround : canvasPalette.demakeInk;
+    return this.demade ? demakeTone(color) : color;
   }
 
   private pixel(x: number, y: number, width: number, height: number, color: string): void {
@@ -4677,6 +4824,74 @@ export class CanvasRenderer {
   private spritePixel(x: number, y: number, width: number, height: number, color: string): void {
     this.ctx.fillStyle = this.ink(color);
     this.ctx.fillRect(Math.round(x * SCALE), Math.round(y * SCALE), width * SCALE, height * SCALE);
+  }
+
+  /**
+   * Whether this frame's overlays may address the fine grid.
+   *
+   * The same test a dozen sprites in this file already ran by hand, given a
+   * name. DEMAKE is no longer excluded (SHA-223): the filter answers for the
+   * tones the recipes derive as well as the ones the roster authored, so the
+   * tube is a *reduction of this game's art* rather than a second set of
+   * sprites — which is what the capsule has always claimed to be, and what
+   * keeps the two from drifting apart as the pass retouches things.
+   */
+  private get fine(): boolean {
+    return this.artMode === ART_MODE.HD;
+  }
+
+  /**
+   * THE HD PASS (SHA-222): one pixel of something loose — a dot of thread, a
+   * grain of dust, a fleck off a spinning ball.
+   *
+   * **The fourth quadrant of this renderer's grid.** `pixel` is a game position
+   * and a game size; `spritePixel` is a fine position and a game size; this is
+   * a fine position and a *fine* size, which is the one an overlay wants. Every
+   * effect in this file is painted on top of furniture that the pass has moved
+   * onto the fine grid, and a 3x3 block of dust lying on a machined cylinder is
+   * the coarsest thing left in the picture.
+   *
+   * Classic goes through `spritePixel` itself rather than repeating its two
+   * lines: the mode is one branch here instead of fifty at the call sites, and
+   * classic cannot drift out from under the regression net.
+   *
+   * HD paints `span` fine pixels **centred on the same spot**, so the mark
+   * keeps its middle and nothing on the field moves — only its weight changes.
+   */
+  private mote(x: number, y: number, span: number, color: string): void {
+    if (!this.fine) {
+      this.spritePixel(x, y, 1, 1, color);
+      return;
+    }
+    const inset = (FINE - span) / 2;
+    this.ctx.fillStyle = this.ink(color);
+    this.ctx.fillRect(Math.round(x * FINE + inset), Math.round(y * FINE + inset), span, span);
+  }
+
+  /**
+   * `mote` for a mark that belongs to the wall rather than to something moving.
+   *
+   * Classic snaps it to the game grid, the way `pixel` does and `spritePixel`
+   * does not, so a grain of dust drawn on a brick's face lands on the brick's
+   * own pixels. The distinction is not cosmetic: ERODE's grains fall at 0.55 px
+   * a tick and GRAVEL's grit at 0.5, and rounding a fractional y *after*
+   * multiplying would move every one of them — a whole capsule's worth of
+   * classic art changed by a refactor. HD is the same fine mark either way.
+   */
+  private grain(x: number, y: number, span: number, color: string): void {
+    if (this.fine) {
+      this.mote(x, y, span, color);
+      return;
+    }
+    this.pixel(x, y, 1, 1, color);
+  }
+
+  // `mote` for a mark that is not square — a drip, a seam, a band of wash.
+  // Position in game pixels, size in fine ones, and no centring: a span written
+  // in fine pixels is already saying where both its edges are.
+  private fineRect(x: number, y: number, width: number, height: number, color: string): void {
+    this.ctx.fillStyle = this.ink(color);
+    this.ctx.fillRect(Math.round(x * FINE), Math.round(y * FINE), width, height);
   }
 
   // BANANA's peel: thrown off the deck that ate it, then lying flush on the
@@ -4703,6 +4918,14 @@ export class CanvasRenderer {
       const progress = (ticks - peel.flightTicksLeft) / ticks;
       const x = peel.fromX + (peel.x - peel.fromX) * progress;
       const y = restY - 4 * peelApexPerTick * ticks * progress * (1 - progress);
+      // THE HD PASS (SHA-227): the same curled skin, baked — see
+      // `@render/hdFigures`. In the air is where it earns most: the arc is a
+      // parabola sampled once a tick, and on the coarse grid a peel at the top
+      // of it moves in whole pixels while the maths it is following does not.
+      if (this.fine) {
+        this.blitFine(hdPeel(peelWidth, PEEL_HEIGHT, this.demade), x, y);
+        return;
+      }
       this.spritePixel(x + 1, y, peelWidth - 2, 1, canvasPalette.peelBody);
       this.spritePixel(x, y + 1, peelWidth, 3, canvasPalette.peelBody);
       this.spritePixel(x + 1, y + PEEL_HEIGHT - 1, peelWidth - 2, 1, canvasPalette.peelShade);
@@ -4717,11 +4940,25 @@ export class CanvasRenderer {
       // wall and the extra pixel would be drawn on the frame.
       const left = Math.max(gameConfig.field.left, peel.x - 1);
       const right = Math.min(gameConfig.field.right, peel.x + peelWidth + 1);
+      // The landing frame stays drawn rather than baked, in both arts: it is a
+      // *different shape* — the band flattened and spread — held for exactly
+      // one tick, which is a key of one and a picture that would be cached
+      // forever to be shown once. On the fine grid it flattens to four fine
+      // rows rather than two game ones, so the squash is a squash.
+      if (this.fine) {
+        this.fineRect(left, restY + 2, (right - left) * FINE, PEEL_SQUASH, canvasPalette.peelBody);
+        this.fineRect(peel.x, restY + PEEL_HEIGHT - 1, peelWidth * FINE, PEEL_SQUASH, canvasPalette.peelShade);
+        return;
+      }
       this.pixel(left, restY + 2, right - left, 2, canvasPalette.peelBody);
       this.pixel(peel.x, restY + PEEL_HEIGHT - 1, peelWidth, 1, canvasPalette.peelShade);
       return;
     }
 
+    if (this.fine) {
+      this.blitFine(hdPeel(peelWidth, PEEL_HEIGHT, this.demade), peel.x, restY);
+      return;
+    }
     this.pixel(peel.x + 1, restY, peelWidth - 2, 1, canvasPalette.peelBody);
     this.pixel(peel.x, restY + 1, peelWidth, 3, canvasPalette.peelBody);
     this.pixel(peel.x + 1, restY + PEEL_HEIGHT - 1, peelWidth - 2, 1, canvasPalette.peelShade);
@@ -4810,7 +5047,7 @@ export class CanvasRenderer {
       return;
     }
     const top = y - barrel;
-    const hd = this.artMode === ART_MODE.HD && !this.demade;
+    const hd = this.fine;
     for (const stud of [paddle.x + 5, paddle.x + paddle.width - 7]) {
       if (hd) {
         this.paintHdCannon(stud, top, Math.round(barrel * SCALE), paddle.laserBlend < 1);
@@ -4842,14 +5079,14 @@ export class CanvasRenderer {
   private paintHdCannon(x: number, y: number, height: number, charging: boolean): void {
     const left = Math.round(x * SCALE);
     const top = Math.round(y * SCALE);
-    this.ctx.fillStyle = mix(canvasPalette.paddleBottomShade, "#000000", 0.5);
+    this.ctx.fillStyle = this.ink(mix(canvasPalette.paddleBottomShade, "#000000", 0.5));
     this.ctx.fillRect(left, top, HD_CANNON_WIDTH, height);
     if (height > 1) {
-      this.ctx.fillStyle = canvasPalette.laserCannon;
+      this.ctx.fillStyle = this.ink(canvasPalette.laserCannon);
       this.ctx.fillRect(left + 1, top + 1, HD_CANNON_WIDTH - 2, height - 1);
     }
     if (charging) {
-      this.ctx.fillStyle = canvasPalette.laserCharge;
+      this.ctx.fillStyle = this.ink(canvasPalette.laserCharge);
       this.ctx.fillRect(left + 1, top, HD_CANNON_WIDTH - 2, Math.min(2, height));
     }
   }
@@ -4994,22 +5231,11 @@ export class CanvasRenderer {
     english = 0,
     ember = 0,
   ): void {
-    if (this.artMode === ART_MODE.HD && !this.demade) {
-      // THE HD PASS (SHA-218): the pill as a cylinder, baked at this exact
-      // width. The narrow case is the recipe's own as well, so the branch that
-      // follows is classic's alone.
-      this.ctx.drawImage(
-        hdPill(Math.max(1, Math.round(width * SCALE)), colors),
-        Math.round(x * SCALE),
-        Math.round(y * SCALE),
-      );
-    } else if (width >= 18) {
-      this.drawPaddleBands(x, y, width, colors);
-    } else {
-      const { height } = gameConfig.paddle;
-      this.spritePixel(x, y, width, height, colors.body);
-      this.spritePixel(x, y, width, 1, colors.sheen);
-    }
+    // THE HD PASS (SHA-218): the pill as a cylinder, baked at this exact width.
+    // The three ways a deck can be painted are `drawDeckBody`'s, shared with
+    // the catalogue's miniatures (SHA-224); what stays here is everything that
+    // is laid *on* a deck rather than being one.
+    drawDeckBody(this.ctx, x, y, width, colors, SCALE, this.demade, this.fine);
     this.drawResin(x, y, width, glueReach);
     // Under the cloth on purpose. The two can be live together, and a deck
     // wearing both is a deck with fire under its felt, which is the right way
@@ -5043,9 +5269,20 @@ export class CanvasRenderer {
       if (distance + lag > reach) {
         continue;
       }
-      this.spritePixel(x + column, y + 1, 1, 1, canvasPalette.glueResin);
-      if (lag === 2) {
-        this.spritePixel(x + column, y, 1, 1, canvasPalette.glueResin);
+      // **THE HD PASS (SHA-222): the same twelve lags, read as depths.**
+      // Classic has two levels to work with — a row, or a row and the one above
+      // it — so the twelve-step table collapses into a crest three fine pixels
+      // above its trough, and the resin reads as a battlement. Fine pixels give
+      // the table the range it was written for: three levels, one fine pixel
+      // apart, which is a liquid surface. The deck's own art is untouched in
+      // both, because the wash still ends where row 1 ends.
+      if (this.fine) {
+        this.fineRect(x + column, y + 1 - lag / FINE, FINE, FINE + lag, canvasPalette.glueResin);
+      } else {
+        this.spritePixel(x + column, y + 1, 1, 1, canvasPalette.glueResin);
+        if (lag === 2) {
+          this.spritePixel(x + column, y, 1, 1, canvasPalette.glueResin);
+        }
       }
     }
   }
@@ -5097,7 +5334,10 @@ export class CanvasRenderer {
       return;
     }
     const front = blend * span;
-    for (let column = 0; column < span; column++) {
+    // The travel on the fine grid, for the cloth's reason above: this one is a
+    // front by construction, so its position is the whole cue.
+    const step = this.fine ? 1 / FINE : 1;
+    for (let column = 0; column < span; column += step) {
       if (column > front) {
         continue;
       }
@@ -5106,7 +5346,11 @@ export class CanvasRenderer {
       // the bright part is wherever the fire is moving.
       const tone = front - column < 2 ? canvasPalette.pyreWashHot : canvasPalette.pyreWash;
       for (const row of EMBER_ROWS) {
-        this.spritePixel(x + EMBER_CAP + column, y + row, 1, 1, tone);
+        if (this.fine) {
+          this.fineRect(x + EMBER_CAP + column, y + row, 1, FINE, tone);
+        } else {
+          this.spritePixel(x + EMBER_CAP + column, y + row, 1, 1, tone);
+        }
       }
     }
   }
@@ -5117,13 +5361,24 @@ export class CanvasRenderer {
     }
     const center = width / 2;
     const reach = blend * center;
-    for (let column = 1; column < width - 1; column++) {
+    // **THE HD PASS (SHA-222): the cloth is laid a fine column at a time.** The
+    // roll-out is the one thing this capsule's arrival *is*, and at the game
+    // pitch a deck 60 px wide unrolls in thirty visible steps either side. The
+    // nap stays two game pixels — it is a width of light, not a resolution —
+    // and the row is unchanged, so the felt still sits on the one row that is
+    // body from cap to cap.
+    const step = this.fine ? 1 / FINE : 1;
+    for (let column = 1; column < width - 1; column += step) {
       const distance = Math.abs(column + 0.5 - center);
       if (distance > reach) {
         continue;
       }
       const tone = reach - distance < 2 ? canvasPalette.englishFeltNap : canvasPalette.englishFelt;
-      this.spritePixel(x + column, y + FELT_ROW, 1, 1, tone);
+      if (this.fine) {
+        this.fineRect(x + column, y + FELT_ROW, 1, FINE, tone);
+      } else {
+        this.spritePixel(x + column, y + FELT_ROW, 1, 1, tone);
+      }
     }
   }
 
@@ -5149,13 +5404,16 @@ export class CanvasRenderer {
     // The crack is drawn a pixel in from each bevel; the weld is not, because a
     // weld is the halves touching and the touch is the full height of them.
     const inset = seam.splitWeld ? 0 : 1;
-    this.spritePixel(
-      x + Math.floor(width / 2),
-      y + inset,
-      1,
-      height - 2 * inset,
-      seam.splitWeld ? colors.sheen : colors.shade,
-    );
+    const tone = seam.splitWeld ? colors.sheen : colors.shade;
+    // THE HD PASS (SHA-222): one fine pixel, on the deck's true middle. Three
+    // fine pixels of shade down a machined cylinder is a channel milled into
+    // it; a crack is the width of nothing at all, and the deck this is cutting
+    // is 60 fine pixels across.
+    if (this.fine) {
+      this.fineRect(x + width / 2, y + inset, 1, (height - 2 * inset) * FINE, tone);
+    } else {
+      this.spritePixel(x + Math.floor(width / 2), y + inset, 1, height - 2 * inset, tone);
+    }
   }
 
   // A 1 px trace on the rail the deck used to hold, walking down four authored
@@ -5168,11 +5426,21 @@ export class CanvasRenderer {
         ((gameConfig.paddle.railMarkTicks - mark.ticksLeft) / gameConfig.paddle.railMarkTicks) * RAIL_MARK_TONES.length,
       ),
     );
-    this.pixel(mark.x, gameConfig.paddle.y + 3, mark.width, 1, RAIL_MARK_TONES[step]);
-  }
-
-  private drawPaddleBands(x: number, y: number, width: number, colors: PaddleBandColors): void {
-    drawPaddleBands(this.ctx, x, y, width, colors, SCALE, this.demade);
+    // THE HD PASS (SHA-227), and the second look SHA-222 asked for.
+    //
+    // Left alone there because a hairline would stop saying what this bar is
+    // for: it is a trace of the deck's *width*, and the width is the whole
+    // message. That argument holds for the span and says nothing about the
+    // thickness. Two fine pixels rather than three keeps every pixel of the
+    // width and makes the mark read as something left behind rather than as a
+    // rail painted across the floor — which matters most in the frame right
+    // after the deck goes, when the real deck was three times heavier and a
+    // pixel below it.
+    if (this.fine) {
+      this.fineRect(mark.x, gameConfig.paddle.y + 3, mark.width * FINE, RAIL_MARK_HEIGHT, RAIL_MARK_TONES[step]);
+    } else {
+      this.pixel(mark.x, gameConfig.paddle.y + 3, mark.width, 1, RAIL_MARK_TONES[step]);
+    }
   }
 
   // A ball at 8 px a tick is genuinely hard to follow, which is the trap — but it
@@ -5196,8 +5464,8 @@ export class CanvasRenderer {
     // THE HD PASS (SHA-217): the same outline on the fine grid. A ghost drawn
     // in 3x3 blocks beside a ball that is no longer drawn in them is the exact
     // defect the pass's first rule exists to prevent.
-    if (this.artMode === ART_MODE.HD && !this.demade) {
-      this.ctx.drawImage(hdBallShell(size, color), Math.round(x * SCALE), Math.round(y * SCALE));
+    if (this.fine) {
+      this.ctx.drawImage(hdBallShell(size, color, this.demade), Math.round(x * SCALE), Math.round(y * SCALE));
       return;
     }
 
@@ -5247,7 +5515,10 @@ export class CanvasRenderer {
     const half = ball.size / 2;
     const centerX = ball.x + half;
     const centerY = ball.y - lift + half;
-    const arcs = Math.max(1, Math.round(HAYWIRE_ARCS * strength));
+    // Half the spark and twice as many, the trade GRAVEL's grit states — and
+    // here it buys something beyond density: static is a *count* of discharges,
+    // so twelve fine ones read as more electrical than six coarse ones ever did.
+    const arcs = Math.max(1, Math.round(HAYWIRE_ARCS * strength * (this.fine ? 2 : 1)));
     const seed = (this.frameCount >> 2) * 977 + index * 131;
     for (let arc = 0; arc < arcs; arc++) {
       // A cheap integer hash — two odd multipliers and a shift — which is all
@@ -5257,7 +5528,7 @@ export class CanvasRenderer {
       const angle = ((noise & 255) / 256) * Math.PI * 2;
       const reach = half + 1 + (((noise >> 8) & 3) / 3) * HAYWIRE_REACH * strength;
       const tone = arc * 2 < arcs ? canvasPalette.haywireArc : canvasPalette.haywireArcDim;
-      this.spritePixel(centerX + Math.cos(angle) * reach - 0.5, centerY + Math.sin(angle) * reach - 0.5, 1, 1, tone);
+      this.mote(centerX + Math.cos(angle) * reach - 0.5, centerY + Math.sin(angle) * reach - 0.5, 2, tone);
     }
   }
 
@@ -5288,11 +5559,14 @@ export class CanvasRenderer {
     const phase = ball.spinPhase * FLECK_GAIN;
     for (let fleck = 0; fleck < FLECKS; fleck++) {
       const angle = phase + (fleck / FLECKS) * Math.PI * 2;
-      this.spritePixel(
+      // The count is authored and stays: three at 120 degrees is the
+      // arrangement, and a fourth fleck would be a different capsule. Only the
+      // speck gets finer — and it orbits on the fine grid now, so the turn is
+      // smooth rather than a three-pixel ratchet.
+      this.mote(
         centerX + Math.cos(angle) * FLECK_ORBIT - 0.5,
         centerY + Math.sin(angle) * FLECK_ORBIT - 0.5,
-        1,
-        1,
+        2,
         canvasPalette.englishFleck,
       );
     }
@@ -5342,15 +5616,26 @@ export class CanvasRenderer {
       // middle of it, and six licks all reaching the same height read as
       // machinery. It also keeps the outer two inside the ball's own silhouette
       // width, so the crown is as wide as the sprite and no wider.
-      const height = Math.round(flame * CROWN_TAPER[lick] * (2 + ((noise >> 4) & 3)));
-      if (height <= 0) {
+      // **THE HD PASS (SHA-222): the flame keeps its width and refines its
+      // reach.** A lick narrowed to a fine pixel would comb — six of them at
+      // the game pitch would stand two fine pixels apart — so the column is
+      // untouched and only the height is measured finely: fire that climbs and
+      // falls back three times as smoothly, ending in a tip that is a tip
+      // rather than a third of the lick.
+      const unit = this.fine ? FINE : 1;
+      const rows = Math.round(flame * CROWN_TAPER[lick] * (2 + ((noise >> 4) & 3)) * unit);
+      if (rows <= 0) {
         continue;
       }
       const column = CROWN_LEFT + lick;
-      for (let step = 0; step < height; step++) {
+      for (let row = 0; row < rows; row++) {
         // The last pixel of a lick is its tip, and the tip is the cool one.
-        const tone = step === height - 1 ? canvasPalette.pyreFlameTip : canvasPalette.pyreFlame;
-        this.spritePixel(ball.x + column, top - 1 - step, 1, 1, tone);
+        const tone = row === rows - 1 ? canvasPalette.pyreFlameTip : canvasPalette.pyreFlame;
+        if (this.fine) {
+          this.fineRect(ball.x + column, top - (row + 1) / FINE, FINE, 1, tone);
+        } else {
+          this.spritePixel(ball.x + column, top - 1 - row, 1, 1, tone);
+        }
       }
     }
 
@@ -5365,7 +5650,7 @@ export class CanvasRenderer {
       const noise = ((seed + speck * 7919) * 1103515245 + 12345) >>> 8;
       const column = CROWN_LEFT + (noise % CROWN_LICKS);
       const rise = 2 + Math.round(smoke * (2 + ((noise >> 6) & 1)));
-      this.spritePixel(ball.x + column, top - 1 - rise, 1, 1, canvasPalette.pyreSmoke);
+      this.mote(ball.x + column, top - 1 - rise, 2, canvasPalette.pyreSmoke);
     }
   }
 
@@ -5417,7 +5702,14 @@ export class CanvasRenderer {
     // weight on the frame it reaches the edge of the crater. The one thing this
     // ring may not do is disappear mid-stride: it is the only drawing of the
     // reach, and a shockwave cut off short would understate what a ball buys.
-    this.ctx.lineWidth = (PYRE_RING_WIDTH - (PYRE_RING_WIDTH - 1) * progress) * SCALE;
+    // THE HD PASS (SHA-227): the wave thins through fine pixels rather than
+    // whole ones. Classic's ramp has three rungs to spend over the whole life
+    // of the blast — 3 px, 2 px, 1 px — so a shockwave meant to run out
+    // visibly steps down twice and then holds. In fine pixels it is nine, and
+    // the ring genuinely tapers.
+    this.ctx.lineWidth = this.fine
+      ? (PYRE_RING_WIDTH - (PYRE_RING_WIDTH - 1 / FINE) * progress) * FINE
+      : (PYRE_RING_WIDTH - (PYRE_RING_WIDTH - 1) * progress) * SCALE;
     this.ctx.beginPath();
     this.ctx.ellipse(
       x,
@@ -5434,7 +5726,7 @@ export class CanvasRenderer {
   private drawBall(ball: Ball, trail: number, tones: readonly string[], lift = 0, jitterX = 0, jitterY = 0): void {
     const x = ball.x + jitterX;
     const y = ball.y - lift + jitterY;
-    const hd = this.artMode === ART_MODE.HD && !this.demade;
+    const hd = this.fine;
     const rows = ballRows(ball.size);
 
     if (trail > 0 && ball.stuckOffsetX === null) {
@@ -5447,7 +5739,7 @@ export class CanvasRenderer {
           // ball's drawing: a copy carrying a terminator and a specular would
           // read as a second ball, which is what a streak must never look like.
           this.blitCentered(
-            hdBallDisc(ball.size * FINE * BALL_SMEAR_SPREAD[index], tones[index]),
+            hdBallDisc(ball.size * FINE * BALL_SMEAR_SPREAD[index], tones[index], this.demade),
             trailX + half,
             trailY + half,
           );
@@ -5471,6 +5763,18 @@ export class CanvasRenderer {
    * where the middle goes and nothing else. Rounded after the offset, not
    * before, so a sprite of odd width still steps in whole fine pixels.
    */
+  /**
+   * A baked fine-grid sprite, hung by its top-left corner in game pixels.
+   *
+   * `blitCentered`'s sibling, for the figures that have a corner rather than a
+   * middle (SHA-227): a chip, a peel, a grub. The position lands on the *fine*
+   * grid, which is the whole point — a chip tumbling at a third of a game pixel
+   * a tick would judder if it were snapped to whole ones.
+   */
+  private blitFine(canvas: HTMLCanvasElement, x: number, y: number): void {
+    this.ctx.drawImage(canvas, Math.round(x * SCALE), Math.round(y * SCALE));
+  }
+
   private blitCentered(canvas: HTMLCanvasElement, centerX: number, centerY: number): void {
     this.ctx.drawImage(
       canvas,
@@ -5508,13 +5812,34 @@ export class CanvasRenderer {
     const centerY = landing.y + half;
     const arm = Math.round(landing.reach);
     this.ctx.globalAlpha = LEAP_PIP_ALPHA * (0.45 + 0.55 * view.leap.reach);
-    for (let step = 0; step <= arm; step++) {
-      const across = step;
-      const along = arm - step;
-      this.spritePixel(centerX + across, centerY + along, 1, 1, canvasPalette.leapPip);
-      this.spritePixel(centerX - across, centerY - along, 1, 1, canvasPalette.leapPip);
-      this.spritePixel(centerX + along, centerY - across, 1, 1, canvasPalette.leapPip);
-      this.spritePixel(centerX - along, centerY + across, 1, 1, canvasPalette.leapPip);
+    // THE HD PASS (SHA-227): the same diamond, walked three times as finely.
+    //
+    // A diamond is the one figure on this field whose whole edge is a diagonal,
+    // and a diagonal on the coarse grid is a staircase with 3 px risers. Walking
+    // it in fine steps closes the risers to a third of their height, which is
+    // the difference between a lozenge and a shape drawn out of blocks — and it
+    // is the one thing this cue needed, since its silhouette is all it has.
+    //
+    // Two fine pixels a step rather than three: the pip is a *ghost* of a
+    // landing and is already drawn at half alpha, so the same two-thirds trade
+    // the bracket takes is right here too — thinner, and now continuous where
+    // classic's was stepped.
+    const unit = this.fine ? 1 / FINE : 1;
+    const steps = this.fine ? arm * FINE : arm;
+    const pip = (px: number, py: number): void => {
+      if (this.fine) {
+        this.mote(px, py, LEAP_PIP_SPAN, canvasPalette.leapPip);
+      } else {
+        this.spritePixel(px, py, 1, 1, canvasPalette.leapPip);
+      }
+    };
+    for (let step = 0; step <= steps; step++) {
+      const across = step * unit;
+      const along = arm - across;
+      pip(centerX + across, centerY + along);
+      pip(centerX - across, centerY - along);
+      pip(centerX + along, centerY - across);
+      pip(centerX - along, centerY + across);
     }
     this.ctx.globalAlpha = 1;
   }
@@ -5535,14 +5860,39 @@ export class CanvasRenderer {
       const progress = 1 - flash.ticksLeft / flashTicks;
       const half = flash.size / 2;
       const spread = flash.opening ? half * (0.3 + 1.3 * progress) : half * (1 - progress);
-      const size = Math.max(1, Math.round(spread * 2));
-      const left = flash.x + half - size / 2;
-      const top = flash.y + half - size / 2;
       this.ctx.globalAlpha = (1 - progress) * LEAP_FLASH_ALPHA;
-      this.spritePixel(left, top, size, 1, canvasPalette.leapFlash);
-      this.spritePixel(left, top + size - 1, size, 1, canvasPalette.leapFlash);
-      this.spritePixel(left, top + 1, 1, size - 2, canvasPalette.leapFlash);
-      this.spritePixel(left + size - 1, top + 1, 1, size - 2, canvasPalette.leapFlash);
+      if (!this.fine) {
+        const size = Math.max(1, Math.round(spread * 2));
+        const left = flash.x + half - size / 2;
+        const top = flash.y + half - size / 2;
+        this.spritePixel(left, top, size, 1, canvasPalette.leapFlash);
+        this.spritePixel(left, top + size - 1, size, 1, canvasPalette.leapFlash);
+        this.spritePixel(left, top + 1, 1, size - 2, canvasPalette.leapFlash);
+        this.spritePixel(left + size - 1, top + 1, 1, size - 2, canvasPalette.leapFlash);
+        this.ctx.globalAlpha = 1;
+        continue;
+      }
+      // THE HD PASS (SHA-227): the same square, sized in fine pixels.
+      //
+      // **What this buys is the animation and not the outline.** The square is
+      // opening or closing over a handful of ticks, and on the coarse grid its
+      // side can only be a whole game pixel — so a figure meant to read as one
+      // continuous movement arrives in three-pixel jumps, which at these
+      // durations is four or five visible steps. In fine pixels it grows a
+      // third as much each frame and the pop becomes a pop.
+      //
+      // Two fine pixels of edge, for LEAP's pip's reason: the mark is an
+      // outline precisely so the arriving ball is seen inside it, and a third
+      // of the ink is still enough to draw a square nobody is asked to look at
+      // for more than half a second.
+      const side = Math.max(LEAP_FLASH_EDGE, Math.round(spread * 2 * FINE));
+      const left = flash.x + half - side / (2 * FINE);
+      const top = flash.y + half - side / (2 * FINE);
+      const edge = LEAP_FLASH_EDGE;
+      this.fineRect(left, top, side, edge, canvasPalette.leapFlash);
+      this.fineRect(left, top + (side - edge) / FINE, side, edge, canvasPalette.leapFlash);
+      this.fineRect(left, top + edge / FINE, edge, side - 2 * edge, canvasPalette.leapFlash);
+      this.fineRect(left + (side - edge) / FINE, top + edge / FINE, edge, side - 2 * edge, canvasPalette.leapFlash);
       this.ctx.globalAlpha = 1;
     }
   }
@@ -5566,7 +5916,7 @@ export class CanvasRenderer {
       drawBall(this.ctx, ball.x + copy.offsetX, ball.y - lift + copy.offsetY, SCALE, this.demade, {
         birth: ball.birthTicksLeft,
         size: ball.size,
-        hd: this.artMode === ART_MODE.HD && !this.demade,
+        hd: this.fine,
       });
     }
     this.ctx.globalAlpha = 1;
@@ -5575,16 +5925,7 @@ export class CanvasRenderer {
   private drawDrops(view: RenderView): void {
     for (const drop of view.drops) {
       if (drop.active) {
-        drawCapsule(
-          this.ctx,
-          drop.x,
-          drop.y,
-          drop.kind,
-          SCALE,
-          this.frameCount,
-          this.demade,
-          this.artMode === ART_MODE.HD,
-        );
+        drawCapsule(this.ctx, drop.x, drop.y, drop.kind, SCALE, this.frameCount, this.demade, this.fine);
       }
     }
   }
@@ -5674,7 +6015,15 @@ export class CanvasRenderer {
       // pinned to the wall would claim the reach ends there, which is a lie
       // about the only thing these marks exist to say.
       if (edge >= left && edge < right) {
-        this.pixel(edge, paddle.y + 2, 1, 3, canvasPalette.magnetTether);
+        // A tick and not a post: three game pixels tall either way, one fine
+        // pixel wide in HD. The mark says where the band ends, and a 3 px wide
+        // end marker on a rail drawn in fine pixels is ambiguous about which of
+        // its three columns it means.
+        if (this.fine) {
+          this.fineRect(edge, paddle.y + 2, 1, 3 * FINE, canvasPalette.magnetTether);
+        } else {
+          this.pixel(edge, paddle.y + 2, 1, 3, canvasPalette.magnetTether);
+        }
       }
     }
 
@@ -5699,9 +6048,20 @@ export class CanvasRenderer {
       const spanX = toX - fromX;
       const spanY = toY - fromY;
       const length = Math.hypot(spanX, spanY);
-      for (let along = phase; along < length; along += TETHER_DASH_SPACING) {
+      // **The one line in the pass that does not close up.** TWIN's threads
+      // and TRACER's guide take the full trade and become hairlines, because
+      // nothing is lost when their dashes go. Here the dashes *are* the cue:
+      // they crawl along the tether, and that crawl is the only thing on the
+      // field that says the magnet is pulling rather than merely reaching. So
+      // this one stops at a dot every two fine pixels — two thirds of classic's
+      // weight instead of all of it, and a visible gap kept to crawl in.
+      //
+      // The phase stays in game pixels. It is the speed of the crawl, and a
+      // crawl three times faster would be a different capsule.
+      const spacing = this.fine ? finePitch(TETHER_DASH_SPACING, 2 / 3) : TETHER_DASH_SPACING;
+      for (let along = phase; along < length; along += spacing) {
         const step = along / length;
-        this.spritePixel(fromX + spanX * step, fromY + spanY * step, 1, 1, canvasPalette.magnetTether);
+        this.mote(fromX + spanX * step, fromY + spanY * step, 1, canvasPalette.magnetTether);
       }
     }
   }
@@ -5728,16 +6088,7 @@ export class CanvasRenderer {
       this.ctx.clip();
     }
     this.ctx.globalAlpha = XRAY_REVEAL_ALPHA;
-    drawCapsule(
-      this.ctx,
-      brickX + 5,
-      brickY + 2,
-      kind,
-      SCALE,
-      this.frameCount,
-      this.demade,
-      this.artMode === ART_MODE.HD,
-    );
+    drawCapsule(this.ctx, brickX + 5, brickY + 2, kind, SCALE, this.frameCount, this.demade, this.fine);
     this.ctx.globalAlpha = 1;
     if (sliced) {
       this.ctx.restore();
@@ -5784,25 +6135,56 @@ export class CanvasRenderer {
       }
       const x = left + column * brickWidth;
       const y = fenceY + fence.riseAt(column);
+      // THE HD PASS (SHA-227): a post is a brick, so it takes the wall's own
+      // art rather than a second one — the fence and the row it is driven into
+      // have to be made of the same thing or the fence reads as an overlay.
+      const paint = { demade: this.demade, hd: this.fine };
       if (depth >= brickHeight) {
-        drawBrick(this.ctx, x, y, cell, SCALE, { demade: this.demade });
+        drawBrick(this.ctx, x, y, cell, SCALE, paint);
         continue;
       }
       this.ctx.save();
       this.ctx.beginPath();
       this.ctx.rect(Math.round(x) * SCALE, Math.round(y) * SCALE, brickWidth * SCALE, depth * SCALE);
       this.ctx.clip();
-      drawBrick(this.ctx, x, y, cell, SCALE, { demade: this.demade });
+      drawBrick(this.ctx, x, y, cell, SCALE, paint);
       this.ctx.restore();
-      this.pixel(x + 1, y + depth - 1, brickWidth - 2, 1, BRICK_COLORS.F.dark);
+      // The cut the post is still coming up through: one fine pixel on the fine
+      // grid, because what it draws is the *edge* of the hole rather than a
+      // band across the post, and it descends in thirds of a pixel with the
+      // post instead of jumping a whole one every third tick.
+      if (this.fine) {
+        this.fineRect(x + 1, y + depth - 1 / FINE, (brickWidth - 2) * FINE, 1, BRICK_COLORS.F.dark);
+      } else {
+        this.pixel(x + 1, y + depth - 1, brickWidth - 2, 1, BRICK_COLORS.F.dark);
+      }
     }
   }
 
   private drawXrayBeam(beamY: number, descending: boolean): void {
     const { left, columns, brickWidth } = gameConfig.grid;
     const span = columns * brickWidth;
-    this.pixel(left, beamY, span, 1, canvasPalette.xrayScan);
-    this.pixel(left, descending ? beamY - 1 : beamY + 1, span, 1, canvasPalette.xrayScanTrail);
+    if (!this.fine) {
+      this.pixel(left, beamY, span, 1, canvasPalette.xrayScan);
+      this.pixel(left, descending ? beamY - 1 : beamY + 1, span, 1, canvasPalette.xrayScanTrail);
+      return;
+    }
+    // THE HD PASS (SHA-227): the beam as an instrument.
+    //
+    // Two fine pixels of scan over one of trail, against classic's three and
+    // three. The proportion is the drawing — a scanner is a bright line with a
+    // fainter one chasing it, and on the coarse grid the two are necessarily
+    // the same weight, so the trail reads as a second beam rather than as the
+    // first one's wake. It also *moves* on the fine grid now, a third of a game
+    // pixel a tick, which is what a sweep should do.
+    this.fineRect(left, beamY, span * FINE, XRAY_BEAM, canvasPalette.xrayScan);
+    this.fineRect(
+      left,
+      beamY + (descending ? -XRAY_TRAIL / FINE : XRAY_BEAM / FINE),
+      span * FINE,
+      XRAY_TRAIL,
+      canvasPalette.xrayScanTrail,
+    );
   }
 
   // CRITTER's grub: a lime body with a brown belly, a red jaw at the leading end
@@ -5872,7 +6254,9 @@ export class CanvasRenderer {
     // is opening. It travels up the cell as the brick shrinks, so the trickle
     // starts higher the further the wear has got.
     const seam = y + brickHeight - Math.max(1, erodeY);
-    for (let index = 0; index < grains; index++) {
+    // Half the grain and twice as many, the trade GRAVEL's grit states.
+    const motes = this.fine ? grains * 2 : grains;
+    for (let index = 0; index < motes; index++) {
       const hash = ((x * 73856093) ^ (y * 19349663) ^ ((index + 1) * 83492791)) >>> 4;
       // Where in its own fall this grain is. Offset per grain so three of them
       // never leave a seam together, and taken modulo the fall so it is a loop
@@ -5889,11 +6273,10 @@ export class CanvasRenderer {
       if ((hash >>> 12) % 100 >= Math.round(Math.min(blend, 1 - blend) * 200)) {
         continue;
       }
-      this.pixel(
+      this.grain(
         x + (hash % brickWidth),
         seam + fallen,
-        1,
-        1,
+        2,
         index % 2 === 0 ? canvasPalette.erodeGrain : canvasPalette.erodeDust,
       );
     }
@@ -5963,11 +6346,26 @@ export class CanvasRenderer {
       let crackY = y + padY + 1 + ((hash >>> 8) % Math.max(1, bodyHeight - 3));
       const drawn = Math.round(progress * fractureLength);
       for (let step = 0; step < drawn; step++) {
-        this.pixel(crackX, crackY, 1, 1, canvasPalette.gravelCrack);
         // Always along, sometimes down: a line that stepped both ways every
         // pixel is a diagonal, and a diagonal is a cut rather than a crack.
+        const down = (hash >>> (step + 12)) & 1;
+        if (this.fine) {
+          // **THE HD PASS (SHA-222): the same walk, traced a third as thick.**
+          // Every decision the crack makes — where it starts, how far it has
+          // got, which steps drop a row — is still the classic one, bit for
+          // bit; what changes is the nib. The run is the game pixel's full
+          // three fine pixels long so the line stays closed, and a step down
+          // gets a riser of the same three, because a staircase drawn without
+          // its corners is a dotted diagonal.
+          this.fineRect(crackX, crackY, FINE, 1, canvasPalette.gravelCrack);
+          if (down === 1) {
+            this.fineRect(crackX + 1 - 1 / FINE, crackY, 1, FINE, canvasPalette.gravelCrack);
+          }
+        } else {
+          this.pixel(crackX, crackY, 1, 1, canvasPalette.gravelCrack);
+        }
         crackX++;
-        crackY += (hash >>> (step + 12)) & 1;
+        crackY += down;
         if (crackY >= y + padY + bodyHeight - 1) {
           crackY = y + padY + bodyHeight - 2;
         }
@@ -5982,13 +6380,21 @@ export class CanvasRenderer {
     // opening, gone by the time it has set. The same shape ERODE puts over the
     // wall's wear, spent per brick because this front is per brick.
     const weight = Math.round(Math.min(progress, 1 - progress) * 200);
-    for (let index = 0; index < grit; index++) {
+    // **THE HD PASS (SHA-222): half the grain, twice as many of them.** A 3x3
+    // block of dust cut to 2x2 keeps four of its nine fine pixels, and a
+    // thinner trickle is not a finer one — it is the same trickle further away.
+    // Doubling the count puts the weight back, eight fine pixels against nine,
+    // while each grain reads at two thirds the size. That trade is what HD dust
+    // is, here and in ERODE's seams and COLLAPSE's rim, and it is only ever
+    // taken where the count is a drawing loop: nothing downstream reads it.
+    const motes = this.fine ? grit * 2 : grit;
+    for (let index = 0; index < motes; index++) {
       const hash = grainHash(cellHash, fractures + index);
       if ((hash >>> 12) % 100 >= weight) {
         continue;
       }
       const fallen = (this.frameCount * 0.5 + (hash % gritFall)) % gritFall;
-      this.pixel(x + padX + (hash % bodyWidth), y + padY + (fallen % bodyHeight), 1, 1, canvasPalette.gravelDust);
+      this.grain(x + padX + (hash % bodyWidth), y + padY + (fallen % bodyHeight), 2, canvasPalette.gravelDust);
     }
   }
 
@@ -6013,8 +6419,15 @@ export class CanvasRenderer {
       if (!pip.active) {
         continue;
       }
-      this.spritePixel(pip.x, pip.y, size, size, canvasPalette.gravelChip);
       const corner = (Math.floor(this.frameCount / tumbleTicks) + pip.seed) % 4;
+      // THE HD PASS (SHA-227): the chip as a chip, baked at each of the four
+      // faces its tumble walks through — see `@render/hdFigures`. The tumble
+      // clock is untouched, so a shower keeps the rhythm it has always had.
+      if (this.fine) {
+        this.blitFine(hdGravelChip(size, corner, this.demade), pip.x, pip.y);
+        continue;
+      }
+      this.spritePixel(pip.x, pip.y, size, size, canvasPalette.gravelChip);
       const litX = pip.x + (corner === 1 || corner === 2 ? size - 1 : 0);
       const litY = pip.y + (corner >= 2 ? size - 1 : 0);
       this.spritePixel(litX, litY, 1, 1, canvasPalette.gravelChipLit);
@@ -6037,9 +6450,22 @@ export class CanvasRenderer {
         // a plain `x * y` puts every multiple of a row on the same value and the
         // grid would arrive in stripes.
         const hash = ((x * 73856093) ^ (y * 19349663)) >>> 8;
-        if ((hash & 0xff) / 255 < blend) {
-          this.pixel(x, y, 1, 1, canvasPalette.snapGrid);
+        if ((hash & 0xff) / 255 >= blend) {
+          continue;
         }
+        if (!this.fine) {
+          this.pixel(x, y, 1, 1, canvasPalette.snapGrid);
+          continue;
+        }
+        // THE HD PASS (SHA-227): the node as a crossing rather than a blob.
+        // Classic has one game pixel to say "two lines meet here" and can only
+        // put a square there; three fine ones draw the meeting itself — a plus
+        // through the node, which is the mark a drafting grid is made of. Five
+        // fine pixels against classic's nine, and it reads *more* like a
+        // lattice rather than less, because the shape now says which way the
+        // lines run.
+        this.fineRect(x, y + 1 / FINE, FINE, 1, canvasPalette.snapGrid);
+        this.fineRect(x + 1 / FINE, y, 1, FINE, canvasPalette.snapGrid);
       }
     }
   }
@@ -6094,11 +6520,12 @@ export class CanvasRenderer {
     // is there, visibly slack, swinging with the ball rather than pointing.
     if (thread.slack) {
       const swing = Math.sin(this.frameCount / 9) * slackWidth;
-      for (let step = 1; step <= slackSag; step++) {
+      const drop = this.fine ? finePitch(1) : 1;
+      for (let step = drop; step <= slackSag; step += drop) {
         const fall = step / slackSag;
         // A catenary is a cosh; at nine pixels a square is the same picture and
         // costs nothing. The rope hangs off the ball and drifts behind it.
-        this.spritePixel(head.x + swing * fall * fall, head.y + step, 1, 1, canvasPalette.tracerSlack);
+        this.mote(head.x + swing * fall * fall, head.y + step, 1, canvasPalette.tracerSlack);
       }
       return;
     }
@@ -6136,7 +6563,10 @@ export class CanvasRenderer {
     // the segment it falls in carries the phase for free.
     let segment = 0;
     let consumed = 0;
-    for (let walked = 0; walked <= reach; walked += dotPitch) {
+    // A hairline, by TWIN's arithmetic: three times the duty for a third of
+    // the thickness. A guide the player has to hunt for is worse than none.
+    const pitch = this.fine ? finePitch(dotPitch) : dotPitch;
+    for (let walked = 0; walked <= reach; walked += pitch) {
       while (segment < lengths.length && walked > consumed + lengths[segment]!) {
         consumed += lengths[segment]!;
         segment++;
@@ -6148,7 +6578,7 @@ export class CanvasRenderer {
       const to = thread.points[segment + 1]!;
       const length = lengths[segment]!;
       const at = length === 0 ? 0 : (walked - consumed) / length;
-      this.spritePixel(from.x + (to.x - from.x) * at, from.y + (to.y - from.y) * at, 1, 1, canvasPalette.tracerThread);
+      this.mote(from.x + (to.x - from.x) * at, from.y + (to.y - from.y) * at, 1, canvasPalette.tracerThread);
     }
 
     // The pip is the answer and is drawn whatever the thread did on the way
@@ -6213,8 +6643,36 @@ export class CanvasRenderer {
     const life = mark.ticksLeft / markTicks;
     const x = Math.round(mark.x);
     const y = Math.round(mark.y);
-    this.pixel(x, y, bracketArm * mark.dirX, 1, canvasPalette.snapMark);
-    this.pixel(x, y, 1, bracketArm * mark.dirY, canvasPalette.snapMark);
+    // THE HD PASS (SHA-227): the bracket as a drafting mark.
+    //
+    // **Two fine pixels, not three and not one.** The capsule's whole claim is
+    // that this rebound is *exact*, and a 3 px arm is a painted corner where a
+    // hairline is an instrument — but the arms are long and sit on a dark
+    // field, and taking the whole third would leave the mark at a weight the
+    // player has to hunt for, which is the defect `finePitch` exists to name.
+    // Two thirds is the same trade MAGNET's tether takes.
+    //
+    // The vertex gains a node it never had: three fine pixels square, which is
+    // exactly the game pixel classic already put there. A right angle is the
+    // one part of this drawing that has to be unambiguous, and thinning the
+    // arms without it would leave two lines that merely cross near each other.
+    const arm = this.fine ? 2 : 1;
+    const bar = (left: number, top: number, width: number, height: number): void => {
+      if (this.fine) {
+        this.fineRect(left, top, width * FINE, height, canvasPalette.snapMark);
+      } else {
+        this.pixel(left, top, width, height, canvasPalette.snapMark);
+      }
+    };
+    if (this.fine) {
+      this.fineRect(x, y, FINE * mark.dirX, FINE * mark.dirY, canvasPalette.snapMark);
+    }
+    bar(x, y, bracketArm * mark.dirX, arm);
+    if (this.fine) {
+      this.fineRect(x, y, arm * mark.dirX, bracketArm * FINE * mark.dirY, canvasPalette.snapMark);
+    } else {
+      this.pixel(x, y, 1, bracketArm * mark.dirY, canvasPalette.snapMark);
+    }
     for (let index = 0; index < dashes; index++) {
       // The furthest dash is the first to go: `index` is how far out it is, and
       // a mark with a third of its life left keeps only its first third.
@@ -6222,7 +6680,7 @@ export class CanvasRenderer {
         return;
       }
       const step = (index + 1) * dashStep;
-      this.pixel(x + step * mark.dirX, y + step * mark.dirY, 2 * mark.dirX, 1, canvasPalette.snapMark);
+      bar(x + step * mark.dirX, y + step * mark.dirY, 2 * mark.dirX, arm);
     }
   }
 
@@ -6252,15 +6710,25 @@ export class CanvasRenderer {
           ? canvasPalette.critterSpent
           : canvasPalette.critterBody;
 
+    // The stride clock halves once it is running down, so the feet drag instead
+    // of trotting — the one tell that survives both DEMAKE and the blink.
+    const stride = (this.frameCount & (left < dragTicks ? 16 : 8)) === 0 ? 0 : 1;
+
+    // THE HD PASS (SHA-227): the grub as a character grid put through Scale3x
+    // — see `@render/hdFigures`. Same ten by eight pixels, same jaw, same eye,
+    // same three feet on the same clock; what it gains is that its outline
+    // stops being a staircase.
+    if (this.fine) {
+      this.blitFine(hdCritter(body, leading, stride, this.demade), x, y);
+      return;
+    }
+
     this.spritePixel(x, y + 2, 10, 4, body);
     this.spritePixel(x + 1, y + 1, 8, 6, body);
     this.spritePixel(x + 1, y + 6, 8, 1, canvasPalette.critterUnder);
     this.spritePixel(leading ? x + 9 : x, y + 3, 1, 2, canvasPalette.critterJaw);
     this.spritePixel(leading ? x + 7 : x + 2, y + 2, 1, 1, canvasPalette.critterEye);
 
-    // The stride clock halves once it is running down, so the feet drag instead
-    // of trotting — the one tell that survives both DEMAKE and the blink.
-    const stride = (this.frameCount & (left < dragTicks ? 16 : 8)) === 0 ? 0 : 1;
     for (const foot of [1, 4, 7]) {
       this.spritePixel(x + foot + stride, y + 7, 1, 1, canvasPalette.critterUnder);
     }
@@ -6277,12 +6745,22 @@ export class CanvasRenderer {
   // the player watches is a rock turning into its own smoke rather than one
   // being deleted at the bottom of the grid.
   private drawMeteor(meteor: Meteor): void {
-    if (meteor.burnTicks === 0) {
+    const whole = meteor.burnTicks === 0;
+    const size = whole ? 4 : Math.ceil((4 * meteor.burnTicks) / gameConfig.effects.meteor.burnoutTicks);
+    // THE HD PASS (SHA-227): a rock rather than a square, baked per burn rung
+    // — see `@render/hdFigures`. The sprite carries its own cap, so it is hung
+    // by the rock's centre and the ember sits above wherever that lands.
+    if (this.fine) {
+      const sprite = hdMeteor(size, whole, this.demade);
+      const top = whole ? meteor.y - size / 2 - MET_CAP : meteor.y - size / 2;
+      this.blitFine(sprite, meteor.x - size / 2, top);
+      return;
+    }
+    if (whole) {
       this.spritePixel(meteor.x - 2, meteor.y - 2, 4, 4, canvasPalette.meteorCore);
       this.spritePixel(meteor.x - 1, meteor.y - 3, 2, 2, canvasPalette.meteorFlame);
       return;
     }
-    const size = Math.ceil((4 * meteor.burnTicks) / gameConfig.effects.meteor.burnoutTicks);
     this.spritePixel(meteor.x - size / 2, meteor.y - size / 2, size, size, canvasPalette.meteorCore);
   }
 
@@ -6303,11 +6781,20 @@ export class CanvasRenderer {
     for (let index = 1; index < bolt.points.length; index++) {
       this.ctx.lineTo(bolt.points[index].x * SCALE, bolt.points[index].y * SCALE - drop);
     }
+    // THE HD PASS (SHA-227): the same two strokes, in fine pixels.
+    //
+    // A bolt is already a vector here — the stroke was never blocky — so the
+    // only thing the coarse grid was costing it was that the *core* could not
+    // be thinner than a third of the sheath. At 6 and 3 fine pixels the white
+    // is half the mint's width, which is the drawing; at 5 and 2 it is under
+    // half, and an arc with a hard thin filament in it reads as hot rather than
+    // as a line with a lighter line on top. That reading is the whole point of
+    // stroking it twice.
     this.ctx.strokeStyle = this.ink(canvasPalette.chainBolt);
-    this.ctx.lineWidth = 2 * SCALE;
+    this.ctx.lineWidth = this.fine ? CHAIN_SHEATH : 2 * SCALE;
     this.ctx.stroke();
     this.ctx.strokeStyle = this.ink(canvasPalette.chainCore);
-    this.ctx.lineWidth = 1 * SCALE;
+    this.ctx.lineWidth = this.fine ? CHAIN_CORE : 1 * SCALE;
     this.ctx.stroke();
   }
 
@@ -6332,13 +6819,35 @@ export class CanvasRenderer {
     const out = homingMarkReach - Math.floor((ball.homingMarkTicks * homingMarkReach) / homingRetargetTicks);
     const x = left + ball.homingColumn * brickWidth;
     const y = wallY + ball.homingRow * brickHeight;
-    for (const [cornerX, cornerY] of [
-      [x - out, y - out],
-      [x + brickWidth - 2 + out, y - out],
-      [x - out, y + brickHeight - 2 + out],
-      [x + brickWidth - 2 + out, y + brickHeight - 2 + out],
+    if (!this.fine) {
+      for (const [cornerX, cornerY] of [
+        [x - out, y - out],
+        [x + brickWidth - 2 + out, y - out],
+        [x - out, y + brickHeight - 2 + out],
+        [x + brickWidth - 2 + out, y + brickHeight - 2 + out],
+      ]) {
+        this.pixel(cornerX, cornerY, 2, 2, canvasPalette.homingMark);
+      }
+      return;
+    }
+    // THE HD PASS (SHA-227): the corner as an L, which is what a reticle corner
+    // is. Classic has a 2x2 square there and no room for anything else — the
+    // shape says "a mark" where an L says "a corner", and the four of them
+    // together say "this rectangle" rather than "these four points". The arms
+    // run along the brick's own edges, so the mark frames the cell it has
+    // locked instead of floating at its corners.
+    //
+    // Drawn from the brick's *true* corner with signed extents, so one
+    // expression serves all four: `fillRect` normalises a negative side, and
+    // the sign is the whole of which way the L opens.
+    for (const [cornerX, cornerY, alongX, alongY] of [
+      [x - out, y - out, 1, 1],
+      [x + brickWidth + out, y - out, -1, 1],
+      [x - out, y + brickHeight + out, 1, -1],
+      [x + brickWidth + out, y + brickHeight + out, -1, -1],
     ]) {
-      this.pixel(cornerX, cornerY, 2, 2, canvasPalette.homingMark);
+      this.fineRect(cornerX, cornerY, HOMING_ARM * alongX, HOMING_TICK * alongY, canvasPalette.homingMark);
+      this.fineRect(cornerX, cornerY, HOMING_TICK * alongX, HOMING_ARM * alongY, canvasPalette.homingMark);
     }
   }
 
@@ -6523,11 +7032,10 @@ export class CanvasRenderer {
     // that way and a smooth ring would be the one thing on screen that is not.
     for (let index = 0; index < 8; index++) {
       const angle = (index / 8) * Math.PI * 2 + this.frameCount * 0.14;
-      this.spritePixel(
+      this.mote(
         x + Math.cos(angle) * (radiusX + 2) - 0.5,
         y + Math.sin(angle) * (radiusY + 1.5) - 0.5,
-        1,
-        1,
+        2,
         canvasPalette.tideCrest,
       );
     }
@@ -6546,13 +7054,27 @@ export class CanvasRenderer {
     const length = Math.max(1, Math.round(4 * drip));
     const fall = Math.round((1 - drip) * 5);
     for (const at of [0.1, 0.5, 0.9]) {
-      this.spritePixel(
-        paddle.x + paddle.width * at,
-        paddle.y + gameConfig.paddle.height + fall,
-        1,
-        length,
-        canvasPalette.tideCrest,
-      );
+      // THE HD PASS (SHA-222): a streak of water, at the width water runs at.
+      // Both the fall and the length go fine, which is what makes this read as
+      // running rather than as three bars being retimed — twelve ticks is short
+      // enough that five game pixels of fall is five visible jumps.
+      if (this.fine) {
+        this.fineRect(
+          paddle.x + paddle.width * at,
+          paddle.y + gameConfig.paddle.height + (1 - drip) * 5,
+          1,
+          Math.max(1, Math.round(4 * drip * FINE)),
+          canvasPalette.tideCrest,
+        );
+      } else {
+        this.spritePixel(
+          paddle.x + paddle.width * at,
+          paddle.y + gameConfig.paddle.height + fall,
+          1,
+          length,
+          canvasPalette.tideCrest,
+        );
+      }
     }
   }
 
@@ -6567,7 +7089,7 @@ export class CanvasRenderer {
    * exactly the pixels that are missing.
    */
   private drawWalls(gap: { left: number; right: number } | null = null): void {
-    if (this.artMode === ART_MODE.HD && !this.demade) {
+    if (this.fine) {
       this.paintHdWalls(gap);
       return;
     }
@@ -6615,7 +7137,7 @@ export class CanvasRenderer {
     const door = gap === null ? null : { left: Math.round(gap.left * SCALE), right: Math.round(gap.right * SCALE) };
 
     FRAME_RAILS.forEach((tone, index) => {
-      this.ctx.fillStyle = tone;
+      this.ctx.fillStyle = this.ink(tone);
       this.ctx.fillRect(index, index, 1, height - index);
       this.ctx.fillRect(width - 1 - index, index, 1, height - index);
       if (door === null) {
@@ -6640,11 +7162,11 @@ export class CanvasRenderer {
 
   /** One rivet: a head in the rail's own dark, lit from the upper left. */
   private paintHdRivet(x: number, y: number): void {
-    this.ctx.fillStyle = FRAME_RIVET.body;
+    this.ctx.fillStyle = this.ink(FRAME_RIVET.body);
     this.ctx.fillRect(x, y, HD_RIVET, HD_RIVET);
-    this.ctx.fillStyle = FRAME_RIVET.light;
+    this.ctx.fillStyle = this.ink(FRAME_RIVET.light);
     this.ctx.fillRect(x, y, 1, 1);
-    this.ctx.fillStyle = FRAME_RIVET.dark;
+    this.ctx.fillStyle = this.ink(FRAME_RIVET.dark);
     this.ctx.fillRect(x + HD_RIVET - 1, y + HD_RIVET - 1, 1, 1);
   }
 }

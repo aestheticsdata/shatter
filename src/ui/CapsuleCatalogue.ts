@@ -1,10 +1,12 @@
 import { gameConfig } from "@core/config/GameConfig";
 import { POWER_UPS } from "@core/config/powerUps";
+import { ART_MODE, FINE } from "@interfaces/art";
 import { drawCapsule, SCALE } from "@render/CanvasRenderer";
 import { paintCapsuleScene } from "@render/capsuleScenes";
 import { renderPageIndicator } from "@ui/pagePips";
 
 import type { PowerUpDefinition, PowerUpTier } from "@core/config/powerUps";
+import type { ArtMode } from "@interfaces/art";
 import type { PowerUpKind } from "@interfaces/types";
 
 export interface CapsuleCatalogueElements {
@@ -90,7 +92,7 @@ function durationOf(definition: PowerUpDefinition): string {
   return `${Math.round((definition.ticks / 60) * 10) / 10} S`;
 }
 
-function createPill(kind: PowerUpKind): HTMLCanvasElement {
+function createPill(kind: PowerUpKind, hd: boolean): HTMLCanvasElement {
   const pill = document.createElement("canvas");
   pill.className = "capsule-pill";
   pill.width = PILL_WIDTH * SCALE;
@@ -98,7 +100,13 @@ function createPill(kind: PowerUpKind): HTMLCanvasElement {
   // Frame 0, and no clock behind it: a trap blinks as it *falls*, and the
   // catalogue is where you come to read what it is. The footer says the blink is
   // out there; a list of pictures flashing at you says nothing anyone can read.
-  drawCapsule(contextOf(pill), 0, 0, kind, SCALE, 0);
+  //
+  // The one picture in this screen that is not downscaled at all: the badge is
+  // backed at `SCALE`, which is the fine grid itself, so the HD pill arrives
+  // here at exactly the resolution it is baked at (SHA-224). Everything the
+  // capsule recipe draws — the glare, the waterline, the contour — is visible
+  // in it, which is not true of the same pill inside the miniature.
+  drawCapsule(contextOf(pill), 0, 0, kind, SCALE, 0, false, hd);
   return pill;
 }
 
@@ -110,10 +118,11 @@ function createTile(): HTMLCanvasElement {
   return tile;
 }
 
-function createFieldContext(): CanvasRenderingContext2D {
+function createFieldContext(hd: boolean): CanvasRenderingContext2D {
+  const scale = hd ? FINE : 1;
   const canvas = document.createElement("canvas");
-  canvas.width = gameConfig.field.width;
-  canvas.height = gameConfig.field.height;
+  canvas.width = gameConfig.field.width * scale;
+  canvas.height = gameConfig.field.height * scale;
   return contextOf(canvas);
 }
 
@@ -136,13 +145,26 @@ export class CapsuleCatalogue {
   private page = 0;
   // One painted miniature per capsule, kept: a 124x100 tile is ~50 KB, so the
   // whole roster is under 2 MB and a page revisited repaints nothing.
-  private readonly tiles = new Map<PowerUpKind, HTMLCanvasElement>();
-  private readonly pills = new Map<PowerUpKind, HTMLCanvasElement>();
+  private readonly tiles = new Map<string, HTMLCanvasElement>();
+  private readonly pills = new Map<string, HTMLCanvasElement>();
   // One field-sized canvas for every miniature ever painted: a scene is blitted
   // down into its own tile the moment it is drawn, so the next capsule paints
   // straight over it. Made on first sight of the screen.
   private fieldCtx: CanvasRenderingContext2D | null = null;
-  constructor(private readonly elements: CapsuleCatalogueElements) {}
+  // Which art that canvas was made for: the two are different sizes, so a mode
+  // change gets a new one rather than a resize.
+  private fieldArt: boolean | null = null;
+
+  /**
+   * `art` is read at paint time rather than held (SHA-224): the dev console can
+   * change it between two openings of this screen, and a catalogue showing the
+   * art the game is no longer in is a picture of a different game. Under
+   * `split` it takes the new art, for the reason `LevelGallery` gives.
+   */
+  constructor(
+    private readonly elements: CapsuleCatalogueElements,
+    private readonly art: () => ArtMode = () => ART_MODE.CLASSIC,
+  ) {}
 
   // At least one page, whatever the roster does — a roster back under nineteen
   // has a single page, and it pages nowhere.
@@ -205,7 +227,9 @@ export class CapsuleCatalogue {
   }
 
   private tile(kind: PowerUpKind): HTMLCanvasElement {
-    const painted = this.tiles.get(kind);
+    const hd = this.art() !== ART_MODE.CLASSIC;
+    const key = `${hd ? "hd" : "classic"}:${kind}`;
+    const painted = this.tiles.get(key);
     if (painted) {
       return painted;
     }
@@ -217,25 +241,30 @@ export class CapsuleCatalogue {
     // one pixel row in three, and the bevels vanish unevenly.
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(this.paintField(kind), 0, 0, TILE_WIDTH, TILE_HEIGHT);
+    ctx.drawImage(this.paintField(kind, hd), 0, 0, TILE_WIDTH, TILE_HEIGHT);
 
-    this.tiles.set(kind, tile);
+    this.tiles.set(key, tile);
     return tile;
   }
 
   private pill(kind: PowerUpKind): HTMLCanvasElement {
-    const painted = this.pills.get(kind);
+    const hd = this.art() !== ART_MODE.CLASSIC;
+    const key = `${hd ? "hd" : "classic"}:${kind}`;
+    const painted = this.pills.get(key);
     if (painted) {
       return painted;
     }
-    const pill = createPill(kind);
-    this.pills.set(kind, pill);
+    const pill = createPill(kind, hd);
+    this.pills.set(key, pill);
     return pill;
   }
 
-  private paintField(kind: PowerUpKind): HTMLCanvasElement {
-    this.fieldCtx ??= createFieldContext();
-    paintCapsuleScene(this.fieldCtx, kind);
+  private paintField(kind: PowerUpKind, hd: boolean): HTMLCanvasElement {
+    if (this.fieldCtx === null || this.fieldArt !== hd) {
+      this.fieldCtx = createFieldContext(hd);
+      this.fieldArt = hd;
+    }
+    paintCapsuleScene(this.fieldCtx, kind, hd);
     return this.fieldCtx.canvas;
   }
 }

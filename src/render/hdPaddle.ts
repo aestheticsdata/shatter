@@ -20,6 +20,7 @@
 
 import { gameConfig } from "@core/config/GameConfig";
 import { FINE } from "@interfaces/art";
+import { demakeTone } from "@render/palette";
 import { BAYER, mix, Pix, pillRows, SpriteCache } from "@render/pix";
 
 import type { PaddleBandColors } from "@render/palette";
@@ -73,9 +74,9 @@ const PILLS = new SpriteCache();
  * `scripts/check-pix.mjs` pins its silhouette against `pillRows` at every width
  * the roster can produce.
  */
-export function hdPillPix(fineWidth: number, colors: PaddleBandColors): Pix {
+export function hdPillPix(fineWidth: number, colors: PaddleBandColors, demade = false): Pix {
   const height = gameConfig.paddle.height * FINE;
-  const pix = new Pix(fineWidth, height);
+  const pix = new Pix(fineWidth, height, demade ? demakeTone : undefined);
   const outline = mix(colors.shade, "#000000", 0.5);
   const outer = pillRows(height);
   const inner = pillRows(height - 2);
@@ -167,7 +168,7 @@ export function hdPillPix(fineWidth: number, colors: PaddleBandColors): Pix {
  * dither, inside the dash or between two of them — so drawn straight it would
  * be several hundred fills for each of the six pills a frame can hold.
  */
-export function hdPill(fineWidth: number, colors: PaddleBandColors): HTMLCanvasElement {
-  const key = `${fineWidth}:${colors.body}:${colors.cap}:${colors.sheen}:${colors.shade}`;
-  return PILLS.get(key, () => hdPillPix(fineWidth, colors).toCanvas());
+export function hdPill(fineWidth: number, colors: PaddleBandColors, demade = false): HTMLCanvasElement {
+  const key = `${fineWidth}:${colors.body}:${colors.cap}:${colors.sheen}:${colors.shade}:${demade}`;
+  return PILLS.get(key, () => hdPillPix(fineWidth, colors, demade).toCanvas());
 }

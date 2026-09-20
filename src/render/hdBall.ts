@@ -22,7 +22,7 @@
 // See the spec: `docs/superpowers/specs/2026-09-20-hd-pixel-art-pass-design.md`.
 
 import { FINE } from "@interfaces/art";
-import { canvasPalette } from "@render/palette";
+import { canvasPalette, demakeTone } from "@render/palette";
 import { mix, Pix, SpriteCache } from "@render/pix";
 
 // The sprite the recipe was authored on: the game's 8 px ball at FINE.
@@ -51,12 +51,12 @@ const BALLS = new SpriteCache();
  * and `scripts/check-pix.mjs` pins this drawing's silhouette against
  * `ballRows` at every diameter GIANT can produce.
  */
-export function hdBallPix(size: number): Pix {
+export function hdBallPix(size: number, demade = false): Pix {
   const diameter = size * FINE;
   const scale = diameter / AUTHORED;
   const at = (authored: number): number => authored * scale;
   const whole = (authored: number): number => Math.round(authored * scale);
-  const pix = new Pix(diameter, diameter);
+  const pix = new Pix(diameter, diameter, demade ? demakeTone : undefined);
 
   // Outside in. The contour and the shade share the sprite's true centre; the
   // body sits one authored pixel up and to the left of it, which is the whole
@@ -95,11 +95,11 @@ export function hdBallPix(size: number): Pix {
  * there. The caps come out solid because there is no room for a hole in them,
  * which is what the classic shell does as well.
  */
-export function hdBallShellPix(size: number, hex: string): Pix {
+export function hdBallShellPix(size: number, hex: string, demade = false): Pix {
   const diameter = size * FINE;
   const radius = diameter / 2;
   const hollow = radius - SHELL_WIDTH;
-  const pix = new Pix(diameter, diameter);
+  const pix = new Pix(diameter, diameter, demade ? demakeTone : undefined);
 
   for (let y = 0; y < diameter; y++) {
     const dy = y + 0.5 - radius;
@@ -122,14 +122,22 @@ export function hdBallShellPix(size: number, hex: string): Pix {
   return pix;
 }
 
-/** One ball, baked. Ten of these exist in a run: GIANT's nine and the plain one. */
-export function hdBallSprite(size: number): HTMLCanvasElement {
-  return BALLS.get(`ball:${size}`, () => hdBallPix(size).toCanvas());
+/**
+ * One ball, baked. Ten of these exist in a run: GIANT's nine and the plain one.
+ *
+ * Twenty while DEMAKE holds (SHA-223), which is what the machine belongs in the
+ * key for: the tube's ball is the same recipe with its tones resolved on the
+ * way into the raster, and a cache that ignored the filter would hand the lit
+ * sprite back to the demade caller and the demade one back for the rest of the
+ * level.
+ */
+export function hdBallSprite(size: number, demade = false): HTMLCanvasElement {
+  return BALLS.get(`ball:${size}:${demade}`, () => hdBallPix(size, demade).toCanvas());
 }
 
 /** One pace ghost, baked, per size the capsule pair can produce. */
-export function hdBallShell(size: number, hex: string): HTMLCanvasElement {
-  return BALLS.get(`shell:${size}:${hex}`, () => hdBallShellPix(size, hex).toCanvas());
+export function hdBallShell(size: number, hex: string, demade = false): HTMLCanvasElement {
+  return BALLS.get(`shell:${size}:${hex}:${demade}`, () => hdBallShellPix(size, hex, demade).toCanvas());
 }
 
 /**
@@ -145,10 +153,10 @@ export function hdBallShell(size: number, hex: string): HTMLCanvasElement {
  * puts the centre on a pixel boundary and every row half a pixel off-centre,
  * which on a smear that shrinks frame by frame reads as a wobble.
  */
-export function hdBallDisc(diameter: number, hex: string): HTMLCanvasElement {
+export function hdBallDisc(diameter: number, hex: string, demade = false): HTMLCanvasElement {
   const even = Math.max(2, Math.round(diameter / 2) * 2);
-  return BALLS.get(`disc:${even}:${hex}`, () => {
-    const pix = new Pix(even, even);
+  return BALLS.get(`disc:${even}:${hex}:${demade}`, () => {
+    const pix = new Pix(even, even, demade ? demakeTone : undefined);
     pix.disc(even / 2, even / 2, even / 2, hex);
     return pix.toCanvas();
   });
