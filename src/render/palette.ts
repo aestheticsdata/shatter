@@ -57,6 +57,16 @@ export const canvasPalette = {
    */
   eyeScleraShade: "#c7d2f5",
   eyePupil: "#05050f",
+  /**
+   * THE HD PASS (SHA-216): the shadow a brick drops into its own mortar seam.
+   *
+   * The same near-black as the pupil, and named separately because it is doing
+   * a different job — this one says the wall is *laid*, courses of it standing
+   * proud of the dark behind, which is most of what separates a 2026 wall from
+   * a 1987 one. It lives in the 3 fine pixels of seam the grid has always left
+   * between cells, so it costs the brick nothing.
+   */
+  brickJoint: "#05050f",
   eyeIrisEdge: "#1d47a8",
   eyeIrisInner: "#63b0ff",
   /**

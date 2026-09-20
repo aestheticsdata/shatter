@@ -21,9 +21,9 @@ import {
   DEMAKE_GROUND_TONES,
   DROP_COLORS,
 } from "@render/palette";
-import { mix, SpriteCache } from "@render/pix";
+import { ditherTile, mix, SpriteCache } from "@render/pix";
 
-import type { BrickGrain } from "@core/config/bricks";
+import type { BrickDefinition, BrickGrain } from "@core/config/bricks";
 import type { WallErosion, WallSheet } from "@entities/bricks/BrickGrid";
 import type { Creature } from "@entities/creatures/Creature";
 import type { Beast } from "@entities/effects/Brood";
@@ -1060,6 +1060,11 @@ export interface BrickPaint {
   // arrival — what is being drawn is the shadow a brick casts on the brick
   // underneath it going away.
   unmoored?: boolean;
+  // THE HD PASS: draw on the fine grid rather than in whole game pixels. Off by
+  // default, so the level gallery and the capsule catalogue — which paint at
+  // scale 1, where there is no fine grid to draw on — go on getting the classic
+  // brick without having to say so.
+  hd?: boolean;
 }
 
 export function drawBrick(
@@ -1141,6 +1146,32 @@ export function drawBrick(
       : 0;
   const scarred = (tone: string): string => (scar > 0 ? mixTone(tone, canvasPalette.deathFlash, scar) : tone);
 
+  // THE HD PASS (SHA-216): the same brick on the fine grid.
+  //
+  // DEMAKE stays on the classic path until it has a 1-bit mapping of its own
+  // (SHA-223): every tone the HD recipe derives with `mix` falls outside
+  // `DEMAKE_GROUND_TONES`, so the tube would resolve the whole sprite to one
+  // ink slab. A tube brick is the classic brick, which is the right picture
+  // anyway — that capsule is the game pretending to be older, not newer.
+  if (paint.hd === true && !demade && scale >= SCALE) {
+    paintHdBrick(ctx, scale, {
+      bodyX,
+      bodyY,
+      bodyWidth,
+      bodyHeight,
+      cell,
+      definition,
+      ramp,
+      stage,
+      hurt,
+      sheen,
+      scarred,
+      unmoored,
+    });
+    ctx.globalAlpha = 1;
+    return;
+  }
+
   pixel(bodyX, bodyY, bodyWidth, bodyHeight, scarred(ramp[stage + 1]));
   if (definition.grain) {
     drawGrain(pixel, bodyX, bodyY, bodyWidth, bodyHeight, cell.seed, definition.grain, ramp, stage);
@@ -1165,6 +1196,265 @@ export function drawBrick(
     drawFaceMark(pixel, bodyX, bodyY, cell.kind, scarred(definition.dark), scarred(sheen));
   }
   ctx.globalAlpha = 1;
+}
+
+// One dither pattern per tone and coverage, per context. Contexts are few (the
+// canvas, DEMAKE's twin, SPLIT's twin) and a pattern belongs to the one it was
+// made on, so the cache is keyed by both.
+const DITHER_PATTERNS = new WeakMap<CanvasRenderingContext2D, Map<string, CanvasPattern>>();
+
+function ditherPattern(ctx: CanvasRenderingContext2D, hex: string, t: number): CanvasPattern | null {
+  let byTone = DITHER_PATTERNS.get(ctx);
+  if (byTone === undefined) {
+    byTone = new Map();
+    DITHER_PATTERNS.set(ctx, byTone);
+  }
+  const key = `${hex}@${t}`;
+  const found = byTone.get(key);
+  if (found !== undefined) {
+    return found;
+  }
+  const made = ctx.createPattern(ditherTile(hex, t), "repeat");
+  if (made === null) {
+    return null;
+  }
+  byTone.set(key, made);
+  return made;
+}
+
+interface HdBrick {
+  bodyX: number;
+  bodyY: number;
+  bodyWidth: number;
+  bodyHeight: number;
+  cell: BrickCell;
+  definition: BrickDefinition;
+  ramp: readonly string[];
+  stage: number;
+  hurt: number;
+  sheen: string;
+  scarred: (tone: string) => string;
+  unmoored: boolean;
+}
+
+// The body's five-band treatment needs room to read as five bands. Below this
+// an eroded brick gets a top and a bottom and nothing in between, which is all
+// a 20x6 sliver can carry anyway.
+const HD_BANDED_MIN_HEIGHT = 24;
+// Granite's fleck, in fine pixels. Two rather than one: at one the stone reads
+// as noise on a flat slab, and at three it is simply the classic fleck again.
+const HD_FLECK = 2;
+const HD_SPECULAR_MIN_WIDTH = 40;
+
+/**
+ * One brick on the fine grid (SHA-216) — Claude Design's recipe, on the repo's
+ * own tones.
+ *
+ * **Drawn, not baked.** Every capsule that touches a brick is a live parameter
+ * here: GHOST's fade, PAYDAY's gild, ERODE's and COLLAPSE's inset, JELLY's
+ * strain, SLUMP's bevel, THE WRATH's flicker, plus the cell's own seed and hit
+ * count. Two of those are continuous floats and one is per-cell, so a sprite
+ * cache would key on a space that is neither small nor finite. What makes that
+ * affordable is that the two dithered bands are patterns rather than pixels:
+ * the whole brick is about twenty fills, against the ten the classic one costs.
+ * Measured on the densest wall the roster has — eight rows of twelve, every
+ * kind — that is 1.30 ms a frame classic against 2.34 ms HD, which buys the
+ * wall its material for a fifth of a 60 Hz budget that had 15 ms spare.
+ *
+ * **The tones are the roster's, not the handoff's.** Claude Design derives a
+ * hurt face by mixing the three authored tones toward each other; this walks
+ * `BRICK_STRAIN_RAMPS` instead, because gold and granite have authored `wear`
+ * tones that a mix would throw away, and because the damage ramp is the one
+ * thing the player has learned to read. Everything above the ramp — the five
+ * bands, the bevel, the speculars, the cracks — is the handoff's.
+ */
+function paintHdBrick(ctx: CanvasRenderingContext2D, scale: number, brick: HdBrick): void {
+  const { bodyX, bodyY, bodyWidth, bodyHeight, cell, definition, ramp, stage, hurt, sheen, scarred, unmoored } = brick;
+
+  // The body in fine pixels. At SCALE this is the handoff's 84x30 inside a
+  // 90x36 cell, and it follows the erosion down from there.
+  const left = Math.round(bodyX * scale);
+  const top = Math.round(bodyY * scale);
+  const width = Math.round(bodyWidth * scale);
+  const height = Math.round(bodyHeight * scale);
+
+  // Three authored tones, and the four the handoff derives between them. `M0`
+  // is the body the damage ramp has reached, `L1` its sheen — PAYDAY's gild
+  // arrives already folded into that — and `D2` the kind's own shade.
+  const l1 = scarred(sheen);
+  const m0 = scarred(ramp[stage + 1]);
+  const d2 = scarred(definition.dark);
+  const l2 = mix(l1, "#ffffff", 0.5);
+  const m1 = mix(m0, l1, 0.3);
+  const d1 = mix(m0, d2, 0.45);
+  const d3 = mix(d2, "#000000", 0.4);
+
+  const fill = (x: number, y: number, w: number, h: number, tone: string): void => {
+    ctx.fillStyle = tone;
+    ctx.fillRect(left + x, top + y, w, h);
+  };
+  // A dithered band, aligned to the body rather than to the canvas — which is
+  // what makes two touching bands interlock instead of seam, and what makes
+  // every brick in the wall wear the same texture in the same place.
+  const band = (x: number, y: number, w: number, h: number, tone: string, t: number): void => {
+    const pattern = ditherPattern(ctx, tone, t);
+    if (pattern === null) {
+      return;
+    }
+    ctx.save();
+    ctx.translate(left, top);
+    ctx.fillStyle = pattern;
+    ctx.fillRect(x, y, w, h);
+    ctx.restore();
+  };
+
+  // The shadow the brick drops into its own mortar seam, which is most of what
+  // makes the wall read as laid rather than printed. It goes outside the body,
+  // into the 3 fine px the seam has always been.
+  ctx.fillStyle = canvasPalette.brickJoint;
+  ctx.fillRect(left + 2, top + height, width, 2);
+  ctx.fillRect(left + width, top + 2, 2, height);
+
+  // Outline with the corners knocked off, then the body inside it.
+  fill(1, 0, width - 2, height, d3);
+  fill(0, 1, width, height - 2, d3);
+  fill(1, 1, width - 2, height - 2, m0);
+
+  if (height >= HD_BANDED_MIN_HEIGHT) {
+    // Lit from above: a solid band, dithered out of it, then the answering dark
+    // dithered in and going solid at the foot.
+    fill(1, 1, width - 2, 5, m1);
+    band(1, 6, width - 2, 4, m1, 0.5);
+    band(1, height - 12, width - 2, 4, d1, 0.5);
+    fill(1, height - 8, width - 2, 7, d1);
+  } else {
+    const edge = Math.max(1, Math.floor(height / 4));
+    fill(1, 1, width - 2, edge, m1);
+    fill(1, height - 1 - edge, width - 2, edge, d1);
+  }
+
+  // The bevel, one fine pixel: lit top and left, shaded bottom and right. SLUMP
+  // sends the bottom to the sheen for four ticks, which is the whole of a wall
+  // visibly coming off whatever was holding it up.
+  fill(2, 1, width - 4, 1, l1);
+  fill(1, 2, 1, height - 4, l1);
+  fill(2, height - 2, width - 4, 1, unmoored ? l1 : d2);
+  fill(width - 2, 2, 1, height - 4, d2);
+
+  if (width >= HD_SPECULAR_MIN_WIDTH) {
+    fill(4, 3, 14, 1, l2);
+    fill(4, 4, 6, 1, l2);
+    fill(width - 14, 3, 5, 1, l2);
+  }
+
+  // Granite's stone, finer but not fainter.
+  //
+  // **Same ink, smaller grain.** A classic fleck is a whole game pixel — nine
+  // fine ones — and simply drawing it at one fine pixel leaves a ninth of the
+  // speckle on the brick: the first pass did exactly that and granite came out
+  // a flat slab with some noise on it, which is the one thing the maze brick
+  // must not be. It is a different *material*, and that reading is carried by
+  // how much of the face is broken up, not by how many flecks there are. So the
+  // fleck goes to 2 fine px and the count rises by the area it lost, leaving
+  // the coverage where the roster authored it and the grain twice as fine.
+  //
+  // Pits stay a whole game pixel: a fracture is meant to be seen from across
+  // the wall, and it is the one part of the stone that is damage rather than
+  // texture.
+  if (definition.grain) {
+    const pale = scarred(ramp[stage]);
+    const shade = scarred(ramp[Math.min(stage + 2, ramp.length - 1)]);
+    const flecks = Math.round((definition.grain.count * SCALE * SCALE) / (HD_FLECK * HD_FLECK));
+    const pits = definition.grain.pitsPerHit * stage;
+    for (let index = 0; index < flecks + pits; index++) {
+      const hash = grainHash(cell.seed, index);
+      const pit = index >= flecks;
+      const size = pit ? SCALE : HD_FLECK;
+      const tone = pit ? definition.grain.pit : index % 2 === 0 ? pale : shade;
+      fill(2 + (hash % (width - 4 - size)), 2 + ((hash >>> 8) % (height - 4 - size)), size, size, tone);
+    }
+  }
+
+  // THE LID's rivets and the kind marks stay whole game pixels. They are the
+  // one part of a brick that says *which* brick, and a mark drawn a third the
+  // size is a mark read a third as often — the fine grid buys the material,
+  // not the lettering.
+  const markPixel = (x: number, y: number, w: number, h: number, tone: string): void => {
+    ctx.fillStyle = tone;
+    ctx.fillRect(Math.round(x) * scale, Math.round(y) * scale, w * scale, h * scale);
+  };
+  if (definition.rivets) {
+    drawRivets(markPixel, bodyX, bodyY, bodyWidth, bodyHeight, definition, scarred);
+  }
+  // The mark, and only while there is a mark to see. At its last damage stage a
+  // brick's body *is* its own `dark` — silver at one hit, gold at one — so the
+  // mark is drawn dark on dark and vanishes. Classic has always done that and
+  // nobody has missed it, but the engraving underneath is painted in the sheen
+  // and would survive: a bright dash floating on a blank face, which reads as a
+  // glitch rather than as a worn-away mark. When the face has gone, all of it
+  // goes.
+  const faceShows = d2 !== m0;
+  if (faceShows && bodyWidth === gameConfig.grid.brickWidth - 2 && bodyHeight === gameConfig.grid.brickHeight - 2) {
+    drawFaceMark(markPixel, bodyX, bodyY, cell.kind, d2, l1);
+    // The engraving: one fine pixel of sheen under each block of the mark, so
+    // it reads as cut into the face rather than printed on it. This is the
+    // whole of what the fine grid adds to a mark, and it is the reason the
+    // marks did not simply stay classic.
+    engraveFaceMark(ctx, scale, bodyX, bodyY, cell.kind, l1);
+  }
+
+  // The handoff's cracks, over the ramp rather than instead of it: one zig-zag
+  // per hit the brick has taken. Granite is exempt — its pits already multiply
+  // with the damage, and a cracked speckle is a smudge.
+  if (hurt > 0 && !definition.grain && height >= HD_BANDED_MIN_HEIGHT) {
+    ctx.fillStyle = d3;
+    for (let index = 0; index < Math.min(hurt, HD_CRACKS.length); index++) {
+      const [startX, startY, direction] = HD_CRACKS[index];
+      let x = startX;
+      let y = startY;
+      for (let step = 0; step < 9 && y < height - 1; step++) {
+        ctx.fillRect(left + Math.max(1, Math.min(width - 3, x)), top + y, 2, 1);
+        y += 2;
+        x += (step % 2 === 1 ? direction : -direction) * 2;
+      }
+    }
+  }
+}
+
+// Where a crack starts and which way it leans, in fine pixels off the body.
+// The handoff's three, taken in order as the damage mounts.
+const HD_CRACKS: readonly (readonly [number, number, number])[] = [
+  [18, 4, 1],
+  [56, 4, -1],
+  [40, 20, 1],
+];
+
+/**
+ * The sheen line under a kind mark, one fine pixel deep.
+ *
+ * Drawn from the same table `drawFaceMark` paints from, one row below each of
+ * its blocks — a mark and its engraving that could disagree would be a mark
+ * with a shadow floating off it the first time one of them was retouched.
+ */
+function engraveFaceMark(
+  ctx: CanvasRenderingContext2D,
+  scale: number,
+  bodyX: number,
+  bodyY: number,
+  kind: BrickKind,
+  tone: string,
+): void {
+  ctx.fillStyle = tone;
+  drawFaceMark(
+    (x, y, width, height) => {
+      ctx.fillRect(Math.round(x) * scale, (Math.round(y) + height) * scale, width * scale, 1);
+    },
+    bodyX,
+    bodyY,
+    kind,
+    tone,
+    tone,
+  );
 }
 
 function drawFaceMark(
@@ -3144,6 +3434,7 @@ export class CanvasRenderer {
             erodeX: erodeX + Math.round(fog * fogInsetX),
             erodeY: erodeY + Math.round(fog * fogInsetY),
             strain: view.jelly.strainAt(rowIndex, columnIndex),
+            hd: this.artMode === ART_MODE.HD,
             // SLUMP's arrival: for four ticks every brick's bottom bevel goes
             // to its own shade, which is the picture of something that is no
             // longer resting on anything.

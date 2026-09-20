@@ -13,7 +13,7 @@
 > - **Silver `S`** takes this document's tones (`#8f9ac8` / `#dbe4ff` / `#3c50a0`), confirmed by the owner; `bricks.ts` is updated for both paths.
 > - **Capsule `20 × 8` is right** — verified against `drawCapsule`.
 > - **Part B is a version behind.** `2026-09-18-observer-43-levels`, `2026-09-19-observer-one-eye-43-placements` and `2026-09-19-bestiary-and-bosses` landed after this bundle; its eye art knows nothing of the bestiary, the bosses grown by `doubled()`, or THE CHART. Deferred to its own spec.
-> - Where this README and its prototype disagree on a value, the prototype wins. Known: brick drop shadow `#03080e` (prototype) vs `#05050f` (here).
+> - Where this README and its prototypes disagree, the Observer file wins — this README names it the spec of record. The brick drop shadow turned out not to be a disagreement: the Observer prototype and this README both say `#05050f`; only `SHATTER HD.dc.html` says `#03080e`.
 > - `PROMPT-claude-code.md`, named in the delivery instructions, is not in the bundle. This README was used as the brief.
 
 **Repo**: `aestheticsdata/shatter`, branch `master`.

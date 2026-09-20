@@ -84,7 +84,7 @@ export const BRICKS = [
   { id: "3", points: 80, hitPoints: 1, laserDamage: 1, light: "#fff59a", flat: "#ffcf1c", dark: "#8a6a00", wear: [] },
   { id: "4", points: 90, hitPoints: 1, laserDamage: 1, light: "#a6f0a6", flat: "#3fbf4f", dark: "#155c1f", wear: [] },
   { id: "5", points: 100, hitPoints: 1, laserDamage: 1, light: "#a8d8ff", flat: "#2d7fe0", dark: "#0b3a78", wear: [] },
-  { id: "S", points: 150, hitPoints: 2, laserDamage: 1, light: "#f2f4ff", flat: "#b0b4cc", dark: "#5a5e80", wear: [] },
+  { id: "S", points: 150, hitPoints: 2, laserDamage: 1, light: "#dbe4ff", flat: "#8f9ac8", dark: "#3c50a0", wear: [] },
   // Gold's missing middle. `#ab8118` sits between the body and the shade on
   // gold's own ramp, which is what PAYDAY's gild has always been painted in —
   // see `GILD_RAMP` in `@render/CanvasRenderer`.

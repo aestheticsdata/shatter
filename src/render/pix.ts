@@ -321,6 +321,39 @@ export class Pix {
   }
 }
 
+// One period of the dither, as a tile. Keyed by tone and coverage; there are a
+// few dozen of both across the whole roster.
+const DITHER_TILES = new Map<string, HTMLCanvasElement>();
+
+/**
+ * A 4x4 tile of `hex` at coverage `t`, transparent elsewhere — the dither as
+ * something canvas can repeat.
+ *
+ * **For the drawings that are not baked.** A dithered band inside a *sprite* is
+ * written pixel by pixel into a `Pix` and blitted once, and costs nothing. The
+ * wall is not a sprite: `drawBrick` has seven live paint modifiers and is drawn
+ * fresh every frame, so a 84x4 band written pixel by pixel would be ~170
+ * `fillRect` calls per band, twice per brick, sixty bricks a frame. As a
+ * repeating pattern it is one fill.
+ *
+ * The tile is one Bayer period exactly, so a pattern laid from a sprite's own
+ * origin reproduces `Pix.dither` from that origin pixel for pixel — the
+ * interlocking that makes two touching bands read as one material is kept, as
+ * long as the caller aligns the pattern to the body rather than to the canvas.
+ */
+export function ditherTile(hex: string, t: number): HTMLCanvasElement {
+  const key = `${hex}@${t}`;
+  const found = DITHER_TILES.get(key);
+  if (found !== undefined) {
+    return found;
+  }
+  const tile = new Pix(4, 4);
+  tile.dither(0, 0, 4, 4, hex, t);
+  const canvas = tile.toCanvas();
+  DITHER_TILES.set(key, canvas);
+  return canvas;
+}
+
 /**
  * Baked sprites, kept by key.
  *

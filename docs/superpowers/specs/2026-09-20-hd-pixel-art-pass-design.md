@@ -8,7 +8,7 @@ The art is Claude Design's. This spec is the same art measured against the repo,
 
 The renderer already paints on a **1116×900 backing store**: the game simulates on a 372×300 grid and `SCALE` is 3. Every sprite today goes through `pixel()`, which does `Math.round(left) * scale` — so a sprite is snapped to 3×3 blocks and two thirds of the resolution is thrown away. The HD pass **draws on the fine grid**: bevels, ordered dither, round balls, three-times-finer motion.
 
-**Nothing under the drawing moves.** Same collision boxes, same level rows, same `bricks.ts` tones, same seeded backgrounds, same canvas, same fill cost. It is an art pass, not a refactor.
+**Nothing under the drawing moves.** Same collision boxes, same level rows, same seeded backgrounds, same canvas. It is an art pass, not a refactor. (Two tones did move, and both are recorded below: silver, by the owner's choice, and the brightest star, because the guard refused the pair.)
 
 ## Two rules
 
@@ -38,7 +38,7 @@ A small software raster baked into an offscreen canvas, ported from the prototyp
 
 `SpriteCache` bakes anything whose drawing is a pure function of a small key: the ball, the capsule pills, the frame, the beasts, the backgrounds. Per-frame work for those is one `drawImage`.
 
-**Bricks are not baked.** `drawBrick` takes seven live paint modifiers — `fade` (GHOST), `gilded` (PAYDAY), `erodeX`/`erodeY` (ERODE and COLLAPSE's fog), `strain` (JELLY), `unmoored` (SLUMP), `demade` — plus `cell.seed` (granite's hashed grain), `cell.hitPoints` and `cell.scarTicks` (WRATH's flicker). Two of those are continuous floats and one is per-cell, so a cache key over them is not a cache. The HD brick recipe is ~20 fills against today's ~10: drawn straight onto the fine grid it costs about what the wall costs now, and every capsule that touches a brick keeps working for free. This is a deliberate departure from the handoff's "per-frame work is `drawImage` only".
+**Bricks are not baked.** `drawBrick` takes seven live paint modifiers — `fade` (GHOST), `gilded` (PAYDAY), `erodeX`/`erodeY` (ERODE and COLLAPSE's fog), `strain` (JELLY), `unmoored` (SLUMP), `demade` — plus `cell.seed` (granite's hashed grain), `cell.hitPoints` and `cell.scarTicks` (WRATH's flicker). Two of those are continuous floats and one is per-cell, so a cache key over them is not a cache. The HD brick recipe is ~20 fills against today's ~10, with the two dithered bands drawn as repeating patterns rather than pixel by pixel. Measured on the densest wall the roster has (8 rows x 12 columns, all ten kinds): **1.30 ms a frame classic against 2.34 ms HD**, so the whole frame costs 1.8x what it did and still leaves 14 ms of the budget. Every capsule that touches a brick keeps working for free. This is a deliberate departure from the handoff's "per-frame work is `drawImage` only".
 
 ## Positioning
 
@@ -50,12 +50,16 @@ Geometry is the game's, unchanged: field 372×300 (1116×900 fine), rails 3 px (
 
 **Bricks.** The handoff's recipe — drop shadow, knocked-corner `D3` outline, `M0` body, `M1` top band over 50 % dither, `D1` dither into a solid foot, `L1`/`D2` bevel, three `L2` speculars — applied to all ten kinds: `1`–`5`, `S`, `G`, `L`, and the two the handoff omits:
 
-- **`R` granite** keeps its material. The grain stays hashed from `cell.seed` and the pits still multiply per hit; at 3× they are 1-fine-px flecks and 3-fine-px pits, so the stone reads as stone rather than as a red brick with the lights off.
+- **`R` granite** keeps its material. The grain stays hashed from `cell.seed` and the pits still multiply per hit. A fleck is **2 fine px with the count raised by the area it lost**, not 1: the first pass drew one fine pixel where classic draws nine and granite came out a flat slab with noise on it. Same coverage, twice the grain. Pits stay a whole game pixel — a fracture is damage, meant to be read across the wall.
 - **`F` fence** takes the plain recipe in its own tones.
 
 Damage uses the authored ramps — `BRICK_RAMPS`, `BRICK_STRAIN_RAMPS`, `GILD_RAMP`, and each kind's `wear` array — **not** the handoff's `mix()`-derived hurt face, which would throw away authored tones (`G` has one, `R` two). The handoff's crack overlay is added on top of the ramp, not instead of it. Kind marks stay drawn in game-px blocks so they stay chunky; `L`'s rivets and `R`'s grain are already faces of their own.
 
 **Silver is Claude Design's:** `S` becomes flat `#8f9ac8`, light `#dbe4ff`, dark `#3c50a0` in `bricks.ts`, for both paths. Confirmed 2026-09-20. `L` is not new — it ships, with rivets — and its tones already match.
+
+That retone has one consequence, and `check:backgrounds` found it: the brightest star was `#7f92c8`, 17 from the new silver, and a star that reads as a chip of brick is exactly what that guard exists to refuse. It moves to `#6c7cb4` — the brightest of the handoff's own night blues, and the tone its starfield is already drawn in, so it is not a colour invented to get past a check. `starfield` and `observer` share it.
+
+**A worn face takes its engraving with it.** At its last damage stage a brick's body *is* its own `dark`, so the mark is drawn dark on dark and disappears — classic has always done that. The HD engraving is a sheen line and would have survived it, leaving a bright dash floating on a blank face; when the face has gone, all of it goes.
 
 **Ball.** The handoff's disc stack. `ballSprite.ts` stays the source of shape: its rows and glints already scale with the ball, so GIANT's nine sizes each bake once rather than the 24 px one being zoomed. The trail is new to the game — keep it subtle.
 
@@ -69,7 +73,7 @@ Damage uses the authored ramps — `BRICK_RAMPS`, `BRICK_STRAIN_RAMPS`, `GILD_RA
 
 **Panel.** Silkscreen and Press Start 2P are already loaded; insets and lives glyphs as specified.
 
-Where the bundle's README and its prototype disagree on a value, **the prototype wins** — it is the spec of record for the art. (Known: the brick drop shadow is `#03080e` in the prototype, `#05050f` in the README.)
+Where the bundle's README and its prototypes disagree on a value, **the Observer prototype wins** — the README names it the spec of record for the art. The brick drop shadow is one such case and it is not a conflict after all: `SHATTER Observer HD.dc.html` and the README both say `#05050f`, and only the level-1 file says `#03080e`. It is `canvasPalette.brickJoint` now.
 
 **The effects the renderer paints.** The handoff's Part A stops at the furniture and jumps to the Observer, but the roster's own drawing lives in `CanvasRenderer` — the effect modules compute state, they do not draw. Everything that reaches the screen through `drawBrick` is covered by the brick recipe; the threads, veils, particle fields, debris, reticles and score pops are not, and a 1-px line becomes a 3×3 block beside an HD wall. Taken as the tail of Part A rather than as a gap to argue about, and likely to split once the split view shows which of them actually read as coarse.
 

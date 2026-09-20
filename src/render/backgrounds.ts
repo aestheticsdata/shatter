@@ -42,9 +42,15 @@ export function dialTonesFor(id: BackgroundId): DialTones {
 }
 
 export const BACKGROUND_COLORS = {
+  // `starBright` was #7f92c8 until SHA-216, when silver was retoned to the
+  // handoff's #8f9ac8 and `check:backgrounds` correctly refused the pair: 17
+  // apart is a star that reads as a chip of silver brick. It is now #6c7cb4,
+  // the brightest of the handoff's own night blues and the tone its starfield
+  // is drawn in — darker, further from every sprite, and not a colour invented
+  // to get past the guard. `starfield` and `observer` share it.
   starfield: {
     area: { base: "#0b0b26", dialRing: "#151a38", dialBand: "#1b2244" },
-    speck: { starDim: "#232a52", starMid: "#3a4a86", starBright: "#7f92c8", dialTick: "#2b3a72" },
+    speck: { starDim: "#232a52", starMid: "#3a4a86", starBright: "#6c7cb4", dialTick: "#2b3a72" },
   },
   nebula: {
     area: {
@@ -118,7 +124,7 @@ export const BACKGROUND_COLORS = {
   // starfield's — the veils are where the dial came from (SHA-211).
   observer: {
     area: { base: "#0b0b26", dialRing: "#151a38", dialBand: "#1b2244" },
-    speck: { starDim: "#232a52", starMid: "#3a4a86", starBright: "#7f92c8", dialTick: "#2b3a72" },
+    speck: { starDim: "#232a52", starMid: "#3a4a86", starBright: "#6c7cb4", dialTick: "#2b3a72" },
   },
 } as const satisfies Record<BackgroundId, BackgroundColorSet>;
 
