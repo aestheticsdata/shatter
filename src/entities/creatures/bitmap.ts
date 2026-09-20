@@ -22,5 +22,5 @@ export function doubled(rows: readonly string[]): readonly string[] {
 
 /** Top for bottom: a snail on the ceiling. */
 export function flipped(rows: readonly string[]): readonly string[] {
-  return [...rows].reverse();
+  return rows.toReversed();
 }
