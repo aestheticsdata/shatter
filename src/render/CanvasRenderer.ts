@@ -14,6 +14,7 @@ import { BACKGROUND_COLORS, BackgroundLayer, dialTonesFor, IrisLayer } from "@re
 import { type BallRow, ballGlints, ballRows } from "@render/ballSprite";
 import { BROOD_BITMAPS, BROOD_FRAMES, BROOD_OUTLINE, broodPalette } from "@render/broodSprite";
 import { hdBallDisc, hdBallShell, hdBallSprite } from "@render/hdBall";
+import { hdCapsule } from "@render/hdCapsule";
 import { hdPill } from "@render/hdPaddle";
 import {
   BRICK_COLORS,
@@ -1256,6 +1257,10 @@ interface HdBrick {
 // two game pixels classic draws and the bolt is its two by nine — neither grows,
 // both gain an edge and a core.
 const HD_CANNON_WIDTH = 6;
+// How far the capsule letter's ink shadow is offset, in fine pixels. Two: one
+// is lost against a dark body and three reads as a second letter behind the
+// first at the sizes the glyph ladder actually uses.
+const HD_LETTER_SHADOW = 2;
 const HD_BOLT_WIDTH = 4;
 const HD_BOLT_HEIGHT = 27;
 
@@ -1627,13 +1632,23 @@ export function drawCapsule(
   scale: number,
   frame: number,
   demade = false,
+  hd = false,
 ): void {
-  const pixel = spriteBrush(ctx, scale, demade);
   const color = DROP_COLORS[kind];
-  pixel(x + 1, y, 18, 8, color);
-  pixel(x, y + 1, 20, 6, color);
-  pixel(x + 2, y + 1, 16, 1, canvasPalette.dropSheen);
-  pixel(x + 2, y + 7, 16, 1, canvasPalette.dropShade);
+  // THE HD PASS (SHA-219): the pill with rounded ends, a contour and a
+  // waterline. Gated on the exact scale because the sprite is baked in fine
+  // pixels; the catalogue draws at SCALE but never asks for HD, and the level
+  // gallery draws at 1 (both SHA-224).
+  const pill = hd && !demade && scale === FINE;
+  if (pill) {
+    ctx.drawImage(hdCapsule(color), Math.round(x * scale), Math.round(y * scale));
+  } else {
+    const pixel = spriteBrush(ctx, scale, demade);
+    pixel(x + 1, y, 18, 8, color);
+    pixel(x, y + 1, 20, 6, color);
+    pixel(x + 2, y + 1, 16, 1, canvasPalette.dropSheen);
+    pixel(x + 2, y + 7, 16, 1, canvasPalette.dropShade);
+  }
 
   // A trap telegraphs itself with a blinking letter, so it can be read as one
   // while there is still time to dodge it — in the wall as much as in the air.
@@ -1648,9 +1663,10 @@ export function drawCapsule(
   // in ground. It cannot go through the ink filter: `dropLetterLight` is not a
   // shadow tone, so it would resolve to ink on ink and every light-lettered
   // capsule would lose the one thing that says which capsule it is.
-  ctx.fillStyle = demade
+  const dark = DARK_LETTER_DROP_KINDS.has(kind);
+  const letter = demade
     ? canvasPalette.demakeGround
-    : DARK_LETTER_DROP_KINDS.has(kind)
+    : dark
       ? canvasPalette.dropLetterDark
       : canvasPalette.dropLetterLight;
   ctx.font = dropGlyphFont(glyph, scale);
@@ -1661,7 +1677,18 @@ export function drawCapsule(
   // of the letters can be read off is the box they are drawn in.
   const glyphX = Math.round((x + 10) * scale);
   const glyphY = Math.round((y + 4.5) * scale);
-  uprightText(ctx, glyphX, glyphY, () => ctx.fillText(glyph, glyphX, glyphY));
+  // THE HD PASS: an ink shadow under a light letter, which is what keeps it
+  // legible over a pill that now has a white glare across its top. A dark
+  // letter gets none — ink under ink says nothing. Both fills go inside one
+  // `uprightText` so a flipped label keeps its shadow on the side it was drawn.
+  uprightText(ctx, glyphX, glyphY, () => {
+    if (pill && !dark) {
+      ctx.fillStyle = canvasPalette.dropShade;
+      ctx.fillText(glyph, glyphX + HD_LETTER_SHADOW, glyphY + HD_LETTER_SHADOW);
+    }
+    ctx.fillStyle = letter;
+    ctx.fillText(glyph, glyphX, glyphY);
+  });
 }
 
 /**
@@ -1732,6 +1759,7 @@ export function drawGambleReel(
   scale: number,
   frame: number,
   demade = false,
+  hd = false,
 ): void {
   const pixel = spriteBrush(ctx, scale, demade);
   const left = centerX - 12;
@@ -1741,7 +1769,7 @@ export function drawGambleReel(
   pixel(left, top + 11, 24, 1, tone);
   pixel(left, top + 1, 1, 10, tone);
   pixel(left + 23, top + 1, 1, 10, tone);
-  drawCapsule(ctx, left + 2, top + 2, face, scale, frame, demade);
+  drawCapsule(ctx, left + 2, top + 2, face, scale, frame, demade, hd);
 }
 
 /**
@@ -3744,7 +3772,16 @@ export class CanvasRenderer {
       }
       if (view.gambleFace) {
         const center = view.paddle.x + view.paddle.width / 2;
-        drawGambleReel(this.ctx, center, view.paddle.y, view.gambleFace, SCALE, this.frameCount, this.demade);
+        drawGambleReel(
+          this.ctx,
+          center,
+          view.paddle.y,
+          view.gambleFace,
+          SCALE,
+          this.frameCount,
+          this.demade,
+          this.artMode === ART_MODE.HD,
+        );
       }
     }
     // LEAP's landing pips, under every ball and its trail: the cue says where a
@@ -5528,7 +5565,16 @@ export class CanvasRenderer {
   private drawDrops(view: RenderView): void {
     for (const drop of view.drops) {
       if (drop.active) {
-        drawCapsule(this.ctx, drop.x, drop.y, drop.kind, SCALE, this.frameCount, this.demade);
+        drawCapsule(
+          this.ctx,
+          drop.x,
+          drop.y,
+          drop.kind,
+          SCALE,
+          this.frameCount,
+          this.demade,
+          this.artMode === ART_MODE.HD,
+        );
       }
     }
   }
@@ -5672,7 +5718,16 @@ export class CanvasRenderer {
       this.ctx.clip();
     }
     this.ctx.globalAlpha = XRAY_REVEAL_ALPHA;
-    drawCapsule(this.ctx, brickX + 5, brickY + 2, kind, SCALE, this.frameCount, this.demade);
+    drawCapsule(
+      this.ctx,
+      brickX + 5,
+      brickY + 2,
+      kind,
+      SCALE,
+      this.frameCount,
+      this.demade,
+      this.artMode === ART_MODE.HD,
+    );
     this.ctx.globalAlpha = 1;
     if (sliced) {
       this.ctx.restore();

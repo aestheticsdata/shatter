@@ -35,6 +35,9 @@
 //      lit. The deck telescopes a pixel an edge a tick, so "every width" is not
 //      a figure of speech — a recipe that came apart at one of them would come
 //      apart for the twelve ticks a capsule takes to arrive.
+//  11. The HD capsule is `pillRows` too, with its glare on top and its ink
+//      underfoot. Fifty-eight kinds share this one body, so a recipe that came
+//      out a pixel wrong would be wrong fifty-eight times.
 //
 // Run with: pnpm run check:pix
 import { registerHooks } from "node:module";
@@ -62,6 +65,9 @@ const { ballSizeFor } = await import("../src/entities/ball/Ball.ts");
 const { FINE } = await import("../src/interfaces/art.ts");
 const { hdPillPix } = await import("../src/render/hdPaddle.ts");
 const { gameConfig } = await import("../src/core/config/GameConfig.ts");
+const { hdCapsulePix } = await import("../src/render/hdCapsule.ts");
+const { canvasPalette } = await import("../src/render/palette.ts");
+const { DROP_HEIGHT, DROP_WIDTH } = await import("../src/entities/powerups/DropPool.ts");
 
 const failures = [];
 const check = (condition, message) => {
@@ -378,7 +384,52 @@ for (const r of [3, 5.5, 10, 12]) {
   }
 }
 
-console.log(`Checked mix, BAYER, dither, pillRows, disc, ring, vgrad, scale3x, the HD ball and the HD deck.`);
+// 11. The HD capsule
+{
+  const width = DROP_WIDTH * FINE;
+  const height = DROP_HEIGHT * FINE;
+  const rows = pillRows(height);
+
+  for (const tone of ["#e8384f", "#2d7fe0", "#ffe14a"]) {
+    const pix = hdCapsulePix(tone);
+    check(
+      pix.width === width && pix.height === height,
+      `the HD capsule is ${pix.width}x${pix.height}, want ${width}x${height}`,
+    );
+
+    let rowFailures = 0;
+    for (let y = 0; y < height; y++) {
+      const lit = [];
+      for (let x = 0; x < width; x++) {
+        if (read(pix, x, y) !== null) {
+          lit.push(x);
+        }
+      }
+      const wantSpan = width - 2 * rows[y];
+      const contiguous = lit.length === 0 || lit[lit.length - 1] - lit[0] + 1 === lit.length;
+      if (lit.length !== wantSpan || (wantSpan > 0 && lit[0] !== rows[y]) || !contiguous) {
+        rowFailures++;
+      }
+    }
+    check(rowFailures === 0, `the HD capsule differs from pillRows(${height}) on ${rowFailures} row(s)`);
+
+    // The glare and the foot, which is what a pill reads as lit and standing on
+    // something rather than as a flat lozenge.
+    const middle = Math.round(width / 2);
+    check(read(pix, middle, 1) === canvasPalette.dropSheen, `the HD capsule lost its glare: ${read(pix, middle, 1)}`);
+    check(
+      read(pix, middle, height - 2) === canvasPalette.dropShade,
+      `the HD capsule lost its ink foot: ${read(pix, middle, height - 2)}`,
+    );
+    // The body survives at full strength through the middle, or the colour
+    // that says which capsule this is has been mixed away.
+    check(read(pix, middle, 10) === tone, `the HD capsule's body is ${read(pix, middle, 10)}, want ${tone}`);
+  }
+}
+
+console.log(
+  `Checked mix, BAYER, dither, pillRows, disc, ring, vgrad, scale3x, the HD ball, the HD deck and the HD capsule.`,
+);
 
 if (failures.length > 0) {
   console.error(`\n${failures.length} raster failure(s):`);

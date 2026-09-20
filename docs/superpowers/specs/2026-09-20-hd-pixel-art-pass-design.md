@@ -77,7 +77,15 @@ Laser turrets and bolts as drawn, at the sizes they already are: the stud is the
 
 The deck's *capsule* overlays — GLUE's resin, ENGLISH's felt, PYRE's ember, SPLIT's seam, the stone cracks — stay classic here and go with the rest of the effects (SHA-222). They are bands and lines laid on the deck rather than sprites with silhouettes, so none of them reads as coarse next to the HD pill; verified on a magnified strip rather than assumed.
 
-**Capsules.** 58 pills, the handoff's row table, letter in Silkscreen 16 px. `MALUS_KINDS` keep their blink and the dark-ink letters keep theirs.
+**Capsules.** The handoff's row table in `@render/hdCapsule`: rounded ends off `pillRows(24)`, a contour of `mix(colour, #000, .5)`, two rows of white glare, a lighter band, the body, a three-row dithered waterline into `mix(colour, dropShade, .5)`, and an ink foot. `canvasPalette.dropShade` is `#0b0b26` — the handoff's own ink, already in the palette — so the recipe adds no hex.
+
+**Baked per colour, not per kind.** Six capsules wear a brick's exact tone by design and several more share one, so fifty-eight kinds come out as rather fewer sprites, and a capsule that is only its colour and its letter is exactly what the player reads.
+
+**The letter is not in the sprite.** It stays live text, as classic draws it, for three reasons the handoff's prototype does not have: `dropGlyphFont` measures against Silkscreen's advance and steps down a ladder so a four-character glyph fits, where a fixed 16 px would overflow one; `uprightText` turns a label back over under FLIP; and DEMAKE punches the glyph out of the flat ink slab in ground. Baking it would cost all three to save one `fillText`. What it gains instead is the handoff's **2 px ink shadow**, which is what keeps a light letter legible now that the pill has a white glare across its top — and which a dark-lettered kind does not get, because ink under ink says nothing.
+
+`MALUS_KINDS` keep their blink on both paths and the dark-ink letters keep theirs. The ends are rounder than classic's cut corners, and the catch box does not move: it is 20 x 8 and the full 20 px is still drawn at the rows the deck actually meets.
+
+Three callers reach this sprite at `SCALE` and all three take the HD path: the falling drops, XRAY's reveal inside a brick, and GAMBLE's reel over the deck. The capsule catalogue draws at `SCALE` too but never asks for HD, and the level gallery draws at 1 — both are SHA-224.
 
 **Frame.** The silver nine-rail recipe with rivets.
 
