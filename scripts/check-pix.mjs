@@ -25,6 +25,11 @@
 //   7. `vgrad` starts on its first tone and ends on its last.
 //   8. `scale3x` triples the bitmap exactly, leaves a solid body untouched, and
 //      grows no spur off an isolated pixel.
+//   9. The HD ball's silhouette is `ballRows` at three times the diameter, at
+//      every size GIANT can swell to, and its specular survives all of them.
+//      The ball is the one sprite this game is never allowed to reshape, and
+//      the HD recipe draws it out of six overlapping discs — the outermost of
+//      which has to come back as exactly the rows the simulation collides.
 //
 // Run with: pnpm run check:pix
 import { registerHooks } from "node:module";
@@ -46,6 +51,10 @@ registerHooks({
 });
 
 const { BAYER, Pix, mix, pillRows, scale3x } = await import("../src/render/pix.ts");
+const { hdBallPix, hdBallShellPix } = await import("../src/render/hdBall.ts");
+const { ballRows } = await import("../src/render/ballSprite.ts");
+const { ballSizeFor } = await import("../src/entities/ball/Ball.ts");
+const { FINE } = await import("../src/interfaces/art.ts");
 
 const failures = [];
 const check = (condition, message) => {
@@ -254,7 +263,62 @@ for (const r of [3, 5.5, 10, 12]) {
   check(read(hole, 4, 4) === null, "scale3x filled a hole that has no tone in the palette");
 }
 
-console.log(`Checked mix, BAYER, dither, pillRows, disc, ring, vgrad and scale3x.`);
+// 9. The HD ball
+{
+  // GIANT's whole ramp, taken off the capsule's own function rather than
+  // listed here: a change to its scale must be caught by this guard, not
+  // walked past by it.
+  const sizes = [...new Set(Array.from({ length: 41 }, (_, step) => ballSizeFor(step / 40)))];
+  check(sizes.length >= 9, `GIANT's ramp came back as ${sizes.length} sizes, want at least 9`);
+
+  for (const size of sizes) {
+    const pix = hdBallPix(size);
+    const want = ballRows(size * FINE);
+    check(
+      pix.width === size * FINE && pix.height === size * FINE,
+      `the HD ball at ${size} is ${pix.width}x${pix.height}, want ${size * FINE} square`,
+    );
+
+    let rowFailures = 0;
+    let specular = 0;
+    for (let y = 0; y < pix.height; y++) {
+      const lit = [];
+      for (let x = 0; x < pix.width; x++) {
+        const tone = read(pix, x, y);
+        if (tone !== null) {
+          lit.push(x);
+        }
+        if (tone === "#ffffff") {
+          specular++;
+        }
+      }
+      const [offset, span] = want[y];
+      const contiguous = lit.length === 0 || lit[lit.length - 1] - lit[0] + 1 === lit.length;
+      if (lit.length !== span || (span > 0 && lit[0] !== offset) || !contiguous) {
+        rowFailures++;
+      }
+    }
+    check(rowFailures === 0, `the HD ball at ${size} differs from ballRows(${size * FINE}) on ${rowFailures} row(s)`);
+    check(specular > 0, `the HD ball at ${size} lost its specular — a glint that blinks out mid-swell`);
+
+    // The pace ghost: the same silhouette, and nothing in the middle of it.
+    const shell = hdBallShellPix(size, "#ffffff");
+    const middle = read(shell, Math.floor(size * FINE) / 2, Math.floor(size * FINE) / 2);
+    check(middle === null, `the HD pace ghost at ${size} is filled, not an outline`);
+    let outside = 0;
+    for (let y = 0; y < shell.height; y++) {
+      const [offset, span] = want[y];
+      for (let x = 0; x < shell.width; x++) {
+        if (read(shell, x, y) !== null && (x < offset || x >= offset + span)) {
+          outside++;
+        }
+      }
+    }
+    check(outside === 0, `the HD pace ghost at ${size} lit ${outside} px outside the ball's own silhouette`);
+  }
+}
+
+console.log(`Checked mix, BAYER, dither, pillRows, disc, ring, vgrad, scale3x and the HD ball.`);
 
 if (failures.length > 0) {
   console.error(`\n${failures.length} raster failure(s):`);

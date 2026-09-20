@@ -8,11 +8,12 @@ import { eyePupilPoint } from "@entities/effects/Observer";
 import { OCULUS_HEIGHT, OCULUS_POSITIONS, OCULUS_WIDTH } from "@entities/effects/Oculi";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
 import { DROP_HEIGHT } from "@entities/powerups/DropPool";
-import { ART_MODE, type ArtMode } from "@interfaces/art";
+import { ART_MODE, type ArtMode, FINE } from "@interfaces/art";
 import { EYE_LAYER } from "@interfaces/eye";
 import { BACKGROUND_COLORS, BackgroundLayer, dialTonesFor, IrisLayer } from "@render/backgrounds";
 import { type BallRow, ballGlints, ballRows } from "@render/ballSprite";
 import { BROOD_BITMAPS, BROOD_FRAMES, BROOD_OUTLINE, broodPalette } from "@render/broodSprite";
+import { hdBallDisc, hdBallShell, hdBallSprite } from "@render/hdBall";
 import {
   BRICK_COLORS,
   canvasPalette,
@@ -73,6 +74,22 @@ import type { DialTones } from "@render/backgrounds";
 // fades away from the ball. Two is the whole trail: three read as a snake, one
 // as a rendering fault.
 const BALL_TRAIL_STEPS: readonly number[] = [0.8, 0.4];
+
+/**
+ * THE HD PASS (SHA-217): how wide each copy of the streak is drawn, as a
+ * fraction of the ball's own diameter, far end first.
+ *
+ * **The handoff's smear was not taken as written.** It lays three squares of
+ * 12, 9 and 6 fine pixels behind a 24 px ball — a taper to a quarter of the
+ * ball's width, which is a fine picture for a prototype whose trail is sampled
+ * every few frames and reaches a long way back. This game's streak is two
+ * copies of the *current tick's displacement*, at most a few pixels: a copy a
+ * quarter of the ball's width would sit entirely inside the ball's own
+ * footprint and RUSH would lose the one cue that says the ball is fast. So the
+ * taper is gentle — the smear narrows behind the sprite instead of pinching to
+ * a dot, and the capsule still announces itself at a glance.
+ */
+const BALL_SMEAR_SPREAD: readonly number[] = [0.85, 0.95];
 
 // The two tones a streak is drawn in, far end first, and the only difference
 // between the two capsules that draw one: RUSH runs hot, TURBO runs cold. Same
@@ -2882,6 +2899,12 @@ export interface BallSprite {
   // field itself wants — the capsule catalogue and the demo stills draw a
   // plain ball and should not have to say so.
   size?: number;
+  // THE HD PASS (SHA-217): draw the fine-grid sphere rather than the eight
+  // rows of blocks. Opt-in rather than read off a global for the same reason
+  // `demade` is passed in — this function is also the capsule catalogue's and
+  // the level gallery's, and they draw at scale 1 where no HD path exists yet
+  // (SHA-224).
+  hd?: boolean;
 }
 
 // The ball's body, without the trail behind it: the smear is the renderer's,
@@ -2894,9 +2917,31 @@ export function drawBall(
   demade = false,
   sprite: BallSprite = {},
 ): void {
-  const pixel = spriteBrush(ctx, scale, demade);
   const birth = birthStage(sprite.birth ?? 0);
   const size = sprite.size ?? BALL_SIZE;
+
+  // THE HD PASS (SHA-217): the same ball, lit as a sphere on the fine grid.
+  //
+  // Gated on the exact scale because the sprite is baked in fine pixels and
+  // composes at one size only: three of them to the game pixel, which is what
+  // the arena draws at and what the catalogue at scale 1 does not. DEMAKE stays
+  // classic until it has a 1-bit mapping of its own (SHA-223) — the tube is the
+  // game pretending to be older, and the old ball is the right picture for it.
+  //
+  // The newborn's pip is a disc here rather than the square classic draws. It
+  // was never meant to be a square: the round rows simply *are* one when they
+  // are clipped to four pixels, and the fine grid has the room to show what the
+  // mask actually is.
+  if (sprite.hd === true && !demade && scale === FINE) {
+    const canvas = birth
+      ? hdBallDisc(Math.max(1, Math.round((birth[1] * size) / BALL_SIZE)) * FINE, birth[2])
+      : hdBallSprite(size);
+    const inset = (size * scale - canvas.width) / 2;
+    ctx.drawImage(canvas, Math.round(x * scale + inset), Math.round(y * scale + inset));
+    return;
+  }
+
+  const pixel = spriteBrush(ctx, scale, demade);
 
   // A newborn is the round sprite clipped to a centred window — and the round
   // rows clipped to 4 or 6 px are exactly a filled square, so it is drawn as
@@ -5038,6 +5083,14 @@ export class CanvasRenderer {
    * 24 px outline.
    */
   private drawBallShell(x: number, y: number, color: string, size: number): void {
+    // THE HD PASS (SHA-217): the same outline on the fine grid. A ghost drawn
+    // in 3x3 blocks beside a ball that is no longer drawn in them is the exact
+    // defect the pass's first rule exists to prevent.
+    if (this.artMode === ART_MODE.HD && !this.demade) {
+      this.ctx.drawImage(hdBallShell(size, color), Math.round(x * SCALE), Math.round(y * SCALE));
+      return;
+    }
+
     const rows = ballRows(size);
     rows.forEach(([offset, span], rowIndex) => {
       const above = rows[rowIndex - 1];
@@ -5271,19 +5324,49 @@ export class CanvasRenderer {
   private drawBall(ball: Ball, trail: number, tones: readonly string[], lift = 0, jitterX = 0, jitterY = 0): void {
     const x = ball.x + jitterX;
     const y = ball.y - lift + jitterY;
+    const hd = this.artMode === ART_MODE.HD && !this.demade;
     const rows = ballRows(ball.size);
 
     if (trail > 0 && ball.stuckOffsetX === null) {
+      const half = ball.size / 2;
       BALL_TRAIL_STEPS.forEach((step, index) => {
         const trailX = x - ball.velocity.x * trail * step;
         const trailY = y - ball.velocity.y * trail * step;
+        if (hd) {
+          // The smear is round, and it is the ball's shape rather than the
+          // ball's drawing: a copy carrying a terminator and a specular would
+          // read as a second ball, which is what a streak must never look like.
+          this.blitCentered(
+            hdBallDisc(ball.size * FINE * BALL_SMEAR_SPREAD[index], tones[index]),
+            trailX + half,
+            trailY + half,
+          );
+          return;
+        }
         rows.forEach(([offset, span], rowIndex) => {
           this.spritePixel(trailX + offset, trailY + rowIndex, span, 1, tones[index]);
         });
       });
     }
 
-    drawBall(this.ctx, x, y, SCALE, this.demade, { birth: ball.birthTicksLeft, size: ball.size });
+    drawBall(this.ctx, x, y, SCALE, this.demade, { birth: ball.birthTicksLeft, size: ball.size, hd });
+  }
+
+  /**
+   * A baked sprite laid on a point in game coordinates rather than on its own
+   * corner.
+   *
+   * The HD blots — the streak's copies, and anything else that is a disc about
+   * a centre — are sized independently of what they sit on, so the caller knows
+   * where the middle goes and nothing else. Rounded after the offset, not
+   * before, so a sprite of odd width still steps in whole fine pixels.
+   */
+  private blitCentered(canvas: HTMLCanvasElement, centerX: number, centerY: number): void {
+    this.ctx.drawImage(
+      canvas,
+      Math.round(centerX * SCALE - canvas.width / 2),
+      Math.round(centerY * SCALE - canvas.height / 2),
+    );
   }
 
   /**
@@ -5373,6 +5456,7 @@ export class CanvasRenderer {
       drawBall(this.ctx, ball.x + copy.offsetX, ball.y - lift + copy.offsetY, SCALE, this.demade, {
         birth: ball.birthTicksLeft,
         size: ball.size,
+        hd: this.artMode === ART_MODE.HD && !this.demade,
       });
     }
     this.ctx.globalAlpha = 1;

@@ -9,6 +9,8 @@
 > - **Damage** uses the repo's authored ramps (`BRICK_RAMPS`, `BRICK_STRAIN_RAMPS`, `GILD_RAMP`, per-kind `wear`), not a `mix()`-derived hurt face, which would discard authored tones.
 > - **Paddle**: 6 states, not 2 — base 46, WIDE 72, XWIDE 144, JAMMER 30, SPLIT 66/gap 26, and `MirrorPaddle`. The deck telescopes 1 px per edge per tick, so the recipe bakes per live width, not per named state.
 > - **Backgrounds**: 9 themes, not 8 — `observer` is the ninth painter.
+> - **The ball's trail is not new and is not always on.** RUSH and TURBO already draw one, and that streak is the game's cue for a fast ball; an always-on trail would spend it on every ball. The HD path redraws the streak where the game puts it, in the capsules' own tones. Its taper is gentle rather than the quarter-width this document asks for: the streak here is two copies of one tick's displacement, so a copy that small would sit entirely inside the ball's own footprint.
+> - **The ball's family comes with it** — the MULTI/SWARM newborn pip, and TEMPO's pace ghost. Neither is in this document, and both are the ball's own silhouette drawn another way.
 > - **`L` is not new.** It ships, with `rivets: true` and `capsules: false`; its tones already match.
 > - **Silver `S`** takes this document's tones (`#8f9ac8` / `#dbe4ff` / `#3c50a0`), confirmed by the owner; `bricks.ts` is updated for both paths.
 > - **Capsule `20 × 8` is right** — verified against `drawCapsule`.
