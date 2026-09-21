@@ -515,10 +515,39 @@ export class SpriteCache {
  * hole, which is how `.` stays transparent.
  */
 export function scale3x(rows: readonly string[], palette: Readonly<Record<string, string>>, ink?: Ink): Pix {
+  const tripled = scale3xRows(rows);
+  const out = new Pix((rows[0]?.length ?? 0) * 3, rows.length * 3, ink);
+  for (const [y, line] of tripled.entries()) {
+    for (let x = 0; x < line.length; x++) {
+      const tone = palette[line[x]];
+      if (tone !== undefined) {
+        out.set(x, y, tone);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * The same rounding, as characters rather than as a picture (SHA-233).
+ *
+ * `scale3x` is two things in one: an algorithm over a character grid, and a
+ * paint of the grid it produces. The bestiary needs the first without the
+ * second — a frog's legs are a bitmap drawn live in one tone through the
+ * renderer's own brush, and they have to be rounded the same way the body is
+ * or the creature comes out smooth above and blocky below.
+ *
+ * So this is where the algorithm lives and `scale3x` is a paint of it. Which
+ * also means the two can never drift: there is one Scale3x in this codebase.
+ */
+export function scale3xRows(rows: readonly string[]): readonly string[] {
   const height = rows.length;
   const width = rows[0]?.length ?? 0;
   const at = (x: number, y: number): string => (x < 0 || y < 0 || x >= width || y >= height ? "." : rows[y][x]);
-  const out = new Pix(width * 3, height * 3, ink);
+  const out: string[][] = [];
+  for (let y = 0; y < height * 3; y++) {
+    out.push(Array.from({ length: width * 3 }, () => "."));
+  }
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -550,12 +579,9 @@ export function scale3x(rows: readonly string[], palette: Readonly<Record<string
         h === f && d !== h && b !== f ? f : e,
       ];
       for (let index = 0; index < 9; index++) {
-        const tone = palette[out9[index]];
-        if (tone !== undefined) {
-          out.set(x * 3 + (index % 3), y * 3 + Math.floor(index / 3), tone);
-        }
+        out[y * 3 + Math.floor(index / 3)][x * 3 + (index % 3)] = out9[index];
       }
     }
   }
-  return out;
+  return out.map((line) => line.join(""));
 }

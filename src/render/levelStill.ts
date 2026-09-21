@@ -30,10 +30,10 @@ import type { LevelDefinition } from "@interfaces/types";
  *
  * `hd` paints the same still on the fine grid (SHA-224), into a canvas `FINE`
  * times the field — the gallery's downscale to a tile is smoothed, so a finer
- * field photographs better rather than noisier. The eye is drawn at the scale
- * it is asked for either way: there is no HD eye yet (SHA-225), and the arena's
- * HD frame draws exactly this classic one, so the still goes on matching the
- * level it is a picture of.
+ * field photographs better rather than noisier. The eye goes with it (SHA-228),
+ * which is what keeps the still a picture of the level: forty-three tiles on
+ * one screen is the cheapest whole-inventory check the almond has, and it is
+ * only worth looking at if the eye in the tile is the eye in the arena.
  */
 export function paintLevelStill(
   ctx: CanvasRenderingContext2D,
@@ -49,9 +49,9 @@ export function paintLevelStill(
   // at the field's middle on every other level (SHA-212). Empty — the chart on
   // it is the run's, and a still is a level nobody has played.
   const dial = chartCentre(socket);
-  drawZodiac(ctx, dial.x, dial.y, gameConfig.observer.ring.field, 0, scale, false, dialTonesFor(level.background));
+  drawZodiac(ctx, dial.x, dial.y, gameConfig.observer.ring.field, 0, scale, false, dialTonesFor(level.background), hd);
   if (socket && level.observer) {
-    drawEye(ctx, socket, 1, { x: socket.x, y: socket.y }, level.observer.tint, scale);
+    drawEye(ctx, socket, 1, { x: socket.x, y: socket.y }, level.observer.tint, scale, { hd });
   }
   // An ordinary level's eye, at rest (SHA-188): behind the wall it goes down
   // here, under the bricks; in front, after them. Same window and the same
@@ -79,7 +79,7 @@ export function paintLevelStill(
       ctx.clip();
     }
     ctx.globalAlpha = placed.opacity;
-    drawEye(ctx, placed.socket, 1, { x: placed.socket.x, y: placed.socket.y }, placed.tint, scale);
+    drawEye(ctx, placed.socket, 1, { x: placed.socket.x, y: placed.socket.y }, placed.tint, scale, { hd });
     ctx.restore();
   };
   if (placed?.layer === EYE_LAYER.BEHIND) {

@@ -1,5 +1,6 @@
 import { gameConfig } from "@core/config/GameConfig";
 import { FINE } from "@interfaces/art";
+import { bleedRadius, fibreAngle, fibreRadius, fibreSteps, INSIDE_IRIS } from "@render/hdInside";
 import { canvasPalette } from "@render/palette";
 import { mix, Pix } from "@render/pix";
 
@@ -222,36 +223,103 @@ export const IRIS_COLORS = {
 
 export type IrisTint = keyof typeof IRIS_COLORS;
 
-function paintIris(brush: BackgroundBrush, tint: IrisTint, focus: BackgroundFocus, demade: boolean): void {
+export function paintIris(brush: BackgroundBrush, tint: IrisTint, focus: BackgroundFocus, demade: boolean): void {
   const ink = canvasPalette.demakeInk;
   const ground = canvasPalette.demakeGround;
   const { area } = IRIS_COLORS[tint];
   const bands = [area.band0, area.band1, area.band2, area.band3, area.band4, area.band5, area.band6, area.band7];
+  // The centre on the fine grid, rounded then multiplied exactly as the brush's
+  // own verbs do it, so the fine work below is concentric with the coarse work
+  // beside it rather than a third of a game pixel off.
+  const fx = Math.round(focus.x) * FINE;
+  const fy = Math.round(focus.y) * FINE;
   brush.rect(0, 0, brush.width, brush.height, demade ? ground : area.base);
   if (!demade) {
     // The white of an eye is not flat, and neither is the back of one: veins,
     // short and horizontal, so the sclera reads as tissue rather than as paper.
-    for (let index = 0; index < 40; index += 1) {
+    for (let index = 0; index < INSIDE_IRIS.veins; index += 1) {
       brush.rect(brush.randomInt(0, brush.width), brush.randomInt(20, 240), brush.randomInt(4, 14), 1, area.vein);
+    }
+    if (brush.hd) {
+      // Part B's sixty: the shipped forty, unmoved, and twenty finer ones over
+      // them. A vein is three fine pixels thick because it was drawn a game
+      // pixel thick; these are one, and half way to the base, which is a
+      // thickness and a tone the coarse grid has no way of asking for. Tissue
+      // is not made of one gauge of thread.
+      //
+      // **They come after every draw above, and nothing below draws.** The
+      // generator rule this brush is written to says the two arts must call
+      // `random` the same number of times in the same order — so the extra
+      // twenty are appended rather than interleaved, which leaves the first
+      // forty on exactly the pixels they occupy in classic.
+      const faint = mix(area.vein, area.base, 0.5);
+      for (let index = 0; index < INSIDE_IRIS.streaks; index += 1) {
+        brush.fineRect(
+          brush.randomInt(0, brush.fineWidth),
+          brush.randomInt(20 * FINE, 240 * FINE),
+          brush.randomInt(4 * FINE, 14 * FINE),
+          1,
+          faint,
+        );
+      }
     }
   }
   for (const [index, radius] of IRIS_BANDS.entries()) {
     if (demade) {
-      ring(brush, focus.x, focus.y, radius, index % 2 === 0 ? ink : ground);
+      // On the tube the bands are contour lines and nothing else, so on the
+      // fine grid they are hairlines: one fine pixel, closed by Bresenham
+      // rather than walked by angle, where the coarse ring lays a three-pixel
+      // pen round the same circle.
+      if (brush.hd) {
+        brush.fineRing(fx, fy, radius * FINE, index % 2 === 0 ? ink : ground);
+      } else {
+        ring(brush, focus.x, focus.y, radius, index % 2 === 0 ? ink : ground);
+      }
       continue;
+    }
+    // Part B's collar, under the band's own disc so only its outside shows.
+    // Not on the outermost band: what is outside *that* one is the white of the
+    // eye and the limbal ring, and the limbus is the one edge in this drawing
+    // that has to stay hard — it is what makes the iris read as a thing set
+    // into the sclera rather than as a stain spreading through it.
+    if (brush.hd && index > 0) {
+      brush.fineDisc(fx, fy, bleedRadius(radius), bands[index], INSIDE_IRIS.bleedCoverage);
     }
     brush.disc(focus.x, focus.y, radius, bands[index]);
   }
-  // Fibres from the pupil outward, every fourteenth of a turn.
-  for (let index = 0; index < 28; index += 1) {
-    const angle = (index / 28) * Math.PI * 2 + 0.1;
+  // Fibres from the pupil outward, every fourteenth of a turn: one fine pixel
+  // of mark, sampled once per fine pixel of span. Both halves, or neither —
+  // a game-pixel mark on the fine grid is a spoke three fine pixels wide, and
+  // a fine mark on the coarse walk is a dotted line. See `fibreSteps`.
+  const steps = fibreSteps(brush.hd);
+  for (let index = 0; index < INSIDE_IRIS.fibres; index += 1) {
+    const angle = fibreAngle(index);
     const tone = demade ? (index % 2 === 0 ? ink : ground) : index % 2 === 0 ? area.fibreDim : area.fibreLit;
-    for (let radius = 40; radius < 100; radius += 1) {
+    for (let step = 0; step < steps; step += 1) {
+      const radius = fibreRadius(step, brush.hd);
+      if (brush.hd) {
+        brush.finePixel(
+          Math.round(fx + Math.cos(angle) * radius * FINE),
+          Math.round(fy + Math.sin(angle) * radius * FINE),
+          tone,
+        );
+        continue;
+      }
       brush.rect(focus.x + Math.cos(angle) * radius, focus.y + Math.sin(angle) * radius, 1, 1, tone);
     }
   }
-  for (let radius = 100; radius < 104; radius += 1) {
-    ring(brush, focus.x, focus.y, radius, demade ? ink : area.limbal);
+  // The limbus, four game pixels of rim. Twelve nested hairlines on the fine
+  // grid rather than four three-pixel ones: the same band, but its inner and
+  // outer edges land where the arithmetic puts them instead of on the nearest
+  // multiple of three.
+  if (brush.hd) {
+    for (let radius = INSIDE_IRIS.limbusFrom * FINE; radius < INSIDE_IRIS.limbusTo * FINE; radius += 1) {
+      brush.fineRing(fx, fy, radius, demade ? ink : area.limbal);
+    }
+  } else {
+    for (let radius = INSIDE_IRIS.limbusFrom; radius < INSIDE_IRIS.limbusTo; radius += 1) {
+      ring(brush, focus.x, focus.y, radius, demade ? ink : area.limbal);
+    }
   }
   // The brow, across the top: the lid the player is looking out from under.
   brush.rect(0, 0, brush.width, 18, demade ? ground : area.brow);
@@ -262,40 +330,97 @@ function paintIris(brush: BackgroundBrush, tint: IrisTint, focus: BackgroundFocu
   }
 }
 
+/** The variant string an iris is seeded from — the shipped one, so no vein moves. */
+function irisSeedKey(tint: IrisTint, demade: boolean): string {
+  return `${tint}:${demade ? "mono" : "lit"}`;
+}
+
 /**
- * The two irises, painted once each and kept.
+ * One iris onto `ctx`, in whichever art is asked for.
+ *
+ * The art is **not** in the seed, only in the cache key — exactly as
+ * `paintBackground` has it. The two arts have to be the same layout drawn at
+ * two resolutions or `art split` is comparing two pictures instead of two
+ * drawings of one.
+ */
+export function paintIrisField(
+  ctx: CanvasRenderingContext2D,
+  tint: IrisTint,
+  demade: boolean,
+  width: number,
+  height: number,
+  hd = false,
+): void {
+  const { centerX, centerY } = gameConfig.observer.inside;
+  paintWith(ctx, width, height, hashSeed(irisSeedKey(tint, demade)), hd, (brush) => {
+    paintIris(brush, tint, { x: centerX, y: centerY }, demade);
+  });
+}
+
+/** A surface the layer repaints in place, rather than a canvas it keeps forever. */
+interface IrisSurface {
+  readonly canvas: HTMLCanvasElement;
+  readonly ctx: CanvasRenderingContext2D;
+  painted: IrisTint | null;
+}
+
+function irisSurface(width: number, height: number): IrisSurface {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("2D iris context unavailable");
+  }
+  return { canvas, ctx, painted: null };
+}
+
+/**
+ * The iris the field is replaced with, one surface per machine and art.
  *
  * Beside `BackgroundLayer` and not inside it: that one holds *the level on
  * screen* and repaints when the level changes, and the iris is neither a level
  * nor a theme — it is one of two pictures that the field is replaced with for
- * twenty-two seconds. Four canvases in all, and they are painted the first time
- * a player goes through the door rather than at boot.
+ * twenty-two seconds. Nothing is painted, and no canvas allocated, until a
+ * player goes through the door.
+ *
+ * **Four surfaces at most, and the tint is what repaints them** (SHA-235). It
+ * used to hold a `Map` keyed on the tint as well and never drop anything, which
+ * cost four small canvases and was not worth a second thought. On the fine grid
+ * one of these is 1116 x 900 — four megabytes — and keying the art in beside
+ * the tint would have sat on sixteen of them for a whole run. That is the same
+ * arithmetic that talked this pass out of baking the eye, and it applies here.
+ *
+ * So the tint is the axis that repaints and the other two are the axes that
+ * get a surface each, because those two are the ones that can both be wanted in
+ * a single frame: DEMAKE's crossfade paints both machines, and `art split`
+ * paints both arts. A tint change is a player entering a differently-coloured
+ * veil, which is a level boundary, and it costs one bake at a moment that is
+ * already a load. Each surface is built at its own art's size, which is what
+ * `BackgroundLayer` spends a `size()` on — there is nothing to resize when a
+ * canvas only ever holds the one resolution.
  */
 export class IrisLayer {
-  private readonly cache = new Map<string, HTMLCanvasElement>();
+  private readonly surfaces = new Map<string, IrisSurface>();
 
   constructor(
     private readonly width: number,
     private readonly height: number,
   ) {}
 
-  imageFor(tint: IrisTint, demade: boolean): HTMLCanvasElement {
-    const key = `${tint}:${demade ? "mono" : "lit"}`;
-    const held = this.cache.get(key);
-    if (held) {
-      return held;
+  imageFor(tint: IrisTint, demade: boolean, hd = false): HTMLCanvasElement {
+    const slot = `${demade ? "mono" : "lit"}:${hd ? "hd" : "classic"}`;
+    let surface = this.surfaces.get(slot);
+    if (!surface) {
+      const scale = hd ? FINE : 1;
+      surface = irisSurface(this.width * scale, this.height * scale);
+      this.surfaces.set(slot, surface);
     }
-    const canvas = document.createElement("canvas");
-    canvas.width = this.width;
-    canvas.height = this.height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      throw new Error("2D iris context unavailable");
+    if (surface.painted !== tint) {
+      paintIrisField(surface.ctx, tint, demade, this.width, this.height, hd);
+      surface.painted = tint;
     }
-    const { centerX, centerY } = gameConfig.observer.inside;
-    paintIris(createBrush(ctx, this.width, this.height, hashSeed(key)), tint, { x: centerX, y: centerY }, demade);
-    this.cache.set(key, canvas);
-    return canvas;
+    return surface.canvas;
   }
 }
 
@@ -336,6 +461,8 @@ export interface BackgroundBrush {
   fineVgrad(x: number, width: number, stops: readonly (readonly [number, string])[]): void;
   fineRgrad(x: number, y: number, radius: number, tones: readonly (string | null)[]): void;
   fineDisc(x: number, y: number, radius: number, color: string, coverage?: number): void;
+  /** A circle one fine pixel thick, closed by construction — Bresenham's, not a walk by angle. */
+  fineRing(x: number, y: number, radius: number, color: string): void;
   fineDiscBand(x: number, y: number, radius: number, top: number, height: number, color: string): void;
 }
 
@@ -408,6 +535,7 @@ function createBrush(ctx: CanvasRenderingContext2D, width: number, height: numbe
     fineVgrad: noFineGrid,
     fineRgrad: noFineGrid,
     fineDisc: noFineGrid,
+    fineRing: noFineGrid,
     fineDiscBand: noFineGrid,
   };
 }
@@ -469,6 +597,9 @@ function createFineBrush(pix: Pix, width: number, height: number, seed: number):
     },
     fineDisc(x, y, radius, color, coverage) {
       pix.disc(x, y, radius, color, coverage);
+    },
+    fineRing(x, y, radius, color) {
+      pix.ring(x, y, radius, color);
     },
     fineDiscBand(x, y, radius, top, bandHeight, color) {
       pix.discBand(x, y, radius, top, bandHeight, color);

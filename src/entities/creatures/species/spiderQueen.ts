@@ -182,7 +182,10 @@ export const SPIDER_QUEEN: Species = {
   },
 
   // Her thread, from the ceiling to her back, whenever she is in the room.
-  decorate(pixel, creature, _frame, demade) {
+  // The queen's thread, on the spider's rule: one pixel of the grid being drawn
+  // on, so it goes to a third of a game pixel on the fine one. A queen is twice
+  // the spider and hangs off the same silk.
+  decorate(pixel, creature, _frame, demade, unit) {
     const top = gameConfig.field.top;
     if (creature.y <= top) {
       return;
@@ -190,7 +193,7 @@ export const SPIDER_QUEEN: Species = {
     pixel(
       Math.round(centreX(creature)),
       top,
-      1,
+      1 / unit,
       Math.round(creature.y) - top + 2,
       demade ? canvasPalette.demakeInk : canvasPalette.paddleTopSheen,
     );

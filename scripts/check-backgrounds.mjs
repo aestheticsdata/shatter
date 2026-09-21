@@ -41,7 +41,7 @@ registerHooks({
   },
 });
 
-const { BACKGROUND_COLORS, IRIS_COLORS, paintBackground, paintForeground } =
+const { BACKGROUND_COLORS, IRIS_COLORS, paintBackground, paintForeground, paintIrisField } =
   await import("../src/render/backgrounds.ts");
 const { BRICK_COLORS, DROP_COLORS, canvasPalette } = await import("../src/render/palette.ts");
 const { LEVELS } = await import("../src/core/levels/levels.ts");
@@ -250,6 +250,45 @@ for (const theme of Object.keys(BACKGROUND_COLORS)) {
       paintForeground(ctx, theme, 0, FIELD.width, FIELD.height, hd);
     } catch (error) {
       failures.push(`theme ${theme}'s foreground threw in ${hd ? "hd" : "classic"}: ${error.message}`);
+    }
+  }
+}
+
+// The two irises paint in both arts too (SHA-235). They were exempt from this
+// loop while they were the one field surface still pinned to the coarse grid,
+// and the exemption went with the pin: an iris is a field, nothing is drawn
+// under it, and a raster that never flushed would show as a hole straight
+// through the chamber for the twenty-two seconds the player is standing in it.
+for (const tint of ["blue", "red"]) {
+  for (const demade of [false, true]) {
+    for (const hd of [false, true]) {
+      const ctx = stubContext();
+      const name = `iris.${tint}${demade ? " demade" : ""}`;
+      try {
+        paintIrisField(ctx, tint, demade, FIELD.width, FIELD.height, hd);
+      } catch (error) {
+        failures.push(`${name} threw while painting in ${hd ? "hd" : "classic"}: ${error.message}`);
+        continue;
+      }
+      if (!hd) {
+        if (ctx.fills === 0) {
+          failures.push(`${name} drew nothing in classic`);
+        }
+        continue;
+      }
+      if (!ctx.image) {
+        failures.push(`${name} never flushed its raster in hd`);
+        continue;
+      }
+      let holes = 0;
+      for (let index = 3; index < ctx.image.data.length; index += 4) {
+        if (ctx.image.data[index] === 0) {
+          holes += 1;
+        }
+      }
+      if (holes > 0) {
+        failures.push(`${name} left ${holes} transparent px in hd — a hole through the chamber`);
+      }
     }
   }
 }

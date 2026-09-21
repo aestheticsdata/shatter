@@ -105,6 +105,18 @@ export interface Species {
    * refused touch still bounces the ball; it takes no hit point and no flash.
    */
   armour?(creature: Creature, x: number, y: number): string | null;
-  /** Extra drawing under the bitmap — a spider's thread, a snail's trail. Ink-only on the tube. */
-  decorate?(pixel: Pixel, creature: Creature, frame: number, demade: boolean): void;
+  /**
+   * Extra drawing under the bitmap — a spider's thread, a snail's stalks, a
+   * frog's legs. Ink-only on the tube.
+   *
+   * **Drawn rather than baked** (SHA-233), and that is not an oversight: the
+   * body is a function of the frame and bakes to a sprite, while these are
+   * functions of where the ball was, which way the creature is facing and how
+   * far through a leap it is. `unit` is how many pixels of the grid being drawn
+   * on make one game pixel — 1 on the coarse grid and `FINE` on the fine one —
+   * so a mark that wants to be one pixel of *this* grid asks for `1 / unit` and
+   * gets a game pixel in classic and a fine one in HD. Everything that has a
+   * width rather than being a line simply goes on writing its width.
+   */
+  decorate?(pixel: Pixel, creature: Creature, frame: number, demade: boolean, unit: number): void;
 }

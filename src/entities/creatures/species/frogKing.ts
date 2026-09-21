@@ -173,12 +173,14 @@ export const FROG_KING: Species = {
 
   // The legs by state under the body, in the frog's own way; and the tongue,
   // red and two pixels thick, from the mouth to the reach while the flick runs.
-  decorate(pixel, creature, _frame, demade) {
+  decorate(pixel, creature, _frame, demade, unit) {
     const legs = creature.state === KING_STATE.LEAP ? LEGS_LEAP_BIG : LEGS_SIT_BIG;
     const tone = creature.flashTicks > 0 ? canvasPalette.deathFlash : BRICK_COLORS["4"].dark;
     const x = Math.round(creature.x);
     const y = Math.round(creature.y);
-    paintRows(pixel, legs, x, y + HEIGHT - legs.length, demade ? canvasPalette.demakeInk : tone);
+    // The tongue below keeps its whole game pixels on either grid: it is a
+    // hazard with a hitbox (`tongueBox`), and the width is the thing being read.
+    paintRows(pixel, legs, x, y + HEIGHT - legs.length, demade ? canvasPalette.demakeInk : tone, unit);
     if (creature.vx > 0) {
       const box = tongueBox(creature);
       const red = demade ? canvasPalette.demakeInk : BRICK_COLORS["1"].flat;

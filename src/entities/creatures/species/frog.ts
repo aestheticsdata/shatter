@@ -1,6 +1,7 @@
 import { gameConfig } from "@core/config/GameConfig";
 import { CREATURE } from "@interfaces/creatures";
 import { BRICK_COLORS, canvasPalette } from "@render/palette";
+import { scale3xRows } from "@render/pix";
 
 import type { CreatureSight, Pixel, Species } from "@entities/creatures/Creature";
 
@@ -74,13 +75,35 @@ function pickBrick(sight: CreatureSight, seat: Cell): Cell | null {
   return cells[Math.floor(Math.random() * cells.length)];
 }
 
-/** Every marked pixel of the rows in one tone: the legs, and the king's (SHA-213). */
-export function paintRows(pixel: Pixel, rows: readonly string[], x: number, y: number, tone: string): void {
-  for (const [row, line] of rows.entries()) {
-    for (let index = 0; index < line.length; index += 1) {
-      if (line[index] !== ".") {
-        pixel(x + index, y + row, 1, 1, tone);
+/**
+ * Every marked pixel of the rows in one tone: the legs, and the king's (SHA-213).
+ *
+ * **Rounded the same way the body is** (SHA-233). A frog's legs are a bitmap
+ * like its body, but they are a decoration rather than a frame — they follow
+ * the pose rather than the clock — so they are drawn live while the body is
+ * baked. On the fine grid the body's staircases come off in `scale3x` and these
+ * have to come off with them, or the creature is smooth above the hip and
+ * blocky below it. Same algorithm, through the same characters: `scale3xRows`
+ * is where it lives precisely so there is one of it.
+ */
+export function paintRows(pixel: Pixel, rows: readonly string[], x: number, y: number, tone: string, unit = 1): void {
+  const grid = unit === 1 ? rows : scale3xRows(rows);
+  const cell = 1 / unit;
+  for (const [row, line] of grid.entries()) {
+    let index = 0;
+    while (index < line.length) {
+      if (line[index] === ".") {
+        index += 1;
+        continue;
       }
+      // Runs rather than cells: a doubled king's legs are a thousand cells at
+      // 3x and about forty spans, and a span is one `fillRect`.
+      let span = 1;
+      while (index + span < line.length && line[index + span] !== ".") {
+        span += 1;
+      }
+      pixel(x + index * cell, y + row * cell, span * cell, cell, tone);
+      index += span;
     }
   }
 }
@@ -173,10 +196,10 @@ export const FROG: Species = {
 
   // The legs by state, in the outline's tone — the flash's while it is on, so
   // the whole frog flinches as one.
-  decorate(pixel, creature, _frame, demade) {
+  decorate(pixel, creature, _frame, demade, unit) {
     const legs = creature.state === FROG_STATE.LEAP ? FROG_LEGS_LEAP : FROG_LEGS_SIT;
     const tone = creature.flashTicks > 0 ? canvasPalette.deathFlash : BRICK_COLORS["4"].dark;
     const y = Math.round(creature.y) + HEIGHT - legs.length;
-    paintRows(pixel, legs, Math.round(creature.x), y, demade ? canvasPalette.demakeInk : tone);
+    paintRows(pixel, legs, Math.round(creature.x), y, demade ? canvasPalette.demakeInk : tone, unit);
   },
 };

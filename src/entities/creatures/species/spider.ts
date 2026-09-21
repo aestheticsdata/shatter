@@ -157,7 +157,13 @@ export const SPIDER: Species = {
   // the deck's sheen — the palest tone that is not the ball's — and ink on
   // the tube. Drawn whenever the spider is below its spot; at home it hangs
   // straight under the ceiling and there is nothing to draw.
-  decorate(pixel, creature, _frame, demade) {
+  //
+  // **One pixel of whatever grid is being drawn on** (SHA-233), which on the
+  // fine one is a third of what the coarse grid can manage. It is THE TEAR's
+  // track again: silk is thinner than the thinnest mark a game pixel makes,
+  // and three pixels of rope hanging off the ceiling is a different animal.
+  // The shadow under a beast is the other way round and says why there.
+  decorate(pixel, creature, _frame, demade, unit) {
     if (creature.y <= creature.home.y) {
       return;
     }
@@ -167,7 +173,7 @@ export const SPIDER: Species = {
       pixel(
         Math.round(centreX(creature)),
         top,
-        1,
+        1 / unit,
         length,
         demade ? canvasPalette.demakeInk : canvasPalette.paddleTopSheen,
       );

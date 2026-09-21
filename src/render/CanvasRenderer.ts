@@ -14,9 +14,26 @@ import { BACKGROUND_COLORS, BackgroundLayer, dialTonesFor, IrisLayer } from "@re
 import { type BallRow, ballGlints, ballRows } from "@render/ballSprite";
 import { BROOD_BITMAPS, BROOD_FRAMES, BROOD_OUTLINE, broodPalette } from "@render/broodSprite";
 import { hdBallDisc, hdBallShell, hdBallSprite } from "@render/hdBall";
+import { FLASH, flashOf, hdBeastSprite } from "@render/hdBeast";
 import { hdCapsule } from "@render/hdCapsule";
+import { dialInked, dialSteps, dialUnit, dialWalk } from "@render/hdDial";
+import {
+  almondHalf,
+  almondLid,
+  EYE_AUTHORED,
+  EYE_HALFTONE,
+  EYE_HOLLOW,
+  EYE_TEAR,
+  EYE_VEIN_WEIGHT,
+  eyeFeature,
+  halftoneKeep,
+  hdIris,
+  hdPupil,
+} from "@render/hdEye";
 import { hdCritter, hdGravelChip, hdMeteor, hdPeel } from "@render/hdFigures";
+import { BEAM_NEST, chargeRadius, GAZE_BEAM, rungSlide } from "@render/hdGaze";
 import { hdPill } from "@render/hdPaddle";
+import { gateSlide, twinkleArm, twinkleSwell } from "@render/hdVeil";
 import {
   BRICK_COLORS,
   canvasPalette,
@@ -2023,10 +2040,29 @@ function dialSpin(frame: number): number {
   return ((frame % turnTicks) / turnTicks) * Math.PI * 2;
 }
 
-/** The dial's `index`th star — the inner end of its tick — as a whole pixel, this frame. */
-function dialStar(cx: number, cy: number, ring: ZodiacRing, index: number, spin: number): readonly [number, number] {
+/**
+ * The dial's `index`th star — the inner end of its tick — as a whole pixel of
+ * the grid the dial is ruled on, this frame.
+ *
+ * `unit` is `dialUnit`'s: one on the coarse grid and `FINE` on the fine one, so
+ * a star on the fine grid is placed to a third of a game pixel rather than
+ * being rounded to one. The chart's threads hang off these, which is what makes
+ * a constellation on the fine grid a drawn chart rather than the same web with
+ * thinner cables — the *ends* move as well as the strokes.
+ */
+function dialStar(
+  cx: number,
+  cy: number,
+  ring: ZodiacRing,
+  index: number,
+  spin: number,
+  unit: number,
+): readonly [number, number] {
   const angle = (index / ring.ticks) * Math.PI * 2 + spin;
-  return [Math.round(cx + Math.cos(angle) * ring.inner), Math.round(cy + Math.sin(angle) * ring.inner)];
+  return [
+    Math.round(cx * unit + Math.cos(angle) * ring.inner * unit),
+    Math.round(cy * unit + Math.sin(angle) * ring.inner * unit),
+  ];
 }
 
 /**
@@ -2040,6 +2076,18 @@ function dialStar(cx: number, cy: number, ring: ZodiacRing, index: number, spin:
  * circle does not turn, because a circle turned is the same circle.
  *
  * On every level since SHA-212, in the level's own tones — see `dialTonesFor`.
+ *
+ * **THE HD PASS (SHA-232): the same dial, ruled with a finer pen.** One dot per
+ * pixel of circumference is already the recipe; on the fine grid there are
+ * three times as many pixels round it, so the outer circle stops being a ring
+ * of 3 x 3 blocks and becomes a hairline — which is what a ruled circle on an
+ * instrument is, and the reason this was never baked into the field. The twelve
+ * ticks across the band go with it.
+ *
+ * All of it is one multiplication, `dialUnit`'s: radii, steps and both halves
+ * of the dash. Classic is that multiplication by one, so it is unchanged to the
+ * pixel. The brush goes to a single device pixel in HD because the coordinates
+ * already carry the scale.
  */
 export function drawZodiac(
   ctx: CanvasRenderingContext2D,
@@ -2050,31 +2098,52 @@ export function drawZodiac(
   scale: number,
   demade = false,
   tones: DialTones = dialTonesFor("observer"),
+  hd = false,
 ): void {
-  const pixel = spriteBrush(ctx, scale, false);
-  const { dashOn, dashOff } = gameConfig.observer.ring;
+  const unit = dialUnit(hd, scale);
+  const walk = dialWalk(unit);
+  const pixel = spriteBrush(ctx, unit === 1 ? scale : 1, false);
   const outerTone = demade ? canvasPalette.demakeInk : tones.ring;
   const innerTone = demade ? canvasPalette.demakeInk : tones.band;
   const tickTone = demade ? canvasPalette.demakeInk : tones.tick;
   const spin = dialSpin(frame);
+  const originX = cx * unit;
+  const originY = cy * unit;
+  const inner = ring.inner * unit;
+  const outer = ring.outer * unit;
+  // The fine walk steps twice per pixel so the hairline cannot skip one, which
+  // means half of its steps land where the step before them did. Dropping a
+  // repeat is what keeps the cost at the three times the spec asked for rather
+  // than six; `last` is per run, because two runs in different tones may want
+  // the same pixel and the second one has to get it.
+  let lastX = Number.NaN;
+  let lastY = Number.NaN;
   const dot = (radius: number, angle: number, tone: string): void => {
-    pixel(Math.round(cx + Math.cos(angle) * radius), Math.round(cy + Math.sin(angle) * radius), 1, 1, tone);
+    const x = Math.round(originX + Math.cos(angle) * radius);
+    const y = Math.round(originY + Math.sin(angle) * radius);
+    if (x === lastX && y === lastY) {
+      return;
+    }
+    lastX = x;
+    lastY = y;
+    pixel(x, y, 1, 1, tone);
   };
-  const outerSteps = Math.round(Math.PI * 2 * ring.outer);
+  const outerSteps = dialSteps(outer, walk);
   for (let index = 0; index < outerSteps; index += 1) {
-    dot(ring.outer, (index / outerSteps) * Math.PI * 2, outerTone);
+    dot(outer, (index / outerSteps) * Math.PI * 2, outerTone);
   }
-  const innerSteps = Math.round(Math.PI * 2 * ring.inner);
-  const period = dashOn + dashOff;
+  const innerSteps = dialSteps(inner, walk);
+  lastX = Number.NaN;
   for (let index = 0; index < innerSteps; index += 1) {
-    if (index % period < dashOn) {
-      dot(ring.inner, (index / innerSteps) * Math.PI * 2 + spin, innerTone);
+    if (dialInked(index, unit * walk)) {
+      dot(inner, (index / innerSteps) * Math.PI * 2 + spin, innerTone);
     }
   }
   for (let index = 0; index < ring.ticks; index += 1) {
     const angle = (index / ring.ticks) * Math.PI * 2 + spin;
     const tone = ring.alternate && index % 2 === 1 ? innerTone : tickTone;
-    for (let radius = ring.inner; radius <= ring.outer; radius += 1) {
+    lastX = Number.NaN;
+    for (let radius = inner; radius <= outer; radius += 1) {
       dot(radius, angle, tone);
     }
   }
@@ -2100,6 +2169,18 @@ export interface ChartView {
  * Drawn every frame with the dial, so it turns with it. `barsOnly` draws the
  * diameters alone, which is the cage's front: on a veil with the chart closed
  * they are painted again *over* the eye, and the eye is behind bars.
+ *
+ * **THE HD PASS (SHA-232): the threads go fine, and the cage does not.**
+ * `drawPixelLine` carries a note saying it has to land on the grid the stars
+ * do, and that premise holds either way, because `dialStar` takes the same
+ * unit — so the constellation stops being a web of three-pixel cables and
+ * becomes a drawn chart, with its growing stroke advancing a fine pixel at a
+ * time rather than jumping one game pixel per kill.
+ *
+ * The cage is SHA-227's rail mark again. Six hairline diameters over a veil's
+ * eye are a decoration; what the bars say is *you cannot get at this*, and they
+ * say it with width. So `barsOnly` stays on the coarse grid whatever the mode,
+ * and knowing which marks are like that is most of this pass.
  */
 export function drawChart(
   ctx: CanvasRenderingContext2D,
@@ -2111,8 +2192,10 @@ export function drawChart(
   scale: number,
   demade = false,
   barsOnly = false,
+  hd = false,
 ): void {
-  const pixel = spriteBrush(ctx, scale, false);
+  const unit = dialUnit(hd && !barsOnly, scale);
+  const pixel = spriteBrush(ctx, unit === 1 ? scale : 1, false);
   const spin = dialSpin(frame);
   const thread = demade ? canvasPalette.demakeInk : BRICK_COLORS.G.dark;
   const junctions = Chart.junctions;
@@ -2127,8 +2210,8 @@ export function drawChart(
     if (fraction <= 0) {
       continue;
     }
-    const from = dialStar(cx, cy, ring, a, spin);
-    const to = dialStar(cx, cy, ring, b, spin);
+    const from = dialStar(cx, cy, ring, a, spin, unit);
+    const to = dialStar(cx, cy, ring, b, spin, unit);
     const end: readonly [number, number] = [
       Math.round(from[0] + (to[0] - from[0]) * fraction),
       Math.round(from[1] + (to[1] - from[1]) * fraction),
@@ -2137,6 +2220,38 @@ export function drawChart(
     const tone = arriving ? (chart.reveal > 0.5 ? canvasPalette.diademTwinkle : canvasPalette.diademStar) : thread;
     drawPixelLine(pixel, from, end, tone);
   }
+}
+
+/**
+ * The five ways an eye is painted differently from the plain one, as an object
+ * rather than five trailing optionals.
+ *
+ * `BrickPaint`'s rule, at exactly the point it names: *"a fourth silent slot
+ * would have been the point at which a caller starts passing `0, false` to
+ * reach the one it means"*. The eye had four and THE HD PASS wanted a fifth,
+ * and `drawEye(..., false, false, false, false, true)` is a call nobody can
+ * read.
+ */
+export interface EyePaint {
+  demade?: boolean;
+  // THE TEAR (SHA-174): two wet streaks down the cheek, under the pupil. They
+  // travel with the look, so the tracks are always under where the next drop
+  // will leave from — which is what makes the corner read as *weeping* rather
+  // than as a place drops happen to appear.
+  weeping?: boolean;
+  // THE WRATH (SHA-175): the white is bloodshot. A flag and not a property of
+  // the red tint, because THE LID is red too and a sealed slit has no white to
+  // run them across.
+  veined?: boolean;
+  // THE LID (SHA-176): the seal is broken and the pupil has left. The socket is
+  // drawn wide with nothing in it — no iris, no glint, no look — which is the
+  // one frame in the game where the eye stops being a thing that watches.
+  hollow?: boolean;
+  // THE HD PASS (SHA-228): draw the almond on the fine grid rather than in
+  // whole game pixels. Off by default, so the title screen and the gallery's
+  // classic still — which paint at scale 1, where there is no fine grid to draw
+  // on — go on getting the eye they have always had.
+  hd?: boolean;
 }
 
 /**
@@ -2183,23 +2298,28 @@ export function drawEye(
   target: { x: number; y: number },
   tint: "blue" | "red" | "gold",
   scale: number,
-  demade = false,
-  // THE TEAR (SHA-174): two wet streaks down the cheek, under the pupil. They
-  // travel with the look, so the tracks are always under where the next drop
-  // will leave from — which is what makes the corner read as *weeping* rather
-  // than as a place drops happen to appear.
-  weeping = false,
-  // THE WRATH (SHA-175): the white is bloodshot. A parameter and not a property
-  // of the red tint, because THE LID is red too and a sealed slit has no white
-  // to run them across.
-  veined = false,
-  // THE LID (SHA-176): the seal is broken and the pupil has left. The socket is
-  // drawn wide with nothing in it — no iris, no glint, no look — which is the
-  // one frame in the game where the eye stops being a thing that watches.
-  hollow = false,
+  paint: EyePaint = {},
 ): void {
-  const pixel = spriteBrush(ctx, scale, false);
+  const { demade = false, weeping = false, veined = false, hollow = false, hd = false } = paint;
   const tones = EYE_TONES[demade ? "demade" : tint];
+  // THE HD PASS (SHA-228): the same almond on the fine grid. Gated on the exact
+  // scale because the recipe is written in fine pixels — the title screen and
+  // the gallery's classic still draw at 1, where there are none to write in.
+  if (hd && scale === FINE) {
+    paintHdEye(ctx, {
+      socket,
+      open,
+      target,
+      tones,
+      tint: demade ? "demade" : tint,
+      demade,
+      weeping,
+      veined,
+      hollow,
+    });
+    return;
+  }
+  const pixel = spriteBrush(ctx, scale, false);
   const { x: cx, y: cy, hw, hh } = socket;
   const { irisRadius: irisScale, pupilRadius: pupilScale } = gameConfig.observer.eye;
   // Never under two rows: a lid that shut to a single line would be gone the
@@ -2287,7 +2407,12 @@ export function drawEye(
   // Over the white and under the glint: veins are in the eye, and a hairline
   // drawn across the one wet highlight would put them on top of it.
   if (veined && !hollow) {
-    drawEyeVeins(pixel, socket, lid, { x: ix, y: iy, radius: irisRadius }, tones.vein);
+    drawEyeVeins(pixel, socket, lid, { x: ix, y: iy, radius: irisRadius }, tones.vein, {
+      inset: 2,
+      clearance: 1,
+      weight: 1,
+      unit: 1,
+    });
   }
 
   if (weeping) {
@@ -2316,6 +2441,326 @@ export function drawEye(
   pixel(cx + hw, cy, 3, 1, tones.rim);
 }
 
+interface HdEye {
+  socket: { x: number; y: number; hw: number; hh: number };
+  open: number;
+  target: { x: number; y: number };
+  tones: EyeTones;
+  tint: keyof typeof EYE_TONES;
+  demade: boolean;
+  weeping: boolean;
+  veined: boolean;
+  hollow: boolean;
+}
+
+/**
+ * THE OBSERVER's almond on the fine grid (SHA-228): the shipped eye at three
+ * times the resolution, with its absolute numbers read as fractions of the
+ * socket they were authored on.
+ *
+ * **Drawn, not baked** — `drawBrick`'s argument arriving at the same answer
+ * from the other end. Fourteen sockets, each with a rest lid and the eight to
+ * fourteen distinct lids a blink passes through, is on the order of two hundred
+ * sprites; SUNRISE's is 900 x 360 fine pixels, 1.3 MB apiece, and `SpriteCache`
+ * has no eviction. And a bake would only ever cover the white: the iris tracks
+ * the ball every frame at `trackEase` 0.35, so the thing that moves is on top
+ * of the thing that was cached. The eye is scanned, like the wall is drawn.
+ *
+ * **Every feature is a fraction of the socket with a floor of one fine pixel**,
+ * through `eyeFeature` and `EYE_AUTHORED`. That is the one rule this whole pass
+ * of the Observer turns on, and the reason the handoff's Part B could not be
+ * cut as drawn: it is THE VEIL's eye written in absolute fine pixels, and the
+ * game's sockets run from hw 16 to hw 150. The outline's own weight goes
+ * through it as well — a game pixel was only ever the thinnest thing classic
+ * had, not the thickness a brow wants — so VORTEX gets a hairline and SUNRISE
+ * gets a brow, off one number.
+ *
+ * The iris and the pupil are Part B's, baked and blitted inside the almond
+ * (SHA-229) — see `hdIrisPix`, which makes the case for why the disc may be
+ * cached when the almond around it may not. The three states are here too
+ * (SHA-230), and between them they spend the fine grid three different ways: a
+ * tear's track takes the resolution and its bead refuses it, THE WRATH's veins
+ * take a weight classic could not write down, and THE LID's socket takes a
+ * dither it had no room for.
+ *
+ * `ctx` is painted raw rather than through a brush — there is nothing left in
+ * here that is drawn in game pixels — and the tones go down as handed:
+ * `EYE_TONES` has already chosen them for the machine.
+ */
+function paintHdEye(ctx: CanvasRenderingContext2D, eye: HdEye): void {
+  const { socket, open, target, tones, tint, demade, weeping, veined, hollow } = eye;
+  const { x: cx, y: cy, hw, hh } = socket;
+  const { irisRadius: irisScale, pupilRadius: pupilScale } = gameConfig.observer.eye;
+
+  const cxFine = Math.round(cx * FINE);
+  const cyFine = Math.round(cy * FINE);
+  const hwFine = Math.round(hw * FINE);
+  const hhFine = Math.round(hh * FINE);
+  const lidFine = almondLid(hhFine, open);
+  const irisRadius = Math.round(hhFine * irisScale);
+  const pupilRadius = Math.round(hhFine * pupilScale);
+  // Off the same function THE IRIS's gaze fires out of, in the game pixels that
+  // function answers in: the beam and the pupil can never be a pixel apart, and
+  // moving the pupil onto the fine grid would move one without the other. The
+  // look tracks in game pixels; what is drawn around it does not. See
+  // `eyePupilPoint`, and SHA-236 for the beam.
+  const look = eyePupilPoint(socket, open, target);
+  const irisX = Math.round(look.x * FINE);
+  const irisY = Math.round(look.y * FINE);
+
+  // The outline's weight, and the unit the rest of the almond's insets are
+  // measured in — one game pixel of it at THE VEIL, one fine pixel at VORTEX,
+  // four game pixels at SUNRISE.
+  const edge = eyeFeature(1, EYE_AUTHORED.hh, hhFine);
+
+  const fill = (x: number, y: number, width: number, height: number, tone: string): void => {
+    ctx.fillStyle = tone;
+    ctx.fillRect(x, y, width, height);
+  };
+
+  // The white, on its own pass. The iris goes over it and the lid over both, so
+  // the three cannot be woven into one loop the way classic weaves them: a
+  // baked disc arrives whole, and the outline has to land on top of it.
+  for (let dy = -lidFine; dy <= lidFine; dy += 1) {
+    const half = almondHalf(hwFine, lidFine, dy);
+    if (half <= 0) {
+      continue;
+    }
+    const y = cyFine + dy;
+    // The upper third is the shaded one: light falls from above, so the part of
+    // the white under the brow is the part in shadow.
+    fill(
+      cxFine - half,
+      y,
+      half * 2,
+      1,
+      hollow ? tones.hollow : dy < -lidFine * 0.55 ? tones.scleraShade : tones.sclera,
+    );
+  }
+
+  /**
+   * THE LID's waking, given its depth back (SHA-230): nested almonds of the
+   * deepest tone the eye owns, each laid at a heavier coverage than the one
+   * outside it. See `EYE_HOLLOW` for why they are almonds and not Part B's
+   * disc, and why none of them is ever solid.
+   *
+   * The dither is the *pupil's* tone because that is the deepest thing an eye
+   * has, and because of what the state is: the pupil walked out of this socket,
+   * and what it left behind is its own colour thinning toward the rim. On a
+   * tint whose hollow already is that tone there is nothing deeper to reach for
+   * and the socket stays the flat fill it ships today, which is the honest
+   * answer — a hole cannot be darker than the darkest tone on the field.
+   *
+   * One pattern fill a row, aligned to the canvas rather than to the almond,
+   * which is what makes the bands interlock: at 0.5 the dither lands on every
+   * pixel it landed on at 0.25 and as many again, so three bands read as one
+   * field deepening rather than as three rings.
+   */
+  if (hollow) {
+    for (const [covers, coverage] of EYE_HOLLOW) {
+      const pattern = ditherPattern(ctx, tones.pupil, coverage);
+      if (pattern === null) {
+        continue;
+      }
+      ctx.fillStyle = pattern;
+      const bandLid = Math.round(lidFine * covers);
+      const bandHw = Math.round(hwFine * covers);
+      for (let dy = -bandLid; dy <= bandLid; dy += 1) {
+        const half = almondHalf(bandHw, bandLid, dy);
+        if (half > 0) {
+          ctx.fillRect(cxFine - half, cyFine + dy, half * 2, 1);
+        }
+      }
+    }
+  }
+
+  if (!hollow) {
+    /**
+     * A baked disc laid inside the almond, row by row.
+     *
+     * **The shipped bound is kept and the clip is still needed.** `reachX` and
+     * `reachY` hold the iris's *centre* where the whole disc fits between the
+     * lids, which is what stops a 42 x 15 socket reading as a lump with the
+     * pupil jammed against its bottom edge — but the almond is a parabola and
+     * not a rectangle, so a disc pushed to the far corner still overhangs the
+     * curve. Part B builds a canvas clip path out of the rows; this walks them,
+     * which is the same clip in arithmetic the painter is already doing and
+     * leaves no path to rasterise every frame.
+     *
+     * Rows with the same span go down as one blit. In the middle of a socket
+     * wider than its iris that is every row at once, so SUNRISE's 290-row disc
+     * costs a couple of dozen calls rather than 290.
+     */
+    const inside = (image: HTMLCanvasElement, left: number, top: number): void => {
+      let from = -1;
+      let spanA = 0;
+      let spanB = 0;
+      const flush = (y: number): void => {
+        if (from < 0) {
+          return;
+        }
+        const width = spanB - spanA;
+        const height = y - from;
+        ctx.drawImage(image, spanA - left, from - top, width, height, spanA, from, width, height);
+        from = -1;
+      };
+      for (let row = 0; row < image.height; row += 1) {
+        const y = top + row;
+        const dy = y - cyFine;
+        const half = Math.abs(dy) > lidFine - edge ? 0 : almondHalf(hwFine, lidFine, dy) - edge;
+        const a = Math.max(left, cxFine - half);
+        const b = Math.min(left + image.width, cxFine + half);
+        if (half <= 0 || b <= a) {
+          flush(y);
+          continue;
+        }
+        if (from < 0) {
+          from = y;
+          spanA = a;
+          spanB = b;
+        } else if (a !== spanA || b !== spanB) {
+          flush(y);
+          from = y;
+          spanA = a;
+          spanB = b;
+        }
+      }
+      flush(top + image.height);
+    };
+
+    const iris = hdIris(tint, { body: tones.iris, edge: tones.irisEdge, inner: tones.irisInner }, irisRadius);
+    inside(iris, irisX - irisRadius - 1, irisY - irisRadius - 1);
+    // Only on an open eye: a glint is a reflection off a wet surface, and a lid
+    // halfway down has covered the part of it that would catch the light.
+    const pupil = hdPupil(tint, { pupil: tones.pupil, glint: tones.glint }, tones.irisInner, pupilRadius, open > 0.5);
+    inside(pupil, irisX - pupilRadius - 1, irisY - pupilRadius - 1);
+  }
+
+  let previous = 0;
+  let previousY = cyFine - lidFine;
+  for (let dy = -lidFine; dy <= lidFine; dy += 1) {
+    const half = almondHalf(hwFine, lidFine, dy);
+    if (half <= 0) {
+      // The tip: nothing of this row is inside the eye, but the row before it
+      // still owes an edge, which the step below the loop lays down.
+      continue;
+    }
+    const y = cyFine + dy;
+    // The edge: the step between this row and the one before it, painted on
+    // whichever of the two is the wider, and grown inward to the weight the
+    // socket asks for. Classic paints one row of it because one row is all it
+    // has; here the band lies along the curve and into the white, so a brow on
+    // a 300 px eye is a brow rather than a thread laid over it.
+    const band = dy <= 0 ? tones.lash : tones.rim;
+    const step = Math.max(1, Math.abs(half - previous));
+    const wide = Math.max(half, previous);
+    const stepY = half >= previous ? y : previousY;
+    const run = Math.min(Math.max(step, edge), wide);
+    const top = dy <= 0 ? stepY : stepY - edge + 1;
+    fill(cxFine - wide, top, run, edge, band);
+    fill(cxFine + wide - run, top, run, edge, band);
+    // Past the corners the row is no wider than the outline is thick on both
+    // sides, so it is all edge and no white.
+    if (half <= 2 * edge) {
+      fill(cxFine - half, y, half * 2, 1, band);
+    }
+    previous = half;
+    previousY = y;
+  }
+  // The bottom tip. The scan stops at the last row with any width in it, and
+  // that row is the lid: below it the parabola has closed and there is nothing
+  // to draw on.
+  if (previous > 0) {
+    fill(cxFine - previous, previousY - edge + 1, previous * 2, edge, tones.rim);
+  }
+
+  /**
+   * THE WRATH's veins (SHA-230), on the fine grid and at a fine grid's weight.
+   *
+   * **The shipped table over Part B's four lines**, which is the one place this
+   * step departs from the handoff. Part B fans four two-pixel veins from the
+   * corners to the iris, and its endpoints are absolute offsets off a 42 x 15
+   * socket — `cx - hw + 5`, `iy - 5` — on an eye that is 84 x 30 here. That is
+   * precisely the transcription this whole pass exists to refuse. The shipped
+   * six are already fractions, they already lean inward so none crosses another,
+   * and they are already clipped per pixel because the iris moves; every one of
+   * those arguments is still true on a grid three times finer.
+   *
+   * What Part B is right about is the *weight*, and that is what comes across:
+   * two fine pixels instead of a whole game pixel. Thinner than classic can
+   * draw is what makes a vein a vein rather than a scratch on the white.
+   */
+  if (veined && !hollow) {
+    drawEyeVeins(
+      fill,
+      { x: cxFine, y: cyFine, hw: hwFine, hh: hhFine },
+      lidFine,
+      { x: irisX, y: irisY, radius: irisRadius },
+      tones.vein,
+      {
+        inset: edge * 2,
+        clearance: edge,
+        weight: eyeFeature(EYE_VEIN_WEIGHT, EYE_AUTHORED.hh * FINE, hhFine),
+        unit: FINE,
+      },
+    );
+  }
+
+  /**
+   * THE TEAR's tracks and its bead (SHA-230).
+   *
+   * **One fine pixel of track, and a whole game pixel of bead** — see
+   * `EYE_TEAR`. The two are not the same kind of mark: the track is water on a
+   * face and wants to be thinner than the coarse grid can go, while the bead is
+   * the drop, and the drop is the thing a player has to find and burst. Width is
+   * the message for one and resolution is the message for the other, on the same
+   * six pixels of drawing.
+   *
+   * Where they hang and how far they fall are fractions of the socket like
+   * everything else: THE TEAR's eye is 62 x 23, half again THE VEIL's, and a
+   * track pinned at seven game pixels off the pupil would run down the middle of
+   * it instead of out of its corner.
+   */
+  if (weeping) {
+    const track = demade ? tones.rim : canvasPalette.tearTrack;
+    const top = cyFine + lidFine + 1;
+    const left = irisX - eyeFeature(EYE_TEAR.left, EYE_AUTHORED.hw, hwFine);
+    const fall = eyeFeature(EYE_TEAR.fall, EYE_AUTHORED.hh, hhFine);
+    fill(left, top, 1, fall, track);
+    fill(
+      irisX + eyeFeature(EYE_TEAR.right, EYE_AUTHORED.hw, hwFine),
+      top,
+      1,
+      eyeFeature(EYE_TEAR.short, EYE_AUTHORED.hh, hhFine),
+      track,
+    );
+    // Centred on the thread it is hanging off, which a game pixel laid from the
+    // thread's own left edge would not be.
+    fill(left - Math.floor(FINE / 2), top + fall, FINE, FINE, demade ? tones.lash : canvasPalette.eyeIrisInner);
+  }
+
+  for (const [fraction, rise] of EYE_LASHES) {
+    // Anchored on the brow it grows out of rather than on the socket's top: the
+    // almond's own top at this x, off the same parabola the scan walks.
+    //
+    // **The `rise` is the one number the shipped eye did not fractionalise**,
+    // and it is why SUNRISE's brow has four stubs on it — three and four game
+    // pixels of lash over an eye a hundred and twenty tall. It goes through
+    // `eyeFeature` with everything else here.
+    const browY = cyFine - Math.round(lidFine * Math.sqrt(Math.max(0, 1 - Math.abs(fraction))));
+    const reach = eyeFeature(rise, EYE_AUTHORED.hh, hhFine);
+    const width = eyeFeature(1, EYE_AUTHORED.hw, hwFine);
+    fill(Math.round(cxFine + fraction * hwFine), browY - reach, width, reach, tones.lash);
+  }
+
+  // Two ticks of rim past the corners, so the almond reads as set into
+  // something rather than floating on the field — the handoff's corner tendons,
+  // reached from the other side. Both of its numbers are fractions here.
+  const tick = eyeFeature(3, EYE_AUTHORED.hw, hwFine);
+  fill(cxFine - hwFine - tick, cyFine, tick, edge, tones.rim);
+  fill(cxFine + hwFine, cyFine, tick, edge, tones.rim);
+}
+
 /**
  * One of THE OBSERVER's beasts (SHA-170), at whatever scale it is asked for.
  *
@@ -2337,6 +2782,7 @@ export function drawBeast(
   frameCount: number,
   scale: number,
   demade = false,
+  hd = false,
 ): void {
   const pixel = spriteBrush(ctx, scale, false);
   const form = gameConfig.observer.brood.forms[beast.form];
@@ -2344,8 +2790,14 @@ export function drawBeast(
   const sprite = frames[Math.floor(frameCount / form.frameTicks) % frames.length];
   const rows = BROOD_BITMAPS[sprite];
   const palette = broodPalette(sprite, demade);
-  const x = Math.round(beast.x);
-  const y = Math.round(beast.y + Math.sin(beast.bob) * form.bob);
+  const fine = hd && scale === FINE;
+  // A beast is drawn whole from these two numbers — the body and the shadow
+  // under it — and nothing else reads them, so on the fine grid it may keep
+  // the fraction. The bob is a sine, and a beast rising in thirds of a pixel
+  // rather than whole ones is most of what the fine grid buys this sprite.
+  const bobbed = beast.y + Math.sin(beast.bob) * form.bob;
+  const x = fine ? beast.x : Math.round(beast.x);
+  const y = fine ? bobbed : Math.round(bobbed);
 
   // How much of the strike is left, 1 on the frame it landed. Two steps and not
   // a blend: these are flat sprites with no in-between tone, and a lerp on a
@@ -2357,8 +2809,21 @@ export function drawBeast(
   // The shadow first, under the body: a beast walking the band is a thing in
   // the room rather than a sticker on it, and one dark row is the whole of what
   // says so.
+  //
+  // **Six game pixels by one, on either grid** (SHA-233). It is the other side
+  // of the spider's thread: a thread is silk and goes to the resolution, a
+  // shadow is a shadow and keeps its width. A hairline under a beast would say
+  // the beast was drawn on the floor rather than standing on it.
   pixel(x + Math.round(form.width / 2) - 3, y + form.height + 2, 6, 1, BACKGROUND_COLORS.observer.area.dialRing);
 
+  if (fine) {
+    ctx.drawImage(
+      hdBeastSprite(`brood:${sprite}:${flashOf(flash)}:${demade}`, rows, palette, outline, flashOf(flash), white),
+      Math.round(x * FINE),
+      Math.round(y * FINE),
+    );
+    return;
+  }
   drawBitmap(pixel, rows, palette, x, y, (character) =>
     flash > 0.5 || (flash > 0 && character === outline) ? white : null,
   );
@@ -2411,16 +2876,44 @@ export function drawCreature(
   frameCount: number,
   scale: number,
   demade = false,
+  hd = false,
 ): void {
   const species = SPECIES[creature.kind];
   const pixel = spriteBrush(ctx, scale, false);
-  const rows = species.frames[Math.floor(frameCount / species.frameTicks) % species.frames.length];
+  const frame = Math.floor(frameCount / species.frameTicks) % species.frames.length;
+  const rows = species.frames[frame];
   const palette = demade ? species.demade : species.palette;
+  const fine = hd && scale === FINE;
+  // **A game pixel, on either grid, and it is the decorations that decide
+  // that** (SHA-233). A creature is not one sprite: a frog's legs, a snail's
+  // stalks and a spider's thread are drawn live off `creature.x` by the species
+  // itself, which rounds. Blitting the body to a third of a pixel while its own
+  // legs land on a whole one would take a frog apart at the hip. Beasts and
+  // tears have no such tenants and do keep the fraction.
   const x = Math.round(creature.x);
   const y = Math.round(creature.y);
   const flash = creature.flashTicks / gameConfig.creatures.flashTicks;
   const white = demade ? canvasPalette.demakeInk : canvasPalette.deathFlash;
-  species.decorate?.(pixel, creature, frameCount, demade);
+  // Drawn and not baked: a spider's thread goes down before the spider, and it
+  // is a function of where the ball was rather than of which frame this is.
+  // `unit` is the grid, so a mark that wants to be one pixel of it writes
+  // `1 / unit` and gets a game pixel in classic and a fine one here.
+  species.decorate?.(pixel, creature, frameCount, demade, fine ? FINE : 1);
+  if (fine) {
+    ctx.drawImage(
+      hdBeastSprite(
+        `${species.kind}:${frame}:${flashOf(flash)}:${demade}`,
+        rows,
+        palette,
+        species.outline,
+        flashOf(flash),
+        white,
+      ),
+      x * FINE,
+      y * FINE,
+    );
+    return;
+  }
   drawBitmap(pixel, rows, palette, x, y, (character) =>
     flash > 0.5 || (flash > 0 && character === species.outline) ? white : null,
   );
@@ -2439,10 +2932,21 @@ export function drawTears(
   drops: readonly { x: number; y: number }[],
   scale: number,
   demade = false,
+  hd = false,
 ): void {
   const pixel = spriteBrush(ctx, scale, false);
   const rows = BROOD_BITMAPS.tear;
   const palette = broodPalette("tear", demade);
+  if (hd && scale === FINE) {
+    // A drop falls at a fraction of a pixel a tick and nothing else is drawn
+    // off its position, so it takes the fraction — the one sprite in the
+    // bestiary whose whole job is *where it is and how long you have*.
+    const sprite = hdBeastSprite(`tear:${demade}`, rows, palette, "", FLASH.NONE, "");
+    for (const drop of drops) {
+      ctx.drawImage(sprite, Math.round(drop.x * FINE), Math.round(drop.y * FINE));
+    }
+    return;
+  }
   for (const drop of drops) {
     drawBitmap(pixel, rows, palette, Math.round(drop.x), Math.round(drop.y));
   }
@@ -2468,6 +2972,18 @@ export function drawTears(
  * it through the tube.
  *
  * The twinkle is staggered per star, or six of them would blink as one block.
+ *
+ * **THE HD PASS (SHA-234): the twinkle stops being a switch.** The colour path
+ * swaps a tone and the tube's swaps a *size*, because one ink cannot say
+ * dimmer — and the fine grid lets both do both. An arm that could only arrive
+ * in whole game pixels had two lengths to choose between; in thirds it has
+ * four, so the star breathes rather than blinking. It is SHA-227's LEAP flash
+ * again: a continuous movement was arriving in visible steps because the grid
+ * had no room for the ones in between.
+ *
+ * The arm's *length* takes the thirds and its thickness does not. A star is a
+ * mark with body — a cross of hairlines on a starfield is a speck like all the
+ * other specks, which is the argument the dark star is already drawn to.
  */
 export function drawDiadem(
   ctx: CanvasRenderingContext2D,
@@ -2476,10 +2992,24 @@ export function drawDiadem(
   frameCount: number,
   scale: number,
   demade = false,
+  hd = false,
 ): void {
   const pixel = spriteBrush(ctx, scale, false);
   const { twinkleTicks, twinkleStagger } = gameConfig.observer.diadem;
   const thread = demade ? canvasPalette.demakeInk : BRICK_COLORS.G.dark;
+  const fine = hd && scale === FINE;
+  // A triangle over the twinkle's own period, so the arm swells and settles
+  // rather than snapping between its ends. Rounded to a fine pixel, which is
+  // what makes it four lengths instead of two.
+  const armFine = (index: number, shortest: number, longest: number): number =>
+    twinkleArm(twinkleSwell(frameCount, index, twinkleStagger, twinkleTicks), shortest, longest);
+  // A cross whose arms are measured in fine pixels and whose thickness is a
+  // whole game pixel. `reach` is one arm, so the span is two of them plus the
+  // centre the two arms share.
+  const cross = (x: number, y: number, reach: number, tone: string): void => {
+    pixel(x - reach / FINE, y, (reach * 2 + FINE) / FINE, 1, tone);
+    pixel(x, y - reach / FINE, 1, (reach * 2 + FINE) / FINE, tone);
+  };
   for (let index = 1; index < points.length; index += 1) {
     if (lit[index] && lit[index - 1]) {
       drawPixelLine(pixel, points[index - 1], points[index], thread);
@@ -2506,17 +3036,29 @@ export function drawDiadem(
     }
     if (demade) {
       // And the twinkle becomes a size rather than a colour, so a lit diadem
-      // still shimmers on a machine with one ink.
+      // still shimmers on a machine with one ink. On the fine grid it runs
+      // between the same two lengths through the two it never had.
       const ink = canvasPalette.demakeInk;
-      const arm = bright ? 3 : 2;
-      pixel(x - arm, y, arm * 2 + 1, 1, ink);
-      pixel(x, y - arm, 1, arm * 2 + 1, ink);
+      if (fine) {
+        cross(x, y, armFine(index, 2 * FINE, 3 * FINE), ink);
+      } else {
+        const arm = bright ? 3 : 2;
+        pixel(x - arm, y, arm * 2 + 1, 1, ink);
+        pixel(x, y - arm, 1, arm * 2 + 1, ink);
+      }
       pixel(x - 1, y - 1, 3, 3, ink);
       continue;
     }
     const tone = bright ? canvasPalette.diademTwinkle : canvasPalette.diademStar;
-    pixel(x - 3, y, 7, 1, tone);
-    pixel(x, y - 3, 1, 7, tone);
+    if (fine) {
+      // Never shorter than the star that ships, and two thirds of a pixel
+      // longer at the top of the breath: the colour path gains the size change
+      // it never had without the star ever reading smaller than it does today.
+      cross(x, y, armFine(index, 3 * FINE, 3 * FINE + 2), tone);
+    } else {
+      pixel(x - 3, y, 7, 1, tone);
+      pixel(x, y - 3, 1, 7, tone);
+    }
     pixel(x - 1, y - 1, 3, 3, canvasPalette.diademStar);
     pixel(x, y, 1, 1, canvasPalette.diademCore);
   }
@@ -2535,6 +3077,18 @@ export function drawDiadem(
  * a colour so the tube keeps all three: an untaken plaque is an outline round a
  * recess, the next one blinks, and a taken one is filled solid with its marks
  * knocked out of it.
+ *
+ * **THE HD PASS (SHA-234): the plate is the one thing in this spec that needed
+ * no arithmetic at all.** 20 x 14 game pixels is exactly the handoff's 60 x 42
+ * fine plate, so its chamfer, its states, its lines and its rivets are already
+ * the numbers below. What the fine grid adds is one pixel under each stroke:
+ * a plaque's marks are *cut*, and a groove has a wall that catches the light.
+ * It is the brick's engraved kind mark again (SHA-216), which is the same mark
+ * for the same reason.
+ *
+ * Colour only. A relief is a half tone between the mark and the plate, and a
+ * half tone is the one thing the tube may not show — there the plaque's three
+ * states are already three shapes, which is what they were drawn to be.
  */
 export function drawOculi(
   ctx: CanvasRenderingContext2D,
@@ -2543,8 +3097,10 @@ export function drawOculi(
   frameCount: number,
   scale: number,
   demade = false,
+  hd = false,
 ): void {
   const pixel = spriteBrush(ctx, scale, false);
+  const cut = hd && scale === FINE && !demade;
   const ink = canvasPalette.demakeInk;
   const ground = canvasPalette.demakeGround;
   // A slow pulse on the same clock a trap's glyph blinks to: 22 ticks lit out of
@@ -2591,9 +3147,20 @@ export function drawOculi(
     const markX = x + Math.round((OCULUS_WIDTH - span) / 2);
     for (let stroke = 0; stroke < strokes; stroke += 1) {
       pixel(markX + stroke * 3, y + 4, 1, 6, mark);
+      if (cut) {
+        // One fine pixel along the foot of the stroke, half way between the
+        // mark and the plate it is cut into: the lit wall of the groove. Any
+        // more than a third of a pixel and it stops being a lip and starts
+        // being a second stroke.
+        pixel(markX + stroke * 3, y + 10, 1, 1 / FINE, mix(mark, fill, 0.5));
+      }
     }
   }
 }
+
+// One cell of the gate's march, in game pixels — twelve fine ones, which is
+// how many positions the fine grid has to slide it through.
+const GATE_CELL = 4;
 
 /**
  * The door the third plaque opens: a gap in the top frame, running with light.
@@ -2607,6 +3174,19 @@ export function drawOculi(
  *
  * On the tube the march becomes two rows of ink stepping through ground on the
  * same clock — the movement survives where the three tones cannot.
+ *
+ * **THE HD PASS (SHA-234): the door stops jumping and starts running.** The
+ * cells never move on the coarse grid; what moves is which tone each one wears,
+ * so the march arrives four whole pixels at a time and reads as a flicker with
+ * a direction rather than as something travelling. A cell is four game pixels,
+ * which is twelve fine ones, so on the fine grid the *pattern itself* can slide
+ * a pixel a frame and the cells run through the gap instead of swapping places
+ * in it. Same cells, same three tones, same period — twelve positions where
+ * there were four, and one twelfth of the speed, which is the difference
+ * between a strobe and a light running along a rail.
+ *
+ * The countdown bar under it keeps its game pixel on either grid: it is a
+ * readout, and a hairline readout is one the player has to go looking for.
  */
 export function drawEyeGate(
   ctx: CanvasRenderingContext2D,
@@ -2615,14 +3195,14 @@ export function drawEyeGate(
   frameCount: number,
   scale: number,
   demade = false,
+  hd = false,
 ): void {
   const pixel = spriteBrush(ctx, scale, false);
   const width = gap.right - gap.left;
+  const fine = hd && scale === FINE;
   const step = frameCount % 12;
-  pixel(gap.left, 0, width, 3, demade ? canvasPalette.demakeGround : canvasPalette.eyePupil);
-  for (let offset = 0; offset < width; offset += 4) {
-    const phase = (offset / 4 + step) % 3;
-    const tone = demade
+  const toneAt = (phase: number): string =>
+    demade
       ? phase === 0
         ? canvasPalette.demakeInk
         : canvasPalette.demakeGround
@@ -2631,7 +3211,24 @@ export function drawEyeGate(
         : phase === 1
           ? BRICK_COLORS["2"].flat
           : BRICK_COLORS["1"].flat;
-    pixel(gap.left + offset, 0, Math.min(4, width - offset), 3, tone);
+  pixel(gap.left, 0, width, 3, demade ? canvasPalette.demakeGround : canvasPalette.eyePupil);
+  if (fine) {
+    // One period of cells started off the left of the gap, so the march is
+    // already running when it arrives rather than appearing at the jamb.
+    const period = GATE_CELL * 3;
+    const slide = gateSlide(frameCount, GATE_CELL);
+    let cell = 0;
+    for (let at = slide - period; at < width; at += GATE_CELL, cell += 1) {
+      const left = Math.max(0, at);
+      const right = Math.min(width, at + GATE_CELL);
+      if (right > left) {
+        pixel(gap.left + left, 0, right - left, 3, toneAt(cell % 3));
+      }
+    }
+  } else {
+    for (let offset = 0; offset < width; offset += GATE_CELL) {
+      pixel(gap.left + offset, 0, Math.min(GATE_CELL, width - offset), 3, toneAt((offset / GATE_CELL + step) % 3));
+    }
   }
   // The jambs: two pixels of gold down each side of the cut, so the gap has an
   // edge the eye can find against the frame it was cut out of.
@@ -2664,38 +3261,91 @@ export function drawEyeGate(
  * after it. So this takes the six numbers both objects have rather than either
  * class — and neither of them had to learn about the other to be drawn.
  */
-export function drawPupil(ctx: CanvasRenderingContext2D, inside: PupilView, scale: number, demade = false): void {
-  const pixel = spriteBrush(ctx, scale, false);
+export function drawPupil(
+  ctx: CanvasRenderingContext2D,
+  inside: PupilView,
+  scale: number,
+  demade = false,
+  hd = false,
+): void {
+  // THE HD PASS (SHA-236): the same six numbers, drawn on the finer grid. The
+  // glint becomes the almond's own (SHA-229) rather than a second recipe for
+  // the same highlight — it is the same object off its leash, so it gets the
+  // same face.
+  const fine = hd && scale === FINE;
+  const unit = fine ? FINE : 1;
+  const pixel = spriteBrush(ctx, fine ? 1 : scale, false);
   const radius = inside.radius;
-  const x = Math.round(inside.x);
-  const y = Math.round(inside.y);
+  const x = Math.round(inside.x) * unit;
+  const y = Math.round(inside.y) * unit;
   const spokes = demade ? canvasPalette.demakeInk : BRICK_COLORS["1"].flat;
+  // A nib a game pixel wide either way. The spokes are limbs and their weight
+  // is the silhouette, so what the fine grid buys them is not a thinner arm —
+  // it is a diagonal that steps a third of a pixel at a time instead of a whole
+  // one, which is the difference between an arm and a flight of stairs.
+  const nib = (nx: number, ny: number, nw: number, nh: number, tone: string): void => {
+    pixel(nx, ny, nw * unit, nh * unit, tone);
+  };
   for (let index = 0; index < 6; index += 1) {
     const angle = (index * Math.PI) / 3 + inside.spin * 0.5;
     drawPixelLine(
-      pixel,
-      [Math.round(x + Math.cos(angle) * (radius + 2)), Math.round(y + Math.sin(angle) * (radius + 2))],
-      [Math.round(x + Math.cos(angle) * (radius + 16)), Math.round(y + Math.sin(angle) * (radius + 16))],
+      nib,
+      [Math.round(x + Math.cos(angle) * (radius + 2) * unit), Math.round(y + Math.sin(angle) * (radius + 2) * unit)],
+      [Math.round(x + Math.cos(angle) * (radius + 16) * unit), Math.round(y + Math.sin(angle) * (radius + 16) * unit)],
       spokes,
     );
   }
-  drawDisc(pixel, x, y, radius + 1, demade ? canvasPalette.demakeInk : BRICK_COLORS["1"].dark);
-  drawDisc(pixel, x, y, radius, demade ? canvasPalette.demakeGround : canvasPalette.eyePupil);
-  const glint = demade ? canvasPalette.demakeInk : canvasPalette.deathFlash;
-  pixel(x - 6, y - 7, 3, 3, glint);
-  pixel(x - 3, y - 4, 1, 1, glint);
+  drawDisc(pixel, x, y, (radius + 1) * unit, demade ? canvasPalette.demakeInk : BRICK_COLORS["1"].dark);
+  if (fine) {
+    // The almond's pupil, baked: a round body and Part B's two round glints,
+    // off the recipe step 2 already checks. Two sprites in the cache, because
+    // both pupils are the same fifteen-pixel radius and the tube is the only
+    // other axis.
+    const body = demade ? canvasPalette.demakeGround : canvasPalette.eyePupil;
+    const spark = demade ? canvasPalette.demakeInk : canvasPalette.deathFlash;
+    const sprite = hdPupil(demade ? "mono" : "loose", { pupil: body, glint: spark }, body, radius * unit, true);
+    ctx.drawImage(sprite, x - radius * unit - 1, y - radius * unit - 1);
+  } else {
+    drawDisc(pixel, x, y, radius, demade ? canvasPalette.demakeGround : canvasPalette.eyePupil);
+    const glint = demade ? canvasPalette.demakeInk : canvasPalette.deathFlash;
+    pixel(x - 6, y - 7, 3, 3, glint);
+    pixel(x - 3, y - 4, 1, 1, glint);
+  }
   if (inside.flashTicks > 0) {
-    drawRing(pixel, x, y, radius + 3, demade ? canvasPalette.demakeInk : canvasPalette.deathFlash);
-    drawRing(pixel, x, y, radius + 5, demade ? canvasPalette.demakeGround : BRICK_COLORS.G.light);
+    // A hit's confirmation, and it has six ticks to be seen in — so the rings
+    // keep a game pixel of weight and spend the fine grid on their edges
+    // instead, the way the chamber's limbus does (SHA-235).
+    for (let step = 0; step < unit; step += 1) {
+      drawRing(pixel, x, y, (radius + 3) * unit + step, demade ? canvasPalette.demakeInk : canvasPalette.deathFlash);
+      drawRing(pixel, x, y, (radius + 5) * unit + step, demade ? canvasPalette.demakeGround : BRICK_COLORS.G.light);
+    }
   }
   // The health bar, and **its track has to be visible or the bar is not a bar**.
   // It used to be drawn in the pupil's own black, which reads on the iris's lit
   // interior and vanishes on the chamber's dark field — so THE LID's fight, the
   // one with twenty-four hits in it, was the one where the player could not see
   // how much was left. The oculi's recess is the tone that carries on both.
-  const barWidth = Math.round(radius * 2 * inside.health);
-  pixel(x - radius, y + radius + 4, radius * 2, 3, demade ? canvasPalette.demakeGround : canvasPalette.oculusRecess);
-  pixel(x - radius, y + radius + 4, barWidth, 3, demade ? canvasPalette.demakeInk : BRICK_COLORS["1"].flat);
+  //
+  // **Its length goes fine, where the gate's countdown bar kept its game
+  // pixel** (SHA-234/236). The two look alike and are read for opposite
+  // things. A countdown is read as a level, always falling, and quantising it
+  // costs nothing because the next frame moves it anyway. This one is read as
+  // an *event* — did that hit land — and an event the bar does not answer is
+  // an event the player has been told did not happen.
+  //
+  // It is not lying today: thirty game pixels over the deepest fight's
+  // twenty-six hits moves the bar by one pixel or by two, every time. But one
+  // or two for two identical hits is damage that does not read evenly, and the
+  // margin is five hits — the first stall is at thirty-one, and a veil is
+  // worth three. Two more veils, or one pass at `hitsPerVeil`, and the bar
+  // starts answering a hit by not moving. Ninety fine pixels put that cliff at
+  // ninety-one and even out the steps on the way, so `check:pix` holds the
+  // margin rather than the comfort.
+  const track = radius * 2 * unit;
+  const barWidth = Math.round(radius * 2 * inside.health * unit);
+  const top = y + (radius + 4) * unit;
+  pixel(x - radius * unit, top, track, 3 * unit, demade ? canvasPalette.demakeGround : canvasPalette.oculusRecess);
+  pixel(x - radius * unit, top, barWidth, 3 * unit, demade ? canvasPalette.demakeInk : BRICK_COLORS["1"].flat);
 }
 
 /** What `drawPupil` needs, which is all either pupil has in common. */
@@ -2799,13 +3449,21 @@ export function drawGaze(
   frameCount: number,
   scale: number,
   demade = false,
+  hd = false,
 ): void {
   if (phase === "idle") {
     return;
   }
-  const pixel = spriteBrush(ctx, scale, false);
-  const x = Math.round(source.x);
-  const y = Math.round(source.y);
+  // THE HD PASS (SHA-236). Both of this function's readings are clocks, and the
+  // fine grid is what lets either of them run: the ring closes onto the pupil a
+  // third of a pixel at a time instead of a whole one, and the hatching inside
+  // the beam travels instead of flickering between two places. Neither is a
+  // bigger drawing — `beamWidth` is the hitbox and it does not move.
+  const fine = hd && scale === FINE;
+  const unit = fine ? FINE : 1;
+  const pixel = spriteBrush(ctx, fine ? 1 : scale, false);
+  const x = Math.round(source.x) * unit;
+  const y = Math.round(source.y) * unit;
   if (phase === "charge") {
     // Two rings a frame apart in the pulse, growing with the count: the gap
     // between them is what reads as a charge tightening rather than a light
@@ -2818,16 +3476,22 @@ export function drawGaze(
       : beat
         ? canvasPalette.deathFlash
         : canvasPalette.chainSheen;
-    drawRing(pixel, x, y, Math.round(radii.outer - (radii.outer - radii.inner) * progress), tone);
+    // `drawRing` scans whatever grid it is handed, so a fine centre and a fine
+    // radius give a ring one fine pixel thick with no second recipe for it.
+    drawRing(pixel, x, y, chargeRadius(radii.inner, radii.outer, progress, unit), tone);
     return;
   }
-  const column = Math.round(beamX);
   const { beamWidth } = gameConfig.observer.gaze;
+  // The beam's own column. It tracks the deck by a fraction of a pixel a tick,
+  // so on the coarse grid it arrives in whole game pixels while the hitbox it
+  // is drawing has already moved — the fine grid puts the picture within a
+  // third of a pixel of what the beam actually catches with.
+  const column = fine ? Math.round(beamX * FINE) : Math.round(beamX);
   const half = Math.floor(beamWidth / 2);
   // How far down the beam has written. Full length after a fifth of the fire,
   // so the reach is a gesture and not a delay.
   const rail = gameConfig.paddle.y;
-  const reach = Math.round((rail - y) * Math.min(1, progress * 5));
+  const reach = Math.round((rail - Math.round(source.y)) * Math.min(1, progress * 5)) * unit;
   if (reach <= 0) {
     return;
   }
@@ -2839,13 +3503,32 @@ export function drawGaze(
     : flicker
       ? BRICK_COLORS["1"].flat
       : BRICK_COLORS["1"].dark;
-  pixel(column - half, y, beamWidth, reach, body);
-  pixel(column - 1, y, 2, reach, demade ? canvasPalette.demakeInk : BRICK_COLORS.G.light);
-  // Rungs running down the column, offset every other frame: a beam that is
-  // only two tones is a bar, and a beam with something travelling inside it is
-  // a beam.
-  for (let rung = y + (flicker ? 0 : 3); rung < y + reach; rung += 7) {
-    pixel(column - half - 1, rung, beamWidth + 2, 1, demade ? canvasPalette.demakeGround : BRICK_COLORS["1"].light);
+  if (fine && !demade) {
+    // Part B's three nested tones. The widest is `beamWidth` to the fine pixel;
+    // the two inside it are three and a third and one and a third game pixels,
+    // which is the pair of widths this drawing could never be asked for before.
+    // The outer two still pulse on the frame the coarse body pulsed on, so the
+    // beam keeps the energy it had and gains an inside.
+    const nest = flicker
+      ? [BRICK_COLORS["1"].dark, BRICK_COLORS["1"].flat, BRICK_COLORS.G.light]
+      : [BRICK_COLORS["1"].flat, BRICK_COLORS["1"].light, BRICK_COLORS.G.light];
+    for (const [index, width] of BEAM_NEST.entries()) {
+      pixel(column - Math.floor(width / 2), y, width, reach, nest[index]);
+    }
+  } else {
+    // The tube keeps two, because a tube has one ink and a nest of three tones
+    // on a two-tone machine is a nest of two with a lie in the middle.
+    pixel(column - half * unit, y, beamWidth * unit, reach, body);
+    pixel(column - unit, y, 2 * unit, reach, demade ? canvasPalette.demakeInk : BRICK_COLORS.G.light);
+  }
+  // Rungs running down the column: a beam that is only two tones is a bar, and
+  // a beam with something travelling inside it is a beam. On the fine grid they
+  // travel — see `rungSlide`, which is where the coarse pair of stops is.
+  const { rungPitch, rungOverhang } = GAZE_BEAM;
+  const slide = rungSlide(frameCount, unit) * unit;
+  const rungTone = demade ? canvasPalette.demakeGround : BRICK_COLORS["1"].light;
+  for (let rung = y + slide; rung < y + reach; rung += rungPitch * unit) {
+    pixel(column - (half + rungOverhang) * unit, rung, (beamWidth + rungOverhang * 2) * unit, unit, rungTone);
   }
 }
 
@@ -2919,6 +3602,25 @@ const EYE_VEINS: ReadonlyArray<readonly [number, number, number]> = [
 ];
 
 /**
+ * What a vein is made of, on whichever grid it is being drawn on.
+ *
+ * The four numbers classic kept inline, named because the fine grid needs
+ * different ones and because three of them are the same kind of number the
+ * whole HD pass turns on: a weight, an inset and a pitch. `drawEyeVeins` itself
+ * is untouched arithmetic — hand it fine pixels and it answers in fine pixels.
+ */
+interface VeinGrain {
+  /** How far clear of the almond's own outline a vein stops, so it never lands on the rim. */
+  inset: number;
+  /** How far clear of the iris it stops. */
+  clearance: number;
+  /** Its thickness across the run. */
+  weight: number;
+  /** How many of this grid's pixels make one step of the taper's pattern. */
+  unit: number;
+}
+
+/**
  * The veins themselves, walked pixel by pixel and stopped wherever they would
  * leave the white: inside the almond, outside the iris.
  *
@@ -2939,9 +3641,11 @@ function drawEyeVeins(
   lid: number,
   iris: { x: number; y: number; radius: number },
   tone: string,
+  grain: VeinGrain,
 ): void {
   const { x: cx, y: cy, hw } = socket;
-  const reach = Math.max(4, Math.round(hw * 0.55));
+  const { inset, clearance, weight, unit } = grain;
+  const reach = Math.max(4 * unit, Math.round(hw * 0.55));
   for (const [side, start, drift] of EYE_VEINS) {
     let y = cy + lid * start;
     // **The almond's own edge at the row this vein leaves from, not the socket's
@@ -2949,7 +3653,7 @@ function drawEyeVeins(
     // it is already a sixth narrower than `hw`, so a vein hung off `hw` would
     // start in the field outside the white and be clipped away before its first
     // pixel. Four of the six start off-centre, and all six were invisible.
-    const from = Math.round(hw * (1 - start * start)) - 2;
+    const from = Math.round(hw * (1 - start * start)) - inset;
     for (let step = 0; step < reach; step++) {
       const x = Math.round(cx + side * (from - step));
       y += (drift / reach) * lid;
@@ -2957,20 +3661,27 @@ function drawEyeVeins(
       const fromCentre = (py - cy) / lid;
       // The almond's own half-width at this row, pulled in two so a vein never
       // lands on the outline it is supposed to be under.
-      const half = hw * (1 - fromCentre * fromCentre) - 2;
+      const half = hw * (1 - fromCentre * fromCentre) - inset;
       if (Math.abs(x - cx) > half) {
         break;
       }
       const toIrisX = x - iris.x;
       const toIrisY = py - iris.y;
-      if (toIrisX * toIrisX + toIrisY * toIrisY <= (iris.radius + 1) * (iris.radius + 1)) {
+      const clear = iris.radius + clearance;
+      if (toIrisX * toIrisX + toIrisY * toIrisY <= clear * clear) {
         break;
       }
       // Solid at the corner and breaking up toward the iris, which is the only
       // taper a one-pixel line has: there is no half pixel to thin it with, so
       // it thins by being there less of the time.
-      if (step % 4 < Math.max(1, Math.round((1 - step / reach) * 4))) {
-        pixel(x, py, 1, 1, tone);
+      //
+      // **The pattern is read in coarse pixels however finely the vein is
+      // walked** (SHA-230). `step % 4` is a pitch, and a pitch stepped three
+      // times as finely without being closed is the dial's trap from the other
+      // side — the same dashes at a third of their length, which is a dotted
+      // line where a broken one was meant.
+      if (Math.floor(step / unit) % 4 < Math.max(1, Math.round((1 - step / reach) * 4))) {
+        pixel(x, py, 1, weight, tone);
       }
     }
   }
@@ -3472,14 +4183,15 @@ export class CanvasRenderer {
     // THE HD PASS (SHA-221): the theme on the fine grid. The layer is blitted to
     // the same rectangle either way, so all that changes is how much is in it.
     // DEMAKE's twin follows it there (SHA-223) — same painter, same seed, same
-    // threshold, three times the pixels. INSIDE THE EYE's iris stays classic:
-    // it is the Observer's chamber and goes with the rest of it (SHA-225).
+    // threshold, three times the pixels. The iris goes with them (SHA-235): it
+    // is the last surface the field is ever replaced by, and a coarse chamber
+    // behind a fine wall is the mismatch this pass exists to close.
     const hdField = this.fine;
     const layer = chamber
       ? this.demade
         ? this.background.monoImageFor(view.background, view.backgroundVariant, hdField)
         : this.background.imageFor(view.background, view.backgroundVariant, hdField)
-      : this.iris.imageFor(view.observer.level?.tint ?? "blue", this.demade);
+      : this.iris.imageFor(view.observer.level?.tint ?? "blue", this.demade, hdField);
     this.ctx.drawImage(layer, 0, 0, width * SCALE, height * SCALE);
 
     // SNAP's paper goes straight onto the field art, outside both the turn and
@@ -3527,13 +4239,13 @@ export class CanvasRenderer {
       const dial = chartCentre(view.observer.level?.eye);
       const ring = gameConfig.observer.ring.field;
       const tones = dialTonesFor(view.background);
-      drawZodiac(this.ctx, dial.x, dial.y, ring, this.frameCount, SCALE, this.demade, tones);
-      drawChart(this.ctx, dial.x, dial.y, ring, view.chart, this.frameCount, SCALE, this.demade);
+      drawZodiac(this.ctx, dial.x, dial.y, ring, this.frameCount, SCALE, this.demade, tones, this.fine);
+      drawChart(this.ctx, dial.x, dial.y, ring, view.chart, this.frameCount, SCALE, this.demade, false, this.fine);
       this.drawObserverEye(view, EYE_LAYER.BEHIND);
       // The cage closed (SHA-212): on a veil the eye is the dial's centre, and
       // the bars go over it.
       if (view.chart.caged && view.observer.level) {
-        drawChart(this.ctx, dial.x, dial.y, ring, view.chart, this.frameCount, SCALE, this.demade, true);
+        drawChart(this.ctx, dial.x, dial.y, ring, view.chart, this.frameCount, SCALE, this.demade, true, this.fine);
       }
       // The theme's foreground (SHA-188): what stands in front of the room's
       // tenant — the horizon's ground and dunes — over the eye and under the
@@ -3552,7 +4264,7 @@ export class CanvasRenderer {
       // socket, and a star is no more matter than the eye is.
       const stars = view.observer.level?.diadem;
       if (stars) {
-        drawDiadem(this.ctx, stars, view.observer.diadem, this.frameCount, SCALE, this.demade);
+        drawDiadem(this.ctx, stars, view.observer.diadem, this.frameCount, SCALE, this.demade, this.fine);
       }
       // And the gaze over both, because it comes out of the pupil they are
       // drawn around — but still behind the wall, so a beam crossing a standing
@@ -3570,6 +4282,7 @@ export class CanvasRenderer {
         this.frameCount,
         SCALE,
         this.demade,
+        this.fine,
       );
     }
     if (view.shadows.casting) {
@@ -3744,7 +4457,7 @@ export class CanvasRenderer {
     // three of them are the only targets in the game that are not bricks and
     // not on the band.
     if (chamber && view.oculi.live) {
-      drawOculi(this.ctx, view.oculi.taken, view.oculi.next, this.frameCount, SCALE, this.demade);
+      drawOculi(this.ctx, view.oculi.taken, view.oculi.next, this.frameCount, SCALE, this.demade, this.fine);
     }
     // THE BROOD, over the wall and under everything the player is holding.
     //
@@ -3756,28 +4469,28 @@ export class CanvasRenderer {
     if (chamber) {
       for (const beast of view.brood) {
         if (beast.alive) {
-          drawBeast(this.ctx, beast, this.frameCount, SCALE, this.demade);
+          drawBeast(this.ctx, beast, this.frameCount, SCALE, this.demade, this.fine);
         }
       }
       for (const creature of view.creatures) {
         if (creature.alive) {
-          drawCreature(this.ctx, creature, this.frameCount, SCALE, this.demade);
+          drawCreature(this.ctx, creature, this.frameCount, SCALE, this.demade, this.fine);
         }
       }
       // With the brood and over the wall: a tear is out on the field where the
       // ball is, and one falling behind a brick would be one the player could
       // not burst.
-      drawTears(this.ctx, view.tears, SCALE, this.demade);
+      drawTears(this.ctx, view.tears, SCALE, this.demade, this.fine);
       // THE LID's loose pupil, last of the chamber and over everything in it
       // (SHA-176). Over the wall for the brood's reason and then some: it is
       // thirty pixels across, it is what the ball is being aimed at, and the
       // bricks it passes are scenery from the moment it is out.
       if (view.loosePupil) {
-        drawPupil(this.ctx, view.loosePupil, SCALE, this.demade);
+        drawPupil(this.ctx, view.loosePupil, SCALE, this.demade, this.fine);
       }
     } else {
       // The one thing that is in here with you, and the clock it is on.
-      drawPupil(this.ctx, view.inside, SCALE, this.demade);
+      drawPupil(this.ctx, view.inside, SCALE, this.demade, this.fine);
       drawInsideTimer(this.ctx, view.inside.remaining, SCALE, this.demade);
     }
     // Under the balls and inside the shake: a thread is a line between a ball and
@@ -4032,7 +4745,7 @@ export class CanvasRenderer {
     // when the window runs out is the real frame coming back rather than a lid
     // drawn over a hole.
     if (view.oculi.gap) {
-      drawEyeGate(this.ctx, view.oculi.gap, view.oculi.remaining, this.frameCount, SCALE, this.demade);
+      drawEyeGate(this.ctx, view.oculi.gap, view.oculi.remaining, this.frameCount, SCALE, this.demade, this.fine);
     }
     // The sun itself, on the frame and therefore over it: a light source is in
     // front of the cabinet's own woodwork, and it is the one thing this capsule
@@ -4478,6 +5191,14 @@ export class CanvasRenderer {
    * tones to fade through and a grey eye on it would be the one thing on
    * screen that is not the machine's. `clip` is a window: what is outside it
    * is simply not drawn, which is how a sun sits under a horizon.
+   *
+   * **The screen is coarse and the drawing under it is not** (SHA-231). Colour
+   * needed nothing from the pass: `globalAlpha` fades a fine almond exactly as
+   * it faded a coarse one. The tube's path kept its game-pixel cell while
+   * everything the almond is made of went to thirds around it, so what DEMAKE
+   * shows now is a fine eye seen through a coarse grille — which is the right
+   * way round, because the veil belongs to the field the eye is behind rather
+   * than to the eye. See `EYE_HALFTONE`.
    */
   private drawObserverEye(view: RenderView, layer: EyeLayer): void {
     const eye = view.observer;
@@ -4486,18 +5207,13 @@ export class CanvasRenderer {
       return;
     }
     const paint = (ctx: CanvasRenderingContext2D): void => {
-      drawEye(
-        ctx,
-        socket,
-        eye.open,
-        eye.target,
-        view.oculi.gap ? "gold" : eye.tint,
-        SCALE,
-        this.demade,
-        eye.level?.mode === "tear",
-        eye.level?.mode === "wrath",
-        eye.hollow,
-      );
+      drawEye(ctx, socket, eye.open, eye.target, view.oculi.gap ? "gold" : eye.tint, SCALE, {
+        demade: this.demade,
+        weeping: eye.level?.mode === "tear",
+        veined: eye.level?.mode === "wrath",
+        hollow: eye.hollow,
+        hd: this.fine,
+      });
     };
     this.ctx.save();
     const clip = eye.clip;
@@ -4513,8 +5229,14 @@ export class CanvasRenderer {
       this.ctx.globalAlpha = opacity;
       paint(this.ctx);
     } else {
-      // One dot in four under a third, two in four above it: 20 % and 50 % are
-      // two different textures on the tube rather than two greys it cannot show.
+      // One dot in four under a third of opacity, two in four above it: two
+      // textures on the tube rather than two greys it cannot show.
+      //
+      // The sheet is field-sized *in canvas pixels*, which is the fine grid
+      // already — the pass had nothing to resize here. What it does buy is the
+      // identity below: the mask is filled at the sheet's own origin and the
+      // sheet goes down at (0, 0), so every kept cell lands on the same game
+      // pixels it would have landed on had the eye been cut in place.
       const sheet = this.eyeSheet();
       const sheetCtx = sheet.getContext("2d");
       if (!sheetCtx) {
@@ -4525,7 +5247,7 @@ export class CanvasRenderer {
       sheetCtx.clearRect(0, 0, sheet.width, sheet.height);
       paint(sheetCtx);
       sheetCtx.globalCompositeOperation = "destination-in";
-      sheetCtx.fillStyle = this.halftoneMask(opacity < 0.34 ? 1 : 2);
+      sheetCtx.fillStyle = this.halftoneMask(sheetCtx, halftoneKeep(opacity));
       sheetCtx.fillRect(0, 0, sheet.width, sheet.height);
       this.ctx.drawImage(sheet, 0, 0);
     }
@@ -4543,28 +5265,40 @@ export class CanvasRenderer {
   }
 
   /**
-   * A two-by-two game-pixel tile with `keep` of its four cells opaque. Filled
-   * through `destination-in` it keeps that many of the sheet's pixels and
-   * drops the rest — a halftone, in the tube's own grain.
+   * A tile of game-pixel cells with `keep` of them opaque. Filled through
+   * `destination-in` it keeps that fraction of the sheet's pixels and drops
+   * the rest — a halftone, in the tube's own grain.
+   *
+   * **The cell is `SCALE` and not 1** (SHA-231), which is this whole step: the
+   * eye behind it is drawn a fine pixel at a time now, and the temptation is to
+   * cut it at the resolution it was drawn at. A half mask on fine cells is a
+   * checker at a third of the pitch, and near 1:1 that is a grey rather than a
+   * texture. `EYE_HALFTONE` carries the argument.
+   *
+   * Made on the context it will be used on — one sheet, for the life of the
+   * renderer — for the reason `ditherPattern` keys its cache by context.
    */
-  private halftoneMask(keep: 1 | 2): CanvasPattern {
+  private halftoneMask(on: CanvasRenderingContext2D, keep: 1 | 2): CanvasPattern {
     const cached = this.halftoneMasks.get(keep);
     if (cached) {
       return cached;
     }
+    const cell = EYE_HALFTONE.cell * SCALE;
     const tile = document.createElement("canvas");
-    tile.width = 2 * SCALE;
-    tile.height = 2 * SCALE;
+    tile.width = EYE_HALFTONE.cells * cell;
+    tile.height = EYE_HALFTONE.cells * cell;
     const ctx = tile.getContext("2d");
     if (!ctx) {
       throw new Error("2D halftone mask context unavailable");
     }
+    // Down the diagonal: one kept cell is a sparse dot and two are a checker.
+    // Along a row they would be a stripe, and a stripe gives the veil a
+    // direction that nothing in the picture behind it has.
     ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, SCALE, SCALE);
-    if (keep === 2) {
-      ctx.fillRect(SCALE, SCALE, SCALE, SCALE);
+    for (let i = 0; i < keep; i++) {
+      ctx.fillRect(i * cell, i * cell, cell, cell);
     }
-    const pattern = this.mainCtx.createPattern(tile, "repeat");
+    const pattern = on.createPattern(tile, "repeat");
     if (!pattern) {
       throw new Error("halftone mask unavailable");
     }

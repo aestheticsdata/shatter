@@ -62,6 +62,104 @@
 //      its diameter and its first row is not; BANANA's peel is `pillRows`; and
 //      CRITTER's grub is exactly three times its own bitmap with its jaw, eye
 //      and belly still on it, at the end it is walking toward.
+//  16. THE OBSERVER's almond holds at the sockets that bracket the game's
+//      fourteen. Every feature of it is a fraction of the socket with a floor
+//      of one fine pixel, so the check is that the fractions come back as the
+//      classic drawing exactly at THE VEIL — the 42 x 15 socket those numbers
+//      were authored on — that none of them falls under a fine pixel at VORTEX,
+//      which is hw 16, and that the ones the classic eye left absolute have
+//      actually grown by SUNRISE, which is hw 150. This is the whole of why the
+//      handoff's Part B could not be cut as drawn, so it is pinned rather than
+//      left to a screenshot of one veil. Part B's iris and pupil ride on the
+//      same rule, against THE VEIL's own discs rather than its socket, so those
+//      two denominators are pinned to `observer.eye` as well.
+//  17. THE OBSERVER's three states hold on the levels that actually carry them,
+//      and each of the three spends the fine grid differently. THE TEAR's
+//      tracks take the resolution — one fine pixel, thinner than the coarse
+//      grid can draw — while the bead at the end keeps its whole game pixel,
+//      because it is the thing a player has to find and burst. THE WRATH's
+//      veins take a weight classic could not write down: two thirds of a game
+//      pixel at THE VEIL, and more than a whole one on the 84 x 30 socket that
+//      rages, which is the number the coarse grid had to round away. THE LID's
+//      emptied socket takes a dither it had no room for, in nested almonds that
+//      deepen inward, none of them solid and none of them reaching the rim.
+//      Read off `LEVELS`, because none of the three states happens on the
+//      socket the drawing was authored on.
+//  18. A placed eye under full opacity survives the screen DEMAKE fades it
+//      behind. The halftone's cell stayed a game pixel while the almond under
+//      it went to thirds, so the screen is now three times coarser than the
+//      thing it is cutting and can erase a mark rather than thin it: at one
+//      dot in four the dropped columns run a whole cell wide, and anything
+//      narrower than that can fall in the gap and be gone. Nothing in a
+//      screenshot says which eye is missing on purpose. The rule is three
+//      facts apart — a socket's size, its opacity and the floor of one fine
+//      pixel — so it is pinned off `LEVELS` here instead of being trusted.
+//  19. THE ZODIAC DIAL rules as a line on the fine grid and keeps its dash.
+//      One dot per pixel of circumference lands two neighbours two pixels
+//      apart wherever the rounding ties, and classic gets away with that
+//      because its pen is three device pixels wide and covers the skip. A
+//      hairline does not, so the circles are checked comparatively and in
+//      device pixels: ruled three times as finely, none of them may leave a
+//      wider hole than the block ring it replaces. The dash is the other
+//      trap. It is a pitch measured along the circumference, and stepping the
+//      circumference three times finer without taking both halves of the dash
+//      with it leaves every graduation a third of its length on screen. This
+//      is the one place in the pass that refuses `finePitch`, so the duty and
+//      the run are pinned against classic's rather than against a formula.
+//  20. THE BESTIARY bakes to the silhouette it was authored as. The strike
+//      flash is the risk: classic paints it with an `override` keyed on the
+//      source character, and after `scale3x` there are no source characters
+//      left, so it becomes a palette instead — and a palette that gained an
+//      entry for `.` would white the creature's *hole* as well as its body and
+//      hand back a rectangle. So a whited sprite has to cover exactly the
+//      pixels the plain one does, and the outline flash exactly the outline's.
+//      Then the boss question the spec says to watch: a boss is its species
+//      grown, and on a doubled bitmap every cell is a 2 x 2 block, so Scale3x
+//      can end up spending its rounding on the doubling's own corners rather
+//      than on the authored silhouette's — a boss that comes out softer than
+//      its species instead of bigger came from there. And the frog's legs,
+//      which are a bitmap drawn live rather than baked and have to be rounded
+//      by the same algorithm or the creature is smooth above the hip.
+//  21. THE VEIL's furniture gains time rather than size. The plaques are the
+//      one place in this pass with no arithmetic to do — 20 x 14 game pixels
+//      is already the handoff's 60 x 42 fine plate — so what is pinned here
+//      are the two clocks. A star's twinkle had two arm lengths to switch
+//      between and a switch is all a boolean can drive; in fine pixels it has
+//      four, so it has to come back as a breath that rises and falls once per
+//      period, never shorter than the star that ships and never longer than
+//      the roster allows. The gate's march is the opposite complaint: its
+//      cells never move at all on the coarse grid, only their tones, so the
+//      light arrives four pixels at a time. On the fine grid the pattern
+//      slides, and the check is that one cell really does have twelve places
+//      to be inside it rather than one.
+//  22. INSIDE THE EYE is a span walked in the wrong units. The chamber's iris
+//      samples sixty game pixels of fibre sixty times and paints each sample
+//      as a game pixel — a line one pixel wide, and on the fine grid a line
+//      three fine pixels wide, which is a spoke. Thinning the mark is the
+//      obvious half and the one a screenshot shows; the half it hides is that
+//      a fine mark on a coarse walk is sixty dots three apart, a fibre that
+//      has stopped being a line. Pinned as a gap: the largest step between two
+//      consecutive samples, in fine pixels, which is one when the walk is in
+//      the units it will be drawn in and three when it is not.
+//      Then the thing a screenshot could never show — the sclera gains twenty
+//      finer streaks in HD and not one of them may be drawn before the forty
+//      veins that ship, because both arts draw from one seeded generator and
+//      an extra call moves every vein after it. Same seed, same layout, or
+//      `art split` is comparing two pictures instead of two drawings of one.
+//  23. THE GAZE is two clocks and a hitbox, and the last of the pass. The
+//      hatching inside the beam does not travel down it — it alternates
+//      between two places three pixels apart, thirty times a second, which is
+//      a shimmer rather than a current; the fine grid gives its seven-pixel
+//      pitch twenty-one places and one fine pixel a frame. The charge ring is
+//      the diadem's twinkle a third time: a ring closing over three quarters
+//      of a second across a span that, on most of the game's sockets, is two
+//      or three whole pixels wide, so the warning arrives in three jumps.
+//      And the hitbox is the thing that must *not* move — `beamWidth` is what
+//      the beam catches with, so the nest is pinned to it rather than around
+//      it. The pupil's health bar is the one readout in this pass that goes
+//      fine rather than keeping its game pixel, because it is read per hit
+//      and not per frame; what is pinned is the cliff, one hit past the
+//      deepest fight the game can currently deal.
 //
 // Run with: pnpm run check:pix
 import { registerHooks } from "node:module";
@@ -94,6 +192,31 @@ const { canvasPalette, DEMAKE_GROUND_TONES, demakeTone, DROP_COLORS, FRAME_RAILS
   await import("../src/render/palette.ts");
 const { DROP_HEIGHT, DROP_WIDTH } = await import("../src/entities/powerups/DropPool.ts");
 const { hdGravelChipPix, hdMeteorPix, hdPeelPix, hdCritterPix } = await import("../src/render/hdFigures.ts");
+const {
+  EYE_AUTHORED,
+  EYE_HALFTONE,
+  EYE_HOLLOW,
+  EYE_TEAR,
+  EYE_VEIN_WEIGHT,
+  almondHalf,
+  almondLid,
+  eyeFeature,
+  halftoneKeep,
+  hdIrisPix,
+  hdPupilPix,
+} = await import("../src/render/hdEye.ts");
+const { LEVELS } = await import("../src/core/levels/levels.ts");
+const { dialInked, dialSteps, dialUnit, dialWalk } = await import("../src/render/hdDial.ts");
+const { FLASH, flashOf, hdBeastPix } = await import("../src/render/hdBeast.ts");
+const { gateSlide, twinkleArm, twinkleSwell } = await import("../src/render/hdVeil.ts");
+const { scale3xRows } = await import("../src/render/pix.ts");
+const { SPECIES } = await import("../src/entities/creatures/species/index.ts");
+const { paintRows } = await import("../src/entities/creatures/species/frog.ts");
+const { BROOD_BITMAPS, BROOD_OUTLINE, broodPalette } = await import("../src/render/broodSprite.ts");
+const { IRIS_COLORS, paintIris } = await import("../src/render/backgrounds.ts");
+const { INSIDE_IRIS, bleedRadius, fibreAngle, fibreRadius, fibreSteps } = await import("../src/render/hdInside.ts");
+const { BEAM_NEST, GAZE_BEAM, beamNestFits, chargeRadius, chargeSteps, rungSlide } =
+  await import("../src/render/hdGaze.ts");
 
 const failures = [];
 const check = (condition, message) => {
@@ -674,6 +797,23 @@ for (const r of [3, 5.5, 10, 12]) {
     }
   }
 
+  // THE OBSERVER's iris, which reaches the tube through no filter at all:
+  // `EYE_TONES` picks the machine's tones itself, so what this pins is that the
+  // *drawing* survives being handed two of them. Twenty-eight fibres in ink
+  // over a ground body is the picture; twenty-eight fibres in ground over a
+  // ground body is a disc with nothing in it, and nothing else would say so.
+  {
+    const TUBE = { body: GROUND, edge: INK, inner: GROUND };
+    for (const radius of [14, 36, 144]) {
+      const pix = hdIrisPix(TUBE, radius);
+      twoTone(`iris at ${radius}`, pix);
+      check(read(pix, radius + 1, 1) === INK, `the demade iris at ${radius} has no rim`);
+    }
+    const pupil = hdPupilPix({ pupil: INK, glint: GROUND }, GROUND, 15, true);
+    twoTone("pupil", pupil, 0.01);
+    check(read(pupil, 16, 16) === INK, "the demade pupil is not a hole");
+  }
+
   // The frame, which is an authored ramp rather than a blend and so is the one
   // place the palette still has to say the role out loud.
   check(demakeTone(FRAME_RAILS[0]) === GROUND, "the frame's outer contour demakes to ink");
@@ -808,8 +948,1178 @@ for (const r of [3, 5.5, 10, 12]) {
   }
 }
 
+// How many distinct lid heights a blink walks, from shut to wide, on a socket
+// `span` tall with a floor of `floor`.
+function lids(span, floor) {
+  const seen = new Set();
+  for (let step = 0; step <= 1000; step++) {
+    seen.add(Math.max(floor, Math.round(span * (step / 1000))));
+  }
+  return seen.size;
+}
+
+// 16. THE OBSERVER's almond (SHA-228).
+//
+// The three sockets the spec brackets the range with, and the one the classic
+// numbers were written on sits in the middle of them on purpose: VORTEX is the
+// smallest eye in the game, SUNRISE the largest, and everything the recipe
+// draws has to survive both without being authored twice.
+{
+  const sockets = [
+    ["VORTEX", 16, 6],
+    ["THE VEIL", 42, 15],
+    ["SUNRISE", 150, 60],
+  ];
+  // The classic drawing's absolute numbers, by the span each was measured
+  // against: the outline and the lashes' two rises off the half-height, the
+  // corner tick's length and the lash's width off the half-width.
+  const byHeight = [1, 2, 3, 4];
+  const byWidth = [1, 3];
+
+  for (const [name, hw, hh] of sockets) {
+    const hwFine = hw * FINE;
+    const hhFine = hh * FINE;
+    for (const authored of byHeight) {
+      const feature = eyeFeature(authored, EYE_AUTHORED.hh, hhFine);
+      check(feature >= 1, `${name}: a ${authored} px feature of the almond came back ${feature} fine pixels wide`);
+      if (hw === EYE_AUTHORED.hw && hh === EYE_AUTHORED.hh) {
+        check(
+          feature === authored * FINE,
+          `THE VEIL: a ${authored} px feature came back ${feature} fine pixels, want the classic ${authored * FINE}`,
+        );
+      }
+    }
+    for (const authored of byWidth) {
+      const feature = eyeFeature(authored, EYE_AUTHORED.hw, hwFine);
+      check(feature >= 1, `${name}: a ${authored} px feature of the almond came back ${feature} fine pixels wide`);
+    }
+
+    // The parabola closes at both tips and is widest in the middle, which is
+    // what makes an eye an almond rather than a lens.
+    const lidFine = almondLid(hhFine, 1);
+    check(almondHalf(hwFine, lidFine, -lidFine) === 0, `${name}: the almond does not close at its top`);
+    check(almondHalf(hwFine, lidFine, lidFine) === 0, `${name}: the almond does not close at its foot`);
+    check(almondHalf(hwFine, lidFine, 0) === hwFine, `${name}: the almond is not widest at its middle`);
+
+    // **The tread, which is the whole of what the fine grid buys the biggest
+    // curve in the game.** Near the tip the half-width jumps four and five
+    // pixels a row, which is why the outline is painted as steps rather than as
+    // dots. Sampling three times as finely does not make that number smaller:
+    // the jump at the first row off the tip is about `2 * hw / lid` on either
+    // grid, so the *count* is the same and what changes is the size of the
+    // pixel it is counted in. That is the claim — the same tread on a grid
+    // three times finer is a third of the tread on screen — so the test is that
+    // it does not rise, give or take the one pixel the tip's own rounding moves
+    // it by (THE VEIL, THE TEAR).
+    const tread = (span, lid) => {
+      let worst = 0;
+      let previous = 0;
+      for (let dy = -lid; dy <= lid; dy++) {
+        const half = almondHalf(span, lid, dy);
+        worst = Math.max(worst, Math.abs(half - previous));
+        previous = half;
+      }
+      return worst;
+    };
+    const fine = tread(hwFine, lidFine);
+    const classic = tread(hw, Math.max(2, hh));
+    check(
+      fine <= classic + 1,
+      `${name}: the fine almond's tread is ${fine} fine pixels against the classic ${classic} game pixels`,
+    );
+
+    // The lid never shuts to a line, and a blink now walks three times the
+    // heights it did — same fourteen ticks, three times the positions, which is
+    // what the diadem's twinkle and the gate's march get from the same grid.
+    check(almondLid(hhFine, 0) === 2 * FINE, `${name}: a shut lid is not two game pixels of rows`);
+    const fineLids = lids(hhFine, 2 * FINE);
+    const classicLids = lids(hh, 2);
+    check(
+      fineLids > classicLids * 2,
+      `${name}: a blink walks ${fineLids} lids on the fine grid against ${classicLids} on the coarse one`,
+    );
+  }
+
+  // Part B's insets are absolute fine pixels off THE VEIL's own iris and pupil,
+  // so those two discs are denominators here exactly as the socket is. If a
+  // ratio in `observer.eye` moves, every inset below is quietly being measured
+  // against a disc that does not exist any more.
+  {
+    const { irisRadius, pupilRadius } = gameConfig.observer.eye;
+    const iris = Math.round(EYE_AUTHORED.hh * FINE * irisRadius);
+    const pupil = Math.round(EYE_AUTHORED.hh * FINE * pupilRadius);
+    check(EYE_AUTHORED.iris === iris, `EYE_AUTHORED.iris is ${EYE_AUTHORED.iris}, but THE VEIL's iris is ${iris}`);
+    check(EYE_AUTHORED.pupil === pupil, `EYE_AUTHORED.pupil is ${EYE_AUTHORED.pupil}, but THE VEIL's is ${pupil}`);
+  }
+
+  // Part B's iris, at the radii the sockets produce. The rim inset is three
+  // fine pixels on the 36 px disc it was drawn for; what has to hold at the
+  // other end is that VORTEX's 14 px disc keeps one rather than losing it, and
+  // that the fibres are still reaching out of the core at both.
+  {
+    const TONES = { body: "#2d7fe0", edge: "#1d47a8", inner: "#63b0ff" };
+    for (const radius of [14, 36, 144]) {
+      const pix = hdIrisPix(TONES, radius);
+      const side = 2 * radius + 2;
+      check(pix.width === side && pix.height === side, `the iris at ${radius} is ${pix.width}x${pix.height}`);
+      const rim = eyeFeature(3, EYE_AUTHORED.iris, radius);
+      check(rim >= 1, `the iris rim at ${radius} came back ${rim} fine pixels`);
+      // Row zero is the sprite's padding — `disc` at `radius + 1` starts on row
+      // one, which is why Part B blits the thing at `IX - IR - 1`.
+      check(read(pix, radius + 1, 0) === null, `the iris at ${radius} has lost its padding row`);
+      check(read(pix, radius + 1, 1) === TONES.edge, `the iris at ${radius} has no rim at its top`);
+      // A fibre is the highlight tone somewhere out past the core, which is the
+      // one part of this drawing the classic scan could not make at all.
+      let fibres = 0;
+      for (let x = 0; x < side; x++) {
+        for (let y = 0; y < side; y++) {
+          const from = Math.hypot(x + 0.5 - (radius + 1), y + 0.5 - (radius + 1));
+          if (from > radius * 0.6 && from < radius - rim && read(pix, x, y) === TONES.inner) {
+            fibres++;
+          }
+        }
+      }
+      check(fibres > radius / 2, `the iris at ${radius} has ${fibres} fibre pixels past its core`);
+    }
+  }
+
+  // The glint's floor, which is Part B's own `max(1.5, 0.18 * PR)`: the
+  // smallest pupil in the game is twelve fine pixels across and still catches
+  // the light. And that `glinted` off leaves none, since that is the shipped
+  // reading a baked pupil had to be given a key for.
+  {
+    const TONES = { pupil: "#05050f", glint: "#ffffff" };
+    const lit = hdPupilPix(TONES, "#63b0ff", 6, true);
+    const shut = hdPupilPix(TONES, "#63b0ff", 6, false);
+    const glints = (pix) => {
+      let count = 0;
+      for (let x = 0; x < pix.width; x++) {
+        for (let y = 0; y < pix.height; y++) {
+          if (read(pix, x, y) === TONES.glint) {
+            count++;
+          }
+        }
+      }
+      return count;
+    };
+    check(glints(lit) > 0, "the smallest pupil lost its glint to rounding");
+    check(glints(shut) === 0, "a half-shut eye keeps a glint the lid has covered");
+  }
+
+  // The one number the shipped eye did not fractionalise, and the reason
+  // SUNRISE's brow has four stubs on it: three and four game pixels of lash
+  // over an eye a hundred and twenty tall.
+  for (const rise of [3, 4]) {
+    const sunrise = eyeFeature(rise, EYE_AUTHORED.hh, 60 * FINE);
+    check(sunrise > rise * FINE, `SUNRISE's ${rise} px lash came back ${sunrise} fine pixels — still the stub`);
+    const vortex = eyeFeature(rise, EYE_AUTHORED.hh, 6 * FINE);
+    check(vortex >= 1, `VORTEX's ${rise} px lash came back ${vortex} fine pixels`);
+    check(vortex < rise * FINE, `VORTEX's ${rise} px lash did not come down with the socket`);
+  }
+}
+
+// 17. THE OBSERVER's three states (SHA-230).
+//
+// Read off the real levels rather than off a copy of their numbers, because
+// each state exists on exactly one socket and none of the three is the socket
+// the drawing was authored on: THE TEAR is 62 x 23, THE WRATH 84 x 30, THE LID
+// 120 x 27, against THE VEIL's 42 x 15. Half of what this section is for is
+// catching a designer widening one of those three and nothing following.
+{
+  const socketFor = (mode) => {
+    const level = LEVELS.find((entry) => entry.observer?.mode === mode);
+    return level === undefined ? null : level.observer.eye;
+  };
+  const VORTEX = { hw: 16, hh: 6 };
+  const VEIL = { hw: EYE_AUTHORED.hw, hh: EYE_AUTHORED.hh };
+
+  // THE TEAR. Where the tracks hang and how far they fall are fractions of the
+  // socket; only their width is not, and that is the state's whole point.
+  const tear = socketFor("tear");
+  check(tear !== null, "no level weeps any more, so the tear's tracks are unchecked");
+  for (const [name, socket] of [
+    ["VORTEX", VORTEX],
+    ["THE VEIL", VEIL],
+    ["THE TEAR", tear ?? VEIL],
+  ]) {
+    const hwFine = socket.hw * FINE;
+    const hhFine = socket.hh * FINE;
+    const left = eyeFeature(EYE_TEAR.left, EYE_AUTHORED.hw, hwFine);
+    const right = eyeFeature(EYE_TEAR.right, EYE_AUTHORED.hw, hwFine);
+    const fall = eyeFeature(EYE_TEAR.fall, EYE_AUTHORED.hh, hhFine);
+    const short = eyeFeature(EYE_TEAR.short, EYE_AUTHORED.hh, hhFine);
+    for (const [what, value] of [
+      ["left track", left],
+      ["right track", right],
+      ["long fall", fall],
+      ["short fall", short],
+    ]) {
+      check(value >= 1, `${name}: the tear's ${what} came back ${value} fine pixels`);
+    }
+    // The bead is a whole game pixel laid centred on a one-pixel thread, so it
+    // overhangs its track by a fine pixel on each side. Both tracks have to
+    // stay clear of that, or the drop reads as bridging the two.
+    check(
+      left + right > FINE,
+      `${name}: the tear's tracks are ${left + right} fine pixels apart, and the bead is ${FINE} wide`,
+    );
+    check(fall > short, `${name}: the tear's two tracks fall the same distance, so the eye weeps symmetrically`);
+    if (socket === VEIL) {
+      check(
+        left === EYE_TEAR.left * FINE && fall === EYE_TEAR.fall * FINE,
+        `THE VEIL: the tear came back ${left}/${fall}, want the classic ${EYE_TEAR.left * FINE}/${EYE_TEAR.fall * FINE}`,
+      );
+    }
+    if (socket === tear) {
+      // Half again THE VEIL's socket, so a track pinned at seven game pixels
+      // off the pupil would run down the middle of this eye rather than out of
+      // its corner.
+      check(left > EYE_TEAR.left * FINE, `THE TEAR: the track hangs at ${left}, no further out than THE VEIL's`);
+      check(fall > EYE_TEAR.fall * FINE, `THE TEAR: the track falls ${fall}, no further than THE VEIL's`);
+    }
+  }
+
+  // THE WRATH. Part B's two fine pixels is a weight classic cannot write down
+  // at all — two thirds of the only unit it has — and that thinness is what
+  // makes a vein a vein rather than a scratch on the white.
+  const wrath = socketFor("wrath");
+  check(wrath !== null, "no level rages any more, so the veins' weight is unchecked");
+  const veinAt = (hh) => eyeFeature(EYE_VEIN_WEIGHT, EYE_AUTHORED.hh * FINE, hh * FINE);
+  check(
+    veinAt(VEIL.hh) === EYE_VEIN_WEIGHT,
+    `THE VEIL's vein came back ${veinAt(VEIL.hh)}, want Part B's ${EYE_VEIN_WEIGHT}`,
+  );
+  check(veinAt(VEIL.hh) < FINE, "THE VEIL's vein is a whole game pixel, which is the scratch the fine grid was for");
+  check(veinAt(VORTEX.hh) >= 1, `VORTEX's vein came back ${veinAt(VORTEX.hh)} fine pixels`);
+  if (wrath !== null) {
+    // The one classic could not say: THE WRATH's eye is twice THE VEIL's, so
+    // the same *fraction* of a white is wider than the single game pixel the
+    // coarse grid had to round it to.
+    check(
+      veinAt(wrath.hh) > FINE,
+      `THE WRATH's vein came back ${veinAt(wrath.hh)} fine pixels, no more than the game pixel classic draws`,
+    );
+  }
+
+  // THE LID. The bands deepen inward, none of them is ever solid, and every one
+  // of them stays off the outline — a dither that reached the rim would read as
+  // a second lid rather than as the far side of a socket.
+  const lidSocket = socketFor("lid");
+  check(lidSocket !== null, "nothing wakes any more, so the hollow's depth is unchecked");
+  let outer = 1;
+  let laid = 0;
+  for (const [covers, coverage] of EYE_HOLLOW) {
+    check(covers < outer, `the hollow's bands do not shrink inward: ${covers} follows ${outer}`);
+    check(coverage > laid, `the hollow's bands do not deepen inward: ${coverage} follows ${laid}`);
+    check(coverage < 1, `the hollow's ${covers} band is laid solid, which makes the socket an object again`);
+    outer = covers;
+    laid = coverage;
+  }
+  for (const socket of [VORTEX, VEIL, lidSocket ?? VEIL]) {
+    const hwFine = socket.hw * FINE;
+    const lidFine = almondLid(socket.hh * FINE, 1);
+    for (const [covers] of EYE_HOLLOW) {
+      const bandLid = Math.round(lidFine * covers);
+      const bandHw = Math.round(hwFine * covers);
+      check(bandLid >= 1 && bandHw >= 1, `hw ${socket.hw}: the hollow's ${covers} band has no rows in it`);
+      check(
+        almondHalf(bandHw, bandLid, bandLid) <= 0 && almondHalf(bandHw, bandLid, 0) > 0,
+        `hw ${socket.hw}: the hollow's ${covers} band is not an almond — it does not close at its own tip`,
+      );
+      for (let dy = -bandLid; dy <= bandLid; dy++) {
+        const band = almondHalf(bandHw, bandLid, dy);
+        const white = almondHalf(hwFine, lidFine, dy);
+        check(
+          band < white,
+          `hw ${socket.hw}: the hollow's ${covers} band reaches ${band} at row ${dy}, and the almond is ${white}`,
+        );
+      }
+    }
+  }
+}
+
+// 18. The screen a placed eye fades behind on the tube (SHA-231).
+//
+// Colour has nothing to check: `globalAlpha` fades a fine almond exactly as it
+// faded a coarse one. DEMAKE has no alpha, so the eye is cut to a halftone
+// instead — and that cell stayed a game pixel while everything under it went
+// to thirds, which leaves a screen three times coarser than the drawing.
+//
+// Coarser cuts differently. A cell that is the same size as the mark thins it;
+// a cell three times the mark's width takes the mark or leaves it whole, and
+// at one dot in four the dropped columns run a full cell across, so a mark
+// narrower than that can land in the gap and be erased outright. VORTEX is the
+// live example: its outline is one fine pixel, a third of the cell, and the
+// only thing keeping it on screen is that three fifths of opacity puts it on
+// two dots in four, where no column is dropped. Take it down to a fifth and
+// that eye would vanish — a level with no eye rather than a faint one, which
+// is not a bug any screenshot names.
+{
+  const cellFine = EYE_HALFTONE.cell * FINE;
+  const tile = EYE_HALFTONE.cells * cellFine;
+  check(
+    EYE_HALFTONE.cell === 1,
+    `the halftone's cell is ${EYE_HALFTONE.cell} game pixels, and a screen is cut in whole ones`,
+  );
+  check(EYE_HALFTONE.cells >= 2, `a ${EYE_HALFTONE.cells}-cell tile has no dropped cell to make a halftone out of`);
+  check(
+    Number.isInteger(tile),
+    `the halftone's tile is ${tile} fine pixels, so its cells land on fractions of the grid`,
+  );
+
+  // The two textures have to be two. Collapse the coverages and the tube shows
+  // one veil for every opacity in the game, which is the grey again by
+  // another route.
+  const cells = EYE_HALFTONE.cells * EYE_HALFTONE.cells;
+  check(1 / cells < 2 / cells && 2 / cells < 1, `one dot in ${cells} and two are not two different textures`);
+
+  const placed = LEVELS.filter((level) => level.eye !== undefined && (level.eye.opacity ?? 1) < 1);
+  check(placed.length > 0, "no level places a faded eye any more, so the halftone is unchecked");
+  const used = new Set();
+  for (const level of placed) {
+    const eye = level.eye;
+    // Against the spec's own reading — one dot in four under a third, two above
+    // — rather than against `sparse`, which is this code's answer to it. A
+    // threshold moved to a half would put PYRAMID on the sparse texture and
+    // agree with itself all the way down.
+    const keep = halftoneKeep(eye.opacity);
+    check(
+      keep === (eye.opacity < 1 / 3 ? 1 : 2),
+      `${level.name} at ${eye.opacity} opacity keeps ${keep} cells, and the spec says ${eye.opacity < 1 / 3 ? 1 : 2}`,
+    );
+    check(
+      keep >= 1 && keep <= EYE_HALFTONE.cells,
+      `${level.name} keeps ${keep} of ${cells} cells, which is not a halftone`,
+    );
+    used.add(keep);
+
+    // The widest run of columns the screen drops, and the thinnest mark the
+    // almond puts in front of it. A mark has to be wider than the gap to be
+    // guaranteed a kept column whatever phase it lands on.
+    const gap = (EYE_HALFTONE.cells - keep) * cellFine;
+    const edge = eyeFeature(1, EYE_AUTHORED.hh, eye.hh * FINE);
+    check(
+      edge > gap,
+      `${level.name}: the almond's outline is ${edge} fine px and at ${eye.opacity} opacity the screen drops ${gap} in a row, so the eye can be cut away rather than faded`,
+    );
+  }
+
+  // Both textures earn their keep. If every faded eye in the game lands on the
+  // same one, the other is a tile nobody has looked at in a year.
+  check(used.size === 2, `the game's faded eyes use ${used.size} of the tube's two textures`);
+}
+
+// 19. THE ZODIAC DIAL on the fine grid (SHA-232).
+//
+// The dial is the one thing moving on the field before the ball is, and it is
+// drawn rather than baked precisely so that it can be ruled at whatever
+// resolution the field has. Two things have to survive the conversion: the
+// circles have to stay closed rather than becoming strings of beads, and the
+// dashed band has to keep the dash. The first is not a given — one dot per
+// pixel of circumference lands two neighbours two pixels apart wherever the
+// rounding ties, and classic gets away with it only because its pen is three
+// device pixels wide. So the check is comparative and in device pixels: ruling
+// the circle three times as finely must not open a wider hole than the coarse
+// one already has. The second is a pitch, and this pass has shipped a dropped
+// factor in a pitch before (item 13).
+{
+  const { field, title, dashOn, dashOff } = gameConfig.observer.ring;
+
+  check(dialUnit(false, FINE) === 1, "classic rules the dial on something other than the game pixel");
+  check(dialUnit(true, FINE) === FINE, "HD does not rule the dial on the fine grid");
+  check(dialUnit(true, 1) === 1, "the title's dial is drawn at scale 1, where there is no fine grid to rule on");
+  check(
+    dialWalk(1) === 1,
+    "classic's dial no longer walks one step per pixel, which moves pixels the pass is not allowed to move",
+  );
+
+  // A circle, walked the way the renderer walks it, reporting the widest hole
+  // it leaves in device pixels — the gap between two dots, less the pen that
+  // is laid at each of them.
+  const ruled = (radius, unit) => {
+    const steps = dialSteps(radius * unit, dialWalk(unit));
+    const pen = FINE / unit;
+    const dots = [];
+    for (let index = 0; index < steps; index++) {
+      const angle = (index / steps) * Math.PI * 2;
+      dots.push([Math.round(Math.cos(angle) * radius * unit), Math.round(Math.sin(angle) * radius * unit)]);
+    }
+    let jump = 0;
+    let painted = 0;
+    for (let index = 0; index < dots.length; index++) {
+      const [x, y] = dots[index];
+      const [nx, ny] = dots[(index + 1) % dots.length];
+      const step = Math.max(Math.abs(x - nx), Math.abs(y - ny));
+      jump = Math.max(jump, step);
+      if (step > 0) {
+        painted++;
+      }
+    }
+    return { steps, painted, hole: Math.max(0, (jump - 1) * pen) };
+  };
+
+  for (const [name, ring] of [
+    ["the field's", field],
+    ["the title's", title],
+  ]) {
+    for (const [edge, radius] of [
+      ["outer", ring.outer],
+      ["inner", ring.inner],
+    ]) {
+      const coarse = ruled(radius, 1);
+      const fine = ruled(radius, FINE);
+      // The whole of what the finer walk buys: the hairline is closed, which
+      // one step per pixel is not — it ties against its own rounding and skips.
+      check(
+        fine.hole === 0,
+        `${name} ${edge} hairline leaves a ${fine.hole} device px hole, and a ruled circle has no hole in it`,
+      );
+      check(
+        fine.hole <= coarse.hole,
+        `${name} ${edge} circle leaves a ${fine.hole} device px hole ruled fine and ${coarse.hole} ruled coarse, so the hairline is gappier than the block ring it replaces`,
+      );
+      // And it buys it for nothing: the repeats the finer walk makes are
+      // dropped, so the ring costs about the three times the spec asked for.
+      check(
+        fine.painted <= dialSteps(radius) * FINE * 1.2,
+        `${name} ${edge} hairline paints ${fine.painted} dots against ${dialSteps(radius) * FINE} for one per fine pixel, so the finer walk is not free after all`,
+      );
+    }
+    // A tick is a ray, so both its coordinates advance monotonically and it
+    // cannot skip — but it has to reach the outer circle exactly, and stepping
+    // a band of 4 in units of 1 is the kind of arithmetic that stops being
+    // exact the day someone gives the band a fractional width.
+    for (const unit of [1, FINE]) {
+      const to = ring.outer * unit;
+      let reached = ring.inner * unit;
+      let last = null;
+      let jump = 0;
+      for (let radius = ring.inner * unit; radius <= to; radius += 1) {
+        const dot = [Math.round(Math.cos(0.7) * radius), Math.round(Math.sin(0.7) * radius)];
+        if (last) jump = Math.max(jump, Math.abs(dot[0] - last[0]), Math.abs(dot[1] - last[1]));
+        last = dot;
+        reached = radius;
+      }
+      check(jump <= 1, `${name} tick at unit ${unit} breaks by ${jump} px across the band`);
+      check(reached === to, `${name} tick at unit ${unit} stops at ${reached} and the outer circle is at ${to}`);
+    }
+  }
+
+  // The dash, against classic's own rather than against a formula. The duty is
+  // the fraction of the circumference inked; the run is how long one graduation
+  // is *on screen*, and it is the run that a naive conversion loses.
+  // Measured through the stride the renderer actually passes — the grid's unit
+  // times the walk's steps per pixel — and reported in game pixels of arc,
+  // which is the only unit the two grids can be compared in.
+  const stride = (unit) => unit * dialWalk(unit);
+  const duty = (unit) => {
+    const steps = (dashOn + dashOff) * stride(unit) * 4;
+    let inked = 0;
+    for (let index = 0; index < steps; index++) {
+      if (dialInked(index, stride(unit))) {
+        inked++;
+      }
+    }
+    return inked / steps;
+  };
+  // One graduation, in game pixels of arc: how many steps it runs for, over how
+  // many steps make a game pixel.
+  const run = (unit) => {
+    let steps = 0;
+    while (dialInked(steps, stride(unit))) {
+      steps++;
+    }
+    return steps / stride(unit);
+  };
+  check(
+    duty(1) === dashOn / (dashOn + dashOff),
+    `the dial's dash inks ${duty(1)} of the band, and the roster says ${dashOn}/${dashOn + dashOff}`,
+  );
+  check(
+    Math.abs(duty(1) - duty(FINE)) < 1e-9,
+    `the dial's dash inks ${duty(1)} of the band coarse and ${duty(FINE)} fine`,
+  );
+  check(
+    run(FINE) === run(1),
+    `a graduation is ${run(1)} game px of arc coarse and ${run(FINE)} fine, so on the fine grid it is ${(run(FINE) / run(1)).toFixed(2)} of its length on screen`,
+  );
+  check(run(1) === dashOn, `a graduation runs ${run(1)} game px of arc and the roster says ${dashOn}`);
+  // And it really is the refusal it claims to be: take `finePitch`'s trade at
+  // this pitch and the whole period comes out shorter than one graduation,
+  // which is a solid circle with a stipple rather than a graduated band.
+  const traded = finePitch(dashOn + dashOff);
+  check(
+    traded < run(FINE),
+    `finePitch would leave the dial's whole period ${traded.toFixed(2)} game px of arc against a graduation of ${run(FINE)}, so the trade is not the one being refused`,
+  );
+}
+
+// 20. THE BESTIARY on the fine grid (SHA-233).
+//
+// `scale3x` of the ASCII bitmap is the whole recipe and item 8 already pins the
+// algorithm. What is new here is what the bestiary wraps round it: a flash that
+// had to stop being an override and become a palette, a boss that is its
+// species doubled, and a set of decorations that stay drawn while the body
+// bakes. Each of those can fail silently into a picture that still looks like a
+// creature — a rectangle where a spider was, a soft boss, a frog with blocky
+// legs — so none of them is left to a screenshot.
+{
+  // Not `deathFlash`, which is what the game actually strikes with: the frog's
+  // eye whites and the brood's are already `#ffffff`, so a check that looked
+  // for white would find the creature's own highlights and call them the
+  // flash. A sentinel no palette holds is what makes the question answerable,
+  // and it is asserted below rather than assumed.
+  const WHITE = "#fe00fe";
+  const opaque = (pix) => {
+    const marks = [];
+    for (let y = 0; y < pix.height; y++) {
+      for (let x = 0; x < pix.width; x++) {
+        if (read(pix, x, y) !== null) {
+          marks.push(`${x},${y}`);
+        }
+      }
+    }
+    return marks;
+  };
+  const tones = (pix) => new Set(opaque(pix).map((at) => read(pix, ...at.split(",").map(Number))));
+
+  // Every frame of every species, plus the brood's five sprites and the tear.
+  const sprites = [];
+  for (const [kind, species] of Object.entries(SPECIES)) {
+    for (const [index, rows] of species.frames.entries()) {
+      sprites.push([`${kind} frame ${index}`, rows, species.palette, species.outline]);
+    }
+  }
+  for (const [name, rows] of Object.entries(BROOD_BITMAPS)) {
+    sprites.push([`the brood's ${name}`, rows, broodPalette(name, false), BROOD_OUTLINE[name] ?? ""]);
+  }
+  check(sprites.length >= 20, `the bestiary is ${sprites.length} sprites, which is fewer than the roster has`);
+
+  for (const [name, rows, palette, outline] of sprites) {
+    check(
+      !Object.values(palette).includes(WHITE),
+      `${name} is painted in the sentinel this check strikes it with, so the flash cannot be told from the creature`,
+    );
+    const plain = hdBeastPix(rows, palette, outline, FLASH.NONE, WHITE);
+    const whole = hdBeastPix(rows, palette, outline, FLASH.WHOLE, WHITE);
+    const cooled = hdBeastPix(rows, palette, outline, FLASH.OUTLINE, WHITE);
+
+    check(
+      plain.width === rows[0].length * FINE && plain.height === rows.length * FINE,
+      `${name} bakes to ${plain.width}x${plain.height} from a ${rows[0].length}x${rows.length} bitmap`,
+    );
+    const body = opaque(plain);
+    check(body.length > 0, `${name} bakes to nothing at all`);
+    // The flash may not change the silhouette. A palette that whited `.` would
+    // hand back the bounding box, which still reads as a strike for one frame
+    // and as a bug forever after.
+    check(
+      opaque(whole).join(" ") === body.join(" "),
+      `${name} covers ${opaque(whole).length} px struck and ${body.length} px at rest, so the flash is reshaping it`,
+    );
+    check(opaque(cooled).join(" ") === body.join(" "), `${name} changes shape as its strike cools`);
+    const whited = [...tones(whole)];
+    check(
+      whited.length === 1 && whited[0] === WHITE,
+      `${name} struck is ${whited.join(" ")} rather than one white silhouette`,
+    );
+    // And the outline flash is the outline: white where that character is, the
+    // species' own tones everywhere else.
+    if (outline !== "" && palette[outline] !== undefined) {
+      const outlineOnly = hdBeastPix(rows, { [outline]: palette[outline] }, outline, FLASH.NONE, WHITE);
+      const lit = opaque(outlineOnly);
+      let wrong = 0;
+      for (const at of lit) {
+        const [x, y] = at.split(",").map(Number);
+        if (read(cooled, x, y) !== WHITE) {
+          wrong++;
+        }
+      }
+      check(wrong === 0, `${name} leaves ${wrong} px of its outline unlit while the strike cools`);
+      const strayed = body
+        .filter((at) => !lit.includes(at))
+        .filter((at) => {
+          const [x, y] = at.split(",").map(Number);
+          return read(cooled, x, y) === WHITE;
+        });
+      check(strayed.length === 0, `${name} whites ${strayed.length} px that are not its outline`);
+    }
+  }
+
+  // A boss is its species grown. How much of its ink Scale3x has to round is
+  // the number the spec says to watch: more than the species' and the boss has
+  // come out softer rather than bigger, which is what a doubled bitmap's own
+  // 2 x 2 corners do to the algorithm.
+  const rounded = (rows) => {
+    const out = scale3xRows(rows);
+    let ink = 0;
+    let changed = 0;
+    for (let y = 0; y < rows.length; y++) {
+      for (let x = 0; x < rows[y].length; x++) {
+        const centre = rows[y][x];
+        if (centre === ".") {
+          continue;
+        }
+        ink++;
+        for (let cell = 0; cell < 9; cell++) {
+          if (out[y * FINE + Math.floor(cell / FINE)][x * FINE + (cell % FINE)] !== centre) {
+            changed++;
+          }
+        }
+      }
+    }
+    return ink === 0 ? 0 : changed / (ink * 9);
+  };
+  for (const [small, big] of [
+    ["spider", "spiderQueen"],
+    ["moth", "mothMother"],
+    ["frog", "frogKing"],
+    ["snail", "snailElder"],
+  ]) {
+    const species = rounded(SPECIES[small].frames[0]);
+    const boss = rounded(SPECIES[big].frames[0]);
+    check(
+      boss <= species,
+      `${big} rounds ${(boss * 100).toFixed(1)}% of its ink against ${small}'s ${(species * 100).toFixed(1)}%, so the boss is softer than its species rather than bigger`,
+    );
+    check(
+      SPECIES[big].width > SPECIES[small].width && SPECIES[big].height > SPECIES[small].height,
+      `${big} is ${SPECIES[big].width}x${SPECIES[big].height} against ${small}'s ${SPECIES[small].width}x${SPECIES[small].height}`,
+    );
+  }
+
+  // The frog's legs: a bitmap drawn live through the renderer's brush rather
+  // than baked, and rounded by the same algorithm or the frog is smooth above
+  // the hip and blocky below it.
+  const legs = SPECIES.frog.frames[0];
+  for (const unit of [1, FINE]) {
+    const marks = new Set();
+    const brush = (x, y, w, h) => {
+      for (let dx = 0; dx < Math.round(w * unit); dx++) {
+        for (let dy = 0; dy < Math.round(h * unit); dy++) {
+          marks.add(`${Math.round(x * unit) + dx},${Math.round(y * unit) + dy}`);
+        }
+      }
+    };
+    paintRows(brush, legs, 0, 0, "#ffffff", unit);
+    const grid = unit === 1 ? legs : scale3xRows(legs);
+    const want = new Set();
+    for (const [row, line] of grid.entries()) {
+      for (let x = 0; x < line.length; x++) {
+        if (line[x] !== ".") {
+          want.add(`${x},${row}`);
+        }
+      }
+    }
+    const missing = [...want].filter((at) => !marks.has(at)).length;
+    const extra = [...marks].filter((at) => !want.has(at)).length;
+    check(
+      missing === 0 && extra === 0,
+      `paintRows at unit ${unit} misses ${missing} px of the bitmap and paints ${extra} that are not in it`,
+    );
+    check(marks.size > 0, `paintRows at unit ${unit} draws nothing`);
+  }
+
+  // The flash's three steps, read off the same fraction the renderer reads.
+  check(flashOf(0) === FLASH.NONE, "a creature that was not struck is wearing a flash");
+  check(flashOf(1) === FLASH.WHOLE, "the frame a strike lands on is not a white silhouette");
+  check(flashOf(0.75) === FLASH.WHOLE, "the first half of a strike is not the whole silhouette");
+  check(flashOf(0.25) === FLASH.OUTLINE, "the second half of a strike is not the outline alone");
+
+  // The key space, which is the argument for baking these and not the almond.
+  const keys = sprites.length * 3 * 2;
+  check(keys <= 256, `the bestiary would bake ${keys} sprites, which is no longer a small and finite key`);
+}
+
+// 21. THE PLAQUES, THE DIADEM and THE GATE (SHA-234).
+//
+// The plate needs nothing: `OCULUS_WIDTH` x `OCULUS_HEIGHT` is exactly the
+// handoff's fine plate, so its chamfer and its states are already these
+// numbers. What the fine grid buys the other two is not a bigger drawing but a
+// finer clock, and a clock is the kind of thing that looks right in a
+// screenshot however wrong it is — a twinkle stuck at one length and a march
+// running at a twelfth of its intended speed both photograph perfectly.
+{
+  const { twinkleTicks, twinkleStagger } = gameConfig.observer.diadem;
+  const GATE_CELL = 4;
+
+  // The breath. It has to reach both ends, rise and fall exactly once, and be
+  // staggered — six stars at the same phase are one blinking block.
+  const walk = (index) => {
+    const swells = [];
+    for (let frame = 0; frame < twinkleTicks; frame++) {
+      swells.push(twinkleSwell(frame, index, twinkleStagger, twinkleTicks));
+    }
+    return swells;
+  };
+  const first = walk(0);
+  check(
+    Math.min(...first) < 0.05,
+    `the diadem's breath never reaches its trough, bottoming at ${Math.min(...first).toFixed(3)}`,
+  );
+  check(
+    Math.max(...first) > 0.95,
+    `the diadem's breath never reaches its peak, topping at ${Math.max(...first).toFixed(3)}`,
+  );
+  let turns = 0;
+  for (let i = 1; i < first.length - 1; i++) {
+    if ((first[i] - first[i - 1]) * (first[i + 1] - first[i]) < 0) {
+      turns++;
+    }
+  }
+  check(turns === 1, `the diadem's breath turns ${turns} times in a period, and a breath turns once`);
+  check(
+    walk(1)[0] !== first[0] || twinkleStagger === 0,
+    "the diadem's stars are all at the same phase, so six of them blink as one block",
+  );
+
+  // Four lengths where the coarse grid had two, and never shorter than the
+  // star that ships. The colour star is the one that may not lose a pixel:
+  // its shipped arm is three game pixels and the twinkle may only add.
+  for (const [name, shortest, longest, floor] of [
+    ["the tube's star", 2 * FINE, 3 * FINE, 2 * FINE],
+    ["the colour star", 3 * FINE, 3 * FINE + 2, 3 * FINE],
+  ]) {
+    const arms = new Set(first.map((swell) => twinkleArm(swell, shortest, longest)));
+    check(
+      arms.size >= 3,
+      `${name} takes ${arms.size} arm length(s) through a twinkle, which is no more than the two a boolean already gave it`,
+    );
+    check(
+      Math.min(...arms) >= floor,
+      `${name} shrinks to ${Math.min(...arms)} fine px, under the ${floor} it is drawn at`,
+    );
+    check(Math.max(...arms) === longest, `${name} tops out at ${Math.max(...arms)} fine px rather than ${longest}`);
+    // And in game pixels it is still the same star: a twinkle that changed the
+    // star's size by a whole pixel would be a star growing, not twinkling.
+    check(
+      (Math.max(...arms) - Math.min(...arms)) / FINE <= 1,
+      `${name} swings ${((Math.max(...arms) - Math.min(...arms)) / FINE).toFixed(2)} game px through its twinkle, which is a star changing size`,
+    );
+  }
+
+  // The march. One cell has to have `cell * FINE` places to be inside it, the
+  // slide has to cover exactly three cells before it repeats, and it has to
+  // advance one fine pixel a frame — a march that slid a whole cell a frame
+  // would be the coarse one again, drawn the long way round.
+  const period = GATE_CELL * 3;
+  const slides = [];
+  for (let frame = 0; frame < period * FINE; frame++) {
+    slides.push(gateSlide(frame, GATE_CELL));
+  }
+  check(
+    new Set(slides).size === period * FINE,
+    `the gate's march has ${new Set(slides).size} positions in a period of ${period * FINE}`,
+  );
+  // Counted in fine pixels rather than in game ones: a slide of a third comes
+  // back as 0.3333333333333339 as often as not, and a set of those counts
+  // every rounding error as a position.
+  const inCell = new Set(slides.map((at) => Math.round(at * FINE) % (GATE_CELL * FINE)));
+  check(
+    inCell.size === GATE_CELL * FINE,
+    `the gate's march has ${inCell.size} places to be inside one cell, and a cell is ${GATE_CELL * FINE} fine pixels`,
+  );
+  check(gateSlide(period * FINE, GATE_CELL) === gateSlide(0, GATE_CELL), "the gate's march does not close on itself");
+  const steps = new Set(slides.slice(1).map((at, i) => Math.round((at - slides[i]) * FINE)));
+  check(
+    steps.size === 1 && steps.has(1),
+    `the gate's march advances ${[...steps].join("/")} fine px a frame rather than exactly one`,
+  );
+
+  // The plaque's relief, which is a `mix` and nothing else: half way between
+  // the mark and the plate, so it reads as the lit wall of a groove. Equal to
+  // either end and it is either invisible or a second stroke.
+  const mark = BRICK_COLORS["4"].light;
+  const plate = BRICK_COLORS["4"].dark;
+  const relief = mix(mark, plate, 0.5);
+  check(relief !== mark && relief !== plate, `the plaque's relief is ${relief}, which is the mark or the plate itself`);
+}
+
+// ---------------------------------------------------------------------------
+// 22. INSIDE THE EYE on the fine grid (SHA-235).
+//
+// The iris the player stands in was the last field surface still painted in
+// game pixels, and porting it is mostly a matter of handing the painter the
+// other brush. Two things in it are not, and both are invisible in a still.
+//
+// The first is the fibres, which walk a sixty-pixel span in sixty steps. That
+// is one sample per pixel right up until the pixel is a third of the size, at
+// which point the same loop lays sixty dots three fine pixels apart and the
+// iris grows twenty-eight spokes. The second is the generator: the two arts
+// share one seed so that `art split` compares a drawing rather than a layout,
+// which means the twenty streaks the fine grid adds may only be appended —
+// slip one in among the forty veins that ship and every vein after it moves.
+{
+  const { centerX, centerY } = gameConfig.observer.inside;
+  const { area } = IRIS_COLORS.blue;
+  const FIELD = { width: 372, height: 300 };
+
+  // A brush that paints nothing and remembers everything, so the painter can
+  // be asked what it did rather than what it drew. Its generator is the
+  // guard's own and deterministic, which is the point: both arts get the same
+  // numbers, so a vein that lands somewhere else landed there because a call
+  // moved it.
+  const recordingBrush = (hd) => {
+    let state = 0x2545f491;
+    const random = () => {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      return state / 4294967296;
+    };
+    const log = [];
+    const note = (verb, fields) => log.push({ verb, ...fields });
+    return {
+      log,
+      width: FIELD.width,
+      height: FIELD.height,
+      hd,
+      fineWidth: FIELD.width * (hd ? FINE : 1),
+      fineHeight: FIELD.height * (hd ? FINE : 1),
+      rect: (x, y, w, h, color) => note("rect", { x, y, w, h, color }),
+      disc: (x, y, r, color) => note("disc", { x, y, r, color }),
+      discBand: (x, y, r, top, h, color) => note("discBand", { x, y, r, top, h, color }),
+      random() {
+        note("random", {});
+        return random();
+      },
+      randomInt(min, max) {
+        note("randomInt", { min, max });
+        return min + Math.floor(random() * (max - min));
+      },
+      finePixel: (x, y, color) => note("finePixel", { x, y, color }),
+      fineRect: (x, y, w, h, color) => note("fineRect", { x, y, w, h, color }),
+      fineDither: (x, y, w, h, color, t) => note("fineDither", { x, y, w, h, color, t }),
+      fineVgrad: (x, w, stops) => note("fineVgrad", { x, w, stops }),
+      fineRgrad: (x, y, r, tones) => note("fineRgrad", { x, y, r, tones }),
+      fineDisc: (x, y, r, color, t) => note("fineDisc", { x, y, r, color, t }),
+      fineRing: (x, y, r, color) => note("fineRing", { x, y, r, color }),
+      fineDiscBand: (x, y, r, top, h, color) => note("fineDiscBand", { x, y, r, top, h, color }),
+    };
+  };
+
+  const run = (hd, demade) => {
+    const brush = recordingBrush(hd);
+    paintIris(brush, "blue", { x: centerX, y: centerY }, demade);
+    return brush.log;
+  };
+  const coarse = run(false, false);
+  const fine = run(true, false);
+
+  // -- The generator, which is the whole of the "same layout" promise. --
+  const coarseDraws = coarse.filter((call) => call.verb === "randomInt" || call.verb === "random");
+  const fineDraws = fine.filter((call) => call.verb === "randomInt" || call.verb === "random");
+  check(
+    coarseDraws.length === INSIDE_IRIS.veins * 3,
+    `classic takes ${coarseDraws.length} draws from the generator where ${INSIDE_IRIS.veins} veins want ${INSIDE_IRIS.veins * 3}`,
+  );
+  check(
+    fineDraws.length === (INSIDE_IRIS.veins + INSIDE_IRIS.streaks) * 3,
+    `hd takes ${fineDraws.length} draws where ${INSIDE_IRIS.veins} veins and ${INSIDE_IRIS.streaks} streaks want ${(INSIDE_IRIS.veins + INSIDE_IRIS.streaks) * 3}`,
+  );
+  const shared = coarseDraws.findIndex(
+    (call, index) =>
+      fineDraws[index] === undefined ||
+      call.verb !== fineDraws[index].verb ||
+      call.min !== fineDraws[index].min ||
+      call.max !== fineDraws[index].max,
+  );
+  check(
+    shared === -1,
+    `hd's generator diverges from classic's at draw ${shared} — every vein from there on is somewhere else`,
+  );
+
+  // ...and the veins themselves, which is the same promise read off the
+  // picture instead of off the call log.
+  const veins = (log) => log.filter((call) => call.verb === "rect" && call.color === area.vein);
+  const coarseVeins = veins(coarse);
+  const fineVeins = veins(fine);
+  check(
+    coarseVeins.length === INSIDE_IRIS.veins && fineVeins.length === INSIDE_IRIS.veins,
+    `the sclera carries ${coarseVeins.length} veins in classic and ${fineVeins.length} in hd, and the shipped forty are not negotiable`,
+  );
+  const moved = coarseVeins.filter(
+    (vein, index) => vein.x !== fineVeins[index]?.x || vein.y !== fineVeins[index]?.y || vein.w !== fineVeins[index]?.w,
+  ).length;
+  check(moved === 0, `${moved} of the shipped veins land somewhere else in hd`);
+
+  // The twenty are additional, and they are finer than the forty rather than
+  // twenty more of the same: one fine pixel where a vein is three, in a tone
+  // that is neither the vein's nor the sclera's.
+  const streaks = fine.filter((call) => call.verb === "fineRect");
+  check(
+    streaks.length === INSIDE_IRIS.streaks,
+    `hd lays ${streaks.length} streaks over the veins rather than ${INSIDE_IRIS.streaks}`,
+  );
+  check(
+    streaks.every((streak) => streak.h === 1),
+    `a streak is ${streaks.find((streak) => streak.h !== 1)?.h} fine px thick, which is a vein and not a streak`,
+  );
+  check(
+    streaks.every((streak) => streak.color !== area.vein && streak.color !== area.base),
+    "the streaks are painted in the vein's own tone, so they read as veins rather than as tissue under them",
+  );
+  check(
+    coarse.filter((call) => call.verb.startsWith("fine")).length === 0,
+    "the classic path reached for a fine-grid verb",
+  );
+
+  // -- The fibres: the gap between two consecutive samples of one. --
+  const gapOf = (hd) => {
+    const angle = fibreAngle(0);
+    const steps = fibreSteps(hd);
+    let worst = 0;
+    let last = null;
+    for (let step = 0; step < steps; step += 1) {
+      const radius = fibreRadius(step, hd) * FINE;
+      const at = [Math.round(Math.cos(angle) * radius), Math.round(Math.sin(angle) * radius)];
+      if (last) {
+        worst = Math.max(worst, Math.abs(at[0] - last[0]), Math.abs(at[1] - last[1]));
+      }
+      last = at;
+    }
+    return worst;
+  };
+  check(gapOf(true) === 1, `a fine fibre steps ${gapOf(true)} fine px at a time, which is a dotted line`);
+  check(
+    gapOf(false) > gapOf(true),
+    "the coarse walk is already continuous on the fine grid, so there was nothing here to fix",
+  );
+  // Finer, not longer: the span is the shipped one at both resolutions.
+  for (const hd of [false, true]) {
+    const steps = fibreSteps(hd);
+    check(
+      fibreRadius(0, hd) === INSIDE_IRIS.fibreFrom && fibreRadius(steps, hd) === INSIDE_IRIS.fibreTo,
+      `${hd ? "hd" : "classic"} walks the fibres from ${fibreRadius(0, hd)} to ${fibreRadius(steps, hd)} rather than ${INSIDE_IRIS.fibreFrom} to ${INSIDE_IRIS.fibreTo}`,
+    );
+  }
+  // And the painter actually takes that walk, rather than the module owning an
+  // arithmetic nothing calls.
+  const plotted = fine.filter((call) => call.verb === "finePixel").length;
+  check(
+    plotted === INSIDE_IRIS.fibres * fibreSteps(true),
+    `hd plots ${plotted} fibre pixels where ${INSIDE_IRIS.fibres} fibres at ${fibreSteps(true)} samples want ${INSIDE_IRIS.fibres * fibreSteps(true)}`,
+  );
+
+  // -- The bleed: a half tone, four game pixels out, and under its own band. --
+  const discs = fine.filter((call) => call.verb === "disc");
+  const collars = fine.filter((call) => call.verb === "fineDisc");
+  check(
+    collars.length === discs.length - 1,
+    `${collars.length} collars for ${discs.length} bands — every band but the outermost gets one, and the outermost must not`,
+  );
+  check(
+    INSIDE_IRIS.bleedCoverage > 0 && INSIDE_IRIS.bleedCoverage < 1,
+    `a collar at ${INSIDE_IRIS.bleedCoverage} coverage is either invisible or a second band`,
+  );
+  // Paired only once the count is right: a collar that belongs to no band has
+  // nothing to be four pixels outside of, and the count above already said so.
+  if (collars.length === discs.length - 1) {
+    let outward = 0;
+    let over = 0;
+    for (const [index, collar] of collars.entries()) {
+      const band = discs[index + 1];
+      if (bleedRadius(band.r) !== collar.r) {
+        outward += 1;
+      }
+      if (fine.indexOf(collar) > fine.indexOf(band)) {
+        over += 1;
+      }
+    }
+    check(outward === 0, `${outward} collars are not ${INSIDE_IRIS.bleed} game px outside the band they belong to`);
+    check(
+      over === 0,
+      `${over} collars are painted over their own band rather than under it, which stipples the band instead of the one outside it`,
+    );
+  }
+
+  // -- The limbus, and the tube's contours: hairlines, closed and contiguous. --
+  const limbus = fine.filter((call) => call.verb === "fineRing" && call.color === area.limbal);
+  const want = (INSIDE_IRIS.limbusTo - INSIDE_IRIS.limbusFrom) * FINE;
+  check(limbus.length === want, `the fine limbus is ${limbus.length} hairlines rather than ${want}`);
+  const radii = limbus.map((call) => call.r).toSorted((a, b) => a - b);
+  const holes = radii.filter((r, index) => index > 0 && r - radii[index - 1] !== 1).length;
+  check(holes === 0, `the fine limbus has ${holes} gaps in it, so the rim is a stack of rings rather than a band`);
+
+  const monoFine = run(true, true);
+  const monoCoarse = run(false, true);
+  const hairlines = monoFine.filter((call) => call.verb === "fineRing").length;
+  check(
+    hairlines === discs.length + want,
+    `the tube's iris draws ${hairlines} hairlines where ${discs.length} bands and ${want} of rim want ${discs.length + want}`,
+  );
+  check(
+    monoFine.filter((call) => call.verb === "disc" || call.verb === "fineDisc").length === 0,
+    "the tube's iris fills a band, and a tube has one ink — a filled band is a solid screen",
+  );
+  check(
+    monoCoarse.filter((call) => call.verb.startsWith("fine")).length === 0,
+    "the tube's classic iris reached for a fine-grid verb",
+  );
+}
+
+// How many of a fight's hits leave the health bar exactly where it was. A bar
+// read per hit rather than per frame has to answer every one of them.
+function barStalls(radius, hits, unit) {
+  let worst = 0;
+  let previous = Math.round(radius * 2 * unit);
+  for (let left = hits - 1; left >= 0; left -= 1) {
+    const width = Math.round(radius * 2 * (left / hits) * unit);
+    if (width === previous) {
+      worst += 1;
+    }
+    previous = width;
+  }
+  return worst;
+}
+
+// ---------------------------------------------------------------------------
+// 23. THE GAZE and THE LOOSE PUPIL (SHA-236) — the last of the pass.
+//
+// Everything left in the Observer is a clock or a hitbox. A clock photographs
+// perfectly however wrong it is, and a hitbox photographs nothing at all, so
+// none of this is a thing a screenshot could have caught.
+{
+  const { beamWidth, chargeTicks, fireTicks } = gameConfig.observer.gaze;
+  const { irisRadius, pupilRadius } = gameConfig.observer.eye;
+
+  // -- The hatching: two places, or twenty-one. --
+  const stops = (unit) => new Set(Array.from({ length: 240 }, (_, frame) => rungSlide(frame, unit)));
+  check(
+    stops(1).size === GAZE_BEAM.coarseStops.length,
+    `the coarse hatching has ${stops(1).size} places rather than the ${GAZE_BEAM.coarseStops.length} it alternates between`,
+  );
+  const wanted = GAZE_BEAM.rungPitch * FINE;
+  check(
+    stops(FINE).size === wanted,
+    `the fine hatching has ${stops(FINE).size} places in its pitch rather than ${wanted}`,
+  );
+  const walk = Array.from({ length: wanted + 1 }, (_, frame) => Math.round(rungSlide(frame, FINE) * FINE));
+  const steps = new Set(walk.slice(1, -1).map((at, index) => at - walk[index]));
+  check(
+    steps.size === 1 && steps.has(1),
+    `the hatching advances ${[...steps].join("/")} fine px a frame rather than exactly one`,
+  );
+  check(walk.at(-1) === walk[0], "the hatching does not close on itself, so the beam jumps once a pitch");
+
+  // -- The hitbox, which is the one thing the drawing may not outgrow. --
+  check(beamNestFits(beamWidth), `the beam's nest ${BEAM_NEST.join("/")} does not sit inside ${beamWidth} game px`);
+  check(
+    BEAM_NEST[0] === beamWidth * FINE,
+    `the beam is drawn ${BEAM_NEST[0]} fine px wide against a hitbox of ${beamWidth * FINE}`,
+  );
+  check(
+    BEAM_NEST.at(-1) >= 1 && BEAM_NEST.length === 3,
+    `Part B's nest is three tones and its core is at least a pixel; this one is ${BEAM_NEST.length} and ${BEAM_NEST.at(-1)}`,
+  );
+
+  // -- The charge ring, over every socket in the game. --
+  const sockets = LEVELS.flatMap((level) => (level.observer?.eye ? [level.observer.eye.hh] : []));
+  check(sockets.length > 0, "no sockets found, so the charge ring was checked against nothing");
+  let worstCoarse = Infinity;
+  let bestFine = 0;
+  let stuck = 0;
+  for (const hh of sockets) {
+    const inner = Math.round(hh * pupilRadius) + 2;
+    const outer = Math.round(hh * irisRadius);
+    const coarse = chargeSteps(inner, outer, chargeTicks, 1);
+    const fine = chargeSteps(inner, outer, chargeTicks, FINE);
+    worstCoarse = Math.min(worstCoarse, coarse);
+    bestFine = Math.max(bestFine, fine);
+    if (fine <= coarse) {
+      stuck += 1;
+    }
+    // A ring cannot show more radii than there are frames to show them in.
+    if (fine > chargeTicks) {
+      failures.push(
+        `a socket of hh ${hh} shows ${fine} radii over ${chargeTicks} ticks, which is more than it has frames`,
+      );
+    }
+  }
+  check(
+    stuck === 0,
+    `${stuck} sockets close their charge ring in no more steps on the fine grid than on the coarse one`,
+  );
+  // Stated as what the player sees rather than as a count: the smallest socket's
+  // ring holds each radius for an eighth of a second, so the warning arrives in
+  // six visible jumps. If that ever stops being true the fix has been done twice.
+  const held = chargeTicks / worstCoarse;
+  check(
+    held > 4,
+    `the coarse charge ring's worst socket holds a radius for ${held.toFixed(1)} frames, so there was nothing here to fix`,
+  );
+  check(
+    bestFine > Math.max(...sockets.map(() => worstCoarse)),
+    `the fine ring's best socket shows ${bestFine} radii, which is no better than the coarse grid's worst`,
+  );
+
+  // Classic is a multiplication by one around the rounding it already did, and
+  // that is the whole reason it can be the regression net. Pinned literally.
+  let drifted = 0;
+  for (let step = 0; step <= 100; step += 1) {
+    const progress = step / 100;
+    if (chargeRadius(10, 30, progress, 1) !== Math.round(30 - 20 * progress)) {
+      drifted += 1;
+    }
+  }
+  check(drifted === 0, `the coarse charge radius drifts from the shipped expression at ${drifted} of 101 points`);
+
+  // -- The health bar: the one readout in this pass that goes fine. --
+  //
+  // Read per hit rather than per frame, so a step of zero is the bar failing to
+  // answer. Checked over every count the game can deal — THE LID's fixed
+  // twenty-four, and the chamber's base plus three for each veil the player is
+  // deep — and then the cliff beyond them is pinned on both grids, because the
+  // margin is what a future config change walks off.
+  const { radius: lidRadius, hits: lidHits } = gameConfig.observer.lid;
+  const { radius: insideRadius, baseHits, hitsPerVeil } = gameConfig.observer.inside;
+  const veils = LEVELS.filter((level) => level.observer).length;
+  const dealt = [
+    { what: "the lid's pupil", radius: lidRadius, hits: lidHits },
+    ...Array.from({ length: veils }, (_, index) => ({
+      what: `the chamber's pupil at veil ${index + 1}`,
+      radius: insideRadius,
+      hits: baseHits + hitsPerVeil * index,
+    })),
+  ];
+  for (const fight of dealt) {
+    const stalled = barStalls(fight.radius, fight.hits, FINE);
+    check(
+      stalled === 0,
+      `${fight.what} takes ${fight.hits} hits and ${stalled} of them leave the bar exactly where it was`,
+    );
+  }
+  const cliff = (radius, unit) => {
+    for (let hits = 2; hits < 400; hits += 1) {
+      if (barStalls(radius, hits, unit) > 0) {
+        return hits;
+      }
+    }
+    return Infinity;
+  };
+  const deepest = Math.max(...dealt.map((fight) => fight.hits));
+  const coarseCliff = cliff(insideRadius, 1);
+  const fineCliff = cliff(insideRadius, FINE);
+  // The margin, which is the number worth knowing: five hits, and a veil is
+  // worth three of them. Two more veils and the coarse bar starts lying.
+  check(
+    coarseCliff - deepest <= hitsPerVeil * 2,
+    `the coarse bar's first stall is at ${coarseCliff} hits against a deepest fight of ${deepest} — ${coarseCliff - deepest} of margin, which was never the risk this pins`,
+  );
+  check(
+    fineCliff > deepest * 2,
+    `the fine bar's first stall is at ${fineCliff} hits against a deepest fight of ${deepest} — not the headroom this was for`,
+  );
+
+  // The beam's reach is a gesture: whole length after a fifth of the fire, so
+  // the fine grid must not have quietly turned it into a delay.
+  const full = Math.ceil(fireTicks / 5);
+  check(
+    full < fireTicks / 2,
+    `the beam takes ${full} of its ${fireTicks} ticks to reach, which is a delay and not a gesture`,
+  );
+}
+
 console.log(
-  `Checked mix, BAYER, dither, pillRows, disc, ring, vgrad, scale3x, the HD ball, the HD deck, the HD capsule, the frame's rails, the weight of a dashed line, the tube's reading of all four, and the four baked figures.`,
+  `Checked mix, BAYER, dither, pillRows, disc, ring, vgrad, scale3x, the HD ball, the HD deck, the HD capsule, the frame's rails, the weight of a dashed line, the tube's reading of all four, the four baked figures, the almond, the iris and the pupil at three sockets, the tear, the veins and the hollow on the levels that carry them, the screen a faded eye survives on the tube, the dial's circles and dash on both grids, the bestiary's bakes, flashes and bosses, the diadem's breath and the gate's march, the chamber iris's fibre walk, seed and collars, and the gaze's two clocks against the hitbox it may not outgrow.`,
 );
 
 if (failures.length > 0) {
