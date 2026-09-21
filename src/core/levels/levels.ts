@@ -141,11 +141,13 @@ export const LEVELS: readonly LevelDefinition[] = [
     // The charge at the tip of the bolt: small, out in front, just past the
     // last brick. Later it runs the bolt's edge, a stair a blink.
     eye: { x: 56, y: 131, hw: 16, hh: 6, layer: EYE_LAYER.FRONT },
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    // BOLT is the bat level (SHA-238). Three of them asleep under the bolt's
+    // own underside — cells (8,0), (3,3) and (2,6), each a brick with nothing
+    // below it — so they hang in the open along the length of the stroke.
     creatures: [
-      { kind: CREATURE.SPIDER, x: 120, y: 4 },
-      { kind: CREATURE.SPIDER, x: 250, y: 4 },
-      { kind: CREATURE.FROG, x: 104, y: 62 },
+      { kind: CREATURE.BAT, x: 256, y: 50 },
+      { kind: CREATURE.BAT, x: 106, y: 86 },
+      { kind: CREATURE.BAT, x: 76, y: 122 },
     ],
   },
   {

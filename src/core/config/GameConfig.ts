@@ -1922,6 +1922,23 @@ export const gameConfig = {
       // the spider blocks the ball, it never lands on the paddle.
       deckClearance: 30,
     },
+    bat: {
+      // Three, and the first only opens its eyes: the two that kill have to
+      // catch it in the air.
+      hitPoints: 3,
+      points: 90,
+      killPoints: 350,
+      // Ticks of flight a hit buys — five seconds at 60Hz — and every further
+      // hit buys them again, so landing one is never what puts it back to bed.
+      flitTicks: 300,
+      // How fast it travels, and the lift a woken bat climbs out of its roost
+      // with. The wander on top of both is the species' own sines.
+      flitSpeed: 1.1,
+      riseSpeed: 0.35,
+      // Ticks a wing holds each half of the beat. Faster than the moth's
+      // frames: a bat beats, a moth flutters.
+      flapTicks: 5,
+    },
     /**
      * THE SPIDER QUEEN (SHA-209), the boss at the end of level 5. Ten hits;
      * every one pays a brick's worth twice over, and the kill pays the level.
