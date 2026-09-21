@@ -3430,7 +3430,7 @@ export class ShatterGame {
       const creature = this.creatures.at(shot.x, shot.y, 2, 9);
       if (creature) {
         shot.active = false;
-        this.strikeCreature(creature, null);
+        this.strikeCreature(creature, null, { x: shot.x, y: shot.y });
         continue;
       }
       const boss = this.bossPool.at(shot.x, shot.y, 2, 9);
@@ -4160,7 +4160,7 @@ export class ShatterGame {
           ball.y = fromAbove ? creature.y - size : creature.y + species.height;
           ball.velocity.y = fromAbove ? -Math.abs(ball.velocity.y) : Math.abs(ball.velocity.y);
         }
-        this.strikeCreature(creature, ball);
+        this.strikeCreature(creature, ball, { x: ball.centerX, y: ball.y + size / 2 });
       }
       // THE BOSS (SHA-209): always solid, always a shelf, and every touch is a hit.
       const boss = this.bossPool.live && !this.inside.active ? this.bossPool.at(ball.x, ball.y, size, size) : null;
@@ -6014,10 +6014,23 @@ export class ShatterGame {
     this.deps.sfx.petrified();
   }
 
-  private strikeCreature(creature: Creature, by: Ball | null): void {
+  private strikeCreature(creature: Creature, by: Ball | null, at: { x: number; y: number }): void {
     const species = SPECIES[creature.kind];
     const centerX = creature.x + species.width / 2;
     const centerY = creature.y + species.height / 2;
+    // A body that refuses a touch there says so and keeps everything (SHA-239).
+    // `armour?` shipped with SHA-213 and was read on the boss path alone, so a
+    // creature could declare a shell and be hit through it; BEETLE is the first
+    // ordinary species the answer matters to, and this is where it gets asked.
+    // The bounce is not ours: a solid creature has already turned the ball
+    // round before we are called, which is what makes a refusal read as armour
+    // rather than as a ball passing through.
+    const refused = species.armour?.(creature, at.x, at.y) ?? null;
+    if (refused !== null) {
+      this.creatureEffects().pop(centerX, creature.y - 6, refused, true);
+      this.deps.sfx.beastStruck(1);
+      return;
+    }
     const { points, killed } = this.creatures.strike(creature, by ? "ball" : "laser", this.creatureEffects());
     this.bumpChain();
     this.popGain(centerX, centerY, this.award(points, "ball", by), true);

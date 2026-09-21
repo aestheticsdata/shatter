@@ -223,12 +223,13 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "RAMPART",
     background: "grid",
     rows: ["SS.SS..SS.SS", "444444444444", "..3..33..3..", "222222222222", "1.1..11..1.1"],
-    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    // RAMPART is the beetle level (SHA-239): three of them patrolling the band
+    // at three heights, so the lane the ball comes back up is never the same
+    // one twice. Well clear of the wall's underside at y 98 and of the deck.
     creatures: [
-      { kind: CREATURE.FROG, x: 44, y: 26 },
-      { kind: CREATURE.FROG, x: 254, y: 26 },
-      { kind: CREATURE.SPIDER, x: 120, y: 4 },
-      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+      { kind: CREATURE.BEETLE, x: 40, y: 130 },
+      { kind: CREATURE.BEETLE, x: 180, y: 168 },
+      { kind: CREATURE.BEETLE, x: 300, y: 206 },
     ],
   },
   {

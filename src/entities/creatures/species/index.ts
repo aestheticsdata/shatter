@@ -1,4 +1,5 @@
 import { BAT } from "@entities/creatures/species/bat";
+import { BEETLE } from "@entities/creatures/species/beetle";
 import { FROG } from "@entities/creatures/species/frog";
 import { FROG_KING } from "@entities/creatures/species/frogKing";
 import { MOTH } from "@entities/creatures/species/moth";
@@ -22,6 +23,7 @@ export const SPECIES: Readonly<Record<CreatureKind, Species>> = {
   snail: SNAIL,
   spider: SPIDER,
   bat: BAT,
+  beetle: BEETLE,
   spiderQueen: SPIDER_QUEEN,
   mothMother: MOTH_MOTHER,
   frogKing: FROG_KING,

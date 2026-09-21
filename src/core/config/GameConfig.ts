@@ -1939,6 +1939,21 @@ export const gameConfig = {
       // frames: a bat beats, a moth flutters.
       flapTicks: 5,
     },
+    beetle: {
+      // What it can take on its back, and nothing else: the two hits that roll
+      // it and upend it hand their hit point back, because they change it
+      // rather than hurt it.
+      hitPoints: 2,
+      points: 110,
+      killPoints: 450,
+      // The patrol, and the charge a first hit sets off. The charge is fast
+      // enough to be a thing that happened rather than a thing that is
+      // happening — six times the walk.
+      walkSpeed: 0.4,
+      chargeSpeed: 2.6,
+      // Three seconds on its back, which is the whole of the window.
+      flipTicks: 180,
+    },
     /**
      * THE SPIDER QUEEN (SHA-209), the boss at the end of level 5. Ten hits;
      * every one pays a brick's worth twice over, and the kill pays the level.
