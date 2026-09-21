@@ -13,6 +13,7 @@ export const CREATURE = {
   SPIDER: "spider",
   BAT: "bat",
   BEETLE: "beetle",
+  WOODPECKER: "woodpecker",
   // The bosses are species too, only bigger (SHA-209, SHA-213).
   SPIDER_QUEEN: "spiderQueen",
   MOTH_MOTHER: "mothMother",

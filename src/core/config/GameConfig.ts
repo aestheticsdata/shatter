@@ -1954,6 +1954,31 @@ export const gameConfig = {
       // Three seconds on its back, which is the whole of the window.
       flipTicks: 180,
     },
+    woodpecker: {
+      hitPoints: 1,
+      // Nothing, either way, and deliberately: the cleared path is what it
+      // pays, and a bird worth score would be a clock the player waits on.
+      points: 0,
+      killPoints: 0,
+      // The hammer: a blow every sixteen ticks, and one hit point off the
+      // brick every sixth blow. An ordinary brick has one hit point, so
+      // `pecksPerHit` is the pacing and not the brick — six blows is about a
+      // second and a half of visible work for one brick.
+      peckTicks: 16,
+      pecksPerHit: 6,
+      bobTicks: 5,
+      // Sitting on the gap it just made. This is most of the bird's cycle on
+      // purpose: it is what keeps two of them from clearing a level faster
+      // than the player does and taking the score with it.
+      restTicks: 180,
+      // The flight to the next brick, how high its bounds go, and the
+      // wingbeat. It picks among the `spread` nearest bricks, so two birds
+      // work their own ends of the wall instead of crowding one cell.
+      flyTicks: 56,
+      spread: 3,
+      undulation: 7,
+      flapTicks: 4,
+    },
     /**
      * THE SPIDER QUEEN (SHA-209), the boss at the end of level 5. Ten hits;
      * every one pays a brick's worth twice over, and the kill pays the level.

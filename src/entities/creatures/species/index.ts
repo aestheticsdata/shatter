@@ -8,6 +8,7 @@ import { SNAIL } from "@entities/creatures/species/snail";
 import { SNAIL_ELDER } from "@entities/creatures/species/snailElder";
 import { SPIDER } from "@entities/creatures/species/spider";
 import { SPIDER_QUEEN } from "@entities/creatures/species/spiderQueen";
+import { WOODPECKER } from "@entities/creatures/species/woodpecker";
 
 import type { Species } from "@entities/creatures/Creature";
 import type { CreatureKind } from "@interfaces/creatures";
@@ -24,6 +25,7 @@ export const SPECIES: Readonly<Record<CreatureKind, Species>> = {
   spider: SPIDER,
   bat: BAT,
   beetle: BEETLE,
+  woodpecker: WOODPECKER,
   spiderQueen: SPIDER_QUEEN,
   mothMother: MOTH_MOTHER,
   frogKing: FROG_KING,

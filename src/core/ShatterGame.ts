@@ -6033,7 +6033,13 @@ export class ShatterGame {
     }
     const { points, killed } = this.creatures.strike(creature, by ? "ball" : "laser", this.creatureEffects());
     this.bumpChain();
-    this.popGain(centerX, centerY, this.award(points, "ball", by), true);
+    // A nil-paying species prints nothing rather than a `0` over itself
+    // (SHA-240): WOODPECKER is worth no score by design, and its own malus pop
+    // is what the player is meant to read off the kill.
+    const gained = this.award(points, "ball", by);
+    if (gained > 0) {
+      this.popGain(centerX, centerY, gained, true);
+    }
     if (!killed) {
       this.deps.sfx.beastStruck(0);
       return;
@@ -6090,6 +6096,30 @@ export class ShatterGame {
         if (cell) {
           cell.hitPoints = Math.min(BRICK_BY_ID[cell.kind].hitPoints, cell.hitPoints + 1);
         }
+      },
+      // WOODPECKER's blow (SHA-240): `mortar` the other way round. It goes
+      // through the wall's own `damage` rather than at `cell.hitPoints`, so a
+      // brick opened by the bird is counted out of `remaining` exactly as one
+      // the ball took — a hand-rolled decrement here would clear the wall and
+      // leave the level unable to end.
+      //
+      // **No points and no rolled capsule**, which is what every indirect kill
+      // in this game does; what it does still pay out is the level's own
+      // promises — a seeded capsule, and the TWIN partner, which would
+      // otherwise look like the capsule the player bought had stopped working.
+      peck: (column, row) => {
+        const hit = this.grid.hitAtCell(row, column);
+        if (hit === null) {
+          return;
+        }
+        if (!this.grid.damage(hit)) {
+          this.deps.sfx.brickArmored();
+          return;
+        }
+        this.releaseSeededCapsule(hit);
+        this.emitBurst(hit, gameConfig.effects.brickDeathBurst);
+        this.strikeTwin(hit, null);
+        this.deps.sfx.brickDestroyed(hit.row);
       },
       petrifyDeck: () => this.petrifyDeck(),
       pop: (x, y, label, malus) => {

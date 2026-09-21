@@ -245,11 +245,13 @@ export const LEVELS: readonly LevelDefinition[] = [
       "..5.1111.5..",
       "...5.55.5...",
     ],
-    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    // ROCKET is the woodpecker level (SHA-240). Two, not three: they open
+    // bricks the player would otherwise have hit, so a flock of them clears
+    // the wall and takes the score with it. Pinned in open air under the
+    // fins — they pick their own brick on the first tick anyway.
     creatures: [
-      { kind: CREATURE.MOTH, x: 110, y: 160 },
-      { kind: CREATURE.MOTH, x: 262, y: 200 },
-      { kind: CREATURE.MOTH, x: 186, y: 120 },
+      { kind: CREATURE.WOODPECKER, x: 96, y: 150 },
+      { kind: CREATURE.WOODPECKER, x: 266, y: 150 },
     ],
   },
   {

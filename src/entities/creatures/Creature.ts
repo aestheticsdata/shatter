@@ -53,6 +53,14 @@ export interface CreatureEffects {
   dropCapsule(x: number, y: number): void;
   /** One hit point back on that brick, up to its own kind's (SNAIL). Nothing on an empty cell. */
   mortar(column: number, row: number): void;
+  /**
+   * One hit point *off* that brick, `mortar` backwards (WOODPECKER). Nothing
+   * on an empty cell. A brick opened this way pays no score — the bird is an
+   * ally and not a source of income — but still gives up a seeded capsule and
+   * still takes its TWIN partner, because both of those are promises the level
+   * and a capsule made to the player rather than anything the bird earned.
+   */
+  peck(column: number, row: number): void;
   /** A catch-pop line: the house's idiom for "this just happened". */
   pop(x: number, y: number, label: string, malus: boolean): void;
   /** The deck turns to stone for THE IRIS's span — a boss's sting (SPIDER QUEEN). */
