@@ -37,6 +37,23 @@ export interface Quantum {
   // spent; it is kept only so the flash can be seen.
   bloomTicks: number;
   dead: boolean;
+  // ELECTRON: the brick it guards, by cell, -1 while it has none; where that
+  // brick is this tick, for the ring; where it is on its orbit, in radians; and
+  // how long it has been in orbit, 0 while it is still flying there.
+  hostRow: number;
+  hostColumn: number;
+  hostX: number;
+  hostY: number;
+  phase: number;
+  orbitTicks: number;
+  // Ticks to its next look for a brick, while it has none.
+  searchTicks: number;
+}
+
+/** A brick, by cell. */
+export interface Cell {
+  row: number;
+  column: number;
 }
 
 /** A gate: how far its bar has parted, and what it is doing. */
@@ -73,6 +90,19 @@ export interface ChamberField {
   deck: readonly RectangleBounds[];
   // STASIS: the chamber holds its breath with the balls.
   held: boolean;
+  // ELECTRON: the brick one should guard from here, passed over the ones
+  // already guarded — or null when there is none — and where a guarded brick
+  // is this tick, or null once it has died.
+  pickHost: (x: number, y: number, taken: readonly Cell[]) => Cell | null;
+  hostCentre: (row: number, column: number) => { x: number; y: number } | null;
+}
+
+/** What the room did this tick that the game has to hear or pay for. */
+export interface ChamberEvents {
+  // Particles out of a gate.
+  born: number;
+  // Electrons freed as photons by their brick dying under them.
+  freed: number;
 }
 
 // Anything faster than this crosses a brick's corner in one step and is walked
@@ -226,13 +256,15 @@ export class Chamber {
    * Returns the particles that came through a gate this tick, for the game to
    * hear.
    */
-  step(field: ChamberField): number {
-    const born = this.stepGates();
+  step(field: ChamberField): ChamberEvents {
+    const events = { born: this.stepGates(), freed: 0 };
     for (const quantum of this.quanta) {
-      this.stepQuantum(quantum, field);
+      if (this.stepQuantum(quantum, field)) {
+        events.freed++;
+      }
     }
     this.sweep();
-    return born;
+    return events;
   }
 
   /**
@@ -283,9 +315,20 @@ export class Chamber {
    * Put one out: gone from the field, with the bloom it goes out in. The game
    * has already paid for it.
    */
-  spend(quantum: Quantum): void {
+  spend(quantum: Quantum, bloom = true): void {
     quantum.dead = true;
-    quantum.bloomTicks = gameConfig.particles.photon.bloomTicks;
+    quantum.bloomTicks = bloom ? gameConfig.particles.photon.bloomTicks : 0;
+  }
+
+  // The bricks guarded right now: two electrons never share one.
+  private hosts(besides: Quantum): Cell[] {
+    const taken: Cell[] = [];
+    for (const quantum of this.quanta) {
+      if (quantum !== besides && !quantum.dead && quantum.hostRow >= 0) {
+        taken.push({ row: quantum.hostRow, column: quantum.hostColumn });
+      }
+    }
+    return taken;
   }
 
   // The gates, and the particle each one lets through on the tick it is fully
@@ -369,21 +412,98 @@ export class Chamber {
     return quantum;
   }
 
-  private stepQuantum(quantum: Quantum, field: ChamberField): void {
+  // `true` when an electron was freed this tick.
+  private stepQuantum(quantum: Quantum, field: ChamberField): boolean {
     this.stepFades(quantum);
     if (quantum.dead || quantum.leaveTicks > 0) {
-      return;
+      return false;
     }
     if (field.held) {
-      return;
+      return false;
     }
     quantum.age++;
+    if (quantum.kind === PARTICLE.ELECTRON) {
+      return this.stepElectron(quantum, field);
+    }
     const { lifeTicks } = gameConfig.particles.photon;
     if (quantum.kind === PARTICLE.PHOTON && quantum.age >= lifeTicks) {
       quantum.dead = true;
-      return;
+      return false;
     }
     this.move(quantum, field);
+    return false;
+  }
+
+  /**
+   * ELECTRON: through the gate, to the heaviest brick near it, and round it.
+   *
+   * **The flight goes through the wall.** An electron is not bounced by the
+   * bricks it passes on its way to the one it is going to guard — a silver
+   * buried in the middle of a wall is exactly the brick it is for, and one that
+   * could only reach the front row would guard nothing worth guarding.
+   *
+   * **Its brick dying frees it as a photon**, off along the tangent it was
+   * travelling: ionisation, and the one way a player can turn a shield into a
+   * bent ball on purpose. `true` on that tick, for the sound.
+   *
+   * With nothing left to guard — every brick taken or the wall gone — it drifts
+   * like a photon that never dims, and looks again every half second.
+   */
+  private stepElectron(electron: Quantum, field: ChamberField): boolean {
+    const { orbitX, orbitY, periodTicks, speed, searchTicks } = gameConfig.particles.electron;
+    if (electron.emerging) {
+      this.move(electron, field);
+      return false;
+    }
+    if (electron.hostRow < 0) {
+      if (--electron.searchTicks <= 0) {
+        electron.searchTicks = searchTicks;
+        const host = field.pickHost(electron.x, electron.y, this.hosts(electron));
+        if (host) {
+          electron.hostRow = host.row;
+          electron.hostColumn = host.column;
+          electron.orbitTicks = 0;
+        }
+      }
+      if (electron.hostRow < 0) {
+        this.move(electron, field);
+        return false;
+      }
+    }
+    const centre = field.hostCentre(electron.hostRow, electron.hostColumn);
+    if (centre === null) {
+      ionise(electron);
+      return true;
+    }
+    electron.hostX = centre.x;
+    electron.hostY = centre.y;
+    electron.phase += (Math.PI * 2) / periodTicks;
+    const orbitAtX = centre.x + Math.cos(electron.phase) * orbitX;
+    const orbitAtY = centre.y + Math.sin(electron.phase) * orbitY;
+    if (electron.orbitTicks === 0) {
+      // Still flying: straight at where its place on the orbit is now, which
+      // is moving, so it arrives in step with the turn rather than having to
+      // find it.
+      const toX = orbitAtX - electron.x;
+      const toY = orbitAtY - electron.y;
+      const distance = Math.hypot(toX, toY);
+      if (distance > speed) {
+        electron.vx = (toX / distance) * speed;
+        electron.vy = (toY / distance) * speed;
+        electron.x += electron.vx;
+        electron.y += electron.vy;
+        remember(electron);
+        return false;
+      }
+    }
+    electron.orbitTicks++;
+    // The velocity it would have along the orbit, kept for the tick it is freed.
+    electron.vx = orbitAtX - electron.x;
+    electron.vy = orbitAtY - electron.y;
+    electron.x = orbitAtX;
+    electron.y = orbitAtY;
+    remember(electron);
+    return false;
   }
 
   // Both ends of a particle's life that are not its verb: a pin coming in, and
@@ -480,7 +600,33 @@ function fresh(kind: ParticleKind, x: number, y: number, radius: number): Quantu
     trail: [x, y],
     bloomTicks: 0,
     dead: false,
+    hostRow: -1,
+    hostColumn: -1,
+    hostX: 0,
+    hostY: 0,
+    phase: Math.random() * Math.PI * 2,
+    orbitTicks: 0,
+    searchTicks: 0,
   };
+}
+
+/**
+ * An electron whose brick has gone, turned into what it was carrying: a photon
+ * off along its orbit's tangent at a photon's speed, with a photon's whole life
+ * ahead of it.
+ */
+function ionise(electron: Quantum): void {
+  const { speed, radius } = gameConfig.particles.photon;
+  const heading = Math.atan2(electron.vy, electron.vx);
+  electron.kind = PARTICLE.PHOTON;
+  electron.radius = radius;
+  electron.vx = Math.cos(heading) * speed;
+  electron.vy = Math.sin(heading) * speed;
+  electron.age = 0;
+  electron.hostRow = -1;
+  electron.hostColumn = -1;
+  electron.orbitTicks = 0;
+  electron.trail = [electron.x, electron.y];
 }
 
 // Whether a ball could meet it: here, and not on its way in or out.

@@ -2338,6 +2338,27 @@ export const gameConfig = {
       trail: 6,
       bloomTicks: 4,
     },
+    electron: {
+      joins: 6,
+      radius: 2,
+      // How fast it flies from the gate to its brick.
+      speed: 1.6,
+      // The orbit: half its width and height, and one turn every a second and a
+      // half. The width clears a brick's ends by three pixels and the height its
+      // faces by three, so the ring hugs the brick it is guarding.
+      orbitX: 18,
+      orbitY: 9,
+      periodTicks: 90,
+      // How long the ring takes to draw itself once it is in orbit.
+      ringTicks: 15,
+      // Ticks the brick it was guarding refuses a ball after the knock: the
+      // ball the electron turned may still be touching the brick on the same
+      // sub-step, and that is the hit the electron took for it.
+      wardTicks: 4,
+      // How often an electron with nothing to guard looks again.
+      searchTicks: 30,
+      points: 150,
+    },
   },
   /**
    * THE TITLE (SHA-211): the mockup's home. Where the Observer sits behind the

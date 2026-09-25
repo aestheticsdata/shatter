@@ -66,7 +66,7 @@ import type { TraceRules } from "@core/ballTrace";
 import type { ComboId } from "@core/config/combos";
 import type { Creature, CreatureEffects, CreatureSight } from "@entities/creatures/Creature";
 import type { Beast } from "@entities/effects/Brood";
-import type { Quantum } from "@entities/effects/Chamber";
+import type { Cell, Quantum } from "@entities/effects/Chamber";
 import type { EyeSight } from "@entities/effects/Observer";
 import type { Landing } from "@entities/effects/Slump";
 import type { EchoContact } from "@entities/effects/Superposition";
@@ -129,6 +129,17 @@ const MAX_BALLS = 12;
 // out at 87.5px ("PAYDAY BUMPERS") and 15 lands exactly on 92 with no margin at
 // all. At 14, five two-letter glyphs are a 14-character row and fit.
 const POWER_LABEL_MAX_CHARS = 14;
+
+// ELECTRON's knock: four sparks of the blue brick's tones, short and quick.
+const ELECTRON_SPARK: BurstSpec = {
+  chunkCount: 4,
+  minChunkSize: 1,
+  maxChunkSize: 1,
+  minSpeed: 0.8,
+  maxSpeed: 1.6,
+  minLifeTicks: 10,
+  maxLifeTicks: 14,
+};
 
 // Sideways kick on a bolt's three middle points, in game pixels.
 const CHAIN_BOLT_JITTER = 3;
@@ -654,6 +665,8 @@ export class ShatterGame {
   // THE CHAMBER (SHA-179): the particles let in through the side bars, on
   // every level, and the clock that lets them in.
   private readonly chamber = new Chamber();
+  // The brick an electron has just taken a hit for, and how long it is proof.
+  private ward: { row: number; column: number; ticks: number } | null = null;
   // THE BOSSES (SHA-209): the one creature that ends a boss level, in a pool of
   // its own so the fight can be told from the roster — and the flag that says
   // it is over, which is what lets the clear card follow.
@@ -2685,6 +2698,12 @@ export class ShatterGame {
    * player feels without being able to name.
    */
   private strikeBricks(ball: Ball, hit: BrickHit): void {
+    // ELECTRON's ward (SHA-181): the brick an electron has just taken a hit for
+    // turns the ball and loses nothing.
+    if (this.ward !== null && this.ward.row === hit.row && this.ward.column === hit.column) {
+      this.deps.sfx.brickArmored();
+      return;
+    }
     // JELLY: the wall does not break here any more, it gives. The contact is a
     // dimple pressed into the sheet and the damage is the sheet's business from
     // here — which is the capsule, and the one thing about it the player has to
@@ -5890,11 +5909,63 @@ export class ShatterGame {
     // reason: a photon rebounding off an invisible brick is the one bug the
     // capsule could not survive.
     const phasing = this.timers.isActive("GH");
-    this.chamber.step({
+    if (this.ward !== null && --this.ward.ticks <= 0) {
+      this.ward = null;
+    }
+    const { freed } = this.chamber.step({
       solid: (x, y) => !phasing && this.grid.cellAt(x, y) !== null,
       deck: this.paddleSegments(),
       held: this.timers.isActive("I"),
+      pickHost: (x, y, taken) => this.heaviestBrickNear(x, y, taken),
+      hostCentre: (row, column) => this.brickCentre(row, column),
     });
+    if (freed > 0) {
+      this.deps.sfx.photonLaunch();
+    }
+  }
+
+  /**
+   * ELECTRON's brick: the nearest silver or gold nobody is guarding, and the
+   * nearest of anything nobody is guarding when there is no metal left.
+   *
+   * The heaviest matter on the field is what an electron is drawn to, and it
+   * is also — not by accident — the brick a player most wants a clear shot at.
+   */
+  private heaviestBrickNear(x: number, y: number, taken: readonly Cell[]): Cell | null {
+    let best: Cell | null = null;
+    let bestScore = Number.POSITIVE_INFINITY;
+    this.grid.rows.forEach((row, rowIndex) => {
+      row.forEach((cell, column) => {
+        if (!cell || taken.some((each) => each.row === rowIndex && each.column === column)) {
+          return;
+        }
+        const centre = this.brickCentre(rowIndex, column);
+        if (centre === null) {
+          return;
+        }
+        const heavy = cell.kind === "S" || cell.kind === "G";
+        // Metal first, whatever the distance: a whole field's width is less
+        // than this, so any silver or gold beats the nearest plain brick.
+        const score = Math.hypot(centre.x - x, centre.y - y) + (heavy ? 0 : 10_000);
+        if (score < bestScore) {
+          bestScore = score;
+          best = { row: rowIndex, column };
+        }
+      });
+    });
+    return best;
+  }
+
+  /** Where a live brick's middle is being painted this tick, or null. */
+  private brickCentre(row: number, column: number): { x: number; y: number } | null {
+    if ((this.grid.rows[row]?.[column] ?? null) === null) {
+      return null;
+    }
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    return {
+      x: left + column * brickWidth + brickWidth / 2,
+      y: top - this.grid.topOffset + row * brickHeight + brickHeight / 2 + this.wallOffsets.offsetAt(row, column),
+    };
   }
 
   /**
@@ -5912,7 +5983,64 @@ export class ShatterGame {
     }
     if (quantum.kind === PARTICLE.PHOTON) {
       this.absorbPhoton(ball, quantum);
+    } else if (quantum.kind === PARTICLE.ELECTRON) {
+      this.knockElectron(ball, quantum);
     }
+  }
+
+  /**
+   * ELECTRON: knocked out, and the brick it was guarding takes nothing.
+   *
+   * The ball comes off the electron the way it comes off a bumper, and the
+   * brick is warded for the few ticks it takes the ball to be clear of it — the
+   * hit it would have taken is the one the electron took. The far side of the
+   * orbit is open, so a player who waits for the turn gets the brick anyway.
+   */
+  private knockElectron(ball: Ball, electron: Quantum): void {
+    this.reflectOffDisc(ball, electron.x, electron.y, electron.radius);
+    if (electron.hostRow >= 0) {
+      this.ward = {
+        row: electron.hostRow,
+        column: electron.hostColumn,
+        ticks: gameConfig.particles.electron.wardTicks,
+      };
+    }
+    this.chamber.spend(electron, false);
+    this.particles.burst(electron.x, electron.y, "5", ELECTRON_SPARK);
+    this.bumpChain();
+    this.popGain(electron.x, electron.y, this.award(gameConfig.particles.electron.points, "ball", ball));
+    this.deps.sfx.electronKnocked();
+  }
+
+  /**
+   * A ball off a disc: along the reflection of its heading off the surface
+   * normal, pushed clear, at the speed it came in with — the bumpers' bounce,
+   * for a disc of any size. `false` when the ball is already leaving it.
+   */
+  private reflectOffDisc(ball: Ball, x: number, y: number, radius: number): boolean {
+    const size = ball.size;
+    const contact = radius + size / 2;
+    const toBallX = ball.centerX - x;
+    const toBallY = ball.y + size / 2 - y;
+    const distance = Math.hypot(toBallX, toBallY);
+    const normalX = distance === 0 ? 0 : toBallX / distance;
+    const normalY = distance === 0 ? -1 : toBallY / distance;
+    const approach = ball.velocity.x * normalX + ball.velocity.y * normalY;
+    if (approach >= 0) {
+      return false;
+    }
+    const speed = Math.hypot(ball.velocity.x, ball.velocity.y);
+    ball.velocity.x -= 2 * approach * normalX;
+    ball.velocity.y -= 2 * approach * normalY;
+    const push = Math.max(0, contact - distance) + 0.5;
+    ball.x += push * normalX;
+    ball.y += push * normalY;
+    const after = Math.hypot(ball.velocity.x, ball.velocity.y);
+    if (after > 0) {
+      ball.velocity.x *= speed / after;
+      ball.velocity.y *= speed / after;
+    }
+    return true;
   }
 
   /**
@@ -5946,6 +6074,12 @@ export class ShatterGame {
       this.bumpChain();
       this.popGain(quantum.x, quantum.y, this.award(gameConfig.particles.photon.points, "laser"));
       this.deps.sfx.photonAbsorbed();
+    } else if (quantum.kind === PARTICLE.ELECTRON) {
+      this.chamber.spend(quantum, false);
+      this.particles.burst(quantum.x, quantum.y, "5", ELECTRON_SPARK);
+      this.bumpChain();
+      this.popGain(quantum.x, quantum.y, this.award(gameConfig.particles.electron.points, "laser"));
+      this.deps.sfx.electronKnocked();
     }
   }
 
@@ -7998,6 +8132,7 @@ export class ShatterGame {
     this.bumpers.reset();
     // A lost ball empties the room, seen leaving, and starts the clock over.
     this.chamber.restart();
+    this.ward = null;
     this.quake.reset();
     this.critter.reset();
     this.meteors.reset();

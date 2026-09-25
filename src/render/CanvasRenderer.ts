@@ -3053,8 +3053,64 @@ export function drawQuantum(
   ctx.globalAlpha = presence;
   if (quantum.kind === PARTICLE.PHOTON) {
     drawPhoton(ctx, quantum, scale, demade, fine);
+  } else if (quantum.kind === PARTICLE.ELECTRON) {
+    drawElectron(ctx, quantum, scale, demade, fine);
   }
   ctx.restore();
+}
+
+/**
+ * ELECTRON: a cold speck on a dotted ring round the brick it guards.
+ *
+ * **The ring is the tell**, and the latent cue the house asks of anything armed
+ * and waiting: a shield the player cannot see from across the field is a brick
+ * that refuses a ball for no reason. One dot every four pixels of the orbit,
+ * drawn in the arc's dim blue so it reads as a path rather than a thing — and
+ * it draws itself round from where the electron joined it over its first
+ * quarter second, rather than being there all at once.
+ */
+function drawElectron(
+  ctx: CanvasRenderingContext2D,
+  electron: Quantum,
+  scale: number,
+  demade: boolean,
+  fine: boolean,
+): void {
+  const tones = PARTICLE_TONES.electron;
+  const ink = inkFor(demade);
+  const { orbitX, orbitY, ringTicks } = gameConfig.particles.electron;
+  if (electron.orbitTicks > 0) {
+    // Ramanujan's perimeter, to a pixel: the dots are spaced by length along
+    // the ring, not by angle, or they would bunch at the ends of the long axis.
+    const perimeter = Math.PI * (3 * (orbitX + orbitY) - Math.sqrt((3 * orbitX + orbitY) * (orbitX + 3 * orbitY)));
+    const dots = Math.round(perimeter / 4);
+    const drawn = Math.min(1, electron.orbitTicks / ringTicks);
+    ctx.fillStyle = ink(tones.ring);
+    for (let dot = 0; dot < dots * drawn; dot++) {
+      const angle = electron.phase - (dot / dots) * Math.PI * 2;
+      const x = electron.hostX + Math.cos(angle) * orbitX;
+      const y = electron.hostY + Math.sin(angle) * orbitY;
+      if (fine) {
+        ctx.fillRect(Math.round(x * FINE) - 1, Math.round(y * FINE) - 1, 2, 2);
+      } else {
+        ctx.fillRect(Math.round(x) * scale, Math.round(y) * scale, scale, scale);
+      }
+    }
+  }
+  if (fine) {
+    const sprite = QUANTA.get(`electron:${demade}`, () => {
+      const pix = new Pix(12, 12, demade ? demakeTone : undefined);
+      pix.disc(6, 6, 6, tones.ring);
+      pix.disc(5.5, 5.5, 4.5, tones.body);
+      pix.rect(3, 3, 2, 2, "#ffffff");
+      return pix.toCanvas();
+    });
+    ctx.drawImage(sprite, Math.round(electron.x * FINE) - 6, Math.round(electron.y * FINE) - 6);
+    return;
+  }
+  const pixel = spriteBrush(ctx, scale, demade);
+  pixel(electron.x - 2, electron.y - 1, 4, 2, tones.body);
+  pixel(electron.x - 1, electron.y - 2, 2, 4, tones.body);
 }
 
 /**

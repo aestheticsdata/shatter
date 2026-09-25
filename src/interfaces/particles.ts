@@ -9,6 +9,7 @@
  */
 export const PARTICLE = {
   PHOTON: "photon",
+  ELECTRON: "electron",
 } as const;
 
 export type ParticleKind = (typeof PARTICLE)[keyof typeof PARTICLE];

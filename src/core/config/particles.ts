@@ -18,7 +18,10 @@ export interface ParticleDefinition {
   verb: string;
 }
 
-export const PARTICLES: readonly ParticleDefinition[] = [{ id: PARTICLE.PHOTON, name: "PHOTON", verb: "SCATTER" }];
+export const PARTICLES: readonly ParticleDefinition[] = [
+  { id: PARTICLE.PHOTON, name: "PHOTON", verb: "SCATTER" },
+  { id: PARTICLE.ELECTRON, name: "ELECTRON", verb: "SHIELD" },
+];
 
 /**
  * The tones each species is drawn in.
@@ -34,5 +37,13 @@ export const PARTICLE_TONES = {
     // not the ball's, which is what a photon is.
     core: "#f4fbff",
     trail: "#8fd0ff",
+  },
+  electron: {
+    // The deck's sheen: a light, cold thing that belongs to the machine's side
+    // of the field rather than to the wall's.
+    body: "#a8d8ff",
+    // The arc's dim blue, so the orbit is seen from across the field without
+    // being mistaken for anything that can be hit.
+    ring: "#5b74e8",
   },
 } as const;

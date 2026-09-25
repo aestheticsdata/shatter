@@ -697,6 +697,32 @@ export class SoundBank {
   }
 
   /**
+   * ELECTRON: knocked out of its orbit. A knock — a detuned pair, very short,
+   * lower than the photon and harder — so the ear tells a shield going from a
+   * speck being taken.
+   */
+  electronKnocked(): void {
+    if (!this.allow("electron")) {
+      return;
+    }
+    this.tone({ freq: 1250, freqEnd: 1100, dur: 0.035, vol: 0.06 });
+    this.tone({ freq: 1250, freqEnd: 1100, dur: 0.035, vol: 0.05, detuneCents: 35 });
+  }
+
+  /**
+   * A photon set loose: an electron whose brick died under it. The absorption
+   * run the other way — a low blip chirping up — because it is the same light
+   * leaving something rather than going into it.
+   */
+  photonLaunch(): void {
+    if (!this.allow("photonLaunch")) {
+      return;
+    }
+    this.tone({ freq: 900, freqEnd: 2600, dur: 0.07, vol: 0.045 });
+    this.tone({ freq: 1350, freqEnd: 3900, dur: 0.05, vol: 0.018 });
+  }
+
+  /**
    * CHAIN: one step up the ladder.
    *
    * A bare square note, 70 Hz a step, so the eighth sits a little over an octave
