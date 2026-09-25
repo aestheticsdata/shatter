@@ -38,7 +38,7 @@ const HEIGHT = 13;
  * The bell: a dome with a light on its crown, a shaded flank, and a scalloped
  * rim along the bottom where the tentacles hang from.
  */
-const BELL: readonly string[] = [
+export const JELLYFISH_BELL: readonly string[] = [
   "..kkkkk..",
   ".kpllppk.",
   "kpllpppmk",
@@ -111,7 +111,7 @@ export const JELLYFISH: Species = {
   // Water. The ball goes through it and pops it on the way, which is the whole
   // answer this species asks for.
   solid: false,
-  frames: [BELL],
+  frames: [JELLYFISH_BELL],
   frameTicks: 12,
   // THE TRAP's pink, the red brick's three with the wall's white for the
   // light on the crown. Pink is what the house paints the things that take

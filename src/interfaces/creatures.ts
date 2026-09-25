@@ -27,6 +27,7 @@ export const CREATURE = {
   MOTH_MOTHER: "mothMother",
   FROG_KING: "frogKing",
   SNAIL_ELDER: "snailElder",
+  MAN_O_WAR: "manOWar",
 } as const;
 
 export type CreatureKind = (typeof CREATURE)[keyof typeof CREATURE];

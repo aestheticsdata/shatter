@@ -91,7 +91,7 @@ export interface BestiaryEntry {
 
 /**
  * The roster, in the order a player meets it: every species by the first level
- * that pins it, the brood by the first veil, and the four bosses last, in the
+ * that pins it, the brood by the first veil, and the five bosses last, in the
  * order they end their levels.
  *
  * **Derived, never written down.** A species the re-deal moves to an earlier

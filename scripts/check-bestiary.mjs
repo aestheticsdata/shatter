@@ -1,4 +1,4 @@
-// SHA-247 guard for THE BESTIARY's deal across the 45 levels.
+// SHA-247 guard for THE BESTIARY's deal across the 49 levels.
 //
 // The four species the game shipped with ended up on 121 of 125 pins because
 // nothing counted them: MOTH alone was on 39. This checks the rules the re-deal
@@ -48,7 +48,13 @@ const CAP = 20;
 const PER_LEVEL = { min: 3, max: 4 };
 const DECK_TAKERS = [CREATURE.SLUG, CREATURE.JELLYFISH, CREATURE.CRAB];
 const NAMED = { HEART: CREATURE.FIREFLY, VORTEX: CREATURE.WISP, BOLT: CREATURE.BAT };
-const BOSSES = [CREATURE.SPIDER_QUEEN, CREATURE.MOTH_MOTHER, CREATURE.FROG_KING, CREATURE.SNAIL_ELDER];
+const BOSSES = [
+  CREATURE.SPIDER_QUEEN,
+  CREATURE.MOTH_MOTHER,
+  CREATURE.FROG_KING,
+  CREATURE.SNAIL_ELDER,
+  CREATURE.MAN_O_WAR,
+];
 // On a brick, under a brick, or in the band under the wall. The rest go
 // anywhere in the field: the moth orbits the eye, the spider drops from the
 // ceiling, and the wisp, the firefly and the jellyfish are in the air.

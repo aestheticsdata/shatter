@@ -271,6 +271,8 @@ const PORTRAITS: Record<BestiaryKind, Portrait> = {
   [CREATURE.MOTH_MOTHER]: still(CREATURE.MOTH_MOTHER),
   [CREATURE.FROG_KING]: hopping(CREATURE.FROG_KING, 8),
   [CREATURE.SNAIL_ELDER]: still(CREATURE.SNAIL_ELDER, () => ({ facing: 1 })),
+  // Hung at the top on his beat, tips dull: resting between descents.
+  [CREATURE.MAN_O_WAR]: still(CREATURE.MAN_O_WAR, (frame) => ({ state: "rest", clock: frame })),
 };
 
 /**

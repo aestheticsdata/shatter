@@ -228,7 +228,7 @@ export const LEVELS: readonly LevelDefinition[] = [
    * THE VEIL, the first of the Observer's five (SHA-167).
    *
    * Tenth in the loop since EVERY FIVE (SHA-206) — the veils sit on 10, 20,
-   * 30, 40 and 45 so a boss ends every fifth level — between CHECKER's vault
+   * 30, 40 and 49 so a boss ends every fifth level — between CHECKER's vault
    * and INVADER's starfield, so the `observer` theme sits beside neither of
    * its own kind: the wrap rule holds and `check:backgrounds` passes.
    *
@@ -1518,6 +1518,192 @@ export const LEVELS: readonly LevelDefinition[] = [
       { kind: CREATURE.FROG, x: 44, y: 38 },
       { kind: CREATURE.FROG, x: 314, y: 38 },
       { kind: CREATURE.WOODPECKER, x: 250, y: 160 },
+    ],
+  },
+  // LUCKY (SHA-128): the ? block, ten cells by eight, in the vault. The block is
+  // yellow with its corners knocked round and a gold rivet inset at each one;
+  // the ? is silver, so it is the last of the picture to go. Two GAMBLE
+  // capsules are pinned in the ?'s dot, on the bottom row — you hit the block
+  // from underneath, and it pays out.
+  //
+  // 76 bricks, 100 hits, 7680 points.
+  {
+    name: "LUCKY",
+    background: "vault",
+    rows: [
+      "..33333333..",
+      ".3G3SSSS3G3.",
+      ".33SS33SS33.",
+      ".333333SS33.",
+      ".33333SS333.",
+      ".3333SS3333.",
+      ".3G333333G3.",
+      "..333SS333..",
+    ],
+    drops: [
+      { row: 7, column: 5, kind: "GB" },
+      { row: 7, column: 6, kind: "GB" },
+    ],
+    // A coin on a rivet, in front: bring the ball near it and it is gone to
+    // another of the four, never the one it is leaving.
+    eye: {
+      x: 81,
+      y: 56,
+      hw: 12,
+      hh: 4,
+      layer: EYE_LAYER.FRONT,
+      act: {
+        kind: EYE_ACT.DUCK,
+        spots: [
+          [81, 56],
+          [291, 56],
+          [81, 116],
+          [291, 116],
+        ],
+        near: 40,
+      },
+    },
+    creatures: [
+      { kind: CREATURE.SNAIL, x: 160, y: 28 },
+      { kind: CREATURE.BEETLE, x: 89, y: 200 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+    ],
+  },
+  // CRT (SHA-129): a television on the tube's own field, tuned to nothing. A
+  // red-brick cabinet with two yellow knobs down the right and two feet, rabbit
+  // ears in blue wire, and the screen a checkerboard of silver and gold static —
+  // the heaviest two bricks in the alphabet, so the picture is the last thing to
+  // clear. A DEMAKE is pinned in the middle of the snow: a wink, and a warning.
+  //
+  // 66 bricks, 102 hits, 7300 points.
+  {
+    name: "CRT",
+    background: "cathode",
+    rows: [
+      "...5....5...",
+      "....5..5....",
+      ".2222222222.",
+      ".2SGSGSG232.",
+      ".2GSGSGS222.",
+      ".2SGSGSG232.",
+      ".2GSGSGS222.",
+      ".2222222222.",
+      "..3......3..",
+    ],
+    drops: [{ row: 4, column: 4, kind: "D" }],
+    // The picture, rolling: on the glass and clipped to it, it slides down the
+    // screen and blinks back in at the top, over and over — the vertical hold
+    // nobody ever fixed.
+    eye: {
+      x: 156,
+      y: 70,
+      hw: 30,
+      hh: 9,
+      layer: EYE_LAYER.FRONT,
+      opacity: 0.6,
+      clip: { x: 66, y: 74, w: 180, h: 48 },
+      act: {
+        kind: EYE_ACT.PATH,
+        points: [
+          [156, 70],
+          [156, 126],
+        ],
+        speed: 0.3,
+        mode: EYE_PATH.RESTART,
+      },
+    },
+    creatures: [
+      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+      { kind: CREATURE.FIREFLY, x: 70, y: 170 },
+      { kind: CREATURE.SLUG, x: 300, y: 0 },
+    ],
+  },
+  // BRIDGE (SHA-130), at sunset, and the fifth series' boss level. Two gold
+  // towers, a silver roadway across the whole field, and red cables sagging
+  // from the tower tops — the main span between them and a side span out to
+  // either wall. The roadway is the only floor under anything: cut it first
+  // and the cables are left hanging in the sky, which is how the level asks to
+  // be played, because the ball cannot get above the road until it is cut.
+  //
+  // 34 bricks, 70 hits, 4800 points — a short wall, because what comes down
+  // when it is gone is THE MAN O' WAR.
+  {
+    name: "BRIDGE",
+    background: "horizon",
+    rows: [
+      "..G......G..",
+      ".1G1....1G1.",
+      "1.G.1..1.G.1",
+      "..G..11..G..",
+      "SSSSSSSSSSSS",
+      "..G......G..",
+      "..G......G..",
+    ],
+    // Between the towers, where a gondola would run: it rides the centre line
+    // up and down after the ball, faint behind the cables.
+    eye: {
+      x: 186,
+      y: 60,
+      hw: 24,
+      hh: 8,
+      opacity: 0.6,
+      act: { kind: EYE_ACT.FOLLOW, min: 30, max: 200, speed: 0.8 },
+    },
+    // Two bats roosting under the road, and a crab in the water below it.
+    creatures: [
+      { kind: CREATURE.BAT, x: 136, y: 98 },
+      { kind: CREATURE.BAT, x: 226, y: 98 },
+      { kind: CREATURE.CRAB, x: 150, y: 200 },
+    ],
+  },
+  // ORGAN (SHA-131): the pipes, in the vault that is their cathedral. Eight of
+  // them, symmetric, standing on the same line and topping out at five heights,
+  // in pairs flush together with open lanes between the pairs — and every mouth
+  // is silver, one row up from the foot. PILLARS's cousin, but the skyline is
+  // ragged, so each lane lets the ball rattle up to a different depth.
+  //
+  // 44 bricks, 52 hits, 3740 points.
+  {
+    name: "ORGAN",
+    background: "vault",
+    rows: [
+      ".....55.....",
+      ".....55.....",
+      "...4.55.4...",
+      "..34.55.43..",
+      "..34.55.43..",
+      "1.34.55.43.1",
+      "S.SS.SS.SS.S",
+      "1.34.55.43.1",
+    ],
+    // A note running up and down the scale: small, in front, walking the pipe
+    // tops from the lowest to the highest and back.
+    eye: {
+      x: 21,
+      y: 92,
+      hw: 10,
+      hh: 4,
+      layer: EYE_LAYER.FRONT,
+      act: {
+        kind: EYE_ACT.PATH,
+        points: [
+          [21, 92],
+          [81, 68],
+          [111, 56],
+          [171, 32],
+          [201, 32],
+          [261, 56],
+          [291, 68],
+          [351, 92],
+        ],
+        speed: 0.5,
+        mode: EYE_PATH.PINGPONG,
+      },
+    },
+    creatures: [
+      { kind: CREATURE.WISP, x: 186, y: 150 },
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
     ],
   },
   // A 3.5-inch floppy, drawn the way the save icon draws it: label up, metal

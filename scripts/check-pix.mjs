@@ -1577,6 +1577,7 @@ function lids(span, floor) {
     ["moth", "mothMother"],
     ["frog", "frogKing"],
     ["snail", "snailElder"],
+    ["jellyfish", "manOWar"],
   ]) {
     const species = rounded(SPECIES[small].frames[0]);
     const boss = rounded(SPECIES[big].frames[0]);

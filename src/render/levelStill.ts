@@ -31,7 +31,7 @@ import type { LevelDefinition } from "@interfaces/types";
  * `hd` paints the same still on the fine grid (SHA-224), into a canvas `FINE`
  * times the field — the gallery's downscale to a tile is smoothed, so a finer
  * field photographs better rather than noisier. The eye goes with it (SHA-228),
- * which is what keeps the still a picture of the level: forty-five tiles on
+ * which is what keeps the still a picture of the level: forty-nine tiles on
  * one screen is the cheapest whole-inventory check the almond has, and it is
  * only worth looking at if the eye in the tile is the eye in the arena.
  */

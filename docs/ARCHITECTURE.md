@@ -633,8 +633,8 @@ font rather than typed out. A level may also pin a capsule to a cell — `drops`
 which SUPER MAZE uses to hand out the two LASERs that make a wall of granite
 passable — but the rows themselves stay pure layout. A level may also carry an
 `observer` block, which is what makes it a **veil**: a socket, a `mode`, a hint,
-the brood's starting places and the diadem's six points. Five of the forty-five
-have one; the mode is the whole difference between them. The forty
+the brood's starting places and the diadem's six points. Five of the forty-nine
+have one; the mode is the whole difference between them. The forty-four
 without one carry an `eye` block instead (`EyePlacement`, SHA-188): the same
 almond's socket, plus which side of the wall (`EYE_LAYER`, in
 `src/interfaces/eye.ts`), an opacity and a clip window — or `cells`,

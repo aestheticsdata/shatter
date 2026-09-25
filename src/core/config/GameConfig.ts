@@ -2358,6 +2358,36 @@ export const gameConfig = {
       layKind: "2",
       headWidth: 12,
     },
+    /**
+     * THE MAN O' WAR (SHA-130), the boss at the end of level 45. Ten hits,
+     * every one of which sends him back to the top; the sting is twice his
+     * children's.
+     */
+    manOWar: {
+      hitPoints: 10,
+      points: 250,
+      killPoints: 2500,
+      enterSpeed: 1,
+      // Where he hangs between descents, and for how long.
+      hangY: 20,
+      restTicks: 120,
+      // A slower beat than his children's: a bigger bell pushes more water.
+      pulseTicks: 80,
+      thrustShare: 0.28,
+      // Going down about a third of a pixel a tick on balance — some eleven
+      // seconds from the top to the rail — and back up in about four.
+      sinkUp: 1,
+      sinkDown: 0.8,
+      riseUp: 3.2,
+      riseSink: 0.15,
+      drift: 0.5,
+      hoverTicks: 60,
+      hoverBob: 0.6,
+      // Twice a jellyfish's sting.
+      stingTicks: 132,
+      armedFlickerAt: 50,
+      flickerTicks: 5,
+    },
   },
   /**
    * THE BOSSES (SHA-209): the fight at the end of every fifth level. What a

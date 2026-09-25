@@ -439,7 +439,7 @@ export interface LevelDefinition {
   name: string;
   background: BackgroundId;
   rows: readonly string[];
-  // The five veils' block, and absent on the other forty — which carry
+  // The five veils' block, and absent on the other forty-four — which carry
   // the same eye in `eye` instead, at rest or acting. A level with neither has
   // no eye.
   observer?: ObserverDefinition;
@@ -450,11 +450,12 @@ export interface LevelDefinition {
   // THE CHAMBER (SHA-184): particles the level is built with, in on its first
   // serve and counted against the cap. ORBIT's two electrons, so far.
   inhabitants?: readonly ParticlePin[];
-  // Empty on all but three: SUPER MAZE, whose two LASERs are the only way
+  // Empty on all but five: SUPER MAZE, whose two LASERs are the only way
   // through a wall of 4-hit granite in anything under a very long while;
   // HOURGLASS, whose TEMPO and STASIS on the spine are the ticket's promise
-  // kept; and CENTIPEDE, whose gold head lets a CRITTER grub out onto the wall
-  // the centipede is drawn crawling over.
+  // kept; CENTIPEDE, whose gold head lets a CRITTER grub out onto the wall
+  // the centipede is drawn crawling over; LUCKY, whose ? pays two GAMBLEs out
+  // of its dot; and CRT, with a DEMAKE in the middle of its static.
   drops?: readonly SeededDrop[];
 }
 
