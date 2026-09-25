@@ -19,34 +19,7 @@ import { Ball, ballSizeFor, paceGhost } from "@entities/ball/Ball";
 import { BrickGrid } from "@entities/bricks/BrickGrid";
 import { creatureBox, Creatures } from "@entities/creatures/Creatures";
 import { SPECIES } from "@entities/creatures/species";
-import { Brood } from "@entities/effects/Brood";
-import { BumperField } from "@entities/effects/BumperField";
-import { Chamber } from "@entities/effects/Chamber";
-import { Chart } from "@entities/effects/Chart";
-import { Critter } from "@entities/effects/Critter";
-import { Decoherence } from "@entities/effects/Decoherence";
-import { Detonation } from "@entities/effects/Detonation";
-import { Entanglement } from "@entities/effects/Entanglement";
-import { Erosion } from "@entities/effects/Erosion";
-import { Fence } from "@entities/effects/Fence";
-import { Gaze } from "@entities/effects/Gaze";
-import { GravelField } from "@entities/effects/GravelField";
-import { Inside } from "@entities/effects/Inside";
-import { JellySheet } from "@entities/effects/JellySheet";
-import { LoosePupil } from "@entities/effects/LoosePupil";
-import { MeteorField } from "@entities/effects/MeteorField";
-import { insideRect, Observer } from "@entities/effects/Observer";
-import { OCULUS_HEIGHT, OCULUS_POSITIONS, OCULUS_WIDTH, Oculi } from "@entities/effects/Oculi";
-import { ParticleField } from "@entities/effects/ParticleField";
-import { Quake } from "@entities/effects/Quake";
-import { ShadowCast } from "@entities/effects/ShadowCast";
-import { Singularity } from "@entities/effects/Singularity";
-import { Slump } from "@entities/effects/Slump";
-import { Superposition } from "@entities/effects/Superposition";
-import { Tears } from "@entities/effects/Tears";
-import { Tunnelling } from "@entities/effects/Tunnelling";
-import { Uncertainty } from "@entities/effects/Uncertainty";
-import { WallOffsets } from "@entities/effects/WallOffsets";
+import * as Fx from "@entities/effects";
 import { ShotPool } from "@entities/laser/ShotPool";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
 import { Paddle } from "@entities/paddle/Paddle";
@@ -65,13 +38,6 @@ import type { SoundBank } from "@audio/SoundBank";
 import type { TraceRules } from "@core/ballTrace";
 import type { ComboId } from "@core/config/combos";
 import type { Creature, CreatureEffects, CreatureSight } from "@entities/creatures/Creature";
-import type { Beast } from "@entities/effects/Brood";
-import type { Cell, ChamberField, Quantum } from "@entities/effects/Chamber";
-import type { EyeSight } from "@entities/effects/Observer";
-import type { Landing } from "@entities/effects/Slump";
-import type { EchoContact } from "@entities/effects/Superposition";
-import type { Tear } from "@entities/effects/Tears";
-import type { LeapField } from "@entities/effects/Tunnelling";
 import type { WidthCurve } from "@entities/paddle/Paddle";
 import type { CreatureKind } from "@interfaces/creatures";
 import type { ParticleKind } from "@interfaces/particles";
@@ -392,13 +358,13 @@ export class ShatterGame {
   private trapsCaught = 0;
   private stasisRings: StasisRing[] = [];
   private bolts: ChainBolt[] = [];
-  private readonly singularity = new Singularity();
-  private readonly vortex = new Singularity();
+  private readonly singularity = new Fx.Singularity();
+  private readonly vortex = new Fx.Singularity();
   // Both black holes, in the order everything that walks them uses: SINGULARITY's
   // fixed core first, VORTEX's drifting one second. Two entries today, and every
   // loop over them is written for the array rather than the pair, so a third
   // hole is a row here and nothing else.
-  private readonly cores: readonly Singularity[] = [this.singularity, this.vortex];
+  private readonly cores: readonly Fx.Singularity[] = [this.singularity, this.vortex];
   // The combos live this tick, in table order, and one bit per row of `COMBOS`
   // for what was live last tick. The array is rewritten in place rather than
   // rebuilt — it is read once a tick on the hot path — and the mask is what
@@ -442,19 +408,19 @@ export class ShatterGame {
   private readonly slimeWet = new Float32Array(gameConfig.field.width);
   private slip = 0;
   private slimeVx = 0;
-  private readonly bumpers = new BumperField();
-  private readonly quake = new Quake();
+  private readonly bumpers = new Fx.BumperField();
+  private readonly quake = new Fx.Quake();
   // GRAVEL's chips, in the air. Its own pool rather than the debris field's,
   // because a pip is worth points: see `GravelField` for the three things that
   // follow from that and none of which a `Particle` could carry.
-  private readonly gravel = new GravelField();
+  private readonly gravel = new Fx.GravelField();
   // ERODE's wear, cell by cell. Handed to the grid once at construction and read
   // by its hitbox from there — this class only steps it.
-  private readonly erosion = new Erosion();
+  private readonly erosion = new Fx.Erosion();
   // JELLY's sheet, cell by cell. Handed to the grid once at level load and read
   // by its hitbox from there, exactly as the wear above it is — the wall never
   // learns whose capsule moved its bricks.
-  private readonly sheet = new JellySheet();
+  private readonly sheet = new Fx.JellySheet();
   // The cells the sheet tore this tick, as flat indices. A field rather than a
   // local so the drain does not allocate an array on every one of the
   // capsule's six hundred frames; it is never read outside the one method that
@@ -463,14 +429,14 @@ export class ShatterGame {
   // SLUMP's fall, cell by cell. Beside the sheet above it and handed to the
   // grid through the same seam — see `WallOffsets`, which is what lets both
   // capsules move the same brick without the wall learning either one's name.
-  private readonly slump = new Slump();
-  private readonly wallOffsets = new WallOffsets(this.sheet, this.slump);
+  private readonly slump = new Fx.Slump();
+  private readonly wallOffsets = new Fx.WallOffsets(this.sheet, this.slump);
   // FENCE's posts, handed to the grid the way the three above it are — and
   // through a seam of their own, because the fence is the one thing the wall
   // holds that is not the wall: `WallFence` is read by the hitbox and by
   // nothing that walks `rows`. See the class for why it is six cells beside the
   // grid array rather than nine empty rows inside it.
-  private readonly fence = new Fence();
+  private readonly fence = new Fx.Fence();
   // The posts that finished arriving and leaving this tick, reused rather than
   // allocated for the reason `landings` is.
   private readonly fenceSeated: number[] = [];
@@ -479,26 +445,26 @@ export class ShatterGame {
   // the grid: the wall's hitbox is where its bricks are, and a shadow is a
   // surface hanging in the empty band that no brick occupies. It is rebuilt
   // from the wall every tick and owns nothing the wall would have to know about.
-  private readonly shadows = new ShadowCast();
+  private readonly shadows = new Fx.ShadowCast();
   // SUPERPOSE's echoes. Handed the grid rather than holding a reference to it,
   // the way the shadows are: an echo is a second surface standing off a brick
   // and the wall's hitbox is still exactly where its bricks are. What it owns
   // that a shadow does not is the bit saying whether a pair has been collapsed
   // yet, which is the only part of the capsule the wall cannot be asked for.
-  private readonly superposition = new Superposition();
+  private readonly superposition = new Fx.Superposition();
   // COLLAPSE's fog. Unlike the echoes above it this one *is* handed to the
   // grid, because what it changes is the wall's own answer to the ball — but
   // only to the ball: it is read in `findBallOverlap` and nowhere else, so a
   // fogged brick is still a brick to the gild front, to XRAY's span, to HOMING's
   // targets, to ZAP's bottom row and to `remaining`. See `WallFog`.
-  private readonly decoherence = new Decoherence();
+  private readonly decoherence = new Fx.Decoherence();
   // TWIN's couples. The cheapest of the wall capsules to hold, and the odd one
   // out among the six above it: it is handed neither to the grid nor a surface
   // of its own, because a thread is not a thing the ball can touch. What it
   // owns is a pairing over cell indices, and the only question anything asks it
   // is `partnerOf` — at the two places a brick is written to the grid, never at
   // a collision. See `strikeTwin`.
-  private readonly entanglement = new Entanglement();
+  private readonly entanglement = new Fx.Entanglement();
   /**
    * LEAP's clocks, and the one effect on this list that holds nothing about the
    * wall at all: what it owns is a countdown and a span per *ball*, which is
@@ -506,16 +472,16 @@ export class ShatterGame {
    * six above it. Nothing here is a surface — a jump is a displacement, and the
    * only thing it touches is where a ball is.
    */
-  private readonly tunnel = new Tunnelling();
+  private readonly tunnel = new Fx.Tunnelling();
   // HEISEN's vagueness, beside the clocks above it and per ball for their
   // reason. It is read in two places that must not be allowed to disagree —
   // `scoreMultiplier` and the renderer — and it answers both off one number.
-  private readonly uncertainty = new Uncertainty();
+  private readonly uncertainty = new Fx.Uncertainty();
   // The bricks that landed this tick, reused rather than allocated: a whole
   // wall arriving at the floor is ninety-six of these in one frame.
-  private readonly landings: Landing[] = [];
-  private readonly critter = new Critter();
-  private readonly meteors = new MeteorField();
+  private readonly landings: Fx.Landing[] = [];
+  private readonly critter = new Fx.Critter();
+  private readonly meteors = new Fx.MeteorField();
   // Ticks each ball has spent inside each core's reach, indexed `[core][ball]`.
   // Ball slot is a stable identity: `balls` is a fixed array built once at
   // construction and never reordered. If that ever changes, this moves onto Ball.
@@ -575,7 +541,7 @@ export class ShatterGame {
             this.gamblePin = kind;
           },
           setChart: (strokes) => {
-            this.chart.set(strokes ?? Chart.strokesTotal);
+            this.chart.set(strokes ?? Fx.Chart.strokesTotal);
           },
           // `art hd`, `art split`: a rendering choice, not game state, so it
           // goes straight to the renderer and nothing here remembers it.
@@ -657,14 +623,14 @@ export class ShatterGame {
   private readonly paddle = new Paddle();
   // THE OBSERVER's eye (SHA-169). Loaded per level and dormant on the
   // thirty-eight that are not veils.
-  private readonly observer = new Observer();
+  private readonly observer = new Fx.Observer();
   // And its brood (SHA-170), pinned by the same block.
-  private readonly brood = new Brood();
+  private readonly brood = new Fx.Brood();
   // THE BESTIARY (SHA-207): the ordinary levels' creatures, beside the veils' brood.
   private readonly creatures = new Creatures();
   // THE CHAMBER (SHA-179): the particles let in through the side bars, on
   // every level, and the clock that lets them in.
-  private readonly chamber = new Chamber();
+  private readonly chamber = new Fx.Chamber();
   // The brick an electron has just taken a hit for, and how long it is proof.
   private ward: { row: number; column: number; ticks: number } | null = null;
   // THE BOSSES (SHA-209): the one creature that ends a boss level, in a pool of
@@ -681,14 +647,14 @@ export class ShatterGame {
   private glowTicks = 0;
   // THE CHART (SHA-212): the run's constellation on the dial. Run state, not
   // level state — `startRun` is the one thing that empties it.
-  private readonly chart = new Chart();
+  private readonly chart = new Fx.Chart();
   private bossDone = false;
   // And the three plaques that open it (SHA-171).
-  private readonly oculi = new Oculi();
+  private readonly oculi = new Fx.Oculi();
   // And what is behind the door (SHA-172).
-  private readonly inside = new Inside();
+  private readonly inside = new Fx.Inside();
   // THE IRIS's gaze (SHA-173), and the stone it leaves on the deck.
-  private readonly gaze = new Gaze();
+  private readonly gaze = new Fx.Gaze();
   private petrifyTicks = 0;
   // How many bricks the level's wall was built with: what THE RISE (SHA-200)
   // measures the share broken against.
@@ -696,9 +662,9 @@ export class ShatterGame {
   // THE STAIRS' strike (SHA-204): 1 on the tick the lightning lands, decaying.
   private eyeFlash = 0;
   // THE TEAR's drops (SHA-174).
-  private readonly tears = new Tears();
+  private readonly tears = new Fx.Tears();
   // THE LID's loose pupil (SHA-176), and how much of its seal has been cut.
-  private readonly loosePupil = new LoosePupil();
+  private readonly loosePupil = new Fx.LoosePupil();
   private sealSeen = 0;
   /**
    * The Observer is blind, and the card over the field says so instead of
@@ -721,8 +687,8 @@ export class ShatterGame {
   private readonly dropBag = new DropBag();
   private readonly shotPool = new ShotPool();
   private readonly balls: Ball[] = Array.from({ length: MAX_BALLS }, () => new Ball());
-  private readonly particles = new ParticleField();
-  private readonly detonation = new Detonation();
+  private readonly particles = new Fx.ParticleField();
+  private readonly detonation = new Fx.Detonation();
   private multiTier = 0;
   private swarmLive = false;
   private clearCountdown = 0;
@@ -2225,7 +2191,7 @@ export class ShatterGame {
   // Whether this ball is close enough to `core` for it to own the guidance.
   // The cutoff is the core's own, so the bigger hole waves HOMING off from
   // proportionally further out.
-  private heldBy(core: Singularity, ball: Ball): boolean {
+  private heldBy(core: Fx.Singularity, ball: Ball): boolean {
     const { homingCutoff } = gameConfig.powerUps.singularity;
     const toCoreX = core.x - ball.centerX;
     const toCoreY = core.y - (ball.y + ball.size / 2);
@@ -2237,7 +2203,7 @@ export class ShatterGame {
   //
   // The constant and the floor are the core's own: the inverse-square law is the
   // same curve at both sizes, read 1.5x further out at VORTEX.
-  private bendTowardCore(ball: Ball, core: Singularity, pullScale: number): boolean {
+  private bendTowardCore(ball: Ball, core: Fx.Singularity, pullScale: number): boolean {
     const { pullConstant, minDistance } = gameConfig.powerUps.singularity;
     const toCoreX = core.x - ball.centerX;
     const toCoreY = core.y - (ball.y + ball.size / 2);
@@ -2279,7 +2245,7 @@ export class ShatterGame {
     });
   }
 
-  private closeCore(core: Singularity): void {
+  private closeCore(core: Fx.Singularity): void {
     core.reset();
     this.coreHold[this.cores.indexOf(core)].fill(0);
   }
@@ -3457,7 +3423,7 @@ export class ShatterGame {
       return;
     }
     const ball = this.nearestBallTo(this.observer.socket);
-    const inMouth = ball !== null && insideRect(act.zone, ball);
+    const inMouth = ball !== null && Fx.insideRect(act.zone, ball);
     if (inMouth && !this.gaze.active) {
       this.gaze.load(true, gameConfig.observer.throat.idleTicks);
     } else if (!inMouth && this.gaze.active && this.gaze.phase === "idle") {
@@ -3506,7 +3472,7 @@ export class ShatterGame {
    * something to solve.
    */
   private strikeOculus(index: number, by: Ball): void {
-    const [x, y] = OCULUS_POSITIONS[index];
+    const [x, y] = Fx.OCULUS_POSITIONS[index];
     const result = this.oculi.strike(index);
     if (result === "reset") {
       this.deps.sfx.oculiReset();
@@ -3514,8 +3480,8 @@ export class ShatterGame {
     }
     this.bumpChain();
     this.popGain(
-      x + OCULUS_WIDTH / 2,
-      y + OCULUS_HEIGHT + 6,
+      x + Fx.OCULUS_WIDTH / 2,
+      y + Fx.OCULUS_HEIGHT + 6,
       this.award(gameConfig.observer.oculi.points, "ball", by),
       true,
     );
@@ -3653,7 +3619,7 @@ export class ShatterGame {
    * the band for the rest of the level. The points are the receipt; the absence
    * is the reward.
    */
-  private burstTear(tear: Tear, by: Ball | null): void {
+  private burstTear(tear: Fx.Tear, by: Ball | null): void {
     this.tears.burst(tear);
     this.bumpChain();
     const { width, height, points } = gameConfig.observer.tears;
@@ -3775,7 +3741,7 @@ export class ShatterGame {
    * entered on and is gone from the field on the same tick, so there is nothing
    * left to graze.
    */
-  private strikeEcho(echo: EchoContact, ball: Ball): void {
+  private strikeEcho(echo: Fx.EchoContact, ball: Ball): void {
     this.superposition.collapse(echo.row, echo.column);
     this.deps.sfx.superposeCollapse();
     const brick = this.grid.hitAtCell(echo.row, echo.column);
@@ -4153,7 +4119,7 @@ export class ShatterGame {
    * pushes a ball out to `mirrorCatch.bottom`, so a landing in it resolves on
    * the next sub-step rather than wedging.
    */
-  private leapField(timeScale: number): LeapField {
+  private leapField(timeScale: number): Fx.LeapField {
     const inset = gameConfig.ball.collisionInset;
     const ghosting = this.timers.isActive("GH");
     const { radius } = gameConfig.powerUps.bumpers;
@@ -4555,7 +4521,7 @@ export class ShatterGame {
       // frame for as long as the angle held.
       const oculus = this.inside.active ? -1 : this.oculi.at(ball.x, ball.y, size, size);
       if (oculus >= 0) {
-        ball.y = OCULUS_POSITIONS[oculus][1] + OCULUS_HEIGHT;
+        ball.y = Fx.OCULUS_POSITIONS[oculus][1] + Fx.OCULUS_HEIGHT;
         ball.velocity.y = Math.abs(ball.velocity.y);
         this.strikeOculus(oculus, ball);
       }
@@ -5871,7 +5837,7 @@ export class ShatterGame {
    * tones it was drawn in. A kill can only ever happen from the third form, so
    * there is no other material this could be.
    */
-  private strikeBeast(beast: Beast, by: Ball | null): void {
+  private strikeBeast(beast: Fx.Beast, by: Ball | null): void {
     const form = gameConfig.observer.brood.forms[beast.form];
     const centerX = beast.x + form.width / 2;
     const centerY = beast.y + form.height / 2;
@@ -5919,7 +5885,7 @@ export class ShatterGame {
   }
 
   /** The room as the chamber sees it this tick. */
-  private chamberField(): ChamberField {
+  private chamberField(): Fx.ChamberField {
     // GHOST's wall is not there for particles either, and for the ball's
     // reason: a photon rebounding off an invisible brick is the one bug the
     // capsule could not survive.
@@ -5940,8 +5906,8 @@ export class ShatterGame {
    * The heaviest matter on the field is what an electron is drawn to, and it
    * is also — not by accident — the brick a player most wants a clear shot at.
    */
-  private heaviestBrickNear(x: number, y: number, taken: readonly Cell[]): Cell | null {
-    let best: Cell | null = null;
+  private heaviestBrickNear(x: number, y: number, taken: readonly Fx.Cell[]): Fx.Cell | null {
+    let best: Fx.Cell | null = null;
     let bestScore = Number.POSITIVE_INFINITY;
     this.grid.rows.forEach((row, rowIndex) => {
       row.forEach((cell, column) => {
@@ -6017,7 +5983,7 @@ export class ShatterGame {
    * check at the end of the tick takes a life for it. A bolt makes the same
    * crater and costs nothing, which is what makes LASER the tool for one.
    */
-  private annihilate(antiball: Quantum, ball: Ball | null): void {
+  private annihilate(antiball: Fx.Quantum, ball: Ball | null): void {
     const x = antiball.x;
     const y = antiball.y;
     if (ball) {
@@ -6046,7 +6012,7 @@ export class ShatterGame {
    * balls, which is why it is worth a detour — and it pays only if a slot is
    * free, because twelve is the field's limit and not a wish.
    */
-  private splitNucleus(nucleus: Quantum, by: Ball | null): void {
+  private splitNucleus(nucleus: Fx.Quantum, by: Ball | null): void {
     const { recoil, points } = gameConfig.particles.nucleus;
     const inX = by?.velocity.x ?? 0;
     const inY = by?.velocity.y ?? -1;
@@ -6065,7 +6031,7 @@ export class ShatterGame {
 
   // A ball out of the far side of a split nucleus, on the heading the striking
   // ball arrived with, at the field's speed, growing in as a MULTI clone does.
-  private bearNeutron(source: Ball, nucleus: Quantum, inX: number, inY: number): void {
+  private bearNeutron(source: Ball, nucleus: Fx.Quantum, inX: number, inY: number): void {
     const slot = this.balls.find((ball) => !ball.active);
     const length = Math.hypot(inX, inY);
     if (!slot || length === 0) {
@@ -6081,7 +6047,7 @@ export class ShatterGame {
   }
 
   // A daughter's one hit: gone, for its own points, in the debris of what it was.
-  private killDaughter(daughter: Quantum, by: Ball | null): void {
+  private killDaughter(daughter: Fx.Quantum, by: Ball | null): void {
     this.chamber.spend(daughter, false);
     this.particles.burst(daughter.x, daughter.y, "1", gameConfig.effects.brickDeathBurst);
     this.bumpChain();
@@ -6101,7 +6067,7 @@ export class ShatterGame {
    * hit it would have taken is the one the electron took. The far side of the
    * orbit is open, so a player who waits for the turn gets the brick anyway.
    */
-  private knockElectron(ball: Ball, electron: Quantum): void {
+  private knockElectron(ball: Ball, electron: Fx.Quantum): void {
     this.reflectOffDisc(ball, electron.x, electron.y, electron.radius);
     if (electron.hostRow >= 0) {
       this.ward = {
@@ -6157,7 +6123,7 @@ export class ShatterGame {
    * straight back the way it came. It sends it somewhere the player did not
    * plan, which is Arkanoid's enemy role in one line.
    */
-  private absorbPhoton(ball: Ball, photon: Quantum): void {
+  private absorbPhoton(ball: Ball, photon: Fx.Quantum): void {
     const { scatter, points } = gameConfig.particles.photon;
     const speed = Math.hypot(ball.velocity.x, ball.velocity.y);
     const heading = Math.atan2(ball.velocity.y, ball.velocity.x);
@@ -6173,7 +6139,7 @@ export class ShatterGame {
   }
 
   /** A laser bolt reaching a particle. */
-  private boltQuantum(quantum: Quantum): void {
+  private boltQuantum(quantum: Fx.Quantum): void {
     if (quantum.kind === PARTICLE.PHOTON) {
       this.chamber.spend(quantum);
       this.bumpChain();
@@ -6440,7 +6406,7 @@ export class ShatterGame {
     // THE CHART on every card (SHA-212): how many of its lines the run has so
     // far. On THE LID's card it is cashed — the loop is over, and the run that
     // goes on past it starts a new chart — and the card says what it paid.
-    const chart = `CHART ${zeroPad(this.chart.complete, 2)}/${Chart.junctions.length}`;
+    const chart = `CHART ${zeroPad(this.chart.complete, 2)}/${Fx.Chart.junctions.length}`;
     const chartCash = blinding ? this.chart.complete * gameConfig.observer.chart.junctionPoints : 0;
     this.score += chartCash;
     if (blinding) {
@@ -6816,7 +6782,7 @@ export class ShatterGame {
   }
 
   /** What the placed eye reads off the level this tick (SHA-188). */
-  private eyeSight(): EyeSight {
+  private eyeSight(): Fx.EyeSight {
     return {
       standing: (column, row) => (this.grid.rows[row]?.[column] ?? null) !== null,
       // THE RISE (SHA-200): against what the wall was built with, so a brick
@@ -8454,7 +8420,7 @@ export class ShatterGame {
       zeroPad(this.score, SCORE_DIGITS),
       zeroPad(this.bestChain, 2),
       reached,
-      `CHART ${zeroPad(this.chart.complete, 2)}/${Chart.junctions.length} · +${zeroPad(chartCash, 5)}`,
+      `CHART ${zeroPad(this.chart.complete, 2)}/${Fx.Chart.junctions.length} · +${zeroPad(chartCash, 5)}`,
     );
     this.setScreen(SCREEN.OVER);
     this.deps.sfx.gameOver();

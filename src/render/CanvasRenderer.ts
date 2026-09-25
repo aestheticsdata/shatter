@@ -55,26 +55,7 @@ import { ditherTile, mix, Pix, SpriteCache } from "@render/pix";
 import type { BrickDefinition, BrickGrain } from "@core/config/bricks";
 import type { WallErosion, WallSheet } from "@entities/bricks/BrickGrid";
 import type { Creature } from "@entities/creatures/Creature";
-import type { Beast } from "@entities/effects/Brood";
-import type { Chamber, Gate, Quantum } from "@entities/effects/Chamber";
-import type { Critter } from "@entities/effects/Critter";
-import type { Decoherence } from "@entities/effects/Decoherence";
-import type { Detonation } from "@entities/effects/Detonation";
-import type { Entanglement } from "@entities/effects/Entanglement";
-import type { Fence } from "@entities/effects/Fence";
-import type { Pip } from "@entities/effects/GravelField";
-import type { Inside } from "@entities/effects/Inside";
-import type { JellySheet } from "@entities/effects/JellySheet";
-import type { Meteor } from "@entities/effects/MeteorField";
-import type { EyeSocket, Observer } from "@entities/effects/Observer";
-import type { Particle } from "@entities/effects/ParticleField";
-import type { Quake } from "@entities/effects/Quake";
-import type { ShadowCast } from "@entities/effects/ShadowCast";
-import type { Singularity } from "@entities/effects/Singularity";
-import type { Slump } from "@entities/effects/Slump";
-import type { Superposition } from "@entities/effects/Superposition";
-import type { Tunnelling } from "@entities/effects/Tunnelling";
-import type { Uncertainty } from "@entities/effects/Uncertainty";
+import type * as Fx from "@entities/effects";
 import type { Shot } from "@entities/laser/ShotPool";
 import type { Drop } from "@entities/powerups/DropPool";
 import type { EyeLayer } from "@interfaces/eye";
@@ -713,13 +694,13 @@ export interface RenderView {
   // THE OBSERVER's eye, as the object: it carries the veil's socket and tint as
   // well as this frame's lid and look, and the renderer reads all four off it —
   // the same arrangement the wear, the fog and the couples arrive under.
-  observer: Observer;
+  observer: Fx.Observer;
   // THE CHART (SHA-212): the run's constellation, read off the object.
   chart: ChartView;
   // Its brood. A second field and not a property of the eye, because the two are
   // drawn at opposite ends of the frame: the eye is behind the wall and its
   // creatures walk in front of it.
-  brood: readonly Beast[];
+  brood: readonly Fx.Beast[];
   // THE BESTIARY (SHA-207): the ordinary levels' creatures, drawn with the brood.
   creatures: readonly Creature[];
   // THE TEAR's drops, falling. Beside the brood rather than inside it, because
@@ -744,7 +725,7 @@ export interface RenderView {
   // paints the iris instead of the level and draws nothing of the chamber —
   // which is the truth about where the ball is rather than a filter over a field
   // that is still there.
-  inside: Inside;
+  inside: Fx.Inside;
   // THE LID's loose pupil (SHA-176), or null before the seal breaks. Nullable
   // rather than carrying an `active` the renderer has to ask about, because
   // unlike the visit above this one is not a mode the whole frame is in — it is
@@ -853,11 +834,11 @@ export interface RenderView {
    * The wall's shape is the sum of every capsule moving it; what a brick is
    * *made* of under strain is not.
    */
-  jelly: JellySheet;
+  jelly: Fx.JellySheet;
   // SLUMP's two pictures: the hesitation before anything moves, and the line of
   // mortar running up the pile as it sets. Neither is geometry either — the
   // fall itself is already in `offsets`.
-  slump: Slump;
+  slump: Fx.Slump;
   /**
    * FENCE's posts, the way the wall effects above it go over: the renderer asks
    * where each one is and how much of it there is, because both are per post
@@ -867,7 +848,7 @@ export interface RenderView {
    * exactly the height it stops a ball at, at every tick of the telescope going
    * in and of the snap coming out.
    */
-  fence: Fence;
+  fence: Fx.Fence;
   /**
    * UMBRA's shadow field, as the object.
    *
@@ -878,7 +859,7 @@ export interface RenderView {
    * re-deriving the quads here is precisely the two-approximations failure the
    * effect exists to prevent.
    */
-  shadows: ShadowCast;
+  shadows: Fx.ShadowCast;
   /**
    * SUPERPOSE's echo field, handed over whole for the shadows' reason exactly:
    * the effect has already placed every echo's rect this tick for the
@@ -886,21 +867,21 @@ export interface RenderView {
    * surface is. The renderer reads the list, the shimmer and the pops off it
    * and decides nothing.
    */
-  superpose: Superposition;
+  superpose: Fx.Superposition;
   /**
    * COLLAPSE's fog, handed over whole for the echoes' reason: the effect
    * already knows how out of focus every cell is, in one number that folds the
    * arrival, a pass through and the closing condense together. The renderer
    * reads it per cell and decides nothing.
    */
-  fog: Decoherence;
+  fog: Fx.Decoherence;
   /**
    * TWIN's couples, handed over whole for the two above it: the effect has
    * already placed both anchors of every thread this tick, against the same
    * displacements the wall is painted with, and the renderer walks that list
    * and decides nothing but how a hairline is inked.
    */
-  twin: Entanglement;
+  twin: Fx.Entanglement;
   /**
    * LEAP's clocks, handed over whole for the four above it: the effect already
    * knows where every ball's next jump lands — it has to, because the jump and
@@ -908,14 +889,14 @@ export interface RenderView {
    * landing would be a second opinion about the one thing this capsule promises
    * not to lie about.
    */
-  leap: Tunnelling;
+  leap: Fx.Tunnelling;
   /**
    * HEISEN's vagueness, handed over whole and for a reason of its own on top of
    * theirs: the scatter the player is looking at and the multiplier they are
    * being paid are the same number, and two of them would be a trade the player
    * cannot see the terms of.
    */
-  heisen: Uncertainty;
+  heisen: Fx.Uncertainty;
   /**
    * GRAVEL's fault, 0 whole wall to 1 every face split.
    *
@@ -928,7 +909,7 @@ export interface RenderView {
   gravelBlend: number;
   // The chips in the air. Their own list rather than the debris pool, because
   // they are a drop: what is falling here can still be caught.
-  pips: readonly Pip[];
+  pips: readonly Fx.Pip[];
   // BLACKOUT's iris, 0 lit to 1 fully dark. A number rather than a flag because
   // the light does not switch off, it collapses: the pools open wider than the
   // field at 0 and close onto the ball at 1, which is the same journey run
@@ -957,7 +938,7 @@ export interface RenderView {
   bumpers: readonly Bumper[];
   // THE CHAMBER (SHA-179): what is loose in the field, and the two gates in the
   // side bars it came in through.
-  chamber: Chamber;
+  chamber: Fx.Chamber;
   // BANANA's peels on the paddle rail, oldest first.
   peels: readonly Peel[];
   // The rail JAMMER has taken back, dying out where the deck used to be.
@@ -1023,12 +1004,12 @@ export interface RenderView {
   pops: readonly CatchPop[];
   stasisRings: readonly StasisRing[];
   bolts: readonly ChainBolt[];
-  particles: readonly Particle[];
-  meteors: readonly Meteor[];
-  detonation: Detonation;
-  cores: readonly Singularity[];
-  quake: Quake;
-  critter: Critter;
+  particles: readonly Fx.Particle[];
+  meteors: readonly Fx.Meteor[];
+  detonation: Fx.Detonation;
+  cores: readonly Fx.Singularity[];
+  quake: Fx.Quake;
+  critter: Fx.Critter;
   /**
    * WALL's bar: how much of it is written, the x it is written out of, and
    * whether the two pixels a ball just struck are still white-hot.
@@ -2833,7 +2814,7 @@ function paintHdEye(ctx: CanvasRenderingContext2D, eye: HdEye): void {
  */
 export function drawBeast(
   ctx: CanvasRenderingContext2D,
-  beast: Beast,
+  beast: Fx.Beast,
   frameCount: number,
   scale: number,
   demade = false,
@@ -2981,7 +2962,7 @@ export function drawCreature(
  * Parted from the middle out, six pixels up and six down at full travel, so a
  * gate opening reads as a bar splitting rather than as a hole appearing.
  */
-function gateCut(gate: Gate | undefined, unit: number): { top: number; bottom: number } | null {
+function gateCut(gate: Fx.Gate | undefined, unit: number): { top: number; bottom: number } | null {
   if (!gate || gate.open <= 0) {
     return null;
   }
@@ -3009,7 +2990,7 @@ const QUANTA = new SpriteCache();
  * How much of a particle is there: 0 to 1 over a pin's arrival, 1 to 0 over the
  * room emptying, and over its own last ticks for a species that dims out.
  */
-function quantumPresence(quantum: Quantum): number {
+function quantumPresence(quantum: Fx.Quantum): number {
   const { arriveTicks, leaveTicks } = gameConfig.particles;
   let presence = 1;
   if (quantum.arriveTicks > 0) {
@@ -3035,7 +3016,7 @@ function quantumPresence(quantum: Quantum): number {
  */
 export function drawQuantum(
   ctx: CanvasRenderingContext2D,
-  quantum: Quantum,
+  quantum: Fx.Quantum,
   frameCount: number,
   scale: number,
   demade = false,
@@ -3083,7 +3064,7 @@ const ANTIBALL_TONES: BallTones = {
  */
 function drawAntiball(
   ctx: CanvasRenderingContext2D,
-  antiball: Quantum,
+  antiball: Fx.Quantum,
   frameCount: number,
   scale: number,
   demade: boolean,
@@ -3119,7 +3100,7 @@ const NUCLEUS_DEMADE = {
  */
 function drawNucleus(
   ctx: CanvasRenderingContext2D,
-  nucleus: Quantum,
+  nucleus: Fx.Quantum,
   scale: number,
   demade: boolean,
   fine: boolean,
@@ -3162,7 +3143,7 @@ function drawNucleus(
  */
 function drawElectron(
   ctx: CanvasRenderingContext2D,
-  electron: Quantum,
+  electron: Fx.Quantum,
   scale: number,
   demade: boolean,
   fine: boolean,
@@ -3216,7 +3197,7 @@ function drawElectron(
  */
 function drawPhoton(
   ctx: CanvasRenderingContext2D,
-  photon: Quantum,
+  photon: Fx.Quantum,
   scale: number,
   demade: boolean,
   fine: boolean,
@@ -3285,7 +3266,7 @@ function trailPoints(path: readonly number[], count: number): [number, number][]
  */
 function drawQuantumBloom(
   ctx: CanvasRenderingContext2D,
-  quantum: Quantum,
+  quantum: Fx.Quantum,
   scale: number,
   demade: boolean,
   fine: boolean,
@@ -5319,7 +5300,7 @@ export class CanvasRenderer {
     this.ctx.globalAlpha = 1;
   }
 
-  private drawEchoes(superpose: Superposition): void {
+  private drawEchoes(superpose: Fx.Superposition): void {
     const { alphaFrom, alphaTo, popTicks } = gameConfig.powerUps.superpose;
     const alpha = alphaFrom + (alphaTo - alphaFrom) * superpose.shimmer;
     for (const rect of superpose.rects) {
@@ -5394,7 +5375,7 @@ export class CanvasRenderer {
    * not seeing, and a field of hairlines glowing through the dark would be a
    * better picture than this capsule has earned.
    */
-  private drawThreads(twin: Entanglement): void {
+  private drawThreads(twin: Fx.Entanglement): void {
     const { dotPitch, shiverAmplitude, shiverWavelength, shiverTicks, slackFall, slackSag, snapTicks, snapHead } =
       gameConfig.powerUps.twin;
     const slack = twin.slack;
@@ -5525,7 +5506,7 @@ export class CanvasRenderer {
     this.pixel(x + width - 1, y + 1, 1, height - 2, color);
   }
 
-  private drawShadows(shadows: ShadowCast): void {
+  private drawShadows(shadows: Fx.ShadowCast): void {
     const { columns } = gameConfig.grid;
     const fill = this.demade ? this.halftone() : canvasPalette.umbraCast;
     const edge = this.ink(canvasPalette.umbraEdge);
@@ -5653,7 +5634,7 @@ export class CanvasRenderer {
 
   private paintObserverEye(
     view: RenderView,
-    socket: EyeSocket,
+    socket: Fx.EyeSocket,
     open: number,
     target: { x: number; y: number },
     opacity: number,
@@ -5771,7 +5752,7 @@ export class CanvasRenderer {
    * the brick — the direction is the whole lesson, and it is the reverse of
    * every other bright thing this game throws at a wall.
    */
-  private drawUmbraSurges(shadows: ShadowCast): void {
+  private drawUmbraSurges(shadows: Fx.ShadowCast): void {
     const { surgeTicks, surgeTail } = gameConfig.powerUps.umbra;
     this.ctx.fillStyle = this.ink(canvasPalette.umbraSurge);
     for (const surge of shadows.surges) {
@@ -5809,7 +5790,7 @@ export class CanvasRenderer {
    * fades by losing pixels rather than by losing opacity, and a `globalAlpha`
    * glow would be the one thing on screen that does not.
    */
-  private drawUmbraSky(shadows: ShadowCast): void {
+  private drawUmbraSky(shadows: Fx.ShadowCast): void {
     const { width, height } = gameConfig.field;
     const left = shadows.leftRim;
     if (left > 0) {
@@ -5839,7 +5820,7 @@ export class CanvasRenderer {
     this.pixel(sun + 5, 0, 3, 3, canvasPalette.umbraRim);
   }
 
-  private drawSingularity(singularity: Singularity): void {
+  private drawSingularity(singularity: Fx.Singularity): void {
     if (!singularity.active) {
       return;
     }
@@ -6006,7 +5987,7 @@ export class CanvasRenderer {
   // Full-field impact flash for the first ticks, then the expanding shockwave
   // ring (it lingers at its final radius through the debris hold). Drawn over
   // the sprites, under the wall frame.
-  private drawDetonation(detonation: Detonation): void {
+  private drawDetonation(detonation: Fx.Detonation): void {
     if (!detonation.active) {
       return;
     }
@@ -7425,7 +7406,7 @@ export class CanvasRenderer {
    * post's own shade, laid along the cut, so the thing coming down has a bottom
    * to it — and it is skipped on a seated post, which has its real bevel back.
    */
-  private drawFence(fence: Fence): void {
+  private drawFence(fence: Fx.Fence): void {
     const { left, top, columns, brickWidth, brickHeight } = gameConfig.grid;
     const fenceY = top + fence.row * brickHeight;
     for (let column = 0; column < columns; column++) {
@@ -7988,7 +7969,7 @@ export class CanvasRenderer {
     }
   }
 
-  private drawCritter(critter: Critter, dropOffset: number): void {
+  private drawCritter(critter: Fx.Critter, dropOffset: number): void {
     if (!critter.alive) {
       return;
     }
@@ -8048,7 +8029,7 @@ export class CanvasRenderer {
   // rung. It shrinks at exactly the rate the trail behind it thickens, so what
   // the player watches is a rock turning into its own smoke rather than one
   // being deleted at the bottom of the grid.
-  private drawMeteor(meteor: Meteor): void {
+  private drawMeteor(meteor: Fx.Meteor): void {
     const whole = meteor.burnTicks === 0;
     const size = whole ? 4 : Math.ceil((4 * meteor.burnTicks) / gameConfig.effects.meteor.burnoutTicks);
     // THE HD PASS (SHA-227): a rock rather than a square, baked per burn rung
@@ -8392,7 +8373,7 @@ export class CanvasRenderer {
    * PORTAL's mouths make, and for the same reason. A ball is let through
    * exactly the pixels that are missing.
    */
-  private drawWalls(gap: { left: number; right: number } | null = null, gates: readonly Gate[] = []): void {
+  private drawWalls(gap: { left: number; right: number } | null = null, gates: readonly Fx.Gate[] = []): void {
     if (this.fine) {
       this.paintHdWalls(gap, gates);
       return;
@@ -8455,7 +8436,7 @@ export class CanvasRenderer {
    * would fall in the opening is not driven at all rather than being painted
    * and then cut.
    */
-  private paintHdWalls(gap: { left: number; right: number } | null, gates: readonly Gate[]): void {
+  private paintHdWalls(gap: { left: number; right: number } | null, gates: readonly Fx.Gate[]): void {
     const width = gameConfig.field.width * SCALE;
     const height = gameConfig.field.height * SCALE;
     const door = gap === null ? null : { left: Math.round(gap.left * SCALE), right: Math.round(gap.right * SCALE) };
