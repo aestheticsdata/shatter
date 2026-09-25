@@ -503,6 +503,21 @@ export class SoundBank {
   }
 
   /**
+   * JELLYFISH: stung, and the deck is numb (SHA-245).
+   *
+   * `petrified`'s little cousin: a zap that falls away fast, over a short
+   * crackle — something sharp touched the deck, and it is lighter and higher
+   * than the stone because it takes less and is over sooner.
+   */
+  deckStung(): void {
+    if (!this.allow("deckStung")) {
+      return;
+    }
+    this.tone({ freq: 1400, freqEnd: 260, dur: 0.16, vol: 0.05, type: "square" });
+    this.noise({ dur: 0.12, vol: 0.06, filter: { type: "highpass", freq: 2400 } });
+  }
+
+  /**
    * INSIDE THE EYE: the door taken, and the room on the other side of it.
    *
    * A four-note arp climbing an octave and a half, and the only sound in the

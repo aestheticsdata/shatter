@@ -408,6 +408,14 @@ export class ShatterGame {
   // following it, or `null` when the two are in step. See `pointToStage`.
   private pointerTargetX: number | null = null;
   private resyncTicksLeft = 0;
+  // JELLYFISH's sting (SHA-245): how long the deck stays numb, and how far
+  // into it it is — two counts rather than one, because a second sting while
+  // numb extends the tail without restarting the ramp in. `handX` is where the
+  // hand last put the deck on the absolute path, which is what a numb deck
+  // follows half of.
+  private numbTicks = 0;
+  private numbElapsed = 0;
+  private handX: number | null = null;
   private readonly bumpers = new BumperField();
   private readonly quake = new Quake();
   // GRAVEL's chips, in the air. Its own pool rather than the debris field's,
@@ -995,10 +1003,14 @@ export class ShatterGame {
       // the deltas it arrives with and nothing is owed afterwards — there is no
       // absolute position for the deck to be out of step with.
       onPointerMoveBy: (deltaX) => {
-        if (this.skidTicksLeft === 0) {
+        // Stone does not move on this path either: the gaze's gate used to
+        // live on the absolute path alone, and under pointer lock — which is
+        // how the game is played — a petrified deck went on steering.
+        if (this.skidTicksLeft === 0 && this.petrifyTicks === 0) {
           // FLIP: the deck is drawn upside down, so a hand moving right has to
           // move the sim's paddle left for the one on screen to follow it.
-          this.paddle.moveByDelta(this.flipped ? -deltaX : deltaX);
+          // A numb deck takes its share of the movement and no more.
+          this.paddle.moveByDelta((this.flipped ? -deltaX : deltaX) * this.numbFactor());
         }
       },
       onAdvance: () => this.advanceGated(),
@@ -1110,6 +1122,7 @@ export class ShatterGame {
         // the paddle, and this is a score the ghost has no part in.
         chainGold: this.chainMultiplier() >= gameConfig.observer.chain.goldFrom,
         petrified: this.petrifyBlend(),
+        numb: this.numbBlend(),
       },
       mirrorForm: this.mirrorForm,
       mirrorAfterImage: this.mirrorAfterImageTicks / gameConfig.effects.mirrorAfterImageTicks,
@@ -1637,6 +1650,7 @@ export class ShatterGame {
     // Beside the timers and below both freeze gates: the reel is a countdown
     // like theirs, and a NUKE sweep must not resolve one behind its shockwave.
     this.stepGamble();
+    this.stepNumb();
     this.stepPeels();
     // Below both freeze gates, unlike the blend above it: a shockwave or a
     // pending clear holds the field still, and a fault that kept counting
@@ -3200,6 +3214,67 @@ export class ShatterGame {
     const total = gameConfig.observer.gaze.petrifyTicks;
     const elapsed = total - this.petrifyTicks;
     return Math.max(0, Math.min(1, elapsed / 6, this.petrifyTicks / 12));
+  }
+
+  /**
+   * How numb the deck is, 0 to 1 (SHA-245): `petrifyBlend`'s shape — six ticks
+   * in, twelve out — for the house's reason, and off two counts so a sting
+   * landing on a numb deck lengthens it without dipping the blend first.
+   */
+  private numbBlend(): number {
+    if (this.numbTicks <= 0) {
+      return 0;
+    }
+    return Math.max(0, Math.min(1, (this.numbElapsed + 1) / 6, this.numbTicks / 12));
+  }
+
+  /** What share of the hand's movement reaches the deck: 1 free, a half fully numb. */
+  private numbFactor(): number {
+    return 1 - gameConfig.creatures.jellyfish.numbSlow * this.numbBlend();
+  }
+
+  /**
+   * JELLYFISH's sting: the deck at half speed for about a second. Not on the
+   * serve screen — the player has not been given the field yet, which is the
+   * gaze's rule too — and the longer of the two if it is already numb.
+   */
+  private stingDeck(ticks: number): void {
+    if (this.screen === "serve") {
+      return;
+    }
+    if (this.numbTicks <= 0) {
+      this.numbElapsed = 0;
+      this.catchPops.push({
+        x: Math.max(40, Math.min(332, this.paddle.centerX)),
+        y: this.freeCatchPopY(),
+        label: "STUNG",
+        malus: true,
+        ticksLeft: gameConfig.powerUps.catchPopLifeTicks,
+      });
+      this.deps.sfx.deckStung();
+    } else {
+      // Caught on the way out: the ramp picks up from where the blend is
+      // rather than jumping back to full.
+      this.numbElapsed = Math.min(this.numbElapsed, Math.max(0, Math.round(this.numbBlend() * 6) - 1));
+    }
+    this.numbTicks = Math.max(this.numbTicks, ticks);
+  }
+
+  /**
+   * The sting wearing off, a tick at a time, beside the skid it is a cousin
+   * of. When it runs out on the absolute path the deck is somewhere short of
+   * the hand, and BANANA's resync glides it back rather than letting the next
+   * mouse event snap it there.
+   */
+  private stepNumb(): void {
+    if (this.numbTicks <= 0) {
+      return;
+    }
+    this.numbTicks -= 1;
+    this.numbElapsed += 1;
+    if (this.numbTicks === 0 && this.pointerTargetX !== null && this.skidTicksLeft === 0) {
+      this.resyncTicksLeft = gameConfig.powerUps.banana.resyncTicks;
+    }
   }
 
   /**
@@ -6148,6 +6223,7 @@ export class ShatterGame {
         this.deps.sfx.brickDestroyed(hit.row);
       },
       petrifyDeck: () => this.petrifyDeck(),
+      stingDeck: (ticks) => this.stingDeck(ticks),
       pop: (x, y, label, malus) => {
         this.catchPops.push({
           x: Math.max(40, Math.min(332, x)),
@@ -6809,10 +6885,22 @@ export class ShatterGame {
     // stone lifts the deck goes where the mouse *is*, not where it was when the
     // beam landed, so the player is handed back a paddle under their hand
     // instead of one that lurches across the field to catch up.
+    const lastHand = this.handX;
+    this.handX = fieldX;
     if (this.petrifyTicks > 0) {
       return;
     }
     if (this.skidTicksLeft > 0 || this.resyncTicksLeft > 0) {
+      this.pointerTargetX = fieldX;
+      return;
+    }
+    // JELLYFISH's sting (SHA-245): the deck follows the hand's *movement* at
+    // its numb share rather than jumping to where the hand is, and remembers
+    // where that is so the resync can hand it back when the sting wears off.
+    if (this.numbTicks > 0) {
+      if (lastHand !== null) {
+        this.paddle.moveByDelta((fieldX - lastHand) * this.numbFactor());
+      }
       this.pointerTargetX = fieldX;
       return;
     }
@@ -6993,6 +7081,10 @@ export class ShatterGame {
     this.resyncTicksLeft = 0;
     this.pointerTargetX = null;
     this.lastPaddleX = this.paddle.x;
+    // And the sting, which is the same kind of thing: a numb deck carried
+    // across a serve would be a jellyfish nobody can see still holding it.
+    this.numbTicks = 0;
+    this.numbElapsed = 0;
   }
 
   /**

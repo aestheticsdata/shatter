@@ -75,6 +75,12 @@ export interface CreatureEffects {
   pop(x: number, y: number, label: string, malus: boolean): void;
   /** The deck turns to stone for THE IRIS's span — a boss's sting (SPIDER QUEEN). */
   petrifyDeck(): void;
+  /**
+   * The deck goes numb for this long — half speed, not frozen (JELLYFISH).
+   * Deliberately not `petrifyDeck`: stone cannot move at all and is THE
+   * IRIS's; numb is slow. Longer of the two if it is already numb.
+   */
+  stingDeck(ticks: number): void;
   burst(x: number, y: number, material: ChunkMaterial): void;
   /** The lights go out for this long — BLACKOUT's pools (MOTH MOTHER). Longer of the two if already dark. */
   dust(ticks: number): void;

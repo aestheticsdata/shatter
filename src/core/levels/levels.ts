@@ -468,10 +468,14 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "OMEGA",
     background: "planet",
     rows: ["...SSSSSS...", "..S......S..", "..S.2222.S..", "..S......S..", "...S....S...", ".GGG....GGG."],
-    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    // OMEGA is the jellyfish level (SHA-245), and it was picked for its wall:
+    // the Ω is a bowl open at the bottom, so two pinned inside it sink out
+    // through the mouth between the feet and come back up into it — the
+    // descent is in the open, where it can be read and shot. A frog and the
+    // spider stay on from SHA-210's mix, above the bowl and out of their way.
     creatures: [
-      { kind: CREATURE.FROG, x: 104, y: 26 },
-      { kind: CREATURE.FROG, x: 254, y: 26 },
+      { kind: CREATURE.JELLYFISH, x: 130, y: 76 },
+      { kind: CREATURE.JELLYFISH, x: 232, y: 76 },
       { kind: CREATURE.FROG, x: 194, y: 26 },
       { kind: CREATURE.SPIDER, x: 120, y: 4 },
     ],

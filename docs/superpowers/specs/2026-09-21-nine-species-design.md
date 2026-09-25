@@ -340,6 +340,20 @@ slow. It borrows `petrifyBlend`'s six-in, twelve-out ramp (gap 5).
 
 Solid: no. `hitPoints 1`, `points 130`, `killPoints 300`.
 
+**Built** (SHA-245), pinned twice on 28 OMEGA, whose Ω is a bowl open at the
+bottom. Down from the wall in about twelve seconds, back up in about seven. A
+jellyfish that reaches the rail and misses hovers there for a second, still
+hunting, then rises. Each one hunts a point between its own pin and the deck
+rather than the deck itself, because two hunting the deck came down stacked as
+one creature. The tentacle tips are the held cue: lit while it is going down,
+flickering on the last stretch, dull on the way back up.
+
+Numb means the deck follows the hand's *movement* at half its size, on both
+pointer paths. When it wears off, BANANA's resync glides the deck back under
+the hand. On the way, the pointer-lock path turned out never to have checked
+for stone, so a petrified deck could still be steered in normal play. It checks
+now.
+
 ### SLUG — it takes the rail
 
 Crawls the rail laying slime behind it. Over a slimed stretch the deck skids:

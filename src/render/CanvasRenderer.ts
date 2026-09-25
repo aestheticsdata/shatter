@@ -525,6 +525,11 @@ export interface PaddleRenderState extends DeckSeamState {
    * done to the player's hand.
    */
   petrified: number;
+  /**
+   * JELLYFISH's sting (SHA-245), 0 free to 1 fully numb. A blend for the
+   * stone's reason, and not given to MIRROR's ghost for the stone's reason.
+   */
+  numb: number;
 }
 
 // The four tones a paddle is banded from. The ghost is the same sprite in a
@@ -592,6 +597,17 @@ const STONE_BANDS: PaddleBandColors = {
   shade: canvasPalette.stoneCrack,
 };
 
+// A stung deck: its bands pulled halfway to the jellyfish's own pinks, so the
+// deck is bruised lilac rather than a new colour — still the paddle, visibly
+// wearing what touched it. Half and not all: numb is slow, not gone.
+const STUNG_BANDS: PaddleBandColors = {
+  body: BRICK_COLORS["1"].light,
+  cap: BRICK_COLORS["1"].flat,
+  sheen: canvasPalette.wallLight,
+  shade: BRICK_COLORS["1"].dark,
+};
+const STUNG_WEIGHT = 0.5;
+
 // Where the rock splits: a fraction of the span and a height, so a 20px SPLIT
 // half and a 92px XWIDE crack in the same places rather than one of them being
 // all crack and the other none.
@@ -622,13 +638,24 @@ const mixTone = mix;
  * The sheen and not the body, because the sheen is the one band a player is
  * already watching — it is the pixel row the ball leaves from.
  */
-function deckBands(capsJammed: boolean, chainGold: boolean, petrified: number): PaddleBandColors {
+function deckBands(capsJammed: boolean, chainGold: boolean, petrified: number, numb = 0): PaddleBandColors {
   let bands = PADDLE_BANDS;
   if (capsJammed) {
     bands = { ...bands, cap: DROP_COLORS.J };
   }
   if (chainGold) {
     bands = { ...bands, sheen: canvasPalette.chainSheen };
+  }
+  // Under the stone: a numb deck the gaze then catches is stone, and a sting
+  // is something happening to a deck that can still move.
+  if (numb > 0) {
+    const weight = numb * STUNG_WEIGHT;
+    bands = {
+      body: mixTone(bands.body, STUNG_BANDS.body, weight),
+      cap: mixTone(bands.cap, STUNG_BANDS.cap, weight),
+      sheen: mixTone(bands.sheen, STUNG_BANDS.sheen, weight),
+      shade: mixTone(bands.shade, STUNG_BANDS.shade, weight),
+    };
   }
   if (petrified <= 0) {
     return bands;
@@ -5731,7 +5758,7 @@ export class CanvasRenderer {
       y,
       paddle.width,
       paddle.splitGap,
-      deckBands(paddle.capsJammed, paddle.chainGold, paddle.petrified),
+      deckBands(paddle.capsJammed, paddle.chainGold, paddle.petrified, paddle.numb),
       paddle,
       paddle.glueReach,
       paddle.english,

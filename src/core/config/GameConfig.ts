@@ -2104,6 +2104,46 @@ export const gameConfig = {
       spill: 24,
     },
     /**
+     * JELLYFISH (SHA-245): it goes for the deck.
+     *
+     * Tuned round the descent, which is the window: from a pin in the wall to
+     * the rail in about twelve seconds, slow enough to read and to line up a
+     * shot, and back up in about seven.
+     */
+    jellyfish: {
+      hitPoints: 1,
+      points: 130,
+      killPoints: 300,
+      // One beat a second, and the push is the first quarter of it.
+      pulseTicks: 60,
+      thrustShare: 0.28,
+      // Going down: a push up of about ten pixels a beat against a sink of
+      // about twenty-five, so it comes down some fifteen pixels a second.
+      sinkUp: 0.9,
+      sinkDown: 0.7,
+      // Going back up, spent: the push does the travelling.
+      riseUp: 3,
+      riseSink: 0.15,
+      // How fast it slides sideways after the deck, at most. A deck crosses
+      // the field in a flick, so this is a hunt the player can always step
+      // out of — and has to step out of while the ball wants them there.
+      drift: 0.35,
+      // How far from its pin toward the deck it hunts: all the way would bring
+      // two of them down on the same spot, one on top of the other.
+      pull: 0.6,
+      // How long it hangs over the rail when it arrives and misses, and how
+      // far its pulse lifts it while it does.
+      hoverTicks: 75,
+      hoverBob: 0.5,
+      // The sting: about a second of the deck at half speed, inside the
+      // six-in, twelve-out ramp every effect on the deck gets.
+      stingTicks: 66,
+      numbSlow: 0.5,
+      // The tips flicker on the last stretch above the deck, at this rate.
+      armedFlickerAt: 40,
+      flickerTicks: 5,
+    },
+    /**
      * THE SPIDER QUEEN (SHA-209), the boss at the end of level 5. Ten hits;
      * every one pays a brick's worth twice over, and the kill pays the level.
      */

@@ -4,6 +4,7 @@ import { CRAB } from "@entities/creatures/species/crab";
 import { FIREFLY } from "@entities/creatures/species/firefly";
 import { FROG } from "@entities/creatures/species/frog";
 import { FROG_KING } from "@entities/creatures/species/frogKing";
+import { JELLYFISH } from "@entities/creatures/species/jellyfish";
 import { MOTH } from "@entities/creatures/species/moth";
 import { MOTH_MOTHER } from "@entities/creatures/species/mothMother";
 import { SNAIL } from "@entities/creatures/species/snail";
@@ -34,6 +35,7 @@ export const SPECIES: Readonly<Record<CreatureKind, Species>> = {
   wisp: WISP,
   firefly: FIREFLY,
   crab: CRAB,
+  jellyfish: JELLYFISH,
   spiderQueen: SPIDER_QUEEN,
   mothMother: MOTH_MOTHER,
   frogKing: FROG_KING,
