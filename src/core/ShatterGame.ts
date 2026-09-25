@@ -1882,16 +1882,9 @@ export class ShatterGame {
     // ball having *left* it, which is a fact about the end of a tick and not
     // about any one sub-step inside it.
     this.decoherence.step(this.grid, this.balls);
-    // The threads going slack, scored where the sunset and the merge above are
-    // and for their reason: the twenty ticks they take to fall are what the
-    // sound is over, so the field is bare on the tick the room goes quiet.
-    if (this.timers.remaining("TW") === gameConfig.powerUps.twin.slackTicks) {
-      this.deps.sfx.twinSlack();
-    }
     // TWIN's couples, beside the echoes and below the same gates — though for a
-    // milder reason than theirs. A thread is not a hitbox, so a detonation
-    // holding the field still is not holding a collider still; what the gates
-    // buy here is that the refill clock does not spend the capsule's eighteen
+    // milder reason than theirs. A couple is not a hitbox; what the gates buy
+    // here is that the refill clock does not spend the capsule's eighteen
     // seconds while the wall is frozen behind a clear.
     this.entanglement.step(this.grid);
     this.lightCasters();
@@ -2022,13 +2015,13 @@ export class ShatterGame {
     // tick there is nothing out of focus and nothing to walk through. `reset`
     // is the bookkeeping catching up with a picture that has finished, and the
     // sound played when the wall started coming back rather than here.
-    // The threads already down: they stopped paying twenty ticks ago and have
-    // spent them falling through the field, so by this tick there is nothing on
-    // screen and nothing wired. `reset` is the bookkeeping catching up with a
-    // picture that has already finished, which is why the sound is not here —
-    // `twinSlack` played when they let go, not when the timer noticed.
+    // The wiring lets go. Nothing is standing on the field to take down — the
+    // links are only ever drawn when they fire — so the end is a sound: the
+    // wall goes back to being a plain wall, and the player hears it. An arc
+    // still in flight finishes its 300 ms rather than being cut.
     if (expired.includes("TW")) {
-      this.entanglement.reset();
+      this.entanglement.stop();
+      this.deps.sfx.twinSlack();
     }
     if (expired.includes("CO")) {
       this.decoherence.reset();

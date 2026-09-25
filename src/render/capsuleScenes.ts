@@ -1,5 +1,6 @@
 import { BRICK_BY_ID } from "@core/config/bricks";
 import { gameConfig } from "@core/config/GameConfig";
+import { twinArcWave } from "@entities/effects/Entanglement";
 import { FINE } from "@interfaces/art";
 import { paintBackground } from "@render/backgrounds";
 import {
@@ -261,27 +262,16 @@ class Field {
   }
 
   /**
-   * TWIN's thread: the hairline between two paired cell centres.
-   *
-   * Three pixels wide where the field draws one, which is `EDGE`'s rule for
-   * `EDGE`'s reason — these pictures are blitted to a third, and a single pixel
-   * sampled every third comes out as a row of dots with gaps where the capsule
-   * has a line. The pitch is widened in step so the miniature keeps the
-   * *dotted* look the field has rather than turning into a solid rule, since
-   * being dotted is half of what says thread rather than laser.
-   *
-   * `phase` is the travelling shiver frozen wherever the still wants it: a
-   * catalogue entry has no frame counter behind it, and a thread drawn dead
-   * straight would be the one part of this picture that is not what the field
-   * paints.
+   * TWIN's arc: the crooked dotted link between two paired cell centres, as it
+   * fires — the same frozen-kink maths the field walks, three pixels wide where
+   * the field draws one (`EDGE`'s rule: these pictures are blitted to a third).
    */
-  thread(
+  arc(
     from: { x: number; y: number },
     to: { x: number; y: number },
-    phase = 0,
-    color = canvasPalette.twinThread,
+    seed: number,
+    color: string = canvasPalette.twinThread,
   ): void {
-    const { shiverAmplitude, shiverWavelength } = gameConfig.powerUps.twin;
     const alongX = to.x - from.x;
     const alongY = to.y - from.y;
     const length = Math.hypot(alongX, alongY);
@@ -291,8 +281,7 @@ class Field {
     const unitX = alongX / length;
     const unitY = alongY / length;
     for (let walked = 0; walked <= length; walked += EDGE * 2) {
-      const envelope = Math.sin((Math.PI * walked) / length);
-      const wave = Math.sin(((walked - phase) / shiverWavelength) * Math.PI * 2) * shiverAmplitude * envelope;
+      const wave = twinArcWave(walked, length, seed);
       this.rect(
         from.x + unitX * walked - unitY * wave - EDGE / 2,
         from.y + unitY * walked + unitX * wave - EDGE / 2,
@@ -1943,7 +1932,7 @@ const SCENES: Record<PowerUpKind, Painter> = {
   TW: (field) => {
     const kinds: readonly BrickKind[] = ["1", "2", "3", "4", "5", "S"];
     // A wall part way through being taken apart: the middle is gone below the
-    // top two courses, which is what opens the field the thread has to cross.
+    // top two courses, which is the open field the arc has to cross.
     kinds.forEach((kind, row) => {
       for (let column = 0; column < COLUMNS; column++) {
         if (row >= 2 && column > 1 && column < 10) {
@@ -1952,12 +1941,15 @@ const SCENES: Record<PowerUpKind, Painter> = {
         field.brick(column, row, kind);
       }
     });
+    // The strike, frozen: the arc whipping from the brick the ball hit to its
+    // partner at the far corner, and both cells lit. Nothing else is wired in
+    // the picture because nothing else is drawn on the field — a link is only
+    // ever seen when it fires.
     const struck = field.cellCenter(0, 5);
     const far = field.cellCenter(11, 0);
-    field.thread(struck, far, 20);
+    field.flash(0, 5, canvasPalette.twinFlash);
     field.flash(11, 0, canvasPalette.twinFlash);
-    // On the near anchor and under the thread, so the picture reads as one
-    // sentence travelling rather than as two lit bricks.
+    field.arc(struck, far, 0.3, canvasPalette.twinFlash);
     field.ball(struck.x - 4, struck.y + 12);
     field.deck();
   },

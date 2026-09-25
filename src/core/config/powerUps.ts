@@ -538,7 +538,7 @@ export const POWER_UPS = [
   // The ticket proposed #fcbca4 and it is still legal today — 59.6 from QUAKE,
   // 1.6 over the bar. This is the same rose one step out, and it buys the
   // clearance back off the binding neighbour rather than off the others.
-  { id: "TW", name: "TWIN", color: "#ffbda5", dark: true, ticks: 1080, tier: "rare", timed: true, blurb: "THREADED BRICKS DIE IN PAIRS" },
+  { id: "TW", name: "TWIN", color: "#ffbda5", dark: true, ticks: 1080, tier: "rare", timed: true, blurb: "HIDDEN PAIRS DIE TOGETHER" },
   // Magenta, and the row that says out loud what the last four have been
   // circling: **the board is full.** Swept whole at a 3-step, the only bodies
   // left that clear 58 from every pill and the ball are a handful of greens in

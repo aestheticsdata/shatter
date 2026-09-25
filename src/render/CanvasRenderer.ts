@@ -7,6 +7,7 @@ import { SPECIES } from "@entities/creatures/species";
 import { FIREFLY_LAMP, fireflyLantern } from "@entities/creatures/species/firefly";
 import { lifeOf } from "@entities/effects/Chamber";
 import { Chart } from "@entities/effects/Chart";
+import { twinArcWave } from "@entities/effects/Entanglement";
 import { eyePupilPoint } from "@entities/effects/Observer";
 import { OCULUS_HEIGHT, OCULUS_POSITIONS, OCULUS_WIDTH } from "@entities/effects/Oculi";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
@@ -5161,12 +5162,13 @@ export class CanvasRenderer {
       this.drawEchoes(view.superpose);
     }
 
-    // TWIN's threads, over the wall for the echoes' reason and inside the shake
-    // for theirs: a thread is tied to two bricks and crosses everything between
-    // them, so one drawn under the wall would be a wire the player can only see
-    // in the gaps. It rides the quake because both of its anchors do.
-    if (view.twin.active) {
-      this.drawThreads(view.twin);
+    // TWIN's links as they fire, over the wall and inside the shake: an arc is
+    // tied to two bricks and crosses everything between them. Under BLACKOUT
+    // they are drawn over the veil instead (below) — an arc is the payoff, not
+    // a standing cue, and a payoff the player cannot see is one they do not
+    // know they got.
+    if (view.twin.snaps.length > 0 && view.blackoutBlend === 0) {
+      this.drawArcs(view.twin);
     }
 
     // FENCE's posts, after the wall and in coordinates of their own: they ride
@@ -5529,6 +5531,9 @@ export class CanvasRenderer {
       if (view.wormhole.live) {
         this.drawWormhole(view.wormhole, true);
       }
+      if (view.twin.snaps.length > 0) {
+        this.drawArcs(view.twin);
+      }
     }
 
     for (const pop of view.pops) {
@@ -5786,122 +5791,82 @@ export class CanvasRenderer {
    * not seeing, and a field of hairlines glowing through the dark would be a
    * better picture than this capsule has earned.
    */
-  private drawThreads(twin: Fx.Entanglement): void {
-    const { dotPitch, shiverAmplitude, shiverWavelength, shiverTicks, slackFall, slackSag, snapTicks, snapHead } =
-      gameConfig.powerUps.twin;
-    const slack = twin.slack;
-    // The wave's own travel, in pixels along a thread, so every thread on the
-    // field shivers in step: they are all one capsule, and twelve independent
-    // phases would read as twelve things rather than as one wall wired up.
-    const travel = (twin.phase / shiverTicks) * shiverWavelength;
-    this.ctx.globalAlpha = 1 - slack;
-    for (const thread of twin.threads) {
-      const alongX = thread.bx - thread.ax;
-      const alongY = thread.by - thread.ay;
-      const length = Math.hypot(alongX, alongY);
-      if (length === 0) {
-        continue;
-      }
-      // Both ends at once: a dot exists once the nearer anchor has paid out to
-      // it, so the two halves close on the middle. `drawn` is per couple, since
-      // the refill clock keeps adding them all the way through the eighteen seconds.
-      const reach = (length / 2) * thread.drawn;
-      const unitX = alongX / length;
-      const unitY = alongY / length;
-      // Where one pixel of this thread lands, at a distance along it. Written
-      // into two locals rather than returned as a point: a 300 px thread is 75
-      // dots and there are twelve of them on the field, so a fresh object per
-      // pixel would be nine hundred allocations a frame for eighteen seconds.
-      let dotX = 0;
-      let dotY = 0;
-      const at = (walked: number): void => {
-        const envelope = Math.sin((Math.PI * walked) / length);
-        const wave = Math.sin(((walked - travel) / shiverWavelength) * Math.PI * 2) * shiverAmplitude * envelope;
-        // The expiry, in the thread's own idiom: it bows out of its anchors and
-        // then falls, squared so the drop accelerates the way a rope let go
-        // does. The bow rides the same envelope the shiver does, because it is
-        // the same string — and the two add rather than replacing each other,
-        // so a thread goes limp before it goes.
-        const sag = slack * (slackSag * envelope + slackFall * slack);
-        dotX = thread.ax + unitX * walked - unitY * wave;
-        dotY = thread.ay + unitY * walked + unitX * wave + sag;
-      };
-      // **THE HD PASS (SHA-222): a wire, not a string of beads.**
-      //
-      // A line's weight is its thickness times its duty, and the fine grid
-      // takes the thickness from three pixels to one. Carrying the dash pattern
-      // over unchanged — the first thing I did — leaves a thread a third as
-      // bright, which against this field is a thread that is not there; the
-      // capsule's whole job is saying *which two bricks are wired together*,
-      // and a cue that needs looking for is a broken cue. Three times the duty
-      // puts the weight back, and at a third of a game pixel the dashes close.
-      // What is left is a hairline with the shiver running along it as a curve
-      // rather than as a dotted approximation of one — which is what a thread
-      // pulled between two bricks looks like. The dash was never the idiom; it
-      // was the coarse grid's only way of keeping a 3 px line from reading as a
-      // rope, and a 1 px line does not have that problem.
-      //
-      // Floored at one fine pixel so a short pitch cannot walk the same pixel
-      // twice. MAGNET's tether takes the same arithmetic and stops short of it,
-      // for a reason it states there.
-      const pitch = this.fine ? finePitch(dotPitch) : dotPitch;
-      for (let walked = 0; walked <= length; walked += pitch) {
-        if (Math.min(walked, length - walked) > reach) {
-          continue;
-        }
-        at(walked);
-        this.mote(dotX, dotY, 1, canvasPalette.twinThread);
-        // **DEMAKE, and the one thing a 1 px line owes itself on a 1-bit tube.**
-        // The demake flattens every tone on the field to one ink, so a thread
-        // laid over a brick is the brick's own colour and simply is not there —
-        // which is MOULD's fur problem (SHA-142) and takes MOULD's answer:
-        // density and pattern, never tone. The gap between two dots is painted
-        // in the *ground* here, so the thread alternates ink and hole all the
-        // way along. Over bare field the ink half reads and the hole is
-        // invisible; over a brick the hole reads and the ink half is invisible.
-        // Exactly one of the pair lands wherever it is, which is what makes the
-        // line survive a wall it crosses rather than only the mortar.
-        //
-        // Not through `ink()`: that maps a tone to ink or ground by a set
-        // membership, and what is wanted here is the ground itself.
-        if (this.demade) {
-          at(walked + pitch / 2);
-          this.ctx.fillStyle = canvasPalette.demakeGround;
-          this.ctx.fillRect(Math.round(dotX * SCALE), Math.round(dotY * SCALE), SCALE, SCALE);
-        }
-      }
-    }
-    this.ctx.globalAlpha = 1;
-
-    // A spent couple: two hot heads, one running out from the brick the player
-    // struck and one running back from its partner. **A break is an event and
-    // not a fade** — the thread itself is already gone, and what is left is the
-    // report that the damage went both ways rather than travelling one.
+  /**
+   * TWIN's links, as they fire (SHA-166). Nothing is drawn between strikes.
+   *
+   * Each spent couple gets a crooked dotted arc between the two cells and a
+   * highlight on both — the sentence the picture has to say is *these two were
+   * one thing*. The arc's shape is frozen per strike, so several fired on one
+   * tick read as several links rather than a flash of light; it is brightest on
+   * the strike and fades out over its 300 ms, and the highlights with it. A chip
+   * fires the same picture: the event happened, and the highlight simply lands
+   * on a brick that is still standing.
+   */
+  private drawArcs(twin: Fx.Entanglement): void {
+    const { dotPitch, arcTicks } = gameConfig.powerUps.twin;
+    const { brickWidth, brickHeight } = gameConfig.grid;
+    const pitch = this.fine ? finePitch(dotPitch) : dotPitch;
     for (const snap of twin.snaps) {
+      const age = (arcTicks - snap.ticksLeft) / arcTicks;
+      const fade = 1 - age * age;
+      const hot = age < 0.25;
+      // Both cells, outlined and washed: the cell is where the brick *was* (or
+      // still is, on a chip), and both ends light together.
+      for (const [x, y] of [
+        [snap.ax, snap.ay],
+        [snap.bx, snap.by],
+      ] as const) {
+        this.ctx.globalAlpha = fade * 0.35;
+        this.pixel(
+          x - brickWidth / 2 + 1,
+          y - brickHeight / 2 + 1,
+          brickWidth - 2,
+          brickHeight - 2,
+          canvasPalette.twinFlash,
+        );
+        this.ctx.globalAlpha = fade;
+        this.pixel(x - brickWidth / 2, y - brickHeight / 2, brickWidth, 1, canvasPalette.twinFlash);
+        this.pixel(x - brickWidth / 2, y + brickHeight / 2 - 1, brickWidth, 1, canvasPalette.twinFlash);
+        this.pixel(x - brickWidth / 2, y - brickHeight / 2, 1, brickHeight, canvasPalette.twinFlash);
+        this.pixel(x + brickWidth / 2 - 1, y - brickHeight / 2, 1, brickHeight, canvasPalette.twinFlash);
+      }
       const alongX = snap.bx - snap.ax;
       const alongY = snap.by - snap.ay;
       const length = Math.hypot(alongX, alongY);
       if (length === 0) {
         continue;
       }
-      const gone = (snapTicks - snap.ticksLeft) / snapTicks;
       const unitX = alongX / length;
       const unitY = alongY / length;
-      const head = length * gone;
-      // The comet keeps its length in game pixels and gains samples, for the
-      // thread's reason above: a head drawn at the coarse step with fine pixels
-      // would be a dotted flash instead of a streak.
-      const step = this.fine ? finePitch(1) : 1;
-      for (let back = 0; back < snapHead; back += step) {
-        const at = head - back;
-        if (at < 0 || at > length) {
-          continue;
+      this.ctx.globalAlpha = fade;
+      for (let walked = 0; walked <= length; walked += pitch) {
+        const wave = twinArcWave(walked, length, snap.seed);
+        const dotX = snap.ax + unitX * walked - unitY * wave;
+        const dotY = snap.ay + unitY * walked + unitX * wave;
+        // Two fine pixels on a dark shadow a fine pixel down and right: the arc
+        // crosses brick faces as often as mortar, and a bright dot alone on a
+        // bright face is not there. The shadow is what makes it read over both.
+        if (this.fine) {
+          this.fineRect(dotX + 1 / FINE, dotY + 1 / FINE, 2, 2, canvasPalette.twinShadow);
+          this.fineRect(dotX, dotY, 2, 2, hot ? canvasPalette.twinFlash : canvasPalette.twinThread);
+        } else {
+          this.mote(dotX, dotY, 1, hot ? canvasPalette.twinFlash : canvasPalette.twinThread);
         }
-        // Brightest at the head and dimming behind it, so the flash reads as
-        // something arriving rather than as a bar sliding along the line.
-        this.ctx.globalAlpha = (1 - back / snapHead) * (1 - gone * gone);
-        this.mote(snap.ax + unitX * at, snap.ay + unitY * at, 1, canvasPalette.twinFlash);
-        this.mote(snap.bx - unitX * at, snap.by - unitY * at, 1, canvasPalette.twinFlash);
+        // DEMAKE: the tube flattens every tone to one ink, so a dot laid over a
+        // brick is the brick's own colour. The gap between two dots is painted
+        // in the ground, so the arc alternates ink and hole all the way along
+        // and exactly one of the pair reads wherever it lands.
+        if (this.demade) {
+          const half = walked + pitch / 2;
+          const halfWave = twinArcWave(half, length, snap.seed);
+          this.ctx.fillStyle = canvasPalette.demakeGround;
+          this.ctx.fillRect(
+            Math.round((snap.ax + unitX * half - unitY * halfWave) * SCALE),
+            Math.round((snap.ay + unitY * half + unitX * halfWave) * SCALE),
+            SCALE,
+            SCALE,
+          );
+        }
       }
     }
     this.ctx.globalAlpha = 1;

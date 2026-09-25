@@ -15,20 +15,21 @@ import type { BrickGrid } from "@entities/bricks/BrickGrid";
  * question the game asks at the two places a brick is written to the grid:
  * *does this cell have a partner?*
  *
- * **It is not CHAIN.** A chain arc is discovered at the moment of a kill and
- * lives for a few frames; a thread is declared on the catch frame, crosses
- * arbitrary distance and stands on the field for eighteen seconds. The player reads
- * the wall's wiring *before* choosing a shot, which is the opposite of a
- * surprise — and it is also why the thread is not decoration. A capsule that is
- * armed and idle for most of its life and shows nothing reads as one that broke
- * (SHA-62), so the thread is the held cue as much as it is the picture.
+ * **The link is an event, not a standing cue (SHA-166).** The first build drew
+ * the twelve couples as dotted threads for all eighteen seconds, and on an
+ * intact wall twelve dotted lines laid over the brick faces are speckle, not
+ * lines: the player saw dust, broke a brick, saw one brick go, and reported a
+ * capsule that did nothing — while it was paying every time. So nothing is
+ * drawn between strikes. On the tick a wired brick is struck, a crooked arc
+ * whips between the two cells and both hold a highlight for about 300 ms: *these
+ * two were one thing*. TWIN fires on a large share of hits, so it is producing
+ * events constantly and only needs them to be legible; a standing cue spent
+ * contrast on the whole wall to pay off at the moment of a hit, which the event
+ * pays for free. The cost, accepted: you can no longer aim at a wired brick.
  *
  * Both displacements that move a brick off its index are read here the way
  * `cellAt` and `Superposition.step` read them — QUAKE's wall-wide drop and
- * JELLY's and SLUMP's per-cell sag. A thread anchored to an index while its
- * brick hangs six pixels lower would be the one part of this capsule pointing
- * somewhere its brick is not. ERODE's wear is deliberately *not*: a thread lands
- * on a cell centre, and the centre of a worn brick is the centre of its cell.
+ * JELLY's and SLUMP's per-cell sag, so an arc lands on the brick as painted.
  */
 
 /** One couple, as the two cells it joins. */
@@ -37,31 +38,15 @@ interface Couple {
   aColumn: number;
   bRow: number;
   bColumn: number;
-  // When it was drawn, so a couple the refill clock added grows its thread in
-  // rather than appearing at full length. The arrival is per couple and not
-  // wall-wide for exactly that reason: twelve of them are drawn on the catch
-  // frame and the rest arrive over the next eighteen seconds.
-  born: number;
-}
-
-/** Where one thread is being painted this frame. */
-export interface Thread {
-  ax: number;
-  ay: number;
-  bx: number;
-  by: number;
-  // How much of the thread exists, 0 to 1, grown from *both* ends at once — so
-  // the wall visibly wires itself up rather than switching on wired.
-  drawn: number;
 }
 
 /**
- * A couple that has just been spent: the thread with nothing holding it, and the
- * two flashes running down it.
+ * A couple that has just been spent: the two cell centres, and how long the arc
+ * and the two highlights have left. `ax/ay` is the struck brick.
  *
- * A break is an event and not a fade, so it has its own list rather than a
- * number on the couple — the couple is gone the instant one of its halves dies,
- * and this is only the report of it.
+ * `seed` freezes this arc's own crooked shape for its whole life — each strike
+ * kinks differently, so four couples spent on one NUKE tick read as four links
+ * rather than one flash, and no arc wriggles while it is being read.
  */
 export interface Snap {
   ax: number;
@@ -69,6 +54,20 @@ export interface Snap {
   bx: number;
   by: number;
   ticksLeft: number;
+  seed: number;
+}
+
+/**
+ * How far an arc's dot at `walked` along a `length` px link is pushed off the
+ * straight line: two frozen sines under an envelope that pins both ends to their
+ * bricks. The field and the CAPSULES miniature both walk it.
+ */
+export function twinArcWave(walked: number, length: number, seed: number): number {
+  const { arcAmplitude, arcWavelength } = gameConfig.powerUps.twin;
+  const envelope = Math.sin((Math.PI * walked) / length);
+  const base = Math.sin((walked / arcWavelength) * Math.PI * 2 + seed * Math.PI * 2);
+  const kink = 0.6 * Math.sin((walked / (arcWavelength * 0.37)) * Math.PI * 2 + seed * 37);
+  return (base + kink) * arcAmplitude * envelope;
 }
 
 const { columns: COLUMN_COUNT } = gameConfig.grid;
@@ -89,51 +88,15 @@ export class Entanglement {
   private elapsed = 0;
   private duration = 0;
   private live = false;
-  readonly threads: Thread[] = [];
   readonly snaps: Snap[] = [];
 
   get active(): boolean {
     return this.live;
   }
 
-  /**
-   * Whether the couples still pay, which is everything but the last twenty
-   * ticks.
-   *
-   * SUPERPOSE's rule for SUPERPOSE's reason: the slack is a thread the player
-   * has already watched the capsule finish with, and a link that still charged
-   * a brick while its own thread was falling through the field would be the
-   * capsule collecting after it has said goodbye.
-   */
+  /** Whether the couples pay — the whole of the capsule's life. */
   get armed(): boolean {
-    return this.live && this.elapsed < this.duration - gameConfig.powerUps.twin.slackTicks;
-  }
-
-  /**
-   * How far the threads have gone slack, 0 to 1.
-   *
-   * The whole expiry in one number the renderer reads three times — the sag out
-   * of the anchors, the fall through the field, and the fade as they drop.
-   */
-  get slack(): number {
-    const { slackTicks } = gameConfig.powerUps.twin;
-    if (!this.live) {
-      return 0;
-    }
-    const going = this.elapsed - (this.duration - slackTicks);
-    return going <= 0 ? 0 : Math.min(1, going / slackTicks);
-  }
-
-  /**
-   * The travelling shiver, in whole ticks of phase.
-   *
-   * Handed to the renderer as the elapsed count rather than as a 0-to-1 blend,
-   * because a wave travels *along* a thread: the renderer needs the phase at
-   * each pixel it walks, which is a function of distance as well as of time, and
-   * a number normalised here would have to be un-normalised there.
-   */
-  get phase(): number {
-    return this.elapsed;
+    return this.live;
   }
 
   /** Sized from the level, in `buildLevel`, beside `superposition.load`. */
@@ -163,13 +126,23 @@ export class Entanglement {
     this.refill(grid);
   }
 
+  /**
+   * The capsule is over: nothing is wired from this tick on, but an arc already
+   * fired runs out its 300 ms — a payoff cut short on the tick the timer
+   * noticed would be the capsule taking back what it just showed.
+   */
+  stop(): void {
+    this.live = false;
+    this.couples.length = 0;
+    this.partners.fill(NO_PARTNER);
+  }
+
   reset(): void {
     this.live = false;
     this.elapsed = 0;
     this.duration = 0;
     this.couples.length = 0;
     this.partners.fill(NO_PARTNER);
-    this.threads.length = 0;
     this.snaps.length = 0;
   }
 
@@ -197,12 +170,11 @@ export class Entanglement {
   }
 
   /**
-   * Spend the couple a cell belongs to: the pairing goes, the thread snaps.
+   * Spend the couple a cell belongs to: the pairing goes, and the arc fires.
    *
-   * Pushed from the couple's own anchors recomputed here rather than from the
-   * thread the renderer last drew, because a couple can be broken by a kill on
-   * a tick its thread was never placed on — a NUKE on the catch frame reaches
-   * the grid before the first `step`.
+   * Anchors are taken here, on the tick of the strike, off where both bricks
+   * are painted — a NUKE on the catch frame reaches the grid before the first
+   * `step`, and the arc is owed all the same.
    */
   snap(row: number, column: number, grid: BrickGrid): void {
     const slot = this.slotAt(row, column);
@@ -220,13 +192,18 @@ export class Entanglement {
     this.couples.splice(index, 1);
     this.partners[this.slotAt(couple.aRow, couple.aColumn)] = NO_PARTNER;
     this.partners[this.slotAt(couple.bRow, couple.bColumn)] = NO_PARTNER;
-    // Struck end first, so the renderer can run one flash out from the cell the
-    // player hit and the other back from its partner. The pair crossing is what
-    // says the link discharged in both directions rather than travelled one way.
+    // Struck end first, so the arc can whip out from the cell the player hit.
     const struckIsA = couple.aRow === row && couple.aColumn === column;
     const a = this.anchor(grid, struckIsA ? couple.aRow : couple.bRow, struckIsA ? couple.aColumn : couple.bColumn);
     const b = this.anchor(grid, struckIsA ? couple.bRow : couple.aRow, struckIsA ? couple.bColumn : couple.aColumn);
-    this.snaps.push({ ax: a.x, ay: a.y, bx: b.x, by: b.y, ticksLeft: gameConfig.powerUps.twin.snapTicks });
+    this.snaps.push({
+      ax: a.x,
+      ay: a.y,
+      bx: b.x,
+      by: b.y,
+      ticksLeft: gameConfig.powerUps.twin.arcTicks,
+      seed: Math.random(),
+    });
   }
 
   /**
@@ -259,8 +236,8 @@ export class Entanglement {
   }
 
   /**
-   * Rebuild the frame: retire couples whose bricks are gone, top the pairing
-   * back up on the clock, then place every thread.
+   * One tick: age the arcs, retire couples whose bricks are gone, and top the
+   * pairing back up on the clock.
    *
    * **A couple whose brick died to something this capsule was never told about
    * dies with it, silently.** The kill path is routed and the routing is the
@@ -271,19 +248,18 @@ export class Entanglement {
    * happened.
    */
   step(grid: BrickGrid): void {
+    for (let index = this.snaps.length - 1; index >= 0; index--) {
+      if (--this.snaps[index].ticksLeft <= 0) {
+        this.snaps.splice(index, 1);
+      }
+    }
     if (!this.live) {
       return;
     }
     this.elapsed++;
     if (this.elapsed > this.duration) {
-      this.reset();
+      this.stop();
       return;
-    }
-
-    for (let index = this.snaps.length - 1; index >= 0; index--) {
-      if (--this.snaps[index].ticksLeft <= 0) {
-        this.snaps.splice(index, 1);
-      }
     }
 
     const rows = grid.rows;
@@ -302,23 +278,10 @@ export class Entanglement {
 
     // The pairing tops back up, which is the difference between a capsule that
     // spends itself in the first two seconds and one that keeps re-threading
-    // for eighteen. Only while it is armed: a refill during the slack would draw a
-    // thread that is already falling.
+    // for eighteen.
     const { refillTicks } = gameConfig.powerUps.twin;
-    if (this.armed && this.elapsed % refillTicks === 0) {
+    if (this.elapsed % refillTicks === 0) {
       this.refill(grid);
-    }
-
-    const { drawTicks } = gameConfig.powerUps.twin;
-    this.threads.length = 0;
-    for (const couple of this.couples) {
-      const a = this.anchor(grid, couple.aRow, couple.aColumn);
-      const b = this.anchor(grid, couple.bRow, couple.bColumn);
-      const drawn = Math.min(1, (this.elapsed - couple.born) / drawTicks);
-      if (drawn <= 0) {
-        continue;
-      }
-      this.threads.push({ ax: a.x, ay: a.y, bx: b.x, by: b.y, drawn });
     }
   }
 
@@ -359,7 +322,6 @@ export class Entanglement {
         aColumn: free[index] % COLUMN_COUNT,
         bRow: Math.floor(free[index + 1] / COLUMN_COUNT),
         bColumn: free[index + 1] % COLUMN_COUNT,
-        born: this.elapsed,
       };
       this.couples.push(couple);
       this.pair(couple);
@@ -383,7 +345,7 @@ export class Entanglement {
     return row * COLUMN_COUNT + column;
   }
 
-  /** Where a thread is tied on: the cell's centre, where its brick is painted. */
+  /** Where an arc lands: the cell's centre, where its brick is painted. */
   private anchor(grid: BrickGrid, row: number, column: number): { x: number; y: number } {
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
     const sag = grid.sheet?.offsetAt(row, column) ?? 0;

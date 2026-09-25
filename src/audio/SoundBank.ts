@@ -1337,13 +1337,12 @@ export class SoundBank {
   }
 
   /**
-   * And the threads letting go: the tension coming off.
+   * And the wiring letting go at expiry: the tension coming off.
    *
-   * One voice sliding *down* with nothing under it — deliberately not the
-   * arrival reversed, for the reason `superposeMerge` is not: the arrival is
-   * two ends finding each other and this is a rope going slack, and both have
-   * to be heard as their own event. The slide is the whole of it, because the
-   * picture is a fall and a fall has no attack.
+   * One voice sliding *down* with nothing under it. Since SHA-166 nothing is
+   * standing on the field between strikes, so this slide is the whole of the
+   * capsule's ending — the wall goes back to being a plain wall, and the player
+   * hears it do so.
    */
   twinSlack(): void {
     if (!this.allow("twinSlack")) {
