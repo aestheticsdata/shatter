@@ -54,7 +54,9 @@ export class LevelGallery {
   // One painted tile per level, kept for as long as the page is loaded: a
   // 124×100 tile is ~50 KB, so the whole roster is ~1.4 MB at 28 levels and
   // still nothing at any roster a person would author. Nothing on this screen
-  // animates, and no tile is ever painted twice.
+  // animates, and no tile is ever painted twice. In HD a tile is backed at the
+  // fine grid (SHA-251), nine times the pixels: ~450 KB, ~19 MB for all 43 —
+  // and only for the pages actually turned to.
   private readonly tiles = new Map<string, HTMLCanvasElement>();
   // One field-sized canvas for every still ever painted: a still is blitted down
   // into its own tile the moment it is drawn, so the next level paints straight
@@ -79,7 +81,7 @@ export class LevelGallery {
    */
   constructor(
     private readonly elements: LevelGalleryElements,
-    private readonly art: () => ArtMode = () => ART_MODE.CLASSIC,
+    private readonly art: () => ArtMode,
   ) {}
 
   // At least one page, whatever the roster does — a roster under seven has a
@@ -149,10 +151,17 @@ export class LevelGallery {
       return painted;
     }
 
+    // THE HD PASS (SHA-251): in HD the tile is backed at the fine grid, three
+    // times its box each way, and the CSS box does not move. SHA-224 put the HD
+    // still under the tile but kept the tile at one pixel a stage pixel, so every
+    // recipe the pass drew arrived averaged into the same 124×100 and the screen
+    // read exactly as coarse as before. A stage pixel is three fine ones on the
+    // field; it is three on a tile now too.
+    const scale = hd ? FINE : 1;
     const tile = document.createElement("canvas");
     tile.className = "level-tile";
-    tile.width = TILE_WIDTH;
-    tile.height = TILE_HEIGHT;
+    tile.width = TILE_WIDTH * scale;
+    tile.height = TILE_HEIGHT * scale;
     const ctx = tile.getContext("2d");
     if (!ctx) {
       throw new Error("2D level tile context unavailable");
@@ -165,14 +174,13 @@ export class LevelGallery {
     // tile reads as a photographed screen, which is what a miniature is.
     //
     // **And it is why HD needs no second thought about legibility** (SHA-224).
-    // The still is three times bigger there and the box filter is nine times
-    // wider, so an authored mark is the same fraction of a tile it always was —
-    // a 3 px line is one tile pixel either way — while everything the recipes
-    // draw below a field pixel arrives as tone rather than being dropped. A
-    // finer photograph of the same screen.
+    // HD's still is three times bigger and so is its tile, so the filter is the
+    // same 1/3 box on both paths and an authored mark is the same fraction of a
+    // tile it always was — while the tile now has the pixels to show everything
+    // the recipes draw below a field pixel, instead of arriving as tone.
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(this.paintStill(index, hd), 0, 0, TILE_WIDTH, TILE_HEIGHT);
+    ctx.drawImage(this.paintStill(index, hd), 0, 0, tile.width, tile.height);
 
     this.tiles.set(key, tile);
     return tile;

@@ -110,11 +110,15 @@ function createPill(kind: PowerUpKind, hd: boolean): HTMLCanvasElement {
   return pill;
 }
 
-function createTile(): HTMLCanvasElement {
+// In HD the miniature is backed at the fine grid, three times its box each way,
+// for the reason the LEVELS gallery gives (SHA-251): a scene painted in HD and
+// averaged into one pixel a stage pixel reads exactly as coarse as a classic one.
+function createTile(hd: boolean): HTMLCanvasElement {
+  const scale = hd ? FINE : 1;
   const tile = document.createElement("canvas");
   tile.className = "capsule-scene";
-  tile.width = TILE_WIDTH;
-  tile.height = TILE_HEIGHT;
+  tile.width = TILE_WIDTH * scale;
+  tile.height = TILE_HEIGHT * scale;
   return tile;
 }
 
@@ -144,7 +148,8 @@ function contextOf(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
 export class CapsuleCatalogue {
   private page = 0;
   // One painted miniature per capsule, kept: a 124x100 tile is ~50 KB, so the
-  // whole roster is under 2 MB and a page revisited repaints nothing.
+  // whole roster is under 2 MB and a page revisited repaints nothing. An HD tile
+  // is nine times that (SHA-251), ~26 MB if every page is turned to.
   private readonly tiles = new Map<string, HTMLCanvasElement>();
   private readonly pills = new Map<string, HTMLCanvasElement>();
   // One field-sized canvas for every miniature ever painted: a scene is blitted
@@ -163,7 +168,7 @@ export class CapsuleCatalogue {
    */
   constructor(
     private readonly elements: CapsuleCatalogueElements,
-    private readonly art: () => ArtMode = () => ART_MODE.CLASSIC,
+    private readonly art: () => ArtMode,
   ) {}
 
   // At least one page, whatever the roster does — a roster back under nineteen
@@ -234,14 +239,14 @@ export class CapsuleCatalogue {
       return painted;
     }
 
-    const tile = createTile();
+    const tile = createTile(hd);
     const ctx = contextOf(tile);
     // The one downscale in this codebase that keeps smoothing on, for the same
     // reason the LEVELS gallery keeps it on: nearest-neighbour at a third keeps
     // one pixel row in three, and the bevels vanish unevenly.
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(this.paintField(kind, hd), 0, 0, TILE_WIDTH, TILE_HEIGHT);
+    ctx.drawImage(this.paintField(kind, hd), 0, 0, tile.width, tile.height);
 
     this.tiles.set(key, tile);
     return tile;

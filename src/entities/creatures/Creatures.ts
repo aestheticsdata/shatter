@@ -5,6 +5,20 @@ import type { Creature, CreatureEffects, CreatureSight } from "@entities/creatur
 import type { CreatureKind, CreaturePin } from "@interfaces/creatures";
 
 /**
+ * How big this creature is *now* (SHA-241): its species' fixed pair, unless
+ * the species overrides it. Every hitbox question in the game goes through
+ * here, so a species whose size is a function of its state only has to say so
+ * once.
+ *
+ * A `Species` already has `width` and `height` on it, which is why the
+ * fallback is the species itself rather than an object built out of the two.
+ */
+export function creatureBox(creature: Creature): { width: number; height: number } {
+  const species = SPECIES[creature.kind];
+  return species.box?.(creature) ?? species;
+}
+
+/**
  * THE BESTIARY (SHA-207): the creatures an ordinary level puts on the field,
  * from level 1 — each level's own species, pinned in its data.
  *
@@ -72,21 +86,26 @@ export class Creatures {
    * The first live creature whose box overlaps this one, or null. A creature
    * still wearing its flash is skipped: the ball passes through the ones that
    * are not solid, and would otherwise strike the same moth every tick.
-   * `solidOnly` is the ball's question; the laser asks about all of them.
+   *
+   * `by` is which weapon is asking (SHA-242). It exists for the one species
+   * the ball cannot touch at all — everything else answers both the same, and
+   * `solid` has nothing to do with this question: it decides whether the ball
+   * *bounces*, never whether it connects.
    */
-  at(x: number, y: number, width: number, height: number, solidOnly = false): Creature | null {
+  at(x: number, y: number, width: number, height: number, by: "ball" | "laser"): Creature | null {
     for (const creature of this.creatures) {
       if (!creature.alive || creature.flashTicks > 0) {
         continue;
       }
       const species = SPECIES[creature.kind];
-      if (solidOnly && !species.solid) {
+      if (by === "ball" && species.shotOnly) {
         continue;
       }
+      const box = creatureBox(creature);
       if (
-        x < creature.x + species.width &&
+        x < creature.x + box.width &&
         x + width > creature.x &&
-        y < creature.y + species.height &&
+        y < creature.y + box.height &&
         y + height > creature.y
       ) {
         return creature;
@@ -95,12 +114,23 @@ export class Creatures {
     return null;
   }
 
-  /** One strike: a hit point off, the flash on, and the species' own answer. */
-  strike(creature: Creature, by: "ball" | "laser", effects: CreatureEffects): { points: number; killed: boolean } {
+  /**
+   * One strike: a hit point off, the flash on, and the species' own answer.
+   *
+   * `at` is where the hit landed (SHA-241), handed straight through to
+   * `struck` — the hit point comes off first, so a species that answers by
+   * *setting* its hit points, as a cut vine does, has the last word.
+   */
+  strike(
+    creature: Creature,
+    by: "ball" | "laser",
+    effects: CreatureEffects,
+    at: { x: number; y: number },
+  ): { points: number; killed: boolean } {
     const species = SPECIES[creature.kind];
     creature.hitPoints -= 1;
     creature.flashTicks = gameConfig.creatures.flashTicks;
-    const killed = species.struck(creature, by, effects) || creature.hitPoints <= 0;
+    const killed = species.struck(creature, by, effects, at) || creature.hitPoints <= 0;
     if (killed) {
       creature.alive = false;
     }

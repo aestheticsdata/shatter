@@ -175,6 +175,16 @@ risk, and it is legible from the shape.
 *States* `GROW → (tip at the wall) COLUMN`. `hitPoints` is its segment count;
 a hit at height *h* takes off every segment above *h*.
 
+**Built, and two things the line above was silent on** (SHA-241). It lays into
+the lowest *empty* cell of its column and works up, in the green brick, so what
+it leaves is visibly the vine rather than the wall the level was built with.
+And a vine that arrives at a column the player has not touched **waits** — it
+hangs there at full length and every brick taken out of that column comes
+straight back, one every three quarters of a second, until it runs out of
+segments or the player spends the shot they owe it. Dying at an untouched
+column was the other reading, and it makes reaching the wall a reward for
+having done nothing.
+
 *Needs* gap 3 (the hit point passed to `struck`) and gap 4 (`box?`, since the
 hitbox is `segments × 7` tall). Lays its column with the existing `lay`.
 Solid: no — the framework's shelf bounce is vertical only, which is the wrong
@@ -198,8 +208,21 @@ touch it at all.
 what it is rather than for `solid`'s opposite, since `solid: false` already
 means something else and has four users.
 
+**Built as `shotOnly?`** (SHA-242), optional rather than required beside
+`solid`: `solid` is a choice every species makes and this is one WISP makes,
+and twelve `false`s saying nothing about their creature is what asking would
+have cost. The gap turned out to close by *subtraction* as much as by
+addition — `Creatures.at`'s `solidOnly` parameter had no caller anywhere that
+passed `true`, so it came out and `by: "ball" | "laser"` went in, which is the
+question that was actually being asked.
+
 *Held cue* it thins and thickens as it drifts, so an untouchable thing still
-looks alive rather than looking like a bug.
+looks alive rather than looking like a bug. **And a second one the line above
+did not have**: a ball that passes through drags it along in its wake, a shove
+in the ball's own direction that decays over half a second. Nothing happens to
+either of them, which is the whole species — but a ball going clean through
+something that did not so much as stir is the exact picture of a collision
+that failed, and the thinning alone does not answer it.
 
 Solid: no, and ball-proof. `hitPoints 1`, `points 250`, `killPoints 800`.
 
@@ -219,7 +242,32 @@ blackout is the only thing you can see by.
 light pool itself is presentational and reads live FIREFLY positions off the
 view, exactly as the deck torch reads the deck.
 
-Solid: no. `hitPoints 1`, `points 60`, `killPoints 200`.
+**Built, and `glow` turned out to be a gate rather than a light** (SHA-243).
+It adds nothing to `blackoutBlend`; it puts a `glowTicks <= 0 &&` in front of
+the two sources of dark that were already there, so the field comes back up
+through BLACKOUT's own forty-five-tick iris and goes back down the same way.
+Measured on HEART with the capsule up: struck at full dark, fully lit at tick
+45, the dark starting back at 90 and whole again at 134. About three quarters
+of a second of full light inside a two-second swell, and the firefly never
+owns a light of its own — it borrows the one the capsule takes away.
+
+**And the lamps go out by not being in a list.** The pools are pushed per live
+FIREFLY in `drawBlackout` beside the ball's and the deck's; a dead one is
+simply not iterated, so "kill every one and the level stays dark" needed no
+code. Verified: three lamps out, `blackoutBlend` back at 1 with the capsule
+still running.
+
+*Held cue* the blink is drawn, not baked. `drawCreature` picks its frame off
+the field's clock, so a lantern in the frames would be a level of fireflies
+strobing on one beat — the opposite of WISP, whose breath wants frames for
+exactly that reason. The body bakes, the lantern is `decorate`'s, and
+`fireflyLantern` is the one function both it and the light pool read so the
+glow on the sprite and the glow on the field can never disagree. On the tube
+there is no dim: a one-bit screen cannot say *brighter*, so the demade firefly
+ends at its tail between blinks and grows a lit one when it fires.
+
+Solid: no. `hitPoints 1`, `points 60`, `killPoints 200` — and one hit point
+means the hit that buys the light is the hit that takes the lamp.
 
 ### CRAB — it takes your capsules
 
@@ -235,10 +283,44 @@ taken, and how many is returned. Shaped exactly like `kick`, which is the
 existing precedent for a box query that acts. On the strike it pays them back
 through `dropCapsule`, once each.
 
+**Built, and `snatch` came with a second gap under it** (SHA-244): a crab that
+cannot *see* a falling capsule can only take what happens to walk into it, and
+a blind capsule thief is a slow beetle. `CreatureSight` gained `drops` — every
+capsule in the air, as its centre. The whole list rather than the nearest one,
+which is the shape `ball` takes: "nearest" there means nearest to the deck,
+because that is the ball being played, while a crab wants the one nearest
+*itself*. Sight hands over the field's facts and lets a species choose, exactly
+as `standing` does.
+
+**The pips are why this species has a `decorate` at all, and they are cut out
+of the shell.** The hook runs *before* the body, so a mark painted on the back
+is painted over by the back — the four slots are therefore `.` in both frames
+and `decorate` fills all four every frame, shell tone for an empty one and the
+machine's own gold for a full one. Measured: a capsule dropped above a crab is
+taken at tick 21, the pool slot comes back free and a `SNATCHED` pop says where
+it went; a crab already holding four lets the next one fall straight past; one
+hit pays 100, spills four capsules in a 24 px fan and leaves the crab alive on
+its second hit point with a bare shell; the second pays 350 and ends it.
+
+*A tube lesson worth keeping.* The first crab was drawn as a thin skeleton —
+claws, arms, legs and shell edges all outline, with a small patch of shell
+inside. The house sends a body to ground and an outline to ink, so that is a
+creature made almost entirely of ink, and over a *lit* demade background a
+creature made almost entirely of nothing. Rendered beside a moth, a beetle and
+a bat on one line of the tube it came out as a bar. The shell had to become the
+big thing on it: three rows of ground, eleven wide, with the claws given
+insides.
+
 Solid: no. A solid thing loitering in the band re-routes the rally far more
 than a crab is worth, and three of them would wreck it. `hitPoints 2`,
 `points 100`, `killPoints 250` — and the capsules come back as capsules, which
-is the payday, not as score.
+is the payday, not as score. Rolled from the run's own bag rather than the
+exact ones it took, which is how every indirect capsule in this game works: a
+crab gives you back *four capsules*, not your LASER, and the pips are a tally
+rather than a label. It also never *makes* one — everything it hands back is
+something the player would have had anyway, so leaving it alive earns nothing
+and only moves when and where the payout lands. What it can do is lose you the
+lot, by holding four when the ball goes out.
 
 ### JELLYFISH — it goes for the deck
 

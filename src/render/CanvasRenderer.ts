@@ -3,12 +3,14 @@ import { gameConfig, peelFlightTicks } from "@core/config/GameConfig";
 import { MALUS_KINDS, POWER_UP_GLYPHS } from "@core/config/powerUps";
 import { type Ball, paceGhost } from "@entities/ball/Ball";
 import { SPECIES } from "@entities/creatures/species";
+import { FIREFLY_LAMP, fireflyLantern } from "@entities/creatures/species/firefly";
 import { Chart } from "@entities/effects/Chart";
 import { eyePupilPoint } from "@entities/effects/Observer";
 import { OCULUS_HEIGHT, OCULUS_POSITIONS, OCULUS_WIDTH } from "@entities/effects/Oculi";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
 import { DROP_HEIGHT } from "@entities/powerups/DropPool";
 import { ART_MODE, type ArtMode, FINE, finePitch } from "@interfaces/art";
+import { CREATURE } from "@interfaces/creatures";
 import { EYE_LAYER } from "@interfaces/eye";
 import { BACKGROUND_COLORS, BackgroundLayer, dialTonesFor, IrisLayer } from "@render/backgrounds";
 import { type BallRow, ballGlints, ballRows } from "@render/ballSprite";
@@ -3878,6 +3880,26 @@ export const BLACKOUT_TORCH = {
 } as const;
 
 /**
+ * FIREFLY's lamp (SHA-243): the pool one of them punches out of the veil.
+ *
+ * It breathes with the creature's own lantern — `fireflyLantern` is the single
+ * source both read — so the light on the field and the light on the sprite are
+ * one thing rather than two that agree most of the time.
+ *
+ * The ember is the floor, and it is not decoration: a firefly whose pool went
+ * to nothing between blinks would be a creature the player is asked to shoot
+ * and cannot see, on the one kind of level where shooting it matters. Lit, it
+ * reaches about as far as the deck's glow and clears rather more of the dark —
+ * a firefly is a *light*, and the deck is only a thing with a light on it.
+ */
+export const FIREFLY_TORCH = {
+  emberRadius: 9,
+  blinkRadius: 27,
+  emberPeak: 0.3,
+  blinkPeak: 0.55,
+} as const;
+
+/**
  * How much wider than its settled size a pool is, part-way through the iris.
  *
  * Geometric rather than linear: a light's reach falls off by ratio, so a
@@ -3981,11 +4003,11 @@ export class CanvasRenderer {
   // threading it through twenty private draw methods would be the same fact
   // written twenty times.
   private demade = false;
-  // THE HD PASS (SHA-215): which set of sprites to paint. Classic until the
-  // pass is done, and a field rather than a parameter for `demade`'s reason —
+  // THE HD PASS (SHA-215): which set of sprites to paint. HD since the pass
+  // closed (SHA-248), and a field rather than a parameter for `demade`'s reason —
   // it applies to every sprite, and threading it through would be the same fact
   // written a hundred times.
-  private artMode: ArtMode = ART_MODE.CLASSIC;
+  private artMode: ArtMode = ART_MODE.HD;
   // The offscreen twin `split` paints classic into. Made on first use, like the
   // dissolve's: a session that never types the word never pays for it.
   private splitCtx: CanvasRenderingContext2D | null = null;
@@ -6720,6 +6742,23 @@ export class CanvasRenderer {
         // held at 0.55 through the iris it would be a shadow on the paddle
         // while the rest of the field was still fully lit.
         peak: (1 - (1 - BLACKOUT_TORCH.paddlePeak) * view.blackoutBlend) * deckLight,
+      });
+    }
+
+    // FIREFLY's lamps (SHA-243), and the reason a dark level is playable at
+    // all. Live ones only: killing them takes their light with them, which is
+    // the whole of what "the score is the bait" means and needs no code of its
+    // own — a dead firefly is simply not in this list.
+    for (const creature of view.creatures) {
+      if (!creature.alive || creature.kind !== CREATURE.FIREFLY) {
+        continue;
+      }
+      const lit = fireflyLantern(creature);
+      torches.push({
+        x: creature.x + FIREFLY_LAMP.x + shakeX,
+        y: creature.y + FIREFLY_LAMP.y + shakeY,
+        radius: (FIREFLY_TORCH.emberRadius + FIREFLY_TORCH.blinkRadius * lit) * spread,
+        peak: FIREFLY_TORCH.emberPeak + FIREFLY_TORCH.blinkPeak * lit,
       });
     }
 

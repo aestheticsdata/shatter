@@ -32,10 +32,11 @@ export interface ScreensElements {
 }
 
 // How many characters of the clear card's name line fit at its full size. The
-// card is 755 px inside and the display font is a fixed 45.4 px an advance at
-// 22 px, so sixteen fit and the seventeenth wraps. Past this the card drops to
-// the smaller size — see `.clear--long-name`.
-const CLEAR_NAME_CHARS = 16;
+// card is 366 px inside and the display font advances exactly its size — 13.3 px
+// at the HD bundle's 40 fine pixels (SHA-250) — so twenty-seven fit and the
+// twenty-eighth wraps. Past this the card drops to the smaller size — see
+// `.clear--long-name`.
+const CLEAR_NAME_CHARS = 27;
 
 export class Screens {
   // The level's own line, kept because `show` is called on every screen change

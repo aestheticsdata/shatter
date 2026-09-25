@@ -17,7 +17,7 @@ import { isBossLevel, levelAt, levelIndexOf, VEIL_LEVELS, wallFor } from "@core/
 import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/PaddleBounce";
 import { Ball, ballSizeFor, paceGhost } from "@entities/ball/Ball";
 import { BrickGrid } from "@entities/bricks/BrickGrid";
-import { Creatures } from "@entities/creatures/Creatures";
+import { creatureBox, Creatures } from "@entities/creatures/Creatures";
 import { SPECIES } from "@entities/creatures/species";
 import { Brood } from "@entities/effects/Brood";
 import { BumperField } from "@entities/effects/BumperField";
@@ -50,7 +50,7 @@ import { ShotPool } from "@entities/laser/ShotPool";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
 import { Paddle } from "@entities/paddle/Paddle";
 import { DropBag } from "@entities/powerups/DropBag";
-import { DropPool } from "@entities/powerups/DropPool";
+import { DROP_HEIGHT, DROP_WIDTH, DropPool } from "@entities/powerups/DropPool";
 import { PowerUpTimers } from "@entities/powerups/PowerUpTimers";
 import { InputController } from "@input/InputController";
 import { CREATURE } from "@interfaces/creatures";
@@ -624,6 +624,10 @@ export class ShatterGame {
   // blend beside BLACKOUT's own timer, so her dark fades in and out the way
   // the capsule's does.
   private dustTicks = 0;
+  // FIREFLY's flash (SHA-243): ticks of light left, and `dustTicks` backwards.
+  // It does not make light — it holds the dark off whatever is making it, so a
+  // firefly struck on a lit level costs a hit point and changes nothing.
+  private glowTicks = 0;
   // THE CHART (SHA-212): the run's constellation on the dial. Run state, not
   // level state — `startRun` is the one thing that empties it.
   private readonly chart = new Chart();
@@ -1298,6 +1302,9 @@ export class ShatterGame {
     if (this.dustTicks > 0) {
       this.dustTicks -= 1;
     }
+    if (this.glowTicks > 0) {
+      this.glowTicks -= 1;
+    }
     // The pupil's orbit and the visit's clock. Above the serve's early return
     // like the eye and the brood: the fight opens on a serve screen, and a pupil
     // that only started moving on the launch would hand the player a free first
@@ -1458,9 +1465,14 @@ export class ShatterGame {
     this.deps.sfx.setDemake(this.demakeBlend >= 0.5);
     // Above the freeze gates with the rest: a NUKE caught halfway through the
     // iris must not leave the light frozen mid-collapse behind the shockwave.
+    // FIREFLY's glow wins over both sources of dark (SHA-243), and it wins by
+    // *gating* rather than by subtracting: the lights come back up through the
+    // blackout's own iris and go back down the same way, which is why a firefly
+    // needs no light of its own to flash the field — it borrows the one the
+    // capsule already takes away.
     this.blackoutBlend = stepBlend(
       this.blackoutBlend,
-      this.timers.isActive("BK") || this.dustTicks > 0,
+      this.glowTicks <= 0 && (this.timers.isActive("BK") || this.dustTicks > 0),
       gameConfig.effects.blackoutFadeTicks,
     );
     // Above the gates with the rest: a door caught halfway by a shockwave is a
@@ -3426,14 +3438,15 @@ export class ShatterGame {
         this.strikeBeast(beast, null);
         continue;
       }
-      // A bolt reaches a creature solid or not: it is a shot, not a ball.
-      const creature = this.creatures.at(shot.x, shot.y, 2, 9);
+      // A bolt reaches every creature there is: solid or not, and — WISP being
+      // the only one it matters to — ball-proof or not. It is a shot.
+      const creature = this.creatures.at(shot.x, shot.y, 2, 9, "laser");
       if (creature) {
         shot.active = false;
         this.strikeCreature(creature, null, { x: shot.x, y: shot.y });
         continue;
       }
-      const boss = this.bossPool.at(shot.x, shot.y, 2, 9);
+      const boss = this.bossPool.at(shot.x, shot.y, 2, 9, "laser");
       if (boss) {
         shot.active = false;
         this.strikeBoss(boss, null, { x: shot.x + 1, y: shot.y });
@@ -4152,22 +4165,24 @@ export class ShatterGame {
       // rest are passed through and struck on the way — once, the flash sees
       // to that — which is what a ball through a moth should be.
       const creature =
-        this.creatures.live && !this.inside.active ? this.creatures.at(ball.x, ball.y, size, size) : null;
+        this.creatures.live && !this.inside.active ? this.creatures.at(ball.x, ball.y, size, size, "ball") : null;
       if (creature) {
         const species = SPECIES[creature.kind];
         if (species.solid) {
-          const fromAbove = ball.y + size / 2 < creature.y + species.height / 2;
-          ball.y = fromAbove ? creature.y - size : creature.y + species.height;
+          const shelf = creatureBox(creature).height;
+          const fromAbove = ball.y + size / 2 < creature.y + shelf / 2;
+          ball.y = fromAbove ? creature.y - size : creature.y + shelf;
           ball.velocity.y = fromAbove ? -Math.abs(ball.velocity.y) : Math.abs(ball.velocity.y);
         }
         this.strikeCreature(creature, ball, { x: ball.centerX, y: ball.y + size / 2 });
       }
       // THE BOSS (SHA-209): always solid, always a shelf, and every touch is a hit.
-      const boss = this.bossPool.live && !this.inside.active ? this.bossPool.at(ball.x, ball.y, size, size) : null;
+      const boss =
+        this.bossPool.live && !this.inside.active ? this.bossPool.at(ball.x, ball.y, size, size, "ball") : null;
       if (boss) {
-        const species = SPECIES[boss.kind];
-        const fromAbove = ball.y + size / 2 < boss.y + species.height / 2;
-        ball.y = fromAbove ? boss.y - size : boss.y + species.height;
+        const shelf = creatureBox(boss).height;
+        const fromAbove = ball.y + size / 2 < boss.y + shelf / 2;
+        ball.y = fromAbove ? boss.y - size : boss.y + shelf;
         ball.velocity.y = fromAbove ? -Math.abs(ball.velocity.y) : Math.abs(ball.velocity.y);
         this.strikeBoss(boss, ball, { x: ball.centerX, y: ball.y + size / 2 });
       }
@@ -5753,6 +5768,7 @@ export class ShatterGame {
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
     this.dustTicks = 0;
+    this.glowTicks = 0;
     this.portalBlend = 0;
     this.flipTurn = 0;
     this.turboSpool = 0;
@@ -5962,15 +5978,16 @@ export class ShatterGame {
    */
   private strikeBoss(boss: Creature, by: Ball | null, at: { x: number; y: number }): void {
     const species = SPECIES[boss.kind];
-    const centerX = boss.x + species.width / 2;
-    const centerY = boss.y + species.height / 2;
+    const box = creatureBox(boss);
+    const centerX = boss.x + box.width / 2;
+    const centerY = boss.y + box.height / 2;
     const refused = species.armour?.(boss, at.x, at.y) ?? null;
     if (refused !== null) {
       this.creatureEffects().pop(centerX, boss.y - 6, refused, true);
       this.deps.sfx.beastStruck(1);
       return;
     }
-    const { points, killed } = this.bossPool.strike(boss, by ? "ball" : "laser", this.creatureEffects());
+    const { points, killed } = this.bossPool.strike(boss, by ? "ball" : "laser", this.creatureEffects(), at);
     this.bumpChain();
     this.popGain(centerX, centerY, this.award(points, "ball", by), true);
     if (!killed) {
@@ -6016,8 +6033,11 @@ export class ShatterGame {
 
   private strikeCreature(creature: Creature, by: Ball | null, at: { x: number; y: number }): void {
     const species = SPECIES[creature.kind];
-    const centerX = creature.x + species.width / 2;
-    const centerY = creature.y + species.height / 2;
+    // The live box (SHA-241), so a vine's pop and burst land on the middle of
+    // whatever is left of it rather than on the middle of a full-grown one.
+    const box = creatureBox(creature);
+    const centerX = creature.x + box.width / 2;
+    const centerY = creature.y + box.height / 2;
     // A body that refuses a touch there says so and keeps everything (SHA-239).
     // `armour?` shipped with SHA-213 and was read on the boss path alone, so a
     // creature could declare a shell and be hit through it; BEETLE is the first
@@ -6031,7 +6051,7 @@ export class ShatterGame {
       this.deps.sfx.beastStruck(1);
       return;
     }
-    const { points, killed } = this.creatures.strike(creature, by ? "ball" : "laser", this.creatureEffects());
+    const { points, killed } = this.creatures.strike(creature, by ? "ball" : "laser", this.creatureEffects(), at);
     this.bumpChain();
     // A nil-paying species prints nothing rather than a `0` over itself
     // (SHA-240): WOODPECKER is worth no score by design, and its own malus pop
@@ -6075,6 +6095,12 @@ export class ShatterGame {
     return {
       ball: this.nearestBall(this.paddle.centerX, this.paddle.y),
       deck: { left: this.paddle.x, right: this.paddle.x + this.paddle.width, y: this.paddle.y },
+      // Centres, and only the live ones: a species asking what is falling has
+      // no use for a dead slot, and the pool is six long, so the map costs
+      // nothing once a tick.
+      drops: this.dropPool.drops
+        .filter((drop) => drop.active)
+        .map((drop) => ({ x: drop.x + DROP_WIDTH / 2, y: drop.y + DROP_HEIGHT / 2 })),
       wallRows: this.grid.rows.length,
       standing: (column, row) => (this.grid.rows[row]?.[column] ?? null) !== null,
       eye: socket ? { x: socket.x, y: socket.y } : null,
@@ -6137,6 +6163,9 @@ export class ShatterGame {
       dust: (ticks) => {
         this.dustTicks = Math.max(this.dustTicks, ticks);
       },
+      glow: (ticks) => {
+        this.glowTicks = Math.max(this.glowTicks, ticks);
+      },
       kick: (x, y, width, height, vx, vy) => {
         let kicked = false;
         for (const ball of this.balls) {
@@ -6153,6 +6182,26 @@ export class ShatterGame {
           }
         }
         return kicked;
+      },
+      // CRAB's claws (SHA-244): `kick` for capsules. A taken one is simply
+      // deactivated — no catch, no score, no debris — because the thief is
+      // what happens to it next, and the crab pays it back through
+      // `dropCapsule` on the strike.
+      snatch: (x, y, width, height) => {
+        let taken = 0;
+        for (const drop of this.dropPool.drops) {
+          if (
+            drop.active &&
+            drop.x < x + width &&
+            drop.x + DROP_WIDTH > x &&
+            drop.y < y + height &&
+            drop.y + DROP_HEIGHT > y
+          ) {
+            drop.active = false;
+            taken += 1;
+          }
+        }
+        return taken;
       },
       lay: (column, row, kind) => {
         // The wrath's own repair, at the brick's full strength: a laid brick
@@ -7554,6 +7603,7 @@ export class ShatterGame {
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
     this.dustTicks = 0;
+    this.glowTicks = 0;
     this.portalBlend = 0;
     this.flipTurn = 0;
     this.turboSpool = 0;
@@ -7644,6 +7694,7 @@ export class ShatterGame {
     this.demakeBlend = 0;
     this.blackoutBlend = 0;
     this.dustTicks = 0;
+    this.glowTicks = 0;
     this.portalBlend = 0;
     this.flipTurn = 0;
     this.turboSpool = 0;

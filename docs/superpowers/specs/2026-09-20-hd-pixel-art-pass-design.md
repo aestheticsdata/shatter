@@ -13,7 +13,7 @@ The renderer already paints on a **1116×900 backing store**: the game simulates
 ## Two rules
 
 1. **Nothing that ships is dropped.** The handoff describes 8 of 10 brick kinds, 2 of 6 paddle states and 8 of 9 background themes. The game is the inventory, not the document: every kind, state, theme and paint modifier that exists today gets its HD drawing, and where the handoff is silent the recipe is extended in its own idiom rather than the thing being left classic. A wall where granite is blocky beside an HD gold, or a deck that degrades when XWIDE is caught, is the defect this rule exists to prevent.
-2. **Classic stays, intact and reachable.** Both paths live behind `ART_MODE`; classic is untouched code and stays the default until the pass is done. That is the regression net, the DEMAKE path, and the A/B tool.
+2. **Classic stays, intact and reachable.** Both paths live behind `ART_MODE`; classic is untouched code and stayed the default until the pass was done — HD took over on 2026-09-25 (SHA-248), and classic is still `art classic` away. That is the regression net, the DEMAKE path, and the A/B tool.
 
 ## The flag
 
@@ -175,6 +175,16 @@ SHA-222 took every effect whose mark is a **sample** and gave it the fine grid t
 `check:pix` pins all four against silhouettes something else already defines — the square the simulation scatters, a rock that is not a square, `pillRows`, and the bitmap at exactly three times the size with its jaw at the end it is walking toward.
 
 Score pops need nothing: they are `fillText`, already rasterised at fine resolution. So are the stasis and bumper rings, which are `ctx.arc`.
+
+## The screens (SHA-249..251)
+
+The pass drew the field and stopped at its edge. The bundle did not: `SHATTER Observer HD.dc.html` redraws the title, GAME OVER and THE WATCHED too — a title canvas on the stage's fine grid, and every heading and line re-set at about 60 % of the v2 mockup's size with a third of its shadow. Neither spec ported it, and the owner found the gap the day HD became the default (SHA-248): _"ok sauf l'écran d'accueil, les écrans de levels, les écrans de capsules et l'écran de score, et l'écran de game over"_. The one open question was theirs to answer, and they took the bundle's sizes.
+
+**The type is the bundle's, in the bundle's units.** `--fine` is a third of a stage pixel, so `calc(40 * var(--fine))` is the bundle's 40 px as written rather than a number translated out of it. Headings 40 with a 5 shadow; lines 24, 20 and 16; rules 3 or 2 thick; the lines on the live field lifted off it by a 2-pixel shadow in the field's own ink. Where the game has more than the bundle drew, the extra takes its neighbour's size: the CHART line like BEST CHAIN, the `L · LEVELS` / `B · CAPSULES` row at the top score's size in the gap the bundle leaves above its footer, all fifteen ranks of THE WATCHED on the 11-pixel pitch they need (the bundle drew five, 54 apart). Where a line sits on the field stays the game's — those tops were chosen against the wall, the brood and the deck. The screens are DOM, so there is one set for both arts, as with the panel's bevel. GRID CLEARED's long-name guard moves with the font: at 13.3 px the 366-px card holds twenty-seven characters, so THE OBSERVER IS BLIND fits at full size and the guard is for a name nobody has written yet.
+
+**The title canvas is backed at the fine grid** (SHA-249). `drawEye` and `drawZodiac` have had fine recipes since SHA-228 and SHA-232, both gated on `scale === FINE`; the title asked at 1 on a 480×300 canvas and went on showing the coarse eye after the whole field had left it. In HD the canvas is 1440×900 and follows the renderer's art the way the two galleries do. The stars keep their seeded places and become the in-game starfield's lit point with four dimmer arms, over fine dust drawn from the generator _after_ them so that none of them moves. The copper takes the bundle's bars of four fine pixels, its 32-pixel period and its 2.2 s.
+
+**The menus' tiles are backed at the fine grid** (SHA-251). SHA-224 put the HD still under each tile and kept the tile at one pixel a stage pixel, so every recipe the pass drew arrived averaged into the same 124×100 and the screen read exactly as coarse as before. In HD the tile is 372×300 behind the same CSS box, and the downscale is the same 1/3 box on both paths. It costs ~450 KB a tile — ~45 MB if every page of both screens is turned to, against ~5 MB. The two headings and rules take THE WATCHED's; the entries keep their measured sizes, which `checkCapsuleBlurbs` holds.
 
 ## Verification
 

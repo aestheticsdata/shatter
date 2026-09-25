@@ -73,6 +73,15 @@ because at 480 × 300 fixed, there is no geometry to recompute. The stage rect i
 cached and invalidated on resize and scroll; that cache is the entire cost of
 being scalable.
 
+**Two arts on one backing store.** The simulation lives on the 372 × 300 grid and
+never sees the other pixels the canvas has. The renderer does: by default
+(`ART_MODE.HD` in [`art.ts`](../src/interfaces/art.ts), since THE HD PASS) every
+sprite is drawn on the 1116 × 900 fine grid and lands at `Math.round(x * 3)`, so
+it moves a fine pixel at a time. `classic`, the art that shipped before the pass,
+rounds to a game pixel first and draws in 3 × 3 blocks; it is one console word
+away, and `art split` paints both, classic down the left half. Nothing under the
+drawing differs between them — same collision boxes, same level rows, same seeds.
+
 **Why the split is canvas + DOM and not one or the other.** The 2007 original
 rendered the ball, paddle and bricks as absolutely-positioned DOM elements. REV
 2.0 moved everything that moves to the canvas, and deliberately left everything
@@ -641,10 +650,12 @@ finally has the third state it has been dying in since it was added.
 type, the glyph, the duration, the drop tickets, the palette entry, the timer slot
 and the catalogue page all come out.
 
-**A background is a name plus a seed.** Nine themes, each painted once at 1× into
-an offscreen layer and blitted per frame with smoothing off — an exact 3×
-nearest-neighbour upscale, so theme detail costs nothing in the loop and keeps the
-same chunky pixels as the sprites. Layouts come from a seeded generator keyed by
+**A background is a name plus a seed.** Nine themes, each painted once into an
+offscreen layer and blitted per frame, so theme detail costs nothing in the loop —
+on the fine grid in HD, where a sky is one dithered gradient; at 1× and upscaled
+3× nearest-neighbour in classic, the same chunky pixels as that art's sprites.
+Both arts make the same generator calls, so a star sits in the same place in
+either. Layouts come from a seeded generator keyed by
 theme _and_ level, so two levels sharing a theme differ and neither ever changes
 between visits.
 

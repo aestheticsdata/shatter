@@ -1,15 +1,16 @@
 /**
  * THE HD PASS's one word (SHA-215): which set of sprites the renderer paints.
  *
- * Two paths live side by side for the length of the pass. `CLASSIC` is the art
- * this game has shipped since the rebuild, drawn in whole game pixels; `HD` is
- * the same game drawn on the fine grid the 1116x900 backing store has always
- * had. `SPLIT` paints both and hands the left half to classic, which is the
- * only honest way to judge a retouched sprite — a sprite looks better than its
+ * Two paths live side by side. `CLASSIC` is the art this game shipped from the
+ * rebuild to the end of the pass, drawn in whole game pixels; `HD` is the same
+ * game drawn on the fine grid the 1116x900 backing store has always had.
+ * `SPLIT` paints both and hands the left half to classic, which is the only
+ * honest way to judge a retouched sprite — a sprite looks better than its
  * predecessor almost by default when the predecessor is a memory.
  *
- * Classic is the default and stays the default until the pass is done: it is
- * the regression net, and the DEMAKE filter is written against its tones.
+ * HD is the default since the pass closed (SHA-248). Classic stays, untouched
+ * and one console word away: it is the regression net, and the left half of
+ * every split.
  */
 export const ART_MODE = {
   CLASSIC: "classic",

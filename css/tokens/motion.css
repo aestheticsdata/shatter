@@ -1,6 +1,8 @@
 :root {
   --blink-duration: 1s;
-  --copper-duration: 1.467s;
+  /* One period of the title's copper band (SHA-249): the HD bundle's 2.2 s for
+     its 32-fine-pixel cycle, so the bars roll at the bundle's pace. */
+  --copper-duration: 2.2s;
   /* 1UP's bar landing in the rack, and the pulse when the rack turns one away.
      Derived rather than chosen: `catchPopLifeTicks` is 48 and the pop starts
      blinking the word 1UP apart at 16 ticks left, so 18 ticks puts the bar down

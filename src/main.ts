@@ -12,6 +12,9 @@ import { Screens } from "@ui/Screens";
 import { StageScaler } from "@ui/StageScaler";
 import { TitleScene } from "@ui/TitleScene";
 
+// The longest the stage waits for its fonts before showing anyway (SHA-252).
+const REVEAL_CAP_MS = 1000;
+
 document.addEventListener("DOMContentLoaded", () => {
   const stage = getElementByIdOrThrow<HTMLDivElement>("stage");
   // Held rather than looked up twice: the renderer paints it and the scaler
@@ -38,14 +41,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const sfx = new SoundBank();
   panel.bindVolume(sfx.volume, (volume) => sfx.setVolume(volume));
 
-  // Named rather than inlined: the LEVELS gallery and the CAPSULES catalogue
-  // paint miniatures of the arena, so they have to be able to ask it which art
-  // it is in (SHA-224). A thunk and not the mode itself — the dev console can
-  // change it long after this line has run.
+  // Named rather than inlined: the LEVELS gallery, the CAPSULES catalogue and
+  // the title paint pictures of the arena's art, so they have to be able to ask
+  // it which art it is in (SHA-224, SHA-249). A thunk and not the mode itself —
+  // the dev console can change it long after this line has run.
   const renderer = new CanvasRenderer(playfield);
   const game = new ShatterGame({
     renderer,
-    titleScene: new TitleScene(getElementByIdOrThrow<HTMLCanvasElement>("titleEye")),
+    titleScene: new TitleScene(getElementByIdOrThrow<HTMLCanvasElement>("titleEye"), () => renderer.art),
     panel,
     screens: new Screens({
       title: getElementByIdOrThrow("screenTitle"),
@@ -98,6 +101,22 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   game.start();
+
+  // THE LOAD (SHA-252): `start` has just scaled the stage, which has been at
+  // opacity 0 since the first paint — see `#stage` in `layout.css`. It shows
+  // once the two pixel faces have landed too, so the first picture anyone sees
+  // is the title at its real size in its real type, and on the frame after the
+  // game's first, so the title's canvas is already painted under it. The font
+  // families come from the tokens rather than being spelt again here. Capped: a
+  // font server that never answers costs a second, not the page.
+  const tokens = getComputedStyle(document.documentElement);
+  const faces = ["--font-display", "--font-pixel"].map((token) =>
+    document.fonts.load(`16px ${tokens.getPropertyValue(token)}`),
+  );
+  const cap = new Promise((resolve) => setTimeout(resolve, REVEAL_CAP_MS));
+  void Promise.race([Promise.allSettled(faces), cap]).then(() => {
+    requestAnimationFrame(() => stage.classList.add("ready"));
+  });
 
   // Dev-only QA handle: lets debug tooling drive and inspect the live game.
   if (import.meta.env.DEV) {

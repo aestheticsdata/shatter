@@ -37,6 +37,16 @@ export interface CreatureSight {
   /** The nearest ball in flight — centre and velocity — or null on a serve. */
   ball: { x: number; y: number; vx: number; vy: number } | null;
   deck: { left: number; right: number; y: number };
+  /**
+   * Every capsule in the air, as its centre (SHA-244).
+   *
+   * The whole list rather than the nearest one, which is the shape `ball` takes:
+   * "nearest" there means nearest to the deck, because that is the ball the
+   * player is playing — while a crab wants the one nearest *itself*, and a
+   * second species would want a third thing. Sight hands over the field's facts
+   * and lets a species do its own choosing, exactly as `standing` does.
+   */
+  drops: readonly { x: number; y: number }[];
   /** How many rows the wall was built with; columns are always `gameConfig.grid.columns`. */
   wallRows: number;
   standing(column: number, row: number): boolean;
@@ -68,8 +78,25 @@ export interface CreatureEffects {
   burst(x: number, y: number, material: ChunkMaterial): void;
   /** The lights go out for this long — BLACKOUT's pools (MOTH MOTHER). Longer of the two if already dark. */
   dust(ticks: number): void;
+  /**
+   * And the lights come back for this long — FIREFLY (SHA-243). `dust`
+   * backwards: it holds the dark off whatever is making it, the capsule or
+   * the mother, and lets it back in through the same iris when it runs out.
+   * Longer of the two if a light is already up.
+   */
+  glow(ticks: number): void;
   /** Every ball in this box is sent off at this velocity. True when one was (FROG KING's tongue). */
   kick(x: number, y: number, width: number, height: number, vx: number, vy: number): boolean;
+  /**
+   * Every capsule in this box is taken out of the air, and how many is
+   * returned (CRAB). Shaped like `kick`, which is this framework's precedent
+   * for a box query that acts rather than reports.
+   *
+   * A taken capsule is simply gone — no score, no debris, no catch. What
+   * becomes of it is the thief's business, and CRAB's answer is that it pays
+   * them back through `dropCapsule` when it is hit.
+   */
+  snatch(x: number, y: number, width: number, height: number): number;
   /** A brick of this kind in that empty cell, at its kind's full hit points (SNAIL ELDER). */
   lay(column: number, row: number, kind: BrickKind): void;
   /** The field rattles for this long — a landing (FROG KING). */
@@ -95,6 +122,20 @@ export interface Species {
    * beast; the rest the ball passes through and still strikes.
    */
   solid: boolean;
+  /**
+   * Only a bolt can touch it (SHA-242): the ball does not bounce off it, does
+   * not strike it and does not know it is there.
+   *
+   * **This is not `solid: false`**, which five other species already use and
+   * which means only that the ball goes *through* them on its way to striking
+   * them. A creature the ball cannot hit at all is a different fact and gets a
+   * different word, named for the one weapon that reaches it.
+   *
+   * Optional rather than a second flag beside `solid`, because `solid` is a
+   * choice every species makes and this is one WISP makes: twelve `false`s
+   * that said nothing about their creature would be the cost of asking.
+   */
+  shotOnly?: boolean;
   /** ASCII bitmaps, one character per pixel, `.` for nothing. */
   frames: readonly (readonly string[])[];
   frameTicks: number;
@@ -105,8 +146,25 @@ export interface Species {
   outline: string;
   spawn(creature: Creature): void;
   step(creature: Creature, sight: CreatureSight, effects: CreatureEffects): void;
-  /** A hit landed; the hit point and the flash are already taken. True when it dies of this. */
-  struck(creature: Creature, by: "ball" | "laser", effects: CreatureEffects): boolean;
+  /**
+   * A hit landed; the hit point and the flash are already taken. True when it
+   * dies of this.
+   *
+   * `at` is the field point the hit came in on (SHA-241) — the ball's centre
+   * or the bolt's tip. Eight species have no use for it and simply do not
+   * declare it; VINE is the one that does, because *where* you cut a vine is
+   * the whole of what a vine is.
+   */
+  struck(creature: Creature, by: "ball" | "laser", effects: CreatureEffects, at: { x: number; y: number }): boolean;
+  /**
+   * The hitbox, when it is not `width` x `height` (SHA-241). A vine is one
+   * segment when it sprouts and a dozen when it reaches the wall, and a fixed
+   * box would mean a seedling the width of the column it will become. Read
+   * through `creatureBox`, never off `width`/`height` directly, anywhere a
+   * live creature is in hand — the sprite is still the sprite, so the *draw*
+   * has no business here and `drawCreature` never asks.
+   */
+  box?(creature: Creature): { width: number; height: number };
   /**
    * A touch at this field point, before it is a hit: the label the body
    * refuses it with — a shell, a hide — or null to take it (SHA-213). A

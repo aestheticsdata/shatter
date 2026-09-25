@@ -484,19 +484,27 @@
   }
 }
 
-/* The copper gradient repeats every 16px; the animation must scroll exactly one
-   period per cycle or the loop lands mid-pattern and visibly jumps. */
+/* The copper gradient repeats every 32 fine pixels; the animation must scroll
+   exactly one period per cycle or the loop lands mid-pattern and visibly jumps. */
 @keyframes shatterCopper {
   from {
     background-position: 0 0;
   }
 
   to {
-    background-position: 0 16px;
+    background-position: 0 calc(32 * var(--fine));
   }
 }
 
 /* ---------- playfield overlays ---------- */
+
+/* THE HD PASS (SHA-250): every line and card below is set in the HD bundle's
+   type, in its own fine pixels — headings 40 with a 5 shadow, lines 24, 20 and
+   16, rules 3 or 2 thick, and the lines that sit on the live field lifted off it
+   by the bundle's 2-pixel shadow in the field's own ink. Where the game has more
+   on a card than the bundle drew, the extra takes the size of its neighbour.
+   Where a line sits on the field is the game's, not the bundle's: those tops
+   were chosen against the wall, the brood and the deck. */
 
 /* THE OBSERVER (SHA-169): the veil's name and its hint, over the serve prompt.
 
@@ -510,9 +518,10 @@
   top: 199px;
   width: 366px;
   text-align: center;
-  font: 400 8px var(--font-pixel);
+  font: 400 calc(16 * var(--fine)) var(--font-pixel);
   color: var(--color-yellow);
-  letter-spacing: 1px;
+  letter-spacing: calc(2 * var(--fine));
+  text-shadow: calc(2 * var(--fine)) calc(2 * var(--fine)) 0 var(--color-field);
 }
 
 /* THE OCULI's call to action (SHA-171), and whatever asks for the ball after
@@ -526,9 +535,10 @@
   top: 150px;
   width: 366px;
   text-align: center;
-  font: 400 9px var(--font-pixel);
+  font: 400 calc(20 * var(--fine)) var(--font-pixel);
   color: var(--color-yellow);
-  letter-spacing: 1px;
+  letter-spacing: calc(4 * var(--fine));
+  text-shadow: calc(2 * var(--fine)) calc(2 * var(--fine)) 0 var(--color-field);
 
   /* Clear of the pupil's orbit, and clear of the deck below it. */
   &.at-foot {
@@ -542,8 +552,9 @@
   top: 215px;
   width: 366px;
   text-align: center;
-  font: 400 11px var(--font-pixel);
+  font: 400 calc(24 * var(--fine)) var(--font-pixel);
   color: var(--color-sky);
+  text-shadow: calc(2 * var(--fine)) calc(2 * var(--fine)) 0 var(--color-field);
 }
 
 .field-overlay {
@@ -560,46 +571,46 @@
 }
 
 #screenPause {
-  gap: 17px;
+  gap: calc(40 * var(--fine));
 }
 
 .pause-heading {
-  font: 400 23px var(--font-display);
+  font: 400 calc(40 * var(--fine)) var(--font-display);
   color: var(--color-yellow);
-  text-shadow: 3px 3px 0 var(--color-orange-shadow);
+  text-shadow: calc(5 * var(--fine)) calc(5 * var(--fine)) 0 var(--color-orange-shadow);
 }
 
 .pause-divider {
-  width: 160px;
-  height: 2px;
+  width: calc(420 * var(--fine));
+  height: calc(3 * var(--fine));
   background: var(--color-orange);
 }
 
 .pause-hint {
-  font: 400 11px var(--font-pixel);
+  font: 400 calc(24 * var(--fine)) var(--font-pixel);
   color: var(--color-sky);
 }
 
 #screenClear {
-  gap: 13px;
+  gap: calc(28 * var(--fine));
 }
 
 .clear-heading {
-  font: 400 11px var(--font-pixel);
+  font: 400 calc(24 * var(--fine)) var(--font-pixel);
   color: var(--color-green);
-  letter-spacing: 2px;
+  letter-spacing: calc(4 * var(--fine));
 }
 
 #clearLevelName {
-  font: 400 22px var(--font-display);
+  font: 400 calc(40 * var(--fine)) var(--font-display);
   color: var(--color-white);
-  text-shadow: 3px 3px 0 var(--color-green-shadow);
+  text-shadow: calc(5 * var(--fine)) calc(5 * var(--fine)) 0 var(--color-green-shadow);
 }
 
 /* THE LID's card says THE OBSERVER IS BLIND on this line (SHA-176), which is
-   twenty-one characters where every other level's name is at most ten — at 22px
-   it is 953 px wide in a 755 px card, and it wrapped into two lines that
-   overprinted each other.
+   twenty-one characters where every other level's name is at most ten — at the
+   old 22 px it was 462 px wide in a 366 px card, and it wrapped into two lines
+   that overprinted each other.
 
    **Characters are the right unit here and nowhere else in this file.** The
    house rule is that text is measured in pixels because Silkscreen is
@@ -608,17 +619,18 @@
    a character count on this one element *is* a width. That is what lets
    `Screens` decide this from a length.
 
-   The card is 366 px inside. At 22 px that holds sixteen characters (352) and
-   not seventeen (374), which is `CLEAR_NAME_CHARS`. 16 px is the largest size
-   that still fits the longest line the game can put here: twenty-one
-   characters at 336 px, with room for twenty-two before it would wrap. */
+   The card is 366 px inside. At the bundle's 40 fine pixels (13.3 px) that holds
+   twenty-seven characters (360) and not twenty-eight (373), which is
+   `CLEAR_NAME_CHARS` — so since SHA-250 the longest line the game can put here
+   fits at full size, and this is a guard for a name nobody has written yet. At
+   32 fine pixels it holds thirty-four. */
 #screenClear.clear--long-name #clearLevelName {
-  font-size: 16px;
+  font-size: calc(32 * var(--fine));
 }
 
 .clear-divider {
-  width: 210px;
-  height: 1px;
+  width: calc(600 * var(--fine));
+  height: calc(2 * var(--fine));
   background: var(--color-blue);
 }
 
@@ -626,48 +638,49 @@
    stars' own gold, so the card reads as one number with its working shown
    above it rather than as two prizes. */
 #clearDiadem {
-  font: 400 9px var(--font-pixel);
+  font: 400 calc(20 * var(--fine)) var(--font-pixel);
   color: var(--color-yellow);
   letter-spacing: 1px;
 }
 
 #clearBonus {
-  font: 400 12px var(--font-pixel);
+  font: 400 calc(24 * var(--fine)) var(--font-pixel);
   color: var(--color-yellow);
 }
 
 .continue-hint {
-  font: 400 10px var(--font-pixel);
+  font: 400 calc(20 * var(--fine)) var(--font-pixel);
   color: var(--color-sky);
 }
 
 #screenOver {
-  gap: 15px;
+  gap: calc(34 * var(--fine));
 }
 
 .over-heading {
-  font: 400 22px var(--font-display);
+  font: 400 calc(40 * var(--fine)) var(--font-display);
   color: var(--color-red);
-  text-shadow: 3px 3px 0 var(--color-red-shadow);
+  text-shadow: calc(5 * var(--fine)) calc(5 * var(--fine)) 0 var(--color-red-shadow);
 }
 
 .over-divider {
-  width: 210px;
-  height: 2px;
+  width: calc(600 * var(--fine));
+  height: calc(3 * var(--fine));
   background: var(--color-red);
 }
 
 #overScore {
-  font: 400 12px var(--font-pixel);
+  font: 400 calc(24 * var(--fine)) var(--font-pixel);
   color: var(--color-white);
 }
 
 /* The run's other number, under the score and quieter than it: what the player
    did, beside what they scored. Its own line and not a suffix, because the two
-   are counted in different things. */
+   are counted in different things. The bundle has BEST CHAIN; the CHART line is
+   the game's own and takes its size. */
 #overChain,
 #overChart {
-  font: 400 9px var(--font-pixel);
+  font: 400 calc(20 * var(--fine)) var(--font-pixel);
   color: var(--color-grey-text);
 }
 
@@ -691,7 +704,13 @@
 
 /* THE TITLE (SHA-211): the mockup's home. The eye's canvas fills the stage
    under everything; the copper band sits at the mockup's 150, under the eye,
-   and the words stack under the band the way the mockup stacks them. */
+   and the words stack under the band the way the mockup stacks them.
+
+   THE HD PASS (SHA-249): the words are the HD bundle's, measured in its own fine
+   pixels — every size, top, spacing and shadow below is a number out of
+   `SHATTER Observer HD.dc.html`, and `--fine` is what keeps it that number. The
+   canvas behind them is backed at the fine grid in HD (see `TitleScene`); these
+   words are DOM, so there is one set of them for both arts, as with the panel. */
 #titleEye {
   position: absolute;
   left: 0;
@@ -707,35 +726,37 @@
   top: 150px;
   width: 100%;
   height: 44px;
+  /* Eight bars of four fine pixels, where the mockup had eight of two stage
+     pixels: the same ramp, rolled on the grid the rest of the title now sits on. */
   background: repeating-linear-gradient(
     180deg,
-    #0b0b26 0 2px,
-    #12276a 2px 4px,
-    #1d47a8 4px 6px,
-    #2d7fe0 6px 8px,
-    #63b0ff 8px 10px,
-    #2d7fe0 10px 12px,
-    #1d47a8 12px 14px,
-    #12276a 14px 16px
+    #0b0b26 0 calc(4 * var(--fine)),
+    #12276a calc(4 * var(--fine)) calc(8 * var(--fine)),
+    #1d47a8 calc(8 * var(--fine)) calc(12 * var(--fine)),
+    #2d7fe0 calc(12 * var(--fine)) calc(16 * var(--fine)),
+    #63b0ff calc(16 * var(--fine)) calc(20 * var(--fine)),
+    #2d7fe0 calc(20 * var(--fine)) calc(24 * var(--fine)),
+    #1d47a8 calc(24 * var(--fine)) calc(28 * var(--fine)),
+    #12276a calc(28 * var(--fine)) calc(32 * var(--fine))
   );
-  /* The tile must be exactly one 16px period. Left at `auto` it becomes the
-     element box (66px), which is not a multiple of 16, so every tile boundary
-     restarts the pattern 2px out of phase — a doubled dark gap that rides down
-     the banner with background-position and resets each cycle. */
-  background-size: 100% 16px;
+  /* The tile must be exactly one period. Left at `auto` it becomes the element
+     box, which is not a multiple of the period, so every tile boundary restarts
+     the pattern out of phase — a doubled dark gap that rides down the banner
+     with background-position and resets each cycle. */
+  background-size: 100% calc(32 * var(--fine));
   animation: shatterCopper var(--copper-duration) linear infinite;
 }
 
 #titleWordmark {
   position: absolute;
   left: 0;
-  top: 154px;
+  top: calc(480 * var(--fine));
   width: 100%;
   text-align: center;
-  font: 400 35px var(--font-display);
+  font: 400 calc(64 * var(--fine)) var(--font-display);
   color: var(--color-white);
-  letter-spacing: 3px;
-  text-shadow: 4px 4px 0 var(--color-red);
+  letter-spacing: calc(6 * var(--fine));
+  text-shadow: calc(6 * var(--fine)) calc(6 * var(--fine)) 0 var(--color-red);
 }
 
 /* THE OBSERVER, under the wordmark (SHA-177, placed by the mockup in SHA-211).
@@ -745,36 +766,38 @@
 #titleSubline {
   position: absolute;
   left: 0;
-  top: 202px;
+  top: calc(606 * var(--fine));
   width: 100%;
   text-align: center;
-  font: 400 9px var(--font-pixel);
+  font: 400 calc(24 * var(--fine)) var(--font-pixel);
   color: var(--color-yellow);
-  letter-spacing: 5px;
+  letter-spacing: calc(10 * var(--fine));
 }
 
 #titleTagline {
   position: absolute;
   left: 0;
-  top: 218px;
+  top: calc(654 * var(--fine));
   width: 100%;
   text-align: center;
-  font: 400 8px var(--font-pixel);
+  font: 400 calc(16 * var(--fine)) var(--font-pixel);
   color: var(--color-sky);
-  letter-spacing: 2px;
+  letter-spacing: calc(3 * var(--fine));
 }
 
+/* The bundle stacks the tagline and the top score in one column with a 14 px
+   gap; the tagline's line box is 20, so the score's line starts at 688. */
 #titleInfo {
   position: absolute;
   left: 0;
-  top: 233px;
+  top: calc(688 * var(--fine));
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
 
   & #titleTopScore {
-    font: 400 10px var(--font-pixel);
+    font: 400 calc(20 * var(--fine)) var(--font-pixel);
     color: var(--color-yellow);
   }
 }
@@ -782,60 +805,68 @@
 #titlePlayHint {
   position: absolute;
   left: 0;
-  top: 252px;
+  top: calc(756 * var(--fine));
   width: 100%;
   text-align: center;
-  font: 400 13px var(--font-pixel);
+  font: 400 calc(28 * var(--fine)) var(--font-pixel);
   color: var(--color-green);
 }
 
 /* One row of menu keys under the play hint, laid out as a row rather than as a
    line of text: the capsule catalogue joins it as a second span, and neither
-   entry has to know the other is there. */
+   entry has to know the other is there.
+
+   The bundle has no menus, so this row is the game's own. It takes the bundle's
+   top-score size and sits centred in the gap the bundle leaves between the play
+   hint's line (ending at 792) and the footer's (846). */
 #titleMenuHints {
   position: absolute;
   left: 0;
-  top: 269px;
+  top: calc(806 * var(--fine));
   width: 100%;
   display: flex;
   justify-content: center;
   gap: 14px;
-  font: 400 8px var(--font-pixel);
+  font: 400 calc(20 * var(--fine)) var(--font-pixel);
   color: var(--color-sky);
-  letter-spacing: 1px;
+  letter-spacing: calc(3 * var(--fine));
 }
 
 #titleFooter {
   position: absolute;
   left: 0;
-  top: 284px;
+  top: calc(846 * var(--fine));
   width: 100%;
   text-align: center;
-  font: 400 7px var(--font-pixel);
+  font: 400 calc(16 * var(--fine)) var(--font-pixel);
   color: var(--color-dim-text);
-  letter-spacing: 2px;
+  letter-spacing: calc(3 * var(--fine));
 }
 
 /* Fifteen ranks need the screen's whole height, so the heading and its rule sit
    at the same 12/40 the LEVELS and CAPSULES menus use — numbers those two took
-   from this screen in the first place, so this closes the gap between them. */
+   from this screen in the first place, so this closes the gap between them.
+
+   THE HD PASS (SHA-250): the bundle's heading, rule and table width. Its table
+   is five rows, 54 fine pixels apart; this one is fifteen, so it keeps the pitch
+   below and takes only the bundle's type. */
 #scoresHeading {
   position: absolute;
   left: 0;
   top: 12px;
   width: 100%;
   text-align: center;
-  font: 400 20px var(--font-display);
+  font: 400 calc(40 * var(--fine)) var(--font-display);
   color: var(--color-yellow);
-  text-shadow: 3px 3px 0 var(--color-orange-shadow);
+  text-shadow: calc(5 * var(--fine)) calc(5 * var(--fine)) 0 var(--color-orange-shadow);
 }
 
 .scores-divider {
   position: absolute;
-  left: 140px;
+  left: calc(390 * var(--fine));
   top: 40px;
-  width: 200px;
-  height: 1px;
+  width: calc(660 * var(--fine));
+  height: calc(2 * var(--fine));
   background: var(--color-title-divider);
 }
 
@@ -845,9 +876,9 @@
    15 x 11 = 165, so the rows run 50 to 215 and leave that line 21 px of air. */
 #scoreRows {
   position: absolute;
-  left: 140px;
+  left: calc(336 * var(--fine));
   top: 50px;
-  width: 200px;
+  width: calc(768 * var(--fine));
   display: flex;
   flex-direction: column;
 }
@@ -855,7 +886,7 @@
 .score-row {
   display: flex;
   justify-content: space-between;
-  font: 400 10px / 11px var(--font-pixel);
+  font: 400 calc(24 * var(--fine)) / 11px var(--font-pixel);
   color: var(--color-grey-text);
 }
 
@@ -875,9 +906,9 @@
   top: 236px;
   width: 100%;
   text-align: center;
-  font: 400 12px var(--font-pixel);
+  font: 400 calc(24 * var(--fine)) var(--font-pixel);
   color: var(--color-green);
-  letter-spacing: 2px;
+  letter-spacing: calc(4 * var(--fine));
 }
 
 #returnHint {
@@ -886,7 +917,7 @@
   top: 236px;
   width: 100%;
   text-align: center;
-  font: 400 11px var(--font-pixel);
+  font: 400 calc(24 * var(--fine)) var(--font-pixel);
   color: var(--color-sky);
 }
 
@@ -904,17 +935,20 @@
      need every pixel the heading can give back. */
   width: 100%;
   text-align: center;
-  font: 400 20px var(--font-display);
+  /* THE HD PASS (SHA-251): the bundle's heading and rule, as THE WATCHED has
+     them. The bundle has no menus; these two take the hall of fame's, which is
+     where their 12/40 came from in the first place. */
+  font: 400 calc(40 * var(--fine)) var(--font-display);
   color: var(--color-yellow);
-  text-shadow: 3px 3px 0 var(--color-orange-shadow);
+  text-shadow: calc(5 * var(--fine)) calc(5 * var(--fine)) 0 var(--color-orange-shadow);
 }
 
 .screen-divider {
   position: absolute;
-  left: 140px;
+  left: calc(390 * var(--fine));
   top: 40px;
-  width: 200px;
-  height: 1px;
+  width: calc(660 * var(--fine));
+  height: calc(2 * var(--fine));
   background: var(--color-title-divider);
 }
 
@@ -1098,7 +1132,6 @@
 
 #screenCapsules .screen-heading {
   top: 4px;
-  font-size: 16px;
 }
 
 #screenCapsules .screen-divider {

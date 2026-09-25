@@ -1980,6 +1980,130 @@ export const gameConfig = {
       flapTicks: 4,
     },
     /**
+     * VINE (SHA-241): it roots in the band and climbs, and if it reaches the
+     * wall it turns into wall.
+     *
+     * **`hitPoints` here is what it sprouts as, not what it takes to kill.**
+     * The count *is* the length — one more every `growTicks` — and a hit sets
+     * it to however many segments were below the cut, so a vine is killed by
+     * where you hit it rather than by how often.
+     */
+    vine: {
+      hitPoints: 1,
+      points: 60,
+      killPoints: 500,
+      // Two and a half seconds a segment, three quarters of a second a brick.
+      // Growing is the clock the player is racing; laying is the consequence.
+      // `layTicks` is also the rate a vine that has arrived at an unbroken
+      // column *answers* at, so it is slow enough that a brick taken out and
+      // put straight back reads as two events rather than as one that failed.
+      growTicks: 150,
+      layTicks: 45,
+      // What it becomes: the green brick, so the wall it leaves is visibly the
+      // vine and not the wall the level was built with.
+      layKind: "4",
+      // The breeze, as a period. Offset by the segment, so it travels up the
+      // stalk rather than every leaf lifting on the same tick.
+      swayTicks: 26,
+    },
+    /**
+     * WISP (SHA-242): the one creature the ball cannot touch, and therefore
+     * the one worth a thousand points.
+     *
+     * The price is the reach. A level with a wisp on it and no LASER in the
+     * wall is a level where the wisp is scenery, which is why it is the
+     * biggest number in the bestiary and not a balance mistake.
+     */
+    wisp: {
+      hitPoints: 1,
+      points: 250,
+      killPoints: 800,
+      // The drift: one speed, and a heading that is always turning. Half a
+      // pixel a tick crosses the field in twelve seconds, which is slow
+      // enough to be a thing you decide to deal with rather than chase.
+      speed: 0.5,
+      turn: 0.02,
+      // The two rates the turn is made of. No common period, so the path does
+      // not close into a lap the player can learn.
+      wobbleTicks: 47,
+      driftTicks: 17,
+      // What a ball passing through leaves behind: a shove in the direction it
+      // was going, gone again in about half a second. It moves nothing and
+      // takes nothing — it is there so that a ball going clean through does
+      // not read as a collision that failed.
+      shove: 1.2,
+      shoveDecay: 0.88,
+    },
+    /**
+     * FIREFLY (SHA-243): the lamps on a dark level, and the score that asks
+     * the player to put them out.
+     *
+     * Every number here is small on purpose. A firefly is not a fight and not
+     * a race — it is a light with a price on it, and the only decision it
+     * offers is whether the four bricks it is worth are worth the dark that
+     * follows.
+     */
+    firefly: {
+      hitPoints: 1,
+      points: 60,
+      killPoints: 200,
+      // What a hit buys: a second and a half of the dark held off, which the
+      // blackout's own forty-five-tick iris spends opening and closing round
+      // about three quarters of a second of full light.
+      glowTicks: 90,
+      // The blink, as a full period, and how much of it the lantern is lit
+      // for. Just under half: a firefly is dark slightly more than it is lit,
+      // which is what makes a blink a blink rather than a flicker.
+      blinkTicks: 96,
+      litShare: 0.45,
+      // The two steps the lantern's three tones change on, and the second of
+      // them is also where the rays come out. Read off `fireflyLantern`, which
+      // is a sine over the lit share — so `haloAt` at 0.65 is about a quarter
+      // of the whole cycle with the light actually firing.
+      emberAt: 0.15,
+      haloAt: 0.65,
+      // The wander: how far off its pin, and how long a round trip takes. Two
+      // periods with no common multiple, so the path never closes into a lap —
+      // and both short enough that the lamp stays where the level put it.
+      driftX: 22,
+      driftY: 13,
+      driftTicks: 460,
+      bobTicks: 190,
+    },
+    /**
+     * CRAB (SHA-244): the deposit account.
+     *
+     * The numbers are tuned round one question — how often is a crab standing
+     * where a capsule lands? Too seldom and the pips never appear and the
+     * species is a slow beetle; too often and no capsule reaches the deck
+     * unbrokered. `reach` is what settles it, and it is deliberately about a
+     * quarter of the field rather than the whole of it.
+     */
+    crab: {
+      hitPoints: 2,
+      points: 100,
+      killPoints: 250,
+      // The patrol and the scuttle. Idling it crosses the field in about
+      // fourteen seconds; with something in reach it moves at better than
+      // twice that, which is the difference the player reads as "it has seen
+      // it".
+      walk: 0.45,
+      chase: 1.1,
+      // How far out of its way it will go, and how far above itself it
+      // reaches. `grab` is the claws: a capsule falls 1.3 px a tick so nothing
+      // could pass through the body anyway, and this exists so the take
+      // happens visibly above the shell rather than inside it.
+      reach: 96,
+      grab: 6,
+      // How many it can hold, which is also how many slots are cut in its
+      // shell. Four is the most a player can count at a glance on a 15 px
+      // back, and the pool only holds six.
+      carry: 4,
+      // How far apart the spill throws them. Wider than a capsule, so four
+      // coming out of one crab are four capsules and not one stack.
+      spill: 24,
+    },
+    /**
      * THE SPIDER QUEEN (SHA-209), the boss at the end of level 5. Ten hits;
      * every one pays a brick's worth twice over, and the kill pays the level.
      */

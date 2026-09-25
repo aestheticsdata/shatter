@@ -103,12 +103,15 @@ export const LEVELS: readonly LevelDefinition[] = [
     rows: ["...55..55...", "..55555555..", "..44444444..", "...333333...", "....2222....", ".....11....."],
     // Inside the heart, behind its bricks: revealed as it dies.
     eye: { x: 186, y: 74, hw: 44, hh: 16 },
-    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    // HEART is the firefly level (SHA-243): three lamps under the heart, each
+    // blinking on its own beat off its own pin. Lit, they are three pretty
+    // things worth a brick and a half; catch a BLACKOUT here and they are the
+    // only way to see the ball. Pinned in the open band rather than up in the
+    // wall, because what a lamp lights has to be where the rally is.
     creatures: [
-      { kind: CREATURE.FROG, x: 104, y: 26 },
-      { kind: CREATURE.FROG, x: 254, y: 26 },
-      { kind: CREATURE.SPIDER, x: 120, y: 4 },
-      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+      { kind: CREATURE.FIREFLY, x: 70, y: 146 },
+      { kind: CREATURE.FIREFLY, x: 296, y: 172 },
+      { kind: CREATURE.FIREFLY, x: 184, y: 218 },
     ],
   },
   {
@@ -118,12 +121,15 @@ export const LEVELS: readonly LevelDefinition[] = [
     // Discreet in a corner: small, at the bottom left just over the rail, at
     // sixty percent — the storm's edge, watching the deck from beside it.
     eye: { x: 26, y: 262, hw: 16, hh: 6, layer: EYE_LAYER.FRONT, opacity: 0.6 },
-    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    // VORTEX is the wisp level (SHA-242): three of them, one set off inside
+    // the storm's own hollow and two in the band under it. Where they are
+    // pinned is only where they start — a wisp goes where its heading takes
+    // it, through the wall and out the other side, and the heading is taken
+    // off the pin so these three set off three different ways.
     creatures: [
-      { kind: CREATURE.MOTH, x: 110, y: 160 },
-      { kind: CREATURE.MOTH, x: 262, y: 200 },
-      { kind: CREATURE.MOTH, x: 186, y: 120 },
-      { kind: CREATURE.SNAIL, x: 8, y: 28 },
+      { kind: CREATURE.WISP, x: 180, y: 74 },
+      { kind: CREATURE.WISP, x: 60, y: 150 },
+      { kind: CREATURE.WISP, x: 300, y: 190 },
     ],
   },
   {
@@ -415,11 +421,17 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "CASCADE",
     background: "horizon",
     rows: ["GG..........", "11GG........", "..11GG......", "....11GG....", "......11GG..", "........11GG"],
-    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    // CASCADE is the crab level (SHA-244), and it was picked for its wall: a
+    // staircase drops capsules across the whole width, which is the one thing
+    // a capsule thief needs to be worth pinning. Two crabs on two lines rather
+    // than three on one — the upper one takes them early and the lower one is
+    // the last thing between a capsule and the deck, and between the two there
+    // are still gaps to thread. The moth is kept on as the guaranteed source:
+    // hit it and the capsule it was carrying falls straight into the patrol.
     creatures: [
-      { kind: CREATURE.MOTH, x: 110, y: 160 },
-      { kind: CREATURE.MOTH, x: 262, y: 200 },
-      { kind: CREATURE.MOTH, x: 186, y: 120 },
+      { kind: CREATURE.MOTH, x: 186, y: 60 },
+      { kind: CREATURE.CRAB, x: 50, y: 150 },
+      { kind: CREATURE.CRAB, x: 290, y: 210 },
     ],
   },
   {
@@ -520,11 +532,17 @@ export const LEVELS: readonly LevelDefinition[] = [
       "1.1.1.1.1.1.",
       "G.G.G.G.G.G.",
     ],
-    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
+    // PILLARS is the vine level (SHA-241), and the level was already the
+    // argument for it: six columns of brick with six columns of nothing
+    // between them, and a vine that reaches the wall fills one of those gaps
+    // back in from the bottom up. Three of them, under columns 1, 5 and 9,
+    // rooted at three heights so they do not all arrive on the same second —
+    // seven, eleven and nine segments to climb, which is fifteen to
+    // twenty-five seconds each.
     creatures: [
-      { kind: CREATURE.MOTH, x: 110, y: 160 },
-      { kind: CREATURE.MOTH, x: 262, y: 200 },
-      { kind: CREATURE.MOTH, x: 186, y: 120 },
+      { kind: CREATURE.VINE, x: 47, y: 164 },
+      { kind: CREATURE.VINE, x: 167, y: 192 },
+      { kind: CREATURE.VINE, x: 287, y: 178 },
     ],
   },
   {
