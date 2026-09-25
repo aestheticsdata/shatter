@@ -431,8 +431,8 @@ that gate.
 
 ## 7. A capsule, end to end
 
-59 capsules, every one of them a plain tier lookup in the drop machinery: a tier
-buys tickets in a shuffled bag. 57 of the 59 rows are exactly that; DEMAKE and
+60 capsules, every one of them a plain tier lookup in the drop machinery: a tier
+buys tickets in a shuffled bag. 58 of the 60 rows are exactly that; DEMAKE and
 GIANT keep a common's count, because both already drew at a common's weight in
 production and a rare's single ticket would have been worse over the first four
 levels — better eventually is not better. VORTEX's old exception is retired. The
@@ -448,7 +448,7 @@ and no other.
 ```text
   src/core/config/powerUps.ts
   +---------------------------------------------------------------+
-  | { id, name, color, letter, ticks, tier, timed, blurb }  x 59   |
+  | { id, name, color, letter, ticks, tier, timed, blurb }  x 60   |
   +---------------------------------------------------------------+
         |
         |  everything below DERIVES from that table:
@@ -459,9 +459,9 @@ and no other.
         |    the dev console's roster, the catalogue's entries
         v
   DropBag.draw(exclude)                  tickets = TIER_TICKETS[tier]
-        |                                common 2 · uncommon 1 · rare 1 · trap 1
-        |                                DEMAKE and GIANT keep a common's 2
-        |                                74 a pass, drawn without replacement, so
+        |                                common 3 · uncommon 1 · rare 1 · trap 1
+        |                                DEMAKE and GIANT keep a common's 3
+        |                                90 a pass, drawn without replacement, so
         |                                every capsule falls inside two passes
         v
   BrickGrid.load()  seeds cells with rollBrickCapsule()
@@ -712,7 +712,7 @@ contract is those four lines in `frame()`.
 
 It is one class holding a small field cluster per capsule effect — `magnetBlend`,
 `xrayBlend`, `xraySweepSpan`, `portalBlend`, `flipTurn`, `haywireBlend`,
-`haywireKickIn`, `haywireKicking`, and so on for fifty-nine capsules and six
+`haywireKickIn`, `haywireKicking`, and so on for sixty capsules and six
 combos.
 
 The reason is that **every effect touches the same three or four objects**: the

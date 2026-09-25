@@ -49,6 +49,7 @@ import {
   FRAME_RAILS,
   FRAME_RIVET,
   type PaddleBandColors,
+  RIBBON_TONES,
 } from "@render/palette";
 import { ditherTile, mix, Pix, SpriteCache } from "@render/pix";
 
@@ -849,6 +850,8 @@ export interface RenderView {
    * in and of the snap coming out.
    */
   fence: Fx.Fence;
+  // RIBBON's track (SHA-139), the object the ball is collided against.
+  ribbon: Fx.Ribbon;
   /**
    * UMBRA's shadow field, as the object.
    *
@@ -1875,6 +1878,50 @@ export function drawAngelWings(
     pixel(x - outset, top, span, 1, tone);
     pixel(x + width + outset - span, top, span, 1, tone);
   }
+}
+
+/**
+ * RIBBON (SHA-139): one block of track, at whatever scale it is asked for — the
+ * field and the CAPSULES miniature paint the same sprite.
+ *
+ * **Arrival — the exhaust sets.** Under `setTicks` a block is a pale, soft-cornered
+ * blob swelling out of where the ball just was; on the tick it squares up it
+ * takes a brick's bevel, light over dark, and from then on it is a thing.
+ * **Expiry — the reel.** A block leaving slides onto the one ahead of it in its
+ * line and shrinks as it goes; the newest block, with nothing ahead of it,
+ * blinks out in place on a two-tick beat instead.
+ */
+export function drawRibbonStamp(ctx: CanvasRenderingContext2D, stamp: Fx.Stamp, scale: number, demade = false): void {
+  const pixel = spriteBrush(ctx, scale, demade);
+  const { setTicks, slideTicks } = gameConfig.powerUps.ribbon;
+  let { x, y, size } = stamp;
+  if (stamp.leaveAt >= 0 && stamp.sliding > 0) {
+    const progress = Math.min(1, stamp.sliding / slideTicks);
+    const lastInLine = stamp.towardX === stamp.x && stamp.towardY === stamp.y;
+    if (lastInLine) {
+      if (Math.floor(stamp.sliding / 2) % 2 === 1) {
+        return;
+      }
+    } else {
+      x += (stamp.towardX - stamp.x) * progress;
+      y += (stamp.towardY - stamp.y) * progress;
+      const shrink = Math.round(size * 0.4 * progress);
+      x += shrink / 2;
+      y += shrink / 2;
+      size -= shrink;
+    }
+  }
+  if (stamp.age < setTicks) {
+    // Swelling from half its size, corners cut: exhaust, not masonry yet.
+    const grown = Math.max(2, Math.round(size * (0.5 + (0.5 * stamp.age) / setTicks)));
+    const inset = (size - grown) / 2;
+    pixel(x + inset + 1, y + inset, grown - 2, grown, RIBBON_TONES.light);
+    pixel(x + inset, y + inset + 1, grown, grown - 2, RIBBON_TONES.light);
+    return;
+  }
+  pixel(x, y, size, size, RIBBON_TONES.dark);
+  pixel(x, y, size - 1, size - 1, RIBBON_TONES.light);
+  pixel(x + 1, y + 1, size - 2, size - 2, RIBBON_TONES.flat);
 }
 
 /**
@@ -4809,6 +4856,13 @@ export class CanvasRenderer {
     // QUAKE gave it, and the fence was never in the wall.
     if (view.fence.standing) {
       this.drawFence(view.fence);
+    }
+
+    // RIBBON's track, with the fence and for its reason — a free-standing thing
+    // in the field, riding the shake — and under every ball, so the sprite that
+    // laid it is never touched by it.
+    for (const stamp of view.ribbon.stamps) {
+      drawRibbonStamp(this.ctx, stamp, SCALE, this.demade);
     }
 
     // Over the bricks it has just read and under everything that stands on the

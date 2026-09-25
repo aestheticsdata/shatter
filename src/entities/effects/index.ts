@@ -23,6 +23,7 @@ export * from "./Observer";
 export * from "./Oculi";
 export * from "./ParticleField";
 export * from "./Quake";
+export * from "./Ribbon";
 export * from "./ShadowCast";
 export * from "./Singularity";
 export * from "./Slump";

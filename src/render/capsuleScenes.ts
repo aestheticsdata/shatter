@@ -10,6 +10,7 @@ import {
   drawBlackoutVeil,
   drawBrick,
   drawCapsule,
+  drawRibbonStamp,
   drawDeckBody,
   MIRROR_BANDS,
   PADDLE_BANDS,
@@ -481,6 +482,20 @@ class Field {
    * along the cut — so the catalogue's picture of an arriving fence is the same
    * sprite the field paints rather than a second one that could drift off it.
    */
+  /**
+   * RIBBON: one block of track, top-left corner and age, through the sprite the
+   * field paints.
+   */
+  stamp(x: number, y: number, age: number = gameConfig.powerUps.ribbon.setTicks): void {
+    const size = gameConfig.powerUps.ribbon.block;
+    drawRibbonStamp(
+      this.ctx,
+      { x, y, size, chain: 0, order: 0, age, solid: true, leaveAt: -1, towardX: x, towardY: y, sliding: 0 },
+      this.scale,
+      this.demade,
+    );
+  }
+
   post(column: number, row: number, depth: number = BRICK_HEIGHT): void {
     const { x, y } = this.brickAt(column, row);
     const post = cell("F", row * COLUMNS + column);
@@ -1754,6 +1769,39 @@ const SCENES: Record<PowerUpKind, Painter> = {
    * the near anchor, so the reader can follow the whole sentence in one glance
    * — *this* was struck, *that* died.
    */
+  /**
+   * RIBBON: the pen the ball built.
+   *
+   * The line comes up off the deck as what a fresh tail is — a dotted line, a
+   * block every four ball-widths, nothing a ball could not pass — and then
+   * doubles back across itself round the ball, and that is where it closes.
+   * The whole joke is in that difference, so both halves are in the frame: the
+   * harmless trail and the cage it turned into. The newest block, under the
+   * ball's heel, is still congealing, so the still says the track is *laid*
+   * rather than that it appears.
+   */
+  RI: (field) => {
+    field.wall();
+    const line: readonly (readonly [number, number])[] = [
+      [70, 238],
+      [92, 216],
+      [114, 194],
+      [138, 174],
+      [166, 162],
+      [196, 156],
+      [224, 162],
+      [240, 184],
+      [226, 206],
+      [198, 214],
+      [170, 208],
+      [156, 188],
+      [168, 170],
+      [190, 176],
+    ];
+    line.forEach(([x, y], index) => field.stamp(x, y, index === line.length - 1 ? 2 : undefined));
+    field.ball(200, 190);
+    field.deck();
+  },
   TW: (field) => {
     const kinds: readonly BrickKind[] = ["1", "2", "3", "4", "5", "S"];
     // A wall part way through being taken apart: the middle is gone below the

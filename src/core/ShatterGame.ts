@@ -437,6 +437,10 @@ export class ShatterGame {
   // nothing that walks `rows`. See the class for why it is six cells beside the
   // grid array rather than nine empty rows inside it.
   private readonly fence = new Fx.Fence();
+  // RIBBON's track (SHA-139): free-standing blocks the balls lay behind them,
+  // collided here rather than through the grid — they sit anywhere on the
+  // field, not on its cells.
+  private readonly ribbon = new Fx.Ribbon();
   // The posts that finished arriving and leaving this tick, reused rather than
   // allocated for the reason `landings` is.
   private readonly fenceSeated: number[] = [];
@@ -1192,6 +1196,7 @@ export class ShatterGame {
       jelly: this.sheet,
       slump: this.slump,
       fence: this.fence,
+      ribbon: this.ribbon,
       shadows: this.shadows,
       // The echo field itself, the way the sheet above it goes over: the
       // renderer needs the rect every echo is standing in this frame and the
@@ -1816,6 +1821,16 @@ export class ShatterGame {
     // wall has settled, so the rect an echo is placed at this tick is taken off
     // a brick that has already finished moving.
     this.superposition.step(this.grid);
+    // RIBBON's track, beside the echoes and below the same gates: a block is a
+    // hitbox. The reel is armed off the timer's remaining ticks, FENCE's
+    // pattern, so the last block goes on the tick the capsule ends.
+    if (this.timers.remaining("RI") > 0 && this.timers.remaining("RI") <= gameConfig.powerUps.ribbon.reelTicks) {
+      if (!this.ribbon.reeling) {
+        this.deps.sfx.ribbonReel();
+      }
+      this.ribbon.release();
+    }
+    this.ribbon.step(this.balls, (x, y) => this.grid.cellAt(x, y) !== null);
     // COLLAPSE's fog, stepped after the balls have been moved and below the
     // same gates: the exit test asks where every ball finished this tick, so it
     // has to run once the tick's movement is over. A cell is condensed by the
@@ -1938,6 +1953,10 @@ export class ShatterGame {
     if (expired.includes("FE")) {
       this.fence.reset();
     }
+    // The track already reeled in, for the posts' reason just above.
+    if (expired.includes("RI")) {
+      this.ribbon.reset();
+    }
     // The echoes already home: they stopped being surfaces twelve ticks ago and
     // have spent them travelling back into their bricks, so by this tick the
     // wall is a wall again and there is nothing on screen and nothing in the
@@ -2026,6 +2045,7 @@ export class ShatterGame {
       this.hasCombo("LANCE"),
     );
     this.strikeBroodWithShots();
+    this.burnRibbonWithShots();
     this.stepChamber();
     this.stepCritter();
     this.stepMeteors();
@@ -3005,6 +3025,60 @@ export class ShatterGame {
       return true;
     }
     return false;
+  }
+
+  /**
+   * RIBBON (SHA-139): turn a ball off a block of its own track, on one axis.
+   *
+   * Tested per axis after the bricks, exactly as a brick is, so SNAP quantises
+   * the rebound and ENGLISH mirrors off it with no branch of their own. Only a
+   * ball moving *into* the block is turned: one already leaving it — a block
+   * that congealed around a slow ball's edge — is let go rather than dragged
+   * back in. PIERCE does not drill it; the track is the trap, and the cannons
+   * are the way through.
+   *
+   * **It pays nothing.** No points, no chain link: a trap that paid would be a
+   * trap arguing with itself.
+   */
+  private knockOffRibbon(ball: Ball, axis: "x" | "y", delta: number): void {
+    const stamp = this.ribbon.overlap(ball.x, ball.y, ball.size);
+    if (stamp === null) {
+      return;
+    }
+    const middle = axis === "x" ? ball.centerX : ball.y + ball.size / 2;
+    const blockMiddle = (axis === "x" ? stamp.x : stamp.y) + stamp.size / 2;
+    if ((delta > 0 && middle > blockMiddle) || (delta < 0 && middle < blockMiddle)) {
+      return;
+    }
+    ball[axis] -= delta;
+    ball.velocity[axis] = -ball.velocity[axis];
+    this.deps.sfx.ribbonKnock();
+  }
+
+  /**
+   * RIBBON's one way out: a LASER bolt burns the block it meets and is spent on
+   * it. The bolt's drawn box, 2 x 9, for the reason the brood's test gives.
+   */
+  private burnRibbonWithShots(): void {
+    if (!this.ribbon.active) {
+      return;
+    }
+    for (const shot of this.shotPool.shots) {
+      if (!shot.active) {
+        continue;
+      }
+      const stamp = this.ribbon.vaporize(shot.x, shot.y, 2, 9);
+      if (stamp) {
+        shot.active = false;
+        this.particles.burst(
+          stamp.x + stamp.size / 2,
+          stamp.y + stamp.size / 2,
+          "ribbon",
+          gameConfig.effects.brickDeathBurst,
+        );
+        this.deps.sfx.ribbonBurn();
+      }
+    }
   }
 
   /**
@@ -4292,6 +4366,9 @@ export class ShatterGame {
         ball.spin = 0;
         this.strikeBricks(ball, hit);
       }
+      if (hit === null && echo === null && dx !== 0 && !phasing && this.ribbon.active) {
+        this.knockOffRibbon(ball, "x", dx);
+      }
 
       ball.y += dy;
       hit = phasing ? null : this.grid.findBallOverlap(ball.x, ball.y, size);
@@ -4315,6 +4392,9 @@ export class ShatterGame {
         }
         ball.spin = 0;
         this.strikeBricks(ball, hit);
+      }
+      if (hit === null && echo === null && dy !== 0 && !phasing && this.ribbon.active) {
+        this.knockOffRibbon(ball, "y", dy);
       }
 
       // UMBRA's wedges, directly under the bricks they hang off and above
@@ -6264,7 +6344,7 @@ export class ShatterGame {
   // The two halves are independent and stay that way: `bonusSpreadAmount` is a
   // coin per brick, and the bag decides only *which* capsule a winning coin
   // yields. A wall of 40 bricks therefore spends about 12 tickets, which is what
-  // makes a 69-ticket pass last about six levels.
+  // makes a 90-ticket pass last about eight levels.
   private rollBrickCapsule(): PowerUpKind | null {
     return Math.random() < this.bonusSpreadAmount() ? this.dropBag.draw(this.dropExcludes()) : null;
   }
@@ -6318,6 +6398,7 @@ export class ShatterGame {
     this.sheet.reset();
     this.slump.reset();
     this.fence.reset();
+    this.ribbon.reset();
     this.shadows.reset();
     this.superposition.reset();
     this.decoherence.reset();
@@ -7228,6 +7309,13 @@ export class ShatterGame {
       // gaps are the capsule.
       this.timers.activate("FE", durations.FE);
       this.fence.plant();
+    }
+    if (kind === "RI") {
+      // The timer and the first block under every ball. A second RIBBON over a
+      // live one tops the eight seconds up and calls a reel in flight off:
+      // whatever is still standing stands, and the balls go on laying.
+      this.timers.activate("RI", durations.RI);
+      this.ribbon.start();
     }
     if (kind === "JE") {
       // The one capsule whose effect object has to be told the catch happened,
@@ -8232,6 +8320,7 @@ export class ShatterGame {
     this.sheet.reset();
     this.slump.reset();
     this.fence.reset();
+    this.ribbon.reset();
     this.shadows.reset();
     this.superposition.reset();
     this.decoherence.reset();
@@ -8324,6 +8413,7 @@ export class ShatterGame {
     this.sheet.reset();
     this.slump.reset();
     this.fence.reset();
+    this.ribbon.reset();
     this.shadows.reset();
     this.superposition.reset();
     this.decoherence.reset();

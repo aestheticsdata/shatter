@@ -15,8 +15,8 @@ export type PowerUpTier = "common" | "uncommon" | "rare" | "trap";
 
 // How many tickets a tier puts in the bag — see `DropBag`, which draws without
 // replacement instead of rolling weighted odds. A tier is a count of copies, not
-// a probability, and it is almost the whole of the rarity system: 74 tickets,
-// about six levels, every capsule out once or twice a pass. Two rows carry an
+// a probability, and it is almost the whole of the rarity system: 90 tickets,
+// about eight levels, every capsule out once to three times a pass. Two rows carry an
 // exception, and `POWER_UP_DROP_TICKETS` says why.
 //
 // **Weighted odds were the bug, and no number in this table could have fixed
@@ -59,8 +59,16 @@ export type PowerUpTier = "common" | "uncommon" | "rare" | "trap";
 // its size (weights had drifted to 22.3 %). Outweighing `uncommon` was how that
 // number used to be approached, never the goal — and "met often enough to teach
 // its blink" is served better by a guarantee than by a weight.
+//
+// **Commons went from two to three with RIBBON (SHA-139)**, and it is the trap
+// gate that moved them. At two, RIBBON alone put traps at 15 of 75 — 20 %, a red
+// `check:drops` — and MOULD behind it needs room too. A trap cannot shed its one
+// ticket and DEMAKE and GIANT cannot shed a common's, so the only lever left was
+// more non-trap tickets, and the commons are the capsules a player is meant to
+// meet most anyway. The cost is a longer pass: a single ticket went from 1.35 %
+// to 1.11 % a draw, which is the price every new row has always charged.
 export const TIER_TICKETS: Record<PowerUpTier, number> = {
-  common: 2,
+  common: 3,
   uncommon: 1,
   rare: 1,
   trap: 1,
@@ -588,6 +596,15 @@ export const POWER_UPS = [
   // Nothing of this is painted on the field: the effect is the ball's own sprite
   // copied and moved, so this body has one job â being found while it falls.
   { id: "HE", name: "HEISEN", color: "#acc814", dark: true, ticks: 480, tier: "uncommon", timed: true, blurb: "BLUR PAYS MORE · CLICK TO SEE" },
+  // Snake's own green, and not the bruise plum the ticket asked for: that plum
+  // measured 2.4:1 against the red iris and cathode's base, and no plum bright
+  // enough to clear 3:1 there stays 58 from JAMMER, BUMPERS, HAYWIRE and LEAP.
+  // The blues that scored next sat 11 to 29 from the starfield's bright specks.
+  // This is the widest legal point left on a 60-capsule board — 64.8 from
+  // MULTI, 0.485 luminance, and clear of every speck — and it is the colour of
+  // the game whose rule the capsule plays by. The track it lays is this body
+  // taken down a step, so the pill and the maze are one colour.
+  { id: "RI", name: "RIBBON", color: "#73cd73", dark: true, ticks: 480, tier: "trap", timed: true, blurb: "THE BALL BUILDS YOUR MAZE" },
 ] as const satisfies readonly PowerUpDefinition[];
 
 export type PowerUpKind = (typeof POWER_UPS)[number]["id"];
@@ -628,7 +645,7 @@ export const POWER_UP_NAMES: Record<PowerUpKind, string> = byId((definition) => 
  */
 export const POWER_UP_GLYPHS: Record<PowerUpKind, string> = byId((definition) => glyphFor(definition.name));
 export const POWER_UP_DURATIONS: Record<PowerUpKind, number> = byId((definition) => definition.ticks);
-// Tickets per capsule: tier-derived for 57 of the 59 rows, and two kept back.
+// Tickets per capsule: tier-derived for 58 of the 60 rows, and two kept back.
 //
 // There were three weight exceptions — DEMAKE, VORTEX and GIANT — each promoted a
 // class because it was "landing too rarely to enjoy". The instinct was to retire

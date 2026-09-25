@@ -1411,6 +1411,38 @@ export class SoundBank {
     this.noise({ dur: 0.09, vol: 0.09, filter: { type: "highpass", freq: 1800 } });
   }
 
+  // RIBBON (SHA-139): a ball knocking off its own track. Dull and wooden and
+  // short — a block is not a brick, it pays nothing and it breaks nothing, and
+  // by second six it is played on most bounces, so it has to sit under the
+  // brick clank rather than on top of it.
+  ribbonKnock(): void {
+    if (!this.allow("ribbonKnock", 45)) {
+      return;
+    }
+    this.tone({ freq: 240, freqEnd: 150, dur: 0.05, vol: 0.05, type: "square" });
+  }
+
+  // A bolt burning a block out of the track: a hiss with a falling blip, the
+  // lane opening.
+  ribbonBurn(): void {
+    if (!this.allow("ribbonBurn", 30)) {
+      return;
+    }
+    this.tone({ freq: 900, freqEnd: 300, dur: 0.06, vol: 0.05 });
+    this.noise({ dur: 0.07, vol: 0.06, filter: { type: "highpass", freq: 2400 } });
+  }
+
+  // The reel: a ratchet winding down over the forty ticks the line takes to
+  // come in, so the field is bare on the tick the room goes quiet.
+  ribbonReel(): void {
+    if (!this.allow("ribbonReel")) {
+      return;
+    }
+    for (let click = 0; click < 8; click++) {
+      this.tone({ freq: 700 - click * 60, dur: 0.02, vol: 0.04, type: "square", delayS: click * 0.08 });
+    }
+  }
+
   jellySet(): void {
     if (!this.allow("jellySet")) {
       return;

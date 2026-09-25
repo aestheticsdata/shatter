@@ -465,6 +465,34 @@ export const gameConfig = {
         maxLifeTicks: 14,
       },
     },
+    /**
+     * RIBBON (SHA-139): the track every ball lays behind it. The whole capsule is
+     * here and in `@entities/effects/Ribbon`.
+     */
+    ribbon: {
+      // Pixels of travel between two blocks — a distance, not a tick count, so
+      // every speed the game has lays the same line. Just under four ball-widths:
+      // a fresh tail is a dotted line and not a wall, and the mesh only closes
+      // where the player doubles back across it.
+      spacing: 31,
+      // A block's side. A GIANT ball lays a slab its own width instead.
+      block: 8,
+      // No block's bottom edge below this: the 26 px over the rail at 276 stay
+      // clear, so the trap can never block the player's own catch.
+      floorY: 250,
+      // Ticks a block takes to congeal out of the trail before it is a collider.
+      setTicks: 4,
+      // A ceiling on the whole track, for SWARM's sake. Eight seconds of one ball
+      // at base speed lays about seventy; twelve balls would lay nine hundred.
+      maxStamps: 240,
+      // More than this in one tick is a PORTAL transit or a LEAP, not travel.
+      jumpLimit: 40,
+      // The reel at expiry: the whole of it, and one block's slide onto the next.
+      // Armed off the timer's remaining ticks, so the last block goes on the
+      // tick the capsule ends.
+      reelTicks: 40,
+      slideTicks: 4,
+    },
     gravel: {
       // Per kill, rolled per brick. The ticket's four to six, and the reason it
       // is a range rather than five: a fixed count over a row of twelve reads

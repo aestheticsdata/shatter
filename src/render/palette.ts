@@ -608,8 +608,20 @@ export const FRAME_RIVET = {
  * This is the whole of what widening `ParticleField.burst` past bricks costs:
  * one row here, and the simulation still names a material rather than a colour.
  */
+/**
+ * RIBBON's track (SHA-139): the pill's green taken down a step for the body, the
+ * pill itself for the lit edge and a deep moss for the shadow, banded the way a
+ * brick is so a block reads as a solid thing and not a smear of trail.
+ */
+export const RIBBON_TONES: BrickColorSet = {
+  flat: "#3f9a4a",
+  light: "#73cd73",
+  dark: "#1d5226",
+};
+
 export const CHUNK_COLORS: Record<ChunkMaterial, BrickColorSet> = {
   ...BRICK_COLORS,
+  ribbon: RIBBON_TONES,
   deck: {
     flat: canvasPalette.paddleBody,
     light: canvasPalette.paddleTopSheen,
@@ -644,6 +656,9 @@ export const DEMAKE_GROUND_TONES: ReadonlySet<string> = new Set([
   canvasPalette.dropShade,
   canvasPalette.singularityCore,
   canvasPalette.portalDark,
+  // RIBBON's shadow edge, so a block keeps its square under DEMAKE rather than
+  // welding into the next one.
+  RIBBON_TONES.dark,
   // The rail's dark contour and the dark lip the field sits behind (SHA-223).
   // Authored tones rather than blends, so nothing can infer their role: they
   // are the two ends of the frame's ramp, and they are the frame's *edges* —
