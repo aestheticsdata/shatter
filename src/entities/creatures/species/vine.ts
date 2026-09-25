@@ -112,7 +112,8 @@ export const VINE: Species = {
   get killPoints() {
     return gameConfig.creatures.vine.killPoints;
   },
-  blurb: "CUT IT LOW BEFORE IT ROOTS",
+  tip: "AIM LOW · CUT IT AT THE ROOT",
+  lore: "IT TAKES ROOT ON THE BAND AND CLIMBS, A SEGMENT EVERY FEW SECONDS, REACHING FOR THE WALL. IF IT GETS THERE IT TURNS ITSELF INTO GREEN BRICKS AND FILLS THE HOLES YOU WORKED SO HARD FOR. WHERE YOU CUT IT IS ALL THAT MATTERS: SNIP THE TIP AND IT LOSES A SEGMENT. STRIKE THE ROOT AND IT IS FINISHED.",
   // **Not solid**, and not because a plant is soft: the framework's shelf
   // bounce is vertical only, which is the right physics for a beetle's back
   // and the wrong physics for a column. A ball that passed through a vine and

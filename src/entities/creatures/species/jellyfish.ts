@@ -106,7 +106,8 @@ export const JELLYFISH: Species = {
   get killPoints() {
     return gameConfig.creatures.jellyfish.killPoints;
   },
-  blurb: "ITS STING NUMBS THE DECK",
+  tip: "POP IT ON THE WAY DOWN",
+  lore: "IT PULSES UP AND SINKS DOWN, AND THE SINKING WINS, SO IT DRIFTS OUT OF THE WALL AND STRAIGHT FOR YOUR DECK. ITS TENTACLE TIPS GLOW WHILE IT IS ARMED. ONE TOUCH AND THE DECK GOES NUMB AND SLOW. THEN IT PULSES HOME, DULL AND SPENT, TO START THE HUNT ALL OVER AGAIN.",
   // Water. The ball goes through it and pops it on the way, which is the whole
   // answer this species asks for.
   solid: false,

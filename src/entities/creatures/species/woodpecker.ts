@@ -95,7 +95,8 @@ export const WOODPECKER: Species = {
   get killPoints() {
     return gameConfig.creatures.woodpecker.killPoints;
   },
-  blurb: "IT PECKS THE WALL FOR YOU",
+  tip: "LEAVE IT ALONE · IT WORKS FOR YOU",
+  lore: "THE ONE FRIEND YOU HAVE IN HERE. IT PICKS A BRICK WITH OPEN AIR BENEATH, CLINGS TO ITS UNDERSIDE AND HAMMERS AWAY UNTIL THE BRICK GIVES, THEN RESTS AND FINDS ANOTHER. IT ASKS FOR NOTHING AND PAYS NOTHING. HIT IT AND IT IS GONE — AND SO IS THE HELP.",
   solid: false,
   frames: [WOODPECKER_BODY],
   frameTicks: 12,

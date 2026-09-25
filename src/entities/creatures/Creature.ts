@@ -130,15 +130,17 @@ export interface Species {
   /** On top, on the hit that kills. */
   killPoints: number;
   /**
-   * Its one line on the BESTIARY page (SHA-253): what it does, set in 7 px
-   * Silkscreen and held to `ENTRY_TEXT_ROOM`. Checked in pixels by
-   * `checkBestiaryBlurbs`, never counted in characters.
+   * Its page in the BESTIARY (SHA-255): a few lines of lore in the voice of a
+   * game's monster book, and the one-line tip under them. Both are set in 7 px
+   * Silkscreen in the page's text column and checked in pixels by
+   * `checkBestiaryText` — the lore to its line budget, the tip to one line.
    */
-  blurb: string;
+  lore: string;
+  tip: string;
   /**
-   * How many hits it takes, where that is not `hitPoints` — the BESTIARY
-   * label's one escape hatch, as `lasts` is the CAPSULES page's. BEETLE is the
-   * reason: two of its hits turn it over rather than hurt it.
+   * How many hits it takes, where that is not `hitPoints` — the BESTIARY's one
+   * escape hatch, as `lasts` is the CAPSULES page's. BEETLE is the reason: two
+   * of its hits turn it over rather than hurt it.
    */
   hits?: number;
   /**

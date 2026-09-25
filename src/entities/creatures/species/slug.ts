@@ -81,7 +81,8 @@ export const SLUG: Species = {
   get killPoints() {
     return gameConfig.creatures.slug.killPoints;
   },
-  blurb: "ITS SLIME MAKES THE DECK SKID",
+  tip: "CATCH THE BALL RIGHT ON TOP OF IT",
+  lore: "IT CRAWLS ALONG YOUR RAIL — YOUR RAIL — LEAVING A GLEAMING TRAIL OF SLIME, AND OVER THE SLICK YOUR DECK SKIDS PAST WHERE YOU POINT IT. IT LIVES DOWN WHERE ONLY A CAUGHT BALL CAN REACH IT, SO TO SQUASH IT YOU MUST STAND IN ITS MESS. THE SLIME IT LEAVES STAYS UNTIL IT DRIES.",
   // A shelf on the rail would be a second deck, and one the player did not
   // choose where to put. The ball goes through it and squashes it.
   solid: false,

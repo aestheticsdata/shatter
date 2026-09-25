@@ -112,7 +112,8 @@ export const FIREFLY: Species = {
   get killPoints() {
     return gameConfig.creatures.firefly.killPoints;
   },
-  blurb: "A HIT LIGHTS UP THE DARK FIELD",
+  tip: "IN THE DARK, THINK TWICE BEFORE YOU SWING",
+  lore: "A DULL LITTLE BEETLE WITH A LANTERN UNDER ITS TAIL. ON A LIT FIELD IT JUST DRIFTS AND BLINKS. WHEN THE LIGHTS GO OUT IT IS THE ONLY THING LEFT TO SEE BY. STRIKE IT AND THE WHOLE FIELD FLARES BRIGHT FOR A HEARTBEAT — BUT THAT SAME HIT PUTS THE LAMP OUT FOR GOOD. THE SCORE IS THE BAIT.",
   // A ball goes through it, as it does through everything in the bestiary that
   // flies. Nothing this small is a shelf.
   solid: false,

@@ -121,7 +121,8 @@ export const FROG: Species = {
   get killPoints() {
     return gameConfig.creatures.frog.killPoints;
   },
-  blurb: "IT LEAPS AWAY · HIT IT MID-AIR",
+  tip: "SPOOK IT, THEN SHOOT IT MID-LEAP",
+  lore: "A BRICK-SITTER WITH A GRIN. IT SQUATS ON TOP OF THE WALL LIKE IT OWNS THE PLACE, AND THE MOMENT THE BALL COMES CLOSE IT LEAPS TO ANOTHER BRICK. SITTING, IT IS A HARD LITTLE SHELF THAT TAKES TWO HITS. IN THE AIR IT IS ALL SOFT BELLY: ONE HIT MID-LEAP AND IT IS DONE, WITH A BONUS FOR STYLE.",
   solid: true,
   // One frame: the renderer's frame clock is the field's, not the frog's, so
   // the pose chosen by state goes through `decorate`, under the body.

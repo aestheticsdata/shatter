@@ -83,7 +83,8 @@ export const BEETLE: Species = {
   get killPoints() {
     return gameConfig.creatures.beetle.killPoints;
   },
-  blurb: "ARMOUR ON TOP · HIT FROM BELOW",
+  tip: "HIT IT FROM BELOW, FINISH IT UPSIDE DOWN",
+  lore: "ARMOURED ON TOP, SOFT UNDERNEATH, AND IT KNOWS IT. COME DOWN ON ITS SHELL AND THE BALL BOUNCES OFF WITH NOTHING TO SHOW. HIT IT FROM BELOW AND IT ROLLS UP INTO A CHARGING BALL OF CHITIN; HIT IT AGAIN AND IT FLIPS ONTO ITS BACK, LEGS WAVING. FOR THREE SECONDS IT IS THE SOFTEST THING ON THE FIELD.",
   // Two belly hits to roll it and turn it over, then the two its hit points
   // are: `struck` hands the first two back.
   hits: 4,

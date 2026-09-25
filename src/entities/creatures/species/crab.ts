@@ -110,7 +110,8 @@ export const CRAB: Species = {
   get killPoints() {
     return gameConfig.creatures.crab.killPoints;
   },
-  blurb: "IT STEALS CAPSULES · HIT IT",
+  tip: "COUNT THE PIPS BEFORE YOU SHOOT",
+  lore: "A THIEF IN A RED SHELL. IT SCUTTLES SIDEWAYS ALONG THE BAND, SNATCHES YOUR FALLING CAPSULES OUT OF THE AIR AND WEARS THEM AS GOLD PIPS ON ITS BACK. HIT IT AND IT SPILLS THE LOT AT ONCE. SO: TAKE TWO NOW, OR WAIT FOR FOUR AND HOPE THE LEVEL LASTS?",
   // **Not solid, and this one is a balance call rather than an anatomical
   // one.** A crab is plainly a hard thing and the ball ought to come off it —
   // but it is fifteen pixels wide, it loiters in the middle of the band, and it

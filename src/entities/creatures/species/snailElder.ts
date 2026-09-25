@@ -54,7 +54,8 @@ export const SNAIL_ELDER: Species = {
   get killPoints() {
     return gameConfig.creatures.snailElder.killPoints;
   },
-  blurb: "HE LAYS NEW BRICKS OVERHEAD",
+  tip: "BREAK THROUGH TO HIS HEAD",
+  lore: "THE OLDEST MASON OF ALL, CRAWLING UPSIDE DOWN ACROSS THE CEILING. WITH NO WALL LEFT TO MEND, HE BUILDS A NEW ONE: A BRICK UNDER EVERY COLUMN HE PASSES, ROW AFTER ROW, SO THE WALL YOU TORE DOWN GROWS BACK OVER YOUR HEAD. HIS SHELL SHRUGS OFF THE BALL. ONLY HIS HEAD CAN BE HURT.",
   solid: true,
   // The snail's own two frames, a size up and the right way up for a ceiling.
   frames: SNAIL_FRAMES.map((rows) => flipped(doubled(rows))),

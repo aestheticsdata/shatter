@@ -1056,18 +1056,13 @@
   padding-left: 42px;
 }
 
-/* ---------- capsule catalogue, and the bestiary ---------- */
+/* ---------- capsule catalogue ---------- */
 
-/* The BESTIARY page (SHA-253) is this page entry for entry — a miniature, the
-   thing itself over its corner, a label and a blurb in the same measured
-   column — so it wears these rules rather than a copy of them.
-
-   Three across and two down. Fixed rows rather than as many as the page happens
+/* Three across and two down. Fixed rows rather than as many as the page happens
    to hold — the last page is partial and must paint like a full one instead of
    spreading to fill. The whole block sits higher than the LEVELS grid because
    each entry carries two lines of type under its picture. */
-#capsuleEntries,
-#bestiaryEntries {
+#capsuleEntries {
   position: absolute;
   /* Centred on the *tiles*, not the tracks: a column is 148px of track holding
      a 124px tile flush left, so the last track carries 24px of nothing and the
@@ -1087,8 +1082,7 @@
   justify-items: start;
 }
 
-.capsule-frame,
-.creature-frame {
+.capsule-frame {
   position: relative;
   width: 124px;
   height: 100px;
@@ -1096,8 +1090,7 @@
 
 /* The field at a third, the same miniature the LEVELS gallery paints, and the
    stage's own fit transform must not soften it a second time. */
-.capsule-scene,
-.creature-scene {
+.capsule-scene {
   display: block;
   width: 124px;
   height: 100px;
@@ -1117,24 +1110,13 @@
   image-rendering: pixelated;
 }
 
-/* The creature at the size it lives at, where the pill sits. Its box is set on
-   the element, because it is the sprite's own outline and every creature's is
-   different; the backing is SCALE times it, as the pill's is. */
-.creature-portrait {
-  position: absolute;
-  right: 3px;
-  top: 3px;
-  image-rendering: pixelated;
-}
-
-/* Both lines are measured at 7px Silkscreen by the DEV passes in
-   `@render/checkCapsules` and `@render/checkBestiary`, against
-   `ENTRY_TEXT_ROOM` — the 142px the third column shows before the stage edge
-   cuts it, not the 148px track. `ENTRY_FONT` there is this font and
-   `ENTRY_BLURB_LINES` is the one blurb line below, and they have to stay the
-   same or the passes measure something nobody is looking at. */
-.capsule-label,
-.creature-label {
+/* Both lines are measured at 7px Silkscreen by the DEV pass in
+   `@render/checkCapsules`, against `ENTRY_TEXT_ROOM` — the 142px the third
+   column shows before the stage edge cuts it, not the 148px track (SHA-254).
+   `ENTRY_FONT` there is this font and `ENTRY_BLURB_LINES` is the one blurb line
+   below, and they have to stay the same or the pass measures something nobody
+   is looking at. */
+.capsule-label {
   align-self: stretch;
   margin-top: 3px;
   font: 400 7px var(--font-pixel);
@@ -1142,8 +1124,7 @@
   color: var(--color-white);
 }
 
-.capsule-blurb,
-.creature-blurb {
+.capsule-blurb {
   align-self: stretch;
   margin-top: 2px;
   font: 400 7px var(--font-pixel);
@@ -1161,8 +1142,98 @@
   top: 28px;
 }
 
-#capsulesFooter,
-#bestiaryFooter {
+#capsulesFooter {
   top: 286px;
   padding-left: 18px;
+}
+
+/* ---------- bestiary ---------- */
+
+/* A book of cards, one creature to a page (SHA-255): the creature in its panel
+   on the left, drawn big, and its page on the right. 24px margins on the 480px
+   stage. The text column is `SHEET_WIDTH` in `@ui/Bestiary`, which the DEV pass
+   in `@render/checkBestiary` measures against — the two must agree, and so must
+   the fonts and the lore's line budget below. */
+.creature-card {
+  position: absolute;
+  left: 24px;
+  top: 38px;
+  width: 432px;
+  height: 240px;
+  display: grid;
+  grid-template-columns: 168px 248px;
+  column-gap: 16px;
+}
+
+/* The creature's own window: the field's blue behind it, framed in the rule's
+   blue, so it reads as a thing on show rather than a sprite on the page. */
+.creature-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-field);
+  border: 1px solid var(--color-title-divider);
+}
+
+/* Blown up by a whole number from a canvas backed at SCALE — its box is set on
+   the element, since every creature's outline is its own — and never smoothed:
+   big pixels are the point. */
+.creature-portrait {
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* Centred against the panel: a page of text hung from the top of a tall
+   window leaves the bottom half of the card empty. */
+.creature-sheet {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* In the heading's own face, at `NAME_FONT`'s size. */
+.creature-name {
+  font: 400 10px var(--font-display);
+  line-height: 10px;
+  color: var(--color-white);
+}
+
+/* Label and value on two rails, laid by the grid rather than by padding — the
+   face is proportional (SHA-150). `STATS_GAP` is the column gap. */
+.creature-stats {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+  row-gap: 3px;
+  font: 400 7px var(--font-pixel);
+  line-height: 7px;
+}
+
+.creature-stat-label {
+  color: var(--color-sky);
+}
+
+.creature-stat-value {
+  color: var(--color-white);
+}
+
+/* `SHEET_FONT`, and room for `LORE_LINES` of it at this leading. */
+.creature-lore {
+  margin-top: 12px;
+  font: 400 7px var(--font-pixel);
+  line-height: 11px;
+  color: var(--color-grey-text);
+}
+
+.creature-tip {
+  margin-top: 12px;
+  font: 400 7px var(--font-pixel);
+  line-height: 7px;
+  color: var(--color-yellow);
+}
+
+#bestiaryFooter {
+  top: 286px;
+  padding-left: 24px;
 }

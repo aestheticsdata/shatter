@@ -2,10 +2,10 @@ import { gameConfig } from "@core/config/GameConfig";
 import { BOSS_NAME, BOSS_OF_LEVEL } from "@core/levels/bosses";
 import { LEVELS, VEIL_LEVELS } from "@core/levels/levels";
 import { SPECIES } from "@entities/creatures/species";
-import { ART_MODE, FINE } from "@interfaces/art";
+import { ART_MODE } from "@interfaces/art";
 import { BESTIARY_BROOD, CREATURE } from "@interfaces/creatures";
 import { SCALE } from "@render/CanvasRenderer";
-import { paintCreaturePortrait, paintCreatureScene } from "@render/creatureScenes";
+import { paintCreaturePortrait, PORTRAIT_CYCLE, PORTRAIT_ROOM } from "@render/creaturePortraits";
 import { zeroPad } from "@shared/format";
 import { renderPageIndicator } from "@ui/pagePips";
 
@@ -13,34 +13,46 @@ import type { ArtMode } from "@interfaces/art";
 import type { BestiaryKind, CreatureKind } from "@interfaces/creatures";
 
 export interface BestiaryElements {
-  entries: HTMLElement;
+  card: HTMLElement;
   pages: HTMLElement;
   arrows: HTMLElement;
   count: HTMLElement;
   facts: HTMLElement;
 }
 
-// The CAPSULES page's grid and the CAPSULES page's miniature, for the reasons
-// that page gives: six pictures a page, each a third of the field.
-const ENTRIES_PER_PAGE = 3 * 2;
-const TILE_SCALE = 3;
-const TILE_WIDTH = gameConfig.field.width / TILE_SCALE;
-const TILE_HEIGHT = gameConfig.field.height / TILE_SCALE;
+/**
+ * The text column on the right of a card, in stage pixels, the type the lore
+ * and the tip are set in, and how many lines the lore may take. They live here
+ * because this is where they are spent, and `@render/checkBestiary` reads them
+ * — `.creature-sheet` and `.creature-lore` in `components.css` must agree.
+ */
+export const SHEET_WIDTH = 248;
+export const SHEET_FONT = "7px Silkscreen, monospace";
+export const LORE_LINES = 11;
+// The name, in the display face at the size `.creature-name` sets it.
+export const NAME_FONT = "10px 'Press Start 2P', monospace";
+// The air between a stat's label and its value, set on `.creature-stats`.
+export const STATS_GAP = 8;
 
-// The room a portrait is painted in before it is cut to its own size, in stage
-// pixels, and where in that room the creature is put down. The biggest thing in
-// the bestiary is the queen at 40 x 26 with her thread over her, and a beetle's
-// head and legs reach past its box — so a generous room, then a trim, rather
-// than a size worked out per species that the next species would outgrow.
-const PORTRAIT_ROOM = { width: 64, height: 48 } as const;
-const PORTRAIT_AT = 8;
+// The box the creature is blown up into, inside its panel, in stage pixels,
+// and the biggest the blow-up may go: past ten a wisp is a wall of squares.
+const PORTRAIT_BOX = { width: 144, height: 208 } as const;
+const MAX_ZOOM = 10;
+// How finely the portrait's loop is sampled to find everything it covers.
+// Every clock a portrait keeps turns over on a multiple of this or faster than
+// it, and a frog's hop peaks on frame 138 of its loop, which is one.
+const TRIM_STEP = 6;
 
-// What the brood's entry is called, and what it does. Not in a species row,
-// because the brood is not a species: it is the veils' own system.
+// What the brood's page says. Not in a species row, because the brood is not a
+// species: it is the veils' own system.
 const BROOD_NAME = "THE BROOD";
-const BROOD_BLURB = "EACH HIT HATCHES A WORSE ONE";
+const BROOD_LORE =
+  "THE EYE'S OWN CHILDREN, LAID ON THE BAND BENEATH EVERY VEIL. STRIKE AN EGG AND IT HATCHES. " +
+  "STRIKE THE HATCHLING AND IT GROWS WINGS. EACH FORM IS FASTER, WIDER AND WORTH MORE THAN THE LAST, " +
+  "AND ONLY THE WYVERN CAN DIE — LIGHTING A STAR IN THE EYE'S DIADEM AS IT GOES.";
+const BROOD_TIP = "FINISH WHAT YOU HATCH";
 
-/** One entry: which creature, and the level a player first meets it on. */
+/** One page: which creature, and the level a player first meets it on. */
 export interface BestiaryEntry {
   kind: BestiaryKind;
   /** 1-based, as the panel prints it. */
@@ -53,10 +65,10 @@ export interface BestiaryEntry {
  * order they end their levels.
  *
  * **Derived, never written down.** A species the re-deal moves to an earlier
- * level moves up the page with it, and a species added to `CREATURE` and dealt
+ * level moves up the book with it, and a species added to `CREATURE` and dealt
  * onto a level files itself in — the registry is typed against `CreatureKind`,
- * so a new name is already a species, and the scenes' own `Record` makes it a
- * picture. One no level pins yet sorts after everything a level does.
+ * so a new name is already a species, and the portraits' own `Record` makes it
+ * a picture. One no level pins yet sorts after everything a level does.
  */
 export const BESTIARY_ROSTER: readonly BestiaryEntry[] = buildRoster();
 
@@ -93,115 +105,159 @@ function buildRoster(): BestiaryEntry[] {
   return [...species, ...bosses];
 }
 
-/**
- * The line under an entry's picture: `FROG · 2 HITS · SOLID`, or for a boss
- * `THE FROG KING · BOSS · LV 25`.
- *
- * Every field is read off the registry. The last one is how the ball meets it,
- * which is the first thing a player needs to know about anything on the field:
- * whether the ball comes off it, goes through it, or cannot touch it at all.
- */
-export function creatureLabel(entry: BestiaryEntry): string {
+/** What the page is headed with: the boss's title, or the species' own name. */
+export function creatureName(entry: BestiaryEntry): string {
   if (entry.kind === BESTIARY_BROOD) {
-    // A beast is struck up the ladder of its forms and dies off the last one,
-    // and the ball comes off every one of them.
-    return `${BROOD_NAME} · ${hitsOf(gameConfig.observer.brood.forms.length)} · SOLID`;
+    return BROOD_NAME;
   }
-  const boss = BOSS_NAME[entry.kind];
-  if (boss) {
-    return `${boss} · BOSS · LV ${zeroPad(entry.level, 2)}`;
-  }
-  const species = SPECIES[entry.kind];
-  const meets = species.shotOnly ? "BOLTS ONLY" : species.solid ? "SOLID" : "THROUGH";
   // The constant's own value, capitalised: every ordinary species is named by
   // one word, and it is the word the console already takes.
-  return `${entry.kind.toUpperCase()} · ${hitsOf(species.hits ?? species.hitPoints)} · ${meets}`;
+  return BOSS_NAME[entry.kind] ?? entry.kind.toUpperCase();
 }
 
-/** The one line under the label. */
-export function creatureBlurb(entry: BestiaryEntry): string {
-  return entry.kind === BESTIARY_BROOD ? BROOD_BLURB : SPECIES[entry.kind].blurb;
+export function creatureLore(entry: BestiaryEntry): string {
+  return entry.kind === BESTIARY_BROOD ? BROOD_LORE : SPECIES[entry.kind].lore;
 }
 
-function hitsOf(count: number): string {
-  return count === 1 ? "1 HIT" : `${count} HITS`;
+export function creatureTip(entry: BestiaryEntry): string {
+  return `TIP · ${entry.kind === BESTIARY_BROOD ? BROOD_TIP : SPECIES[entry.kind].tip}`;
 }
 
-function contextOf(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
-  const ctx = canvas.getContext("2d");
+/**
+ * The four facts at the top of a page, every one read off the registry: where
+ * it is met, how many hits it takes, what the ball does when it gets there,
+ * and what it pays.
+ */
+export function creatureStats(entry: BestiaryEntry): readonly (readonly [string, string])[] {
+  const where = (level: number): string =>
+    Number.isFinite(level) ? `${zeroPad(level, 2)} ${LEVELS[level - 1].name}` : "NOT YET";
+  if (entry.kind === BESTIARY_BROOD) {
+    const { forms, killPoints } = gameConfig.observer.brood;
+    return [
+      ["MET", `THE VEILS · FROM ${where(entry.level)}`],
+      ["HITS", `${forms.length} · IT CHANGES TWICE, THEN DIES`],
+      // A beast is a shelf, like a solid creature.
+      ["BALL", "BOUNCES OFF IT"],
+      ["WORTH", `${forms.map((form) => form.points).join(" · ")} · ${killPoints} THE KILL`],
+    ];
+  }
+  const species = SPECIES[entry.kind];
+  const boss = BOSS_NAME[entry.kind] !== undefined;
+  const worth =
+    species.points === 0 && species.killPoints === 0
+      ? "NOTHING · IT IS ON YOUR SIDE"
+      : `${species.points} A HIT · ${species.killPoints} THE KILL`;
+  return [
+    boss ? ["LAIR", `THE END OF ${where(entry.level)}`] : ["MET", where(entry.level)],
+    ["HITS", String(species.hits ?? species.hitPoints)],
+    // A boss is always a shelf, whatever its species says: the fight is played
+    // off it (`bossPool` in the game).
+    [
+      "BALL",
+      species.shotOnly ? "CANNOT TOUCH IT · BOLTS ONLY" : boss || species.solid ? "BOUNCES OFF IT" : "GOES THROUGH IT",
+    ],
+    ["WORTH", worth],
+  ];
+}
+
+// `readable` for the scratch room the trim reads back, and only for it: the
+// hint moves a canvas off the GPU, which the portrait on the page has no use for.
+function contextOf(canvas: HTMLCanvasElement, readable = false): CanvasRenderingContext2D {
+  const ctx = canvas.getContext("2d", { willReadFrequently: readable });
   if (!ctx) {
     throw new Error("2D bestiary context unavailable");
   }
   return ctx;
 }
 
+interface Trim {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 /**
- * The creature at the size it lives at, cut to its own outline.
- *
- * Backed at `SCALE`, which is the fine grid itself, for the reason the CAPSULES
- * page backs its pill there: it is the one picture on the entry that is not
- * downscaled, so it arrives at exactly the resolution the field draws it at. A
- * boss is its own doubled bitmap, never a zoomed small one.
- *
- * Painted into a room and then trimmed to what it drew, because a creature is
- * not its box — a beetle's head is out in front of it and a queen hangs off a
- * thread — and a corner overlay has to sit on the sprite, not on its margin.
+ * Everything a portrait ever covers over its whole loop, in pixels of a canvas
+ * `SCALE` times the room — a wing at the top of its beat, a beetle's legs in
+ * the air — so the creature can be cut to its own outline and blown up without
+ * a wingtip ever leaving the frame.
  */
-function createPortrait(kind: BestiaryKind, hd: boolean): HTMLCanvasElement {
+function trimOf(kind: BestiaryKind, hd: boolean): Trim {
   const room = document.createElement("canvas");
   room.width = PORTRAIT_ROOM.width * SCALE;
   room.height = PORTRAIT_ROOM.height * SCALE;
-  const roomCtx = contextOf(room);
-  roomCtx.imageSmoothingEnabled = false;
-  paintCreaturePortrait(roomCtx, kind, PORTRAIT_AT, PORTRAIT_AT, SCALE, hd);
-
-  const { data, width, height } = roomCtx.getImageData(0, 0, room.width, room.height);
+  const ctx = contextOf(room, true);
+  const { width, height } = room;
   let left = width;
   let top = height;
   let right = -1;
   let bottom = -1;
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      if (data[(y * width + x) * 4 + 3] === 0) {
-        continue;
+  for (let frame = 0; frame < PORTRAIT_CYCLE; frame += TRIM_STEP) {
+    ctx.clearRect(0, 0, width, height);
+    paintCreaturePortrait(ctx, kind, frame, SCALE, hd);
+    // One word a pixel, and only the rows and columns outside what is already
+    // known to be covered: after the first frame, a frame that reaches no
+    // further than the last costs a few edges rather than the whole room.
+    const pixels = new Uint32Array(ctx.getImageData(0, 0, width, height).data.buffer);
+    const inked = (x0: number, y0: number, x1: number, y1: number): boolean => {
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          if (pixels[y * width + x] !== 0) {
+            return true;
+          }
+        }
       }
-      left = Math.min(left, x);
-      right = Math.max(right, x);
-      top = Math.min(top, y);
-      bottom = Math.max(bottom, y);
+      return false;
+    };
+    const known = right >= 0;
+    for (let y = 0; y < (known ? top : height); y++) {
+      if (inked(0, y, width - 1, y)) {
+        top = y;
+        break;
+      }
+    }
+    if (top >= height) {
+      continue;
+    }
+    for (let y = height - 1; y > (known ? bottom : top - 1); y--) {
+      if (inked(0, y, width - 1, y)) {
+        bottom = Math.max(bottom, y);
+        break;
+      }
+    }
+    for (let x = 0; x < (known ? left : width); x++) {
+      if (inked(x, top, x, bottom)) {
+        left = x;
+        break;
+      }
+    }
+    for (let x = width - 1; x > (known ? right : left - 1); x--) {
+      if (inked(x, top, x, bottom)) {
+        right = Math.max(right, x);
+        break;
+      }
     }
   }
-
-  const portrait = document.createElement("canvas");
-  portrait.className = "creature-portrait";
-  portrait.width = Math.max(1, right - left + 1);
-  portrait.height = Math.max(1, bottom - top + 1);
-  contextOf(portrait).drawImage(room, -left, -top);
-  // Its CSS box in stage pixels: the backing is `SCALE` times it, as the pill's is.
-  portrait.style.width = `${portrait.width / SCALE}px`;
-  portrait.style.height = `${portrait.height / SCALE}px`;
-  return portrait;
+  return { left, top, width: Math.max(1, right - left + 1), height: Math.max(1, bottom - top + 1) };
 }
 
 /**
- * The BESTIARY screen (SHA-253): every creature in the game, each entry a
- * picture of the thing it does with the creature itself over the corner.
+ * The BESTIARY screen (SHA-255): a book of cards, one creature to a page — the
+ * creature drawn big and alive on the left, and on the right its name, its
+ * four facts, its lore and a tip.
  *
- * The CAPSULES screen's shape, entry for entry. It reads the registry and
- * paints; it never touches the game's state and the running game never touches
- * it — the screen is only ever open from the title.
+ * It reads the registry and paints. It never touches the game's state and the
+ * running game never touches it — the screen is only ever open from the title.
  */
 export class Bestiary {
   private page = 0;
-  // One painted miniature and one portrait per creature and art, kept: eighteen
-  // tiles is under a megabyte in classic and about eight in HD, and a page
-  // revisited repaints nothing.
-  private readonly tiles = new Map<string, HTMLCanvasElement>();
-  private readonly portraits = new Map<string, HTMLCanvasElement>();
-  // One field-sized canvas for every miniature ever painted, per art — the
-  // CAPSULES page's arrangement.
-  private fieldCtx: CanvasRenderingContext2D | null = null;
-  private fieldArt: boolean | null = null;
+  // The portrait on the page now, and the clock it is being drawn on.
+  private portrait: { canvas: HTMLCanvasElement; kind: BestiaryKind; trim: Trim; hd: boolean } | null = null;
+  private frame = 0;
+  private animation = 0;
+  // What each creature covers, per art, found once and kept.
+  private readonly trims = new Map<string, Trim>();
 
   /**
    * `art` is read at paint time, for the reason `CapsuleCatalogue` gives: the
@@ -213,12 +269,13 @@ export class Bestiary {
   ) {}
 
   get pageCount(): number {
-    return Math.max(1, Math.ceil(BESTIARY_ROSTER.length / ENTRIES_PER_PAGE));
+    return Math.max(1, BESTIARY_ROSTER.length);
   }
 
   open(): void {
     this.page = 0;
     this.render();
+    this.animate();
   }
 
   /** Page by `step`, wrapping both ways; whether the page actually moved. */
@@ -233,84 +290,106 @@ export class Bestiary {
   }
 
   private render(): void {
-    const first = this.page * ENTRIES_PER_PAGE;
-    const shown = BESTIARY_ROSTER.slice(first, first + ENTRIES_PER_PAGE);
-    this.elements.entries.replaceChildren(...shown.map((entry) => this.entry(entry)));
+    const entry = BESTIARY_ROSTER[this.page];
+    this.elements.card.replaceChildren(this.stage(entry), this.sheet(entry));
     renderPageIndicator(this.elements, this.page, this.pageCount);
-    // The two facts no single entry carries: what SOLID means, and what every
-    // kill is worth besides its points — a stroke on THE CHART (SHA-212).
-    this.elements.facts.textContent = "SOLID ONES BOUNCE · A KILL DRAWS A STROKE";
+    this.elements.facts.textContent = "CLICK TO RETURN";
   }
 
-  private entry(entry: BestiaryEntry): HTMLElement {
-    const element = document.createElement("div");
-    element.className = "creature-entry";
-
-    const frame = document.createElement("div");
-    frame.className = "creature-frame";
-    frame.appendChild(this.tile(entry.kind));
-    frame.appendChild(this.portrait(entry.kind));
-    element.appendChild(frame);
-
-    const label = document.createElement("div");
-    label.className = "creature-label";
-    label.textContent = creatureLabel(entry);
-    element.appendChild(label);
-
-    const blurb = document.createElement("div");
-    blurb.className = "creature-blurb";
-    blurb.textContent = creatureBlurb(entry);
-    element.appendChild(blurb);
-
-    return element;
-  }
-
-  private tile(kind: BestiaryKind): HTMLCanvasElement {
+  // The panel on the left, with the creature in it at the biggest whole-number
+  // zoom its box allows.
+  private stage(entry: BestiaryEntry): HTMLElement {
     const hd = this.art() !== ART_MODE.CLASSIC;
-    const key = `${hd ? "hd" : "classic"}:${kind}`;
-    const painted = this.tiles.get(key);
-    if (painted) {
-      return painted;
+    const key = `${hd ? "hd" : "classic"}:${entry.kind}`;
+    let trim = this.trims.get(key);
+    if (!trim) {
+      trim = trimOf(entry.kind, hd);
+      this.trims.set(key, trim);
     }
 
-    // Backed at the fine grid in HD (SHA-251's reason), and smoothed on the
-    // way down, the one downscale in the codebase that is — see `LevelGallery`.
-    const scale = hd ? FINE : 1;
-    const tile = document.createElement("canvas");
-    tile.className = "creature-scene";
-    tile.width = TILE_WIDTH * scale;
-    tile.height = TILE_HEIGHT * scale;
-    const ctx = contextOf(tile);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(this.paintField(kind, hd), 0, 0, tile.width, tile.height);
+    const canvas = document.createElement("canvas");
+    canvas.className = "creature-portrait";
+    canvas.width = trim.width;
+    canvas.height = trim.height;
+    const real = { width: trim.width / SCALE, height: trim.height / SCALE };
+    const zoom = Math.max(
+      1,
+      Math.min(MAX_ZOOM, Math.floor(Math.min(PORTRAIT_BOX.width / real.width, PORTRAIT_BOX.height / real.height))),
+    );
+    canvas.style.width = `${real.width * zoom}px`;
+    canvas.style.height = `${real.height * zoom}px`;
+    this.portrait = { canvas, kind: entry.kind, trim, hd };
+    this.paintPortrait();
 
-    this.tiles.set(key, tile);
-    return tile;
+    const stage = document.createElement("div");
+    stage.className = "creature-stage";
+    stage.appendChild(canvas);
+    return stage;
   }
 
-  private portrait(kind: BestiaryKind): HTMLCanvasElement {
-    const hd = this.art() !== ART_MODE.CLASSIC;
-    const key = `${hd ? "hd" : "classic"}:${kind}`;
-    const painted = this.portraits.get(key);
-    if (painted) {
-      return painted;
+  private sheet(entry: BestiaryEntry): HTMLElement {
+    const sheet = document.createElement("div");
+    sheet.className = "creature-sheet";
+
+    const name = document.createElement("div");
+    name.className = "creature-name";
+    name.textContent = creatureName(entry);
+    sheet.appendChild(name);
+
+    // A grid, so the values line up on one rail whatever the labels measure.
+    const stats = document.createElement("div");
+    stats.className = "creature-stats";
+    for (const [label, value] of creatureStats(entry)) {
+      const term = document.createElement("span");
+      term.className = "creature-stat-label";
+      term.textContent = label;
+      const fact = document.createElement("span");
+      fact.className = "creature-stat-value";
+      fact.textContent = value;
+      stats.append(term, fact);
     }
-    const portrait = createPortrait(kind, hd);
-    this.portraits.set(key, portrait);
-    return portrait;
+    sheet.appendChild(stats);
+
+    const lore = document.createElement("div");
+    lore.className = "creature-lore";
+    lore.textContent = creatureLore(entry);
+    sheet.appendChild(lore);
+
+    const tip = document.createElement("div");
+    tip.className = "creature-tip";
+    tip.textContent = creatureTip(entry);
+    sheet.appendChild(tip);
+
+    return sheet;
   }
 
-  private paintField(kind: BestiaryKind, hd: boolean): HTMLCanvasElement {
-    if (this.fieldCtx === null || this.fieldArt !== hd) {
-      const scale = hd ? FINE : 1;
-      const canvas = document.createElement("canvas");
-      canvas.width = gameConfig.field.width * scale;
-      canvas.height = gameConfig.field.height * scale;
-      this.fieldCtx = contextOf(canvas);
-      this.fieldArt = hd;
+  private paintPortrait(): void {
+    if (!this.portrait) {
+      return;
     }
-    paintCreatureScene(this.fieldCtx, kind, hd);
-    return this.fieldCtx.canvas;
+    const { canvas, kind, trim, hd } = this.portrait;
+    const ctx = contextOf(canvas);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(1, 0, 0, 1, -trim.left, -trim.top);
+    paintCreaturePortrait(ctx, kind, this.frame, SCALE, hd);
+  }
+
+  /**
+   * The creature's own clock, a tick a frame, for as long as the screen is up.
+   * It stops itself the first frame the screen is hidden, so leaving the page
+   * by any of its three ways out needs no word from the game.
+   */
+  private animate(): void {
+    cancelAnimationFrame(this.animation);
+    const tick = (): void => {
+      if (this.elements.card.closest(".stage-screen")?.hasAttribute("hidden")) {
+        return;
+      }
+      this.frame += 1;
+      this.paintPortrait();
+      this.animation = requestAnimationFrame(tick);
+    };
+    this.animation = requestAnimationFrame(tick);
   }
 }

@@ -410,13 +410,15 @@ Every transition, exhaustively:
 
 Three of these states are menus reachable only from the title (`L` for the
 level gallery, `B` for the capsule catalogue, `C` for the bestiary) because a
-still of a level is pointless while one is being played. All three render live
-miniatures of the _real_ field through
-[`levelStill.ts`](../src/render/levelStill.ts),
-[`capsuleScenes.ts`](../src/render/capsuleScenes.ts) and
-[`creatureScenes.ts`](../src/render/creatureScenes.ts) — the same sprites, the
-same renderer — so adding a level, a capsule or a species makes it appear in its
-gallery with no second edit anywhere. The screens' names are the `SCREEN`
+still of a level is pointless while one is being played. The first two render
+live miniatures of the _real_ field through
+[`levelStill.ts`](../src/render/levelStill.ts) and
+[`capsuleScenes.ts`](../src/render/capsuleScenes.ts); the bestiary is a book of
+cards, each creature posed and animated by
+[`creaturePortraits.ts`](../src/render/creaturePortraits.ts) and blown up by a
+whole number. All three use the same sprites and the same renderer, so adding a
+level, a capsule or a species makes it appear in its gallery with no second edit
+anywhere. The screens' names are the `SCREEN`
 constants in [`screens.ts`](../src/interfaces/screens.ts).
 
 **PAUSE is also a safety state.** The paddle is mouse-only, and the mouse can go

@@ -109,7 +109,8 @@ export const BAT: Species = {
   get killPoints() {
     return gameConfig.creatures.bat.killPoints;
   },
-  blurb: "WAKE IT · THEN HIT IT IN FLIGHT",
+  tip: "WAKE IT ONLY WHEN YOU CAN CHASE IT",
+  lore: "IT SLEEPS HEAD DOWN UNDER THE WALL, WINGS WRAPPED TIGHT, WANTING NOTHING FROM ANYONE. WAKE IT AND IT BURSTS INTO FIVE SECONDS OF FLIGHT THAT FOLLOWS NO CURVE YOU CAN LEARN, THEN HANGS ITSELF UP SOMEWHERE ELSE. THE FIRST HIT ONLY OPENS ITS EYES. THE TWO THAT KILL HAVE TO FIND IT IN THE AIR.",
   // Passed through like the moth. A shelf asleep under the wall would re-route
   // every rally on the level whether or not the player ever touched it.
   solid: false,

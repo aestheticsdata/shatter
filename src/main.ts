@@ -1,7 +1,7 @@
 import { SoundBank } from "@audio/SoundBank";
 import { ShatterGame } from "@core/ShatterGame";
 import { CanvasRenderer } from "@render/CanvasRenderer";
-import { checkBestiaryBlurbs } from "@render/checkBestiary";
+import { checkBestiaryText } from "@render/checkBestiary";
 import { checkCapsuleBlurbs, checkCapsuleLegibility } from "@render/checkCapsules";
 import { getElementByIdOrThrow } from "@shared/dom";
 import { HiScores } from "@state/HiScores";
@@ -100,7 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
     ),
     bestiary: new Bestiary(
       {
-        entries: getElementByIdOrThrow("bestiaryEntries"),
+        card: getElementByIdOrThrow("bestiaryCard"),
         pages: getElementByIdOrThrow("bestiaryPages"),
         arrows: getElementByIdOrThrow("bestiaryArrows"),
         count: getElementByIdOrThrow("bestiaryCount"),
@@ -140,7 +140,7 @@ document.addEventListener("DOMContentLoaded", () => {
     void document.fonts.ready.then(() => {
       checkCapsuleLegibility();
       checkCapsuleBlurbs();
-      checkBestiaryBlurbs();
+      checkBestiaryText();
     });
   }
 });

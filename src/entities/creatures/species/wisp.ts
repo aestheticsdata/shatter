@@ -87,7 +87,8 @@ export const WISP: Species = {
   get killPoints() {
     return gameConfig.creatures.wisp.killPoints;
   },
-  blurb: "ONLY A BOLT CAN TOUCH IT",
+  tip: "SAVE YOUR LASER FOR THIS ONE",
+  lore: "A BREATH OF COLD LIGHT THAT DRIFTS THROUGH BRICK AS IF THE WALL WERE NEVER THERE. THE BALL PASSES CLEAN THROUGH IT AND NEITHER OF THEM NOTICES — IT ONLY TRAILS AFTER THE BALL FOR A MOMENT, LIKE SMOKE. NOTHING BUT A BOLT CAN REACH IT, AND WHOEVER CARRIES A LASER IS WELL PAID FOR THE TROUBLE.",
   solid: false,
   // The whole species, in one word (SHA-242).
   shotOnly: true,
