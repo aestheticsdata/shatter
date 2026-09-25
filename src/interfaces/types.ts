@@ -439,7 +439,7 @@ export interface LevelDefinition {
   name: string;
   background: BackgroundId;
   rows: readonly string[];
-  // The five veils' block, and absent on the other thirty-eight — which carry
+  // The five veils' block, and absent on the other forty — which carry
   // the same eye in `eye` instead, at rest or acting. A level with neither has
   // no eye.
   observer?: ObserverDefinition;

@@ -55,7 +55,7 @@ export class LevelGallery {
   // 124×100 tile is ~50 KB, so the whole roster is ~1.4 MB at 28 levels and
   // still nothing at any roster a person would author. Nothing on this screen
   // animates, and no tile is ever painted twice. In HD a tile is backed at the
-  // fine grid (SHA-251), nine times the pixels: ~450 KB, ~19 MB for all 43 —
+  // fine grid (SHA-251), nine times the pixels: ~450 KB, ~20 MB for all 45 —
   // and only for the pages actually turned to.
   private readonly tiles = new Map<string, HTMLCanvasElement>();
   // One field-sized canvas for every still ever painted: a still is blitted down

@@ -228,7 +228,7 @@ export const LEVELS: readonly LevelDefinition[] = [
    * THE VEIL, the first of the Observer's five (SHA-167).
    *
    * Tenth in the loop since EVERY FIVE (SHA-206) — the veils sit on 10, 20,
-   * 30, 40 and 43 so a boss ends every fifth level — between CHECKER's vault
+   * 30, 40 and 45 so a boss ends every fifth level — between CHECKER's vault
    * and INVADER's starfield, so the `observer` theme sits beside neither of
    * its own kind: the wrap rule holds and `check:backgrounds` passes.
    *
@@ -1427,6 +1427,98 @@ export const LEVELS: readonly LevelDefinition[] = [
         [280, 250],
       ],
     },
+  },
+  // POCKET (SHA-126): the 1989 handheld, on the circuit board it is made of.
+  // The shell is silver, one cell thick and closed all round but for the
+  // rounded bottom-right corner every owner remembers; the screen is gold, so
+  // the glass is the last thing standing, and the d-pad and the A/B studs are
+  // the cheap tiers, floating in the air under it where the thumbs go.
+  //
+  // The screen is inset a column inside the shell, so the ball that gets in
+  // has a gutter to rattle round rather than a slab to chip at. 58 bricks, 127
+  // hits, 9060 points.
+  {
+    name: "POCKET",
+    background: "circuit",
+    rows: [
+      ".SSSSSSSSSS.",
+      ".S.GGGGGG.S.",
+      ".S.GGGGGG.S.",
+      ".S.GGGGGG.S.",
+      ".S........S.",
+      ".S..2...3.S.",
+      ".S.222.3..S.",
+      ".S..2.....S.",
+      ".SSSSSSSSS..",
+    ],
+    // The game on the screen: small, on the glass and never off it, dim while
+    // the console is off. Press every button — the d-pad and both studs — and
+    // it switches on: lit, it bounces round the screen, and it watches the
+    // hands holding it.
+    eye: {
+      x: 186,
+      y: 68,
+      hw: 14,
+      hh: 5,
+      layer: EYE_LAYER.FRONT,
+      opacity: 0.35,
+      clip: { x: 96, y: 50, w: 180, h: 36 },
+      watch: EYE_WATCH.DECK,
+      act: {
+        kind: EYE_ACT.BOUNCE,
+        guard: [
+          [4, 5],
+          [3, 6],
+          [4, 6],
+          [5, 6],
+          [4, 7],
+          [8, 5],
+          [7, 6],
+        ],
+        speed: 0.6,
+        area: { x: 112, y: 56, w: 148, h: 24 },
+        opacity: 0.8,
+      },
+    },
+    // A bat asleep inside the case, beside the screen; a crab and a wisp out
+    // on the board.
+    creatures: [
+      { kind: CREATURE.BAT, x: 76, y: 50 },
+      { kind: CREATURE.CRAB, x: 60, y: 200 },
+      { kind: CREATURE.WISP, x: 300, y: 170 },
+    ],
+  },
+  // BURGER (SHA-127): SMILEY and HEART's snack, over the horizon. Rounded orange
+  // buns, a frill of lettuce hanging over both walls, a slice of cheese, and a
+  // gold patty across the middle that is the one thing here with any fight in
+  // it — except where the cheese has melted down through it: the two drips are
+  // one-hit yellow, and they are the way through.
+  //
+  // 66 bricks, 82 hits, 6020 points — a breather between the handheld and the
+  // floppy.
+  {
+    name: "BURGER",
+    background: "horizon",
+    rows: [
+      "...222222...",
+      ".2222222222.",
+      "444444444444",
+      ".3333333333.",
+      ".G3GGGGGG3G.",
+      ".2222222222.",
+      "..22222222..",
+    ],
+    // Behind the patty, screwed up to a slit — and it opens with every bite,
+    // until by the last brick it is wide behind the whole burger. Dead ahead
+    // until the burger is half gone; then it looks for the ball.
+    eye: { x: 186, y: 92, hw: 30, hh: 4, act: { kind: EYE_ACT.RISE, to: { hw: 100, hh: 30 }, wakeAt: 0.5 } },
+    // SMILEY's two frogs, one on each shoulder of the bun, and a woodpecker
+    // under it.
+    creatures: [
+      { kind: CREATURE.FROG, x: 44, y: 38 },
+      { kind: CREATURE.FROG, x: 314, y: 38 },
+      { kind: CREATURE.WOODPECKER, x: 250, y: 160 },
+    ],
   },
   // A 3.5-inch floppy, drawn the way the save icon draws it: label up, metal
   // shutter down. The icon is why — nobody has held one since the machines COOL

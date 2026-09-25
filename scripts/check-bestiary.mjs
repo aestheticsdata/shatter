@@ -1,4 +1,4 @@
-// SHA-247 guard for THE BESTIARY's deal across the 43 levels.
+// SHA-247 guard for THE BESTIARY's deal across the 45 levels.
 //
 // The four species the game shipped with ended up on 121 of 125 pins because
 // nothing counted them: MOTH alone was on 39. This checks the rules the re-deal

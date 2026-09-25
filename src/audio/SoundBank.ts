@@ -434,7 +434,7 @@ export class SoundBank {
    * Its first four notes are `levelClear`, exactly, and then it keeps going.
    * That is deliberate and it is the reason the notes are these: this card is
    * played *instead* of the clear, so the phrase the player has heard at the end
-   * of forty-two levels starts, and this time it does not stop where it always
+   * of forty-four levels starts, and this time it does not stop where it always
    * has. Nothing else in the bank is allowed to quote it — see `eyeOpens`.
    */
   observerBlinded(): void {
