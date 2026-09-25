@@ -4772,7 +4772,6 @@ export class CanvasRenderer {
     // balls, under the blackout — lightning in the dark is still dark. On the
     // tube there is no white to fade: it is ink for the first frames, then gone.
     if (view.eyeFlash > 0 && (!this.demade || view.eyeFlash > 0.6)) {
-      const { width, height } = gameConfig.field;
       this.ctx.save();
       this.ctx.globalAlpha = this.demade ? 0.5 : view.eyeFlash * gameConfig.observer.strike.peak;
       this.ctx.fillStyle = this.ink(canvasPalette.deathFlash);
