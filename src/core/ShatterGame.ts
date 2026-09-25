@@ -5985,7 +5985,69 @@ export class ShatterGame {
       this.absorbPhoton(ball, quantum);
     } else if (quantum.kind === PARTICLE.ELECTRON) {
       this.knockElectron(ball, quantum);
+    } else if (quantum.daughter) {
+      this.reflectOffDisc(ball, quantum.x, quantum.y, quantum.radius);
+      this.killDaughter(quantum, ball);
+    } else {
+      this.splitNucleus(quantum, ball);
     }
+  }
+
+  /**
+   * NUCLEUS, struck: the ball comes off it, it takes a fifth of the ball's
+   * velocity, and it splits — and the **neutron** leaves the split.
+   *
+   * The neutron is a ball, born where a MULTI clone is born and on the heading
+   * the ball came in on, continued through the nucleus to its far side: the
+   * ball bounced, and something went on. It is the one particle that pays in
+   * balls, which is why it is worth a detour — and it pays only if a slot is
+   * free, because twelve is the field's limit and not a wish.
+   */
+  private splitNucleus(nucleus: Quantum, by: Ball | null): void {
+    const { recoil, points } = gameConfig.particles.nucleus;
+    const inX = by?.velocity.x ?? 0;
+    const inY = by?.velocity.y ?? -1;
+    if (by) {
+      this.reflectOffDisc(by, nucleus.x, nucleus.y, nucleus.radius);
+      this.bearNeutron(by, nucleus, inX, inY);
+    }
+    // Parting across the blow: the tangent to the contact, which for a ball is
+    // at right angles to where it came from and for a bolt is flat.
+    const heading = Math.hypot(inX, inY) || 1;
+    this.chamber.split(nucleus, -inY / heading, inX / heading, inX * recoil, inY * recoil);
+    this.bumpChain();
+    this.popGain(nucleus.x, nucleus.y, this.award(points, by ? "ball" : "laser", by));
+    this.deps.sfx.nucleusSplit();
+  }
+
+  // A ball out of the far side of a split nucleus, on the heading the striking
+  // ball arrived with, at the field's speed, growing in as a MULTI clone does.
+  private bearNeutron(source: Ball, nucleus: Quantum, inX: number, inY: number): void {
+    const slot = this.balls.find((ball) => !ball.active);
+    const length = Math.hypot(inX, inY);
+    if (!slot || length === 0) {
+      return;
+    }
+    const speed = this.speed();
+    slot.cloneFrom(source, 0, speed, gameConfig.powerUps.multiBirthTicks);
+    const reach = nucleus.radius + source.size / 2 + 1;
+    slot.x = nucleus.x + (inX / length) * reach - source.size / 2;
+    slot.y = nucleus.y + (inY / length) * reach - source.size / 2;
+    slot.velocity = { x: (inX / length) * speed, y: (inY / length) * speed };
+    this.deps.sfx.capsulePickup();
+  }
+
+  // A daughter's one hit: gone, for its own points, in the debris of what it was.
+  private killDaughter(daughter: Quantum, by: Ball | null): void {
+    this.chamber.spend(daughter, false);
+    this.particles.burst(daughter.x, daughter.y, "1", gameConfig.effects.brickDeathBurst);
+    this.bumpChain();
+    this.popGain(
+      daughter.x,
+      daughter.y,
+      this.award(gameConfig.particles.nucleus.daughter.points, by ? "ball" : "laser", by),
+    );
+    this.deps.sfx.daughterPops();
   }
 
   /**
@@ -6080,6 +6142,11 @@ export class ShatterGame {
       this.bumpChain();
       this.popGain(quantum.x, quantum.y, this.award(gameConfig.particles.electron.points, "laser"));
       this.deps.sfx.electronKnocked();
+    } else if (quantum.daughter) {
+      this.killDaughter(quantum, null);
+    } else {
+      // A bolt splits it and bears nothing: the neutron is the ball going on.
+      this.splitNucleus(quantum, null);
     }
   }
 
@@ -6094,7 +6161,11 @@ export class ShatterGame {
         continue;
       }
       this.chamber.spend(quantum);
-      this.award(gameConfig.particles[quantum.kind].points);
+      // A whole nucleus pays its split and leaves nothing behind: no daughters,
+      // no neutron.
+      this.award(
+        quantum.daughter ? gameConfig.particles.nucleus.daughter.points : gameConfig.particles[quantum.kind].points,
+      );
     }
   }
 

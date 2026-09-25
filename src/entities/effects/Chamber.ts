@@ -48,6 +48,12 @@ export interface Quantum {
   orbitTicks: number;
   // Ticks to its next look for a brick, while it has none.
   searchTicks: number;
+  // NUCLEUS: one of the two halves of a split one, and the stretch a whole one
+  // is in before it parts — ticks left, and the axis it is parting along.
+  daughter: boolean;
+  splitTicks: number;
+  axisX: number;
+  axisY: number;
 }
 
 /** A brick, by cell. */
@@ -258,8 +264,9 @@ export class Chamber {
    */
   step(field: ChamberField): ChamberEvents {
     const events = { born: this.stepGates(), freed: 0 };
-    for (const quantum of this.quanta) {
-      if (this.stepQuantum(quantum, field)) {
+    const count = this.quanta.length;
+    for (let index = 0; index < count; index++) {
+      if (this.stepQuantum(this.quanta[index], field)) {
         events.freed++;
       }
     }
@@ -318,6 +325,38 @@ export class Chamber {
   spend(quantum: Quantum, bloom = true): void {
     quantum.dead = true;
     quantum.bloomTicks = bloom ? gameConfig.particles.photon.bloomTicks : 0;
+  }
+
+  /**
+   * NUCLEUS, struck: it takes the recoil and starts to part along `axis`. It is
+   * no longer a thing the ball can meet — what is there is two daughters still
+   * inside one outline, and they are let go when the stretch is done.
+   */
+  split(nucleus: Quantum, axisX: number, axisY: number, kickX: number, kickY: number): void {
+    nucleus.splitTicks = gameConfig.particles.nucleus.splitTicks;
+    nucleus.axisX = axisX;
+    nucleus.axisY = axisY;
+    nucleus.vx += kickX;
+    nucleus.vy += kickY;
+  }
+
+  // The stretch done: two daughters flying apart along the axis at their own
+  // speed, carrying the recoil the whole one had taken.
+  private part(nucleus: Quantum): void {
+    const { radius, speed } = gameConfig.particles.nucleus.daughter;
+    nucleus.dead = true;
+    for (const side of [-1, 1]) {
+      const daughter = fresh(
+        PARTICLE.NUCLEUS,
+        nucleus.x + side * nucleus.axisX * 3,
+        nucleus.y + side * nucleus.axisY * 3,
+        radius,
+      );
+      daughter.daughter = true;
+      daughter.vx = nucleus.vx + side * nucleus.axisX * speed;
+      daughter.vy = nucleus.vy + side * nucleus.axisY * speed;
+      this.quanta.push(daughter);
+    }
   }
 
   // The bricks guarded right now: two electrons never share one.
@@ -422,6 +461,13 @@ export class Chamber {
       return false;
     }
     quantum.age++;
+    if (quantum.splitTicks > 0) {
+      this.move(quantum, field);
+      if (--quantum.splitTicks === 0) {
+        this.part(quantum);
+      }
+      return false;
+    }
     if (quantum.kind === PARTICLE.ELECTRON) {
       return this.stepElectron(quantum, field);
     }
@@ -607,6 +653,10 @@ function fresh(kind: ParticleKind, x: number, y: number, radius: number): Quantu
     phase: Math.random() * Math.PI * 2,
     orbitTicks: 0,
     searchTicks: 0,
+    daughter: false,
+    splitTicks: 0,
+    axisX: 0,
+    axisY: 0,
   };
 }
 
@@ -631,7 +681,7 @@ function ionise(electron: Quantum): void {
 
 // Whether a ball could meet it: here, and not on its way in or out.
 function solid(quantum: Quantum): boolean {
-  return !quantum.dead && quantum.arriveTicks === 0 && quantum.leaveTicks === 0;
+  return !quantum.dead && quantum.arriveTicks === 0 && quantum.leaveTicks === 0 && quantum.splitTicks === 0;
 }
 
 // The disc's box against the wall and the deck, a pixel inside each corner so

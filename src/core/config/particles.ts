@@ -21,6 +21,7 @@ export interface ParticleDefinition {
 export const PARTICLES: readonly ParticleDefinition[] = [
   { id: PARTICLE.PHOTON, name: "PHOTON", verb: "SCATTER" },
   { id: PARTICLE.ELECTRON, name: "ELECTRON", verb: "SHIELD" },
+  { id: PARTICLE.NUCLEUS, name: "NUCLEUS", verb: "SPLIT" },
 ];
 
 /**
@@ -46,4 +47,38 @@ export const PARTICLE_TONES = {
     // being mistaken for anything that can be hit.
     ring: "#5b74e8",
   },
+  nucleus: {
+    // Warm and heavy, a fired-clay red nowhere near the ball's yellow: the one
+    // particle that is worth chasing should never be mistaken for the thing
+    // doing the chasing.
+    body: "#b84a2a",
+    shade: "#5a1f0e",
+    highlight: "#ffb08a",
+  },
+} as const;
+
+/**
+ * NUCLEUS and its daughters as character grids: nucleons packed into a lump,
+ * lit from the upper left.
+ *
+ * **A cluster, never a disc.** A ten-pixel sphere in two warm tones would be a
+ * red ball, and a red ball is the one thing a particle may not look like; the
+ * lumpy outline is what says *matter* at a glance and survives the tube, where
+ * the shade goes to ground and the nucleons stand out of it. `h` highlight,
+ * `b` body, `s` shade, `.` nothing.
+ */
+export const NUCLEUS_BITMAPS = {
+  nucleus: [
+    "....hb....",
+    "...hbbs...",
+    ".hbbbsshb.",
+    "hbbssshbbs",
+    "bbshbbsbss",
+    ".ssbbssss.",
+    ".hbbssbbs.",
+    ".bbhbbsss.",
+    "..sbbsss..",
+    "....ss....",
+  ],
+  daughter: ["...hb.", "..hbbs", ".hbhbs", "hbhbbs", "bbbbss", ".ssss."],
 } as const;

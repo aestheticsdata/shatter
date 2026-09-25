@@ -723,6 +723,30 @@ export class SoundBank {
   }
 
   /**
+   * NUCLEUS: split. A low thud and a rising pair over it — something heavy
+   * breaking into two lighter things — the lowest sound a particle makes short
+   * of the antiball's.
+   */
+  nucleusSplit(): void {
+    if (!this.allow("nucleus")) {
+      return;
+    }
+    this.tone({ freq: 140, freqEnd: 70, dur: 0.12, vol: 0.1 });
+    this.noise({ dur: 0.06, vol: 0.08, filter: { type: "lowpass", freq: 600 } });
+    this.tone({ freq: 440, freqEnd: 660, dur: 0.06, vol: 0.04, delayS: 0.03 });
+    this.tone({ freq: 554, freqEnd: 831, dur: 0.06, vol: 0.04, delayS: 0.07 });
+  }
+
+  /** A daughter gone: a pop, short and dry. */
+  daughterPops(): void {
+    if (!this.allow("daughter")) {
+      return;
+    }
+    this.tone({ freq: 700, freqEnd: 260, dur: 0.05, vol: 0.06 });
+    this.noise({ dur: 0.03, vol: 0.07, filter: { type: "bandpass", freq: 1400 } });
+  }
+
+  /**
    * CHAIN: one step up the ladder.
    *
    * A bare square note, 70 Hz a step, so the eighth sits a little over an octave

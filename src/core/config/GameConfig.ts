@@ -2359,6 +2359,23 @@ export const gameConfig = {
       searchTicks: 30,
       points: 150,
     },
+    nucleus: {
+      joins: 13,
+      radius: 5,
+      speed: 0.6,
+      // How much of the ball's velocity it takes when struck: a fifth, so a
+      // hard hit sends it off noticeably and a nucleus is never a wall.
+      recoil: 0.2,
+      // The stretch before it parts, in ticks: long enough to be seen as a
+      // split rather than as two things appearing.
+      splitTicks: 3,
+      points: 100,
+      daughter: {
+        radius: 3,
+        speed: 1.2,
+        points: 200,
+      },
+    },
   },
   /**
    * THE TITLE (SHA-211): the mockup's home. Where the Observer sits behind the

@@ -1,6 +1,6 @@
 import { BRICK_BY_ID, BRICK_RAMPS, BRICK_STRAIN_RAMPS } from "@core/config/bricks";
 import { gameConfig, peelFlightTicks } from "@core/config/GameConfig";
-import { PARTICLE_TONES } from "@core/config/particles";
+import { NUCLEUS_BITMAPS, PARTICLE_TONES } from "@core/config/particles";
 import { MALUS_KINDS, POWER_UP_GLYPHS } from "@core/config/powerUps";
 import { type Ball, paceGhost } from "@entities/ball/Ball";
 import { SPECIES } from "@entities/creatures/species";
@@ -3055,8 +3055,57 @@ export function drawQuantum(
     drawPhoton(ctx, quantum, scale, demade, fine);
   } else if (quantum.kind === PARTICLE.ELECTRON) {
     drawElectron(ctx, quantum, scale, demade, fine);
+  } else {
+    drawNucleus(ctx, quantum, scale, demade, fine);
   }
   ctx.restore();
+}
+
+// The nucleus on the tube: the shade goes to ground and the nucleons stay ink,
+// so the lump keeps its lobes rather than going to a solid blot.
+const NUCLEUS_DEMADE = {
+  h: canvasPalette.demakeInk,
+  b: canvasPalette.demakeInk,
+  s: canvasPalette.demakeGround,
+} as const;
+
+/**
+ * NUCLEUS, or one of its daughters — and, for the three ticks after it is
+ * struck, the one becoming the other: two daughters inside one outline,
+ * pulling apart along the tangent, which is what a split looks like and the
+ * tell that survives the tube.
+ */
+function drawNucleus(
+  ctx: CanvasRenderingContext2D,
+  nucleus: Quantum,
+  scale: number,
+  demade: boolean,
+  fine: boolean,
+): void {
+  const tones = PARTICLE_TONES.nucleus;
+  const palette = demade ? NUCLEUS_DEMADE : { h: tones.highlight, b: tones.body, s: tones.shade };
+  const paint = (sprite: keyof typeof NUCLEUS_BITMAPS, x: number, y: number): void => {
+    const rows = NUCLEUS_BITMAPS[sprite];
+    const size = rows.length;
+    if (fine) {
+      ctx.drawImage(
+        hdBeastSprite(`nucleus:${sprite}:${demade}`, rows, palette, "s", FLASH.NONE, canvasPalette.deathFlash),
+        Math.round((x - size / 2) * FINE),
+        Math.round((y - size / 2) * FINE),
+      );
+      return;
+    }
+    drawBitmap(spriteBrush(ctx, scale, false), rows, palette, x - size / 2, y - size / 2);
+  };
+  if (nucleus.splitTicks > 0) {
+    const { splitTicks } = gameConfig.particles.nucleus;
+    const apart = 1 + 2 * (1 - nucleus.splitTicks / splitTicks);
+    for (const side of [-1, 1]) {
+      paint("daughter", nucleus.x + side * nucleus.axisX * apart, nucleus.y + side * nucleus.axisY * apart);
+    }
+    return;
+  }
+  paint(nucleus.daughter ? "daughter" : "nucleus", nucleus.x, nucleus.y);
 }
 
 /**
