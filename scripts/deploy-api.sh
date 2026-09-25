@@ -15,7 +15,6 @@ DEPLOY_BRANCH="${DEPLOY_BRANCH:-master}"
 log() { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SERVER_DIR="$SCRIPT_DIR/../server"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 ######################################
@@ -41,15 +40,14 @@ ZEUS_ENV_FILE="${ZEUS_ENV_FILE:-/var/www/zeus/nest-api/.env}"
 # does.
 ZEUS_MARKER="$REMOTE_APP_DIR/data/.zeus-last-$ZEUS_ROLE"
 
-# Refuse to ship a tree that is not exactly what is on the remote branch.
+# Refuse to ship a tree that is not exactly what is on the remote branch, and remember which commit
+# that was in `VERIFIED_COMMIT`.
 #
-# The rsync uploads whatever the working tree holds — not what is committed and not what is
-# pushed. The report to Zeus, though, describes HEAD: its commit hash and its range of commit
-# messages. A dirty or unpushed tree would make every one of those a lie, so the check is part of
-# the reporting port, not an extra.
-#
-# Runs before any ssh or rsync: the whole point is to fail on the laptop, with nothing on the
-# server touched.
+# A fast precondition, not the guarantee — the same reasoning as ../scripts/deploy.sh (SHA-144). The
+# rsync reads a snapshot of `VERIFIED_COMMIT` (see `pin_server_source`), never the shared working
+# tree, and the report and the marker name that commit rather than asking HEAD again. The check
+# still fails on the laptop before any ssh or rsync, and still catches the unpushed commit a
+# snapshot would happily ship.
 require_clean_tree() {
   cd "$PROJECT_DIR"
 
@@ -81,6 +79,18 @@ require_clean_tree() {
     echo "   pull, push or check out the right branch first." >&2
     exit 1
   fi
+
+  VERIFIED_COMMIT="$head"
+}
+
+# Extract `server/` at `VERIFIED_COMMIT` into a scratch directory and point `SERVER_DIR` at it.
+# `git archive` for the same reasons as the front's `pin_build_source`; removed on exit.
+pin_server_source() {
+  SOURCE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/shatter-deploy-api.XXXXXX")
+  trap 'rm -rf "$SOURCE_DIR"' EXIT
+
+  git -C "$PROJECT_DIR" archive "$VERIFIED_COMMIT" server | tar -x -C "$SOURCE_DIR"
+  SERVER_DIR="$SOURCE_DIR/server"
 }
 
 # The commit the previous deploy shipped — the base of this deploy's commit range.
@@ -121,10 +131,12 @@ zeus_commits_json() {
     return 0
   fi
 
+  # `ZEUS_COMMIT`, never HEAD: a peer's commit landing mid-deploy would otherwise be listed as
+  # shipped when the rsync never saw it.
   if [ -n "${ZEUS_BASE_HASH:-}" ]; then
-    range=("${ZEUS_BASE_HASH}..HEAD")
+    range=("${ZEUS_BASE_HASH}..${ZEUS_COMMIT}")
   else
-    range=(-n 10 HEAD)
+    range=(-n 10 "$ZEUS_COMMIT")
   fi
 
   git log --no-merges --pretty=format:'%H %aI %s' "${range[@]}" 2>/dev/null | awk '
@@ -246,11 +258,12 @@ code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 \
 EOF
 }
 
-# Move the marker to the commit this deploy just shipped. Only a hex hash travels, so inlining it
-# in the ssh command is safe — everything else in the reporting path goes by file.
+# Move the marker to the commit this deploy just shipped — `ZEUS_COMMIT`, not whatever HEAD has
+# become since. Only a hex hash travels, so inlining it in the ssh command is safe — everything else
+# in the reporting path goes by file.
 write_zeus_marker() {
   ssh "$REMOTE_USER_HOST" \
-    "mkdir -p '$REMOTE_APP_DIR/data' && printf '%s\n' '$(git rev-parse HEAD)' > '$ZEUS_MARKER'"
+    "mkdir -p '$REMOTE_APP_DIR/data' && printf '%s\n' '$ZEUS_COMMIT' > '$ZEUS_MARKER'"
 }
 
 ######################################
@@ -259,11 +272,14 @@ write_zeus_marker() {
 
 cd "$PROJECT_DIR"
 
-# Before any ssh or rsync — see the function itself for why this guards the report's honesty.
+# Before any ssh or rsync. Everything below names `VERIFIED_COMMIT` and never asks HEAD again —
+# see the function itself.
 require_clean_tree
+pin_server_source
 
+# Checked in the snapshot: a lockfile that exists only in the working tree would not ship.
 if [[ ! -f "$SERVER_DIR/pnpm-lock.yaml" ]]; then
-  log "❌ $SERVER_DIR/pnpm-lock.yaml is missing — run 'pnpm install --ignore-workspace' in server/ first"
+  log "❌ server/pnpm-lock.yaml is missing at ${VERIFIED_COMMIT:0:7} — run 'pnpm install --ignore-workspace' in server/ and commit it first"
   exit 1
 fi
 
@@ -272,7 +288,7 @@ fi
 ZEUS_STARTED_AT=$(date -u +%FT%TZ)
 ZEUS_STARTED_EPOCH=$(date +%s)
 ZEUS_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
-ZEUS_COMMIT=$(git rev-parse HEAD 2>/dev/null || true)
+ZEUS_COMMIT="$VERIFIED_COMMIT"
 ZEUS_BASE_HASH=$(resolve_base_hash)
 
 # This script has no staging and no rollback, so a failure is only ever `failed` — there is no

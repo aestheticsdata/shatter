@@ -78,15 +78,18 @@ require_command() {
 # Ported from Spira's deploy scripts (SPI-52), themselves ported from Zeus's own — the recipe in
 # Zeus/docs/reporting/README.md.
 
-# Refuse to ship a tree that is not exactly what is on the remote branch.
+# Refuse to ship a tree that is not exactly what is on the remote branch, and remember which commit
+# that was in `VERIFIED_COMMIT`.
 #
-# The deploy uploads whatever the working tree holds — not what is committed and not what is
-# pushed. The report to Zeus, though, describes HEAD: its commit hash and its range of commit
-# messages. A dirty or unpushed tree would make every one of those a lie, so the check is part of
-# the reporting port, not an extra.
+# This is a fast precondition, not the guarantee. It speaks for the instant it runs, and the tree
+# is shared by several sessions that go on writing while a deploy builds (SHA-144). What keeps the
+# report to Zeus honest is that nothing after this reads the working tree: the build runs in a
+# snapshot of `VERIFIED_COMMIT` (see `pin_build_source`), and the commit hash, the commit range
+# and the marker all name that same commit rather than asking HEAD again.
 #
-# Runs before any ssh or rsync: the whole point is to fail on the laptop, with nothing on the
-# server touched.
+# The check still earns its place: it fails on the laptop, before any ssh or rsync, and it catches
+# the dirty and the unpushed tree — a snapshot of an unpushed commit would build happily and be
+# reported as a release nobody else can find.
 require_clean_tree() {
   cd "$PROJECT_DIR"
 
@@ -118,6 +121,21 @@ require_clean_tree() {
     echo "   pull, push or check out the right branch first." >&2
     exit 1
   fi
+
+  VERIFIED_COMMIT="$head"
+}
+
+# Extract `VERIFIED_COMMIT` into a scratch directory and point `BUILD_DIR` at it.
+#
+# `git archive` rather than a worktree: the build needs the tracked files and nothing else — it
+# never calls git — and a directory that is only a directory cannot leave a stale worktree
+# registered in the shared repo when a deploy is interrupted. Removed on exit, success or not.
+pin_build_source() {
+  BUILD_DIR=$(mktemp -d "${TMPDIR:-/tmp}/shatter-deploy.XXXXXX")
+  trap 'rm -rf "$BUILD_DIR"' EXIT
+
+  log "➡️  Building from a snapshot of ${VERIFIED_COMMIT:0:7}, not from the working tree"
+  git -C "$PROJECT_DIR" archive "$VERIFIED_COMMIT" | tar -x -C "$BUILD_DIR"
 }
 
 # The commit the previous deploy shipped — the base of this deploy's commit range.
@@ -161,13 +179,16 @@ zeus_commits_json() {
     return 0
   fi
 
+  # `ZEUS_COMMIT`, never HEAD: a peer's commit landing mid-deploy would otherwise be listed as
+  # shipped when the build never saw it.
   if [ -n "${ZEUS_BASE_HASH:-}" ]; then
-    range=("${ZEUS_BASE_HASH}..HEAD")
+    range=("${ZEUS_BASE_HASH}..${ZEUS_COMMIT}")
   else
-    range=(-n 10 HEAD)
+    range=(-n 10 "$ZEUS_COMMIT")
   fi
 
-  git log --no-merges --pretty=format:'%H %aI %s' "${range[@]}" 2>/dev/null | awk '
+  # `-C`: the build leaves the shell inside the snapshot, which is not a repository.
+  git -C "$PROJECT_DIR" log --no-merges --pretty=format:'%H %aI %s' "${range[@]}" 2>/dev/null | awk '
     BEGIN { printf "["; first = 1 }
     NF >= 3 {
       sha = $1
@@ -296,16 +317,19 @@ code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 \
 EOF
 }
 
-# Move the marker to the commit this deploy just shipped. Only a hex hash travels, so inlining it
-# in the ssh command is safe — everything else in the reporting path goes by file.
+# Move the marker to the commit this deploy just shipped — `ZEUS_COMMIT`, the one that was built,
+# not whatever HEAD has become since. Only a hex hash travels, so inlining it in the ssh command is
+# safe — everything else in the reporting path goes by file.
 write_zeus_marker() {
   ssh "$REMOTE_USER_HOST" \
-    "mkdir -p '$RELEASES_DIR' && printf '%s\n' '$(git rev-parse HEAD)' > '$ZEUS_MARKER'"
+    "mkdir -p '$RELEASES_DIR' && printf '%s\n' '$ZEUS_COMMIT' > '$ZEUS_MARKER'"
 }
 
 prepare_local_build() {
+  pin_build_source
+
   log "➡️  Installing dependencies"
-  cd "$PROJECT_DIR"
+  cd "$BUILD_DIR"
   pnpm install --frozen-lockfile
 
   # The bonus knob ships as-is: surface the value in the deploy log so a knob
@@ -321,7 +345,7 @@ prepare_local_build() {
   log "➡️  Building production assets with base path: $BUILD_BASE_PATH"
   pnpm exec vite build --base="$BUILD_BASE_PATH"
 
-  if [ ! -f "$PROJECT_DIR/dist/index.html" ]; then
+  if [ ! -f "$BUILD_DIR/dist/index.html" ]; then
     echo "❌ ERROR: dist/index.html is missing after build" >&2
     exit 1
   fi
@@ -333,7 +357,7 @@ prepare_local_build() {
     expected_asset_prefix="${BUILD_BASE_PATH}assets/"
   fi
 
-  if ! grep -Fq "$expected_asset_prefix" "$PROJECT_DIR/dist/index.html"; then
+  if ! grep -Fq "$expected_asset_prefix" "$BUILD_DIR/dist/index.html"; then
     echo "❌ ERROR: dist/index.html does not contain the expected asset prefix: $expected_asset_prefix" >&2
     exit 1
   fi
@@ -510,11 +534,11 @@ deploy() {
 
   cd "$PROJECT_DIR"
 
-  # Before any ssh or rsync — see the function itself for why this guards the report's honesty.
+  # Before any ssh or rsync. Everything below names `VERIFIED_COMMIT` and never asks HEAD again —
+  # see the function itself.
   require_clean_tree
 
-  local git_hash
-  git_hash="$(git rev-parse --short HEAD 2>/dev/null || echo no-git)"
+  local git_hash="${VERIFIED_COMMIT:0:7}"
 
   local git_branch_raw
   git_branch_raw="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo no-branch)"
@@ -544,7 +568,7 @@ deploy() {
   ZEUS_STARTED_EPOCH=$(date +%s)
   ZEUS_RELEASE="$release_name"
   ZEUS_BRANCH="$git_branch_raw"
-  ZEUS_COMMIT=$(git rev-parse HEAD 2>/dev/null || true)
+  ZEUS_COMMIT="$VERIFIED_COMMIT"
   ZEUS_BASE_HASH=$(resolve_base_hash)
 
   on_error() {
@@ -576,7 +600,7 @@ deploy() {
   remote_prepare_staging "$staging_dir"
 
   log "➡️  Uploading dist/ to remote staging"
-  rsync -az --delete "$PROJECT_DIR/dist/" "$REMOTE_USER_HOST:$staging_dir/"
+  rsync -az --delete "$BUILD_DIR/dist/" "$REMOTE_USER_HOST:$staging_dir/"
 
   log "➡️  Activating release"
   switch_done="true"

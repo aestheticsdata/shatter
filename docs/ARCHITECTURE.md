@@ -593,7 +593,9 @@ lands.
 
   ./scripts/deploy.sh                       ./scripts/deploy-api.sh
   -------------------                       -----------------------
-  vite build -> dist/                       rsync server/  (never data/)
+  clean + level with origin, or refuse      clean + level with origin, or refuse
+  git archive <that commit> -> scratch dir  git archive <that commit> server/
+  vite build -> dist/  (in the snapshot)    rsync server/  (never data/)
   rsync -> front-releases/                  pnpm install --prod --frozen-lockfile
      release-<ts>-<branch>-<hash>           pm2 startOrReload
   front/ -> front.bak/                      healthcheck through the nginx /api/ proxy
