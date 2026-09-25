@@ -373,6 +373,14 @@ export class SoundBank {
     this.tone({ freq: 1320, freqEnd: 660, dur: 0.12, vol: 0.03, type: "sine" });
   }
 
+  /**
+   * A boss lets a shot go (SHA-260). A short square spit falling a fifth,
+   * lower and harder than the tear's sine drip: this one breaks the deck.
+   */
+  bossShot(): void {
+    this.tone({ freq: 520, freqEnd: 330, dur: 0.1, vol: 0.05, type: "square" });
+  }
+
   /** THE TEAR: one burst in the air. A high square pip, and it is over. */
   tearBursts(): void {
     this.tone({ freq: 1000, dur: 0.06, vol: 0.04 });

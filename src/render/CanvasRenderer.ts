@@ -5,6 +5,7 @@ import { MALUS_KINDS, POWER_UP_GLYPHS } from "@core/config/powerUps";
 import { type Ball, paceGhost } from "@entities/ball/Ball";
 import { SPECIES } from "@entities/creatures/species";
 import { FIREFLY_LAMP, fireflyLantern } from "@entities/creatures/species/firefly";
+import { BOSS_SHOT_BITMAPS } from "@entities/effects/BossShots";
 import { lifeOf } from "@entities/effects/Chamber";
 import { Chart } from "@entities/effects/Chart";
 import { twinArcWave } from "@entities/effects/Entanglement";
@@ -711,6 +712,8 @@ export interface RenderView {
   // THE TEAR's drops, falling. Beside the brood rather than inside it, because
   // a tear is not one of them yet — becoming one is the whole event.
   tears: readonly { x: number; y: number }[];
+  // What the boss is dropping on the deck, and the one in its mouth (SHA-260).
+  bossShots: Pick<Fx.BossShots, "shots" | "charging">;
   // THE OCULI: which plaques are in, which one blinks, and the door the third
   // one cut. `gap` is null whenever the eye is shut, which is also what tells
   // the frame to close back up.
@@ -3667,6 +3670,46 @@ export function drawTears(
 }
 
 /**
+ * THE BOSSES' SHOTS (SHA-260), falling, and the one blinking in the boss's
+ * mouth before it lets go.
+ *
+ * Drawn in the palette of the boss that fired it, so venom is the queen's red
+ * and spit the king's green without a colour of its own to keep in step. The
+ * wind-up blinks faster as it fills: the last few flashes are the "now".
+ */
+function drawBossShots(
+  ctx: CanvasRenderingContext2D,
+  bossShots: Pick<Fx.BossShots, "shots" | "charging">,
+  frame: number,
+  scale: number,
+  demade: boolean,
+  hd: boolean,
+): void {
+  const pixel = spriteBrush(ctx, scale, false);
+  const draw = (kind: Fx.ShootingBoss, x: number, y: number) => {
+    const species = SPECIES[kind];
+    const rows = BOSS_SHOT_BITMAPS[kind];
+    const palette = demade ? species.demade : species.palette;
+    if (hd && scale === FINE) {
+      const sprite = hdBeastSprite(`bossShot:${kind}:${demade}`, rows, palette, "", FLASH.NONE, "");
+      ctx.drawImage(sprite, Math.round(x * FINE), Math.round(y * FINE));
+      return;
+    }
+    drawBitmap(pixel, rows, palette, Math.round(x), Math.round(y));
+  };
+  const charging = bossShots.charging;
+  if (charging) {
+    const period = Math.max(2, Math.round(8 - charging.progress * 6));
+    if (Math.floor(frame / period) % 2 === 0) {
+      draw(charging.kind, charging.x, charging.y - 2);
+    }
+  }
+  for (const shot of bossShots.shots) {
+    draw(shot.kind, shot.x, shot.y);
+  }
+}
+
+/**
  * THE DIADEM (SHA-170): six stars in an arc under the socket, and the lines
  * between the ones that are lit.
  *
@@ -5275,6 +5318,8 @@ export class CanvasRenderer {
       // ball is, and one falling behind a brick would be one the player could
       // not burst.
       drawTears(this.ctx, view.tears, SCALE, this.demade, this.fine);
+      // Over the wall with the tears: a shot is on its way to the deck.
+      drawBossShots(this.ctx, view.bossShots, this.frameCount, SCALE, this.demade, this.fine);
       // THE LID's loose pupil, last of the chamber and over everything in it
       // (SHA-176). Over the wall for the brood's reason and then some: it is
       // thirty pixels across, it is what the ball is being aimed at, and the

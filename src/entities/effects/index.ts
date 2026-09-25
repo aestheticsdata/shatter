@@ -3,6 +3,7 @@
 // Nothing inside this folder may import it — the effects that reach each other
 // (Singularity, Slump, JellySheet, Erosion) and DropPool keep their direct
 // paths, because an effect importing the barrel closes a cycle through itself.
+export * from "./BossShots";
 export * from "./Brood";
 export * from "./BumperField";
 export * from "./Chamber";

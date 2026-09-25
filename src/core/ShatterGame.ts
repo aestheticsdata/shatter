@@ -649,6 +649,8 @@ export class ShatterGame {
   // its own so the fight can be told from the roster — and the flag that says
   // it is over, which is what lets the clear card follow.
   private readonly bossPool = new Creatures();
+  // What the boss drops on the deck (SHA-260).
+  private readonly bossShots = new Fx.BossShots();
   // THE MOTH MOTHER's dust (SHA-213): ticks of dark left. Drives the blackout
   // blend beside BLACKOUT's own timer, so her dark fades in and out the way
   // the capsule's does.
@@ -1113,6 +1115,7 @@ export class ShatterGame {
         ? [...this.creatures.creatures, ...this.bossPool.creatures]
         : this.creatures.creatures,
       tears: this.tears.drops,
+      bossShots: this.bossShots,
       inside: this.inside,
       loosePupil: this.loosePupil.active ? this.loosePupil : null,
       gaze: {
@@ -1739,6 +1742,7 @@ export class ShatterGame {
     // anywhere. Re-walking them there would redraw the same picture at some
     // cost; leaving them is the frozen field's own answer, held with the balls.
     this.stepTracer();
+    this.stepBossShots();
     /**
      * The mortar, and the one of the roster's blends stepped **below** the
      * freeze gates rather than above them.
@@ -6957,6 +6961,29 @@ export class ShatterGame {
   }
 
   /**
+   * THE BOSSES' SHOTS (SHA-260): the boss fires straight down from its
+   * underside, and a shot that meets the deck blows it up — BOMB's blast, and
+   * the life goes when the pieces land. The SPLIT hole is a hole here too.
+   * Nothing is fired from inside the eye, where the boss is not.
+   */
+  private stepBossShots(): void {
+    const boss = this.bossPool.live && !this.inside.active ? this.bossPool.creatures.find((c) => c.alive) : undefined;
+    const box = boss ? creatureBox(boss) : null;
+    const muzzle = boss && box ? { kind: boss.kind, x: boss.x + box.width / 2, y: boss.y + box.height } : null;
+    if (this.bossShots.step(muzzle, this.paddle.y)) {
+      this.deps.sfx.bossShot();
+    }
+    const hit = this.bossShots.strike(this.paddleSegments());
+    if (hit === null) {
+      return;
+    }
+    this.bossShots.reset();
+    this.creatureEffects().pop(this.paddle.centerX, this.paddle.y - 14, "BROKEN", true);
+    this.deps.sfx.paddleExplode();
+    this.blowUpPaddle();
+  }
+
+  /**
    * A boss hit: a creature's strike, and its death is the level's end. `at` is
    * where the touch landed, for the bosses that are armour in places (SHA-213):
    * a refused touch says so over the body and takes nothing off it.
@@ -8579,6 +8606,7 @@ export class ShatterGame {
     this.chamber.reset();
     this.chamber.setDepth(levelIndexOf(level) + 1);
     this.bossPool.reset();
+    this.bossShots.reset();
     this.bossDone = false;
     this.oculi.load(definition.observer);
     // THE IRIS is the veil whose eye does this. THE LID's loose pupil fires the
@@ -8656,6 +8684,9 @@ export class ShatterGame {
     this.deps.sfx.setDemake(false);
     this.dropPool.reset();
     this.shotPool.reset();
+    // A boss's shot still falling would land on the deck the player was just
+    // handed; the boss itself stays, and winds up again from the top.
+    this.bossShots.reset();
     this.laserCountdown = 0;
     this.wallArmed = false;
     this.wallBlend = 0;
@@ -8847,6 +8878,7 @@ export class ShatterGame {
     this.brood.reset();
     this.creatures.reset();
     this.bossPool.reset();
+    this.bossShots.reset();
     this.bossDone = false;
     this.oculi.reset();
     this.inside.reset();

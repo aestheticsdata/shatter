@@ -2395,6 +2395,24 @@ export const gameConfig = {
    */
   bosses: {
     clearBonus: 5000,
+    /**
+     * THE BOSSES' SHOTS (SHA-260): what each boss drops straight down on the
+     * deck, and a deck it touches is blown up like BOMB's.
+     *
+     * `chargeTicks` is the wind-up — the shot blinks in the boss's mouth before
+     * it lets go, which is the whole of the warning. `headroom` is how far over
+     * the rail the mouth has to be for a shot to leave it: a boss low on the
+     * field would fire into a deck the player had no time to move.
+     */
+    shots: {
+      chargeTicks: 36,
+      headroom: 90,
+      spiderQueen: { intervalTicks: 150, speed: 2 },
+      mothMother: { intervalTicks: 110, speed: 1.6 },
+      frogKing: { intervalTicks: 130, speed: 2.6 },
+      snailElder: { intervalTicks: 170, speed: 1.4 },
+      manOWar: { intervalTicks: 120, speed: 2.2 },
+    },
   },
   /**
    * THE CHAMBER (SHA-179): particles let into the field through two gates in
