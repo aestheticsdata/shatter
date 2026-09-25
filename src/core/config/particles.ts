@@ -22,6 +22,7 @@ export const PARTICLES: readonly ParticleDefinition[] = [
   { id: PARTICLE.PHOTON, name: "PHOTON", verb: "SCATTER" },
   { id: PARTICLE.ELECTRON, name: "ELECTRON", verb: "SHIELD" },
   { id: PARTICLE.NUCLEUS, name: "NUCLEUS", verb: "SPLIT" },
+  { id: PARTICLE.ANTIBALL, name: "ANTIBALL", verb: "ANNIHILATE" },
 ];
 
 /**
@@ -54,6 +55,17 @@ export const PARTICLE_TONES = {
     body: "#b84a2a",
     shade: "#5a1f0e",
     highlight: "#ffb08a",
+  },
+  antiball: {
+    // The ball's own three roles, turned to night: a navy body, a cold
+    // highlight and a near-black shade. The one thing on the field drawn with
+    // the ball's sprite, which is the point — and the one thing never yellow.
+    body: "#1d1d4a",
+    highlight: "#b8c8ff",
+    shade: "#0b0b26",
+    // The halo in the death flash's white, and TWIN's thread for the warning.
+    halo: "#ffffff",
+    thread: "#ffbda5",
   },
 } as const;
 

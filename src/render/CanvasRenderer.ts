@@ -5,6 +5,7 @@ import { MALUS_KINDS, POWER_UP_GLYPHS } from "@core/config/powerUps";
 import { type Ball, paceGhost } from "@entities/ball/Ball";
 import { SPECIES } from "@entities/creatures/species";
 import { FIREFLY_LAMP, fireflyLantern } from "@entities/creatures/species/firefly";
+import { lifeOf } from "@entities/effects/Chamber";
 import { Chart } from "@entities/effects/Chart";
 import { eyePupilPoint } from "@entities/effects/Observer";
 import { OCULUS_HEIGHT, OCULUS_POSITIONS, OCULUS_WIDTH } from "@entities/effects/Oculi";
@@ -17,7 +18,7 @@ import { GATE_SIDE, PARTICLE } from "@interfaces/particles";
 import { BACKGROUND_COLORS, BackgroundLayer, dialTonesFor, IrisLayer } from "@render/backgrounds";
 import { type BallRow, ballGlints, ballRows } from "@render/ballSprite";
 import { BROOD_BITMAPS, BROOD_FRAMES, BROOD_OUTLINE, broodPalette } from "@render/broodSprite";
-import { hdBallDisc, hdBallShell, hdBallSprite } from "@render/hdBall";
+import { BALL_TONES, hdBallDisc, hdBallShell, hdBallSprite } from "@render/hdBall";
 import { FLASH, flashOf, hdBeastSprite } from "@render/hdBeast";
 import { hdCapsule } from "@render/hdCapsule";
 import { dialInked, dialSteps, dialUnit, dialWalk } from "@render/hdDial";
@@ -97,6 +98,7 @@ import type {
   TracerThread,
 } from "@interfaces/types";
 import type { DialTones } from "@render/backgrounds";
+import type { BallTones } from "@render/hdBall";
 
 // The speed streak, as how far back along this tick's displacement each copy of
 // the ball is laid. Far first, so the near copy paints over it and the smear
@@ -3016,9 +3018,10 @@ function quantumPresence(quantum: Quantum): number {
   if (quantum.leaveTicks > 0) {
     presence = Math.min(presence, quantum.leaveTicks / leaveTicks);
   }
-  if (quantum.kind === PARTICLE.PHOTON) {
-    const { lifeTicks, fadeTicks } = gameConfig.particles.photon;
-    presence = Math.min(presence, (lifeTicks - quantum.age) / fadeTicks);
+  // The two that dim out, over their own last ticks.
+  if (quantum.kind === PARTICLE.PHOTON || quantum.kind === PARTICLE.ANTIBALL) {
+    const { fadeTicks } = gameConfig.particles[quantum.kind];
+    presence = Math.min(presence, (lifeOf(quantum.kind) - quantum.age) / fadeTicks);
   }
   return Math.max(0, Math.min(1, presence));
 }
@@ -3055,10 +3058,49 @@ export function drawQuantum(
     drawPhoton(ctx, quantum, scale, demade, fine);
   } else if (quantum.kind === PARTICLE.ELECTRON) {
     drawElectron(ctx, quantum, scale, demade, fine);
+  } else if (quantum.kind === PARTICLE.ANTIBALL) {
+    drawAntiball(ctx, quantum, frameCount, scale, demade, fine);
   } else {
     drawNucleus(ctx, quantum, scale, demade, fine);
   }
   ctx.restore();
+}
+
+const ANTIBALL_TONES: BallTones = {
+  body: PARTICLE_TONES.antiball.body,
+  highlight: PARTICLE_TONES.antiball.highlight,
+  shade: PARTICLE_TONES.antiball.shade,
+};
+
+/**
+ * ANTIBALL: the ball's own sprite at one to one in its night tones, and a halo
+ * two pixels out breathing white once every two seconds.
+ *
+ * **The halo is the held cue.** A dark ball on a dark field is a threat the
+ * player cannot see, and the one rule a latent threat has here is that it
+ * wears its warning on itself; the halo is also what the tube keeps, where the
+ * body goes to ink like the ball's and only the ring says which is which.
+ */
+function drawAntiball(
+  ctx: CanvasRenderingContext2D,
+  antiball: Quantum,
+  frameCount: number,
+  scale: number,
+  demade: boolean,
+  fine: boolean,
+): void {
+  const { haloTicks, haloGap } = gameConfig.particles.antiball;
+  const presence = ctx.globalAlpha;
+  const size = antiball.radius * 2;
+  const breath = 0.5 + 0.5 * Math.sin((frameCount / haloTicks) * Math.PI * 2);
+  ctx.globalAlpha = presence * (0.35 + 0.65 * breath);
+  ctx.strokeStyle = inkFor(demade)(PARTICLE_TONES.antiball.halo);
+  ctx.lineWidth = fine ? 2 : scale;
+  ctx.beginPath();
+  ctx.arc(antiball.x * scale, antiball.y * scale, (antiball.radius + haloGap + 0.5) * scale, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = presence;
+  drawBall(ctx, antiball.x - size / 2, antiball.y - size / 2, scale, demade, { size, hd: fine, tones: ANTIBALL_TONES });
 }
 
 // The nucleus on the tube: the shade goes to ground and the nucleons stay ink,
@@ -4056,6 +4098,8 @@ export interface BallSprite {
   // the level gallery's, and they draw at scale 1 where no HD path exists yet
   // (SHA-224).
   hd?: boolean;
+  // THE CHAMBER's antiball (SHA-183): the same sprite in its own night tones.
+  tones?: BallTones;
 }
 
 // The ball's body, without the trail behind it: the smear is the renderer's,
@@ -4087,7 +4131,7 @@ export function drawBall(
   if (sprite.hd === true && scale === FINE) {
     const canvas = birth
       ? hdBallDisc(Math.max(1, Math.round((birth[1] * size) / BALL_SIZE)) * FINE, birth[2], demade)
-      : hdBallSprite(size, demade);
+      : hdBallSprite(size, demade, sprite.tones);
     const inset = (size * scale - canvas.width) / 2;
     ctx.drawImage(canvas, Math.round(x * scale + inset), Math.round(y * scale + inset));
     return;
@@ -4111,8 +4155,9 @@ export function drawBall(
     return;
   }
 
+  const tones = sprite.tones ?? BALL_TONES;
   ballRows(size).forEach(([offset, span], rowIndex) => {
-    pixel(x + offset, y + rowIndex, span, 1, canvasPalette.ballBody);
+    pixel(x + offset, y + rowIndex, span, 1, tones.body);
   });
   for (const glint of ballGlints(size)) {
     pixel(
@@ -4120,7 +4165,7 @@ export function drawBall(
       y + glint.y,
       glint.width,
       glint.height,
-      glint.tone === "highlight" ? canvasPalette.ballHighlight : canvasPalette.ballShade,
+      glint.tone === "highlight" ? tones.highlight : tones.shade,
     );
   }
 }
@@ -4849,6 +4894,7 @@ export class CanvasRenderer {
       for (const quantum of view.chamber.quanta) {
         drawQuantum(this.ctx, quantum, this.frameCount, SCALE, this.demade, this.fine);
       }
+      this.drawAntiballThreads(view);
       // With the brood and over the wall: a tear is out on the field where the
       // ball is, and one falling behind a brick would be one the player could
       // not burst.
@@ -5095,6 +5141,12 @@ export class CanvasRenderer {
 
     for (const pop of view.pops) {
       this.drawPop(pop);
+    }
+
+    // An annihilation's whiteout, over the blackout like a crater's light: it is
+    // the brightest thing a particle does and it may not happen in the dark.
+    for (const flash of view.chamber.flashes) {
+      this.drawAnnihilation(flash);
     }
 
     // Under the nuke and over everything else on the field: a crater is the
@@ -5834,6 +5886,57 @@ export class CanvasRenderer {
   // moves, so it snaps to whole game pixels like the bricks do. A kick turns the
   // eye white and throws a ring out past the body, which is the whole tell that
   // this disc — not one of the others — is the one that just paid.
+  /**
+   * ANTIBALL's warning (SHA-183): a hairline from it to every ball within reach,
+   * in TWIN's thread and shivering as TWIN's does, so the annihilation is
+   * announced a moment before it happens. One pixel of the tube's ink on DEMAKE,
+   * where it and the halo are the whole of the tell.
+   */
+  private drawAntiballThreads(view: RenderView): void {
+    const { threadReach } = gameConfig.particles.antiball;
+    for (const antiball of view.chamber.quanta) {
+      if (antiball.kind !== PARTICLE.ANTIBALL || antiball.dead || antiball.leaveTicks > 0) {
+        continue;
+      }
+      for (const [index, ball] of view.balls.entries()) {
+        if (!ball.active) {
+          continue;
+        }
+        const toX = ball.centerX - antiball.x;
+        const toY = ball.y + ball.size / 2 - antiball.y;
+        const length = Math.hypot(toX, toY);
+        if (length === 0 || length > threadReach) {
+          continue;
+        }
+        // Stopped at both rims rather than run centre to centre: a thread
+        // drawn over the sprites it joins is a scratch on them.
+        const from = antiball.radius + 1;
+        const to = length - ball.size / 2 - 1;
+        const normalX = -toY / length;
+        const normalY = toX / length;
+        for (let along = from; along <= to; along++) {
+          const shiver = Math.sin(along * 1.7 + this.frameCount * 0.9 + index) * 0.6;
+          const x = antiball.x + (toX / length) * along + normalX * shiver;
+          const y = antiball.y + (toY / length) * along + normalY * shiver;
+          this.mote(x - 0.5, y - 0.5, 2, PARTICLE_TONES.antiball.thread);
+        }
+      }
+    }
+  }
+
+  // One frame of whiteout in a circle where an antiball met something, going
+  // out over the next few as the crater's own bursts take over.
+  private drawAnnihilation(flash: { x: number; y: number; ticks: number }): void {
+    const { flashRadius, flashTicks } = gameConfig.particles.antiball;
+    this.ctx.save();
+    this.ctx.globalAlpha = flash.ticks / flashTicks;
+    this.ctx.fillStyle = this.ink(PARTICLE_TONES.antiball.halo);
+    this.ctx.beginPath();
+    this.ctx.arc(flash.x * SCALE, flash.y * SCALE, flashRadius * SCALE, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.restore();
+  }
+
   private drawBumper(bumper: Bumper): void {
     const { radius, flashTicks, arriveTicks, leaveTicks } = gameConfig.powerUps.bumpers;
 
@@ -7161,6 +7264,16 @@ export class CanvasRenderer {
         // while the rest of the field was still fully lit.
         peak: (1 - (1 - BLACKOUT_TORCH.paddlePeak) * view.blackoutBlend) * deckLight,
       });
+    }
+
+    // THE CHAMBER's antiballs (SHA-183): each its own dim pool, because a
+    // threat that can take a ball may not be hidden by a capsule that only
+    // takes the light.
+    const { poolRadius, poolPeak } = gameConfig.particles.antiball;
+    for (const quantum of view.chamber.quanta) {
+      if (quantum.kind === PARTICLE.ANTIBALL && !quantum.dead) {
+        torches.push({ x: quantum.x + shakeX, y: quantum.y + shakeY, radius: poolRadius * spread, peak: poolPeak });
+      }
     }
 
     // FIREFLY's lamps (SHA-243), and the reason a dark level is playable at

@@ -4473,8 +4473,10 @@ export class ShatterGame {
 
       // THE CHAMBER (SHA-179), beside the discs and for their reason: a
       // particle is a free-standing thing in the band, not part of the frame.
-      if (this.chamber.live && !this.inside.active) {
-        this.touchQuanta(ball);
+      // An antiball takes the ball with it, and a ball that is gone is walked
+      // no further.
+      if (this.chamber.live && !this.inside.active && this.touchQuanta(ball)) {
+        return;
       }
 
       // The paddle test upside down, over the same 10 px window. A ball that
@@ -5976,10 +5978,14 @@ export class ShatterGame {
    * it otherwise, as a bumper's kick is: a particle is a small thing in a busy
    * band, and a number over every one would be a field of numbers.
    */
-  private touchQuanta(ball: Ball): void {
+  private touchQuanta(ball: Ball): boolean {
     const quantum = this.chamber.touching(ball.centerX, ball.y + ball.size / 2, ball.size / 2);
     if (quantum === null) {
-      return;
+      return false;
+    }
+    if (quantum.kind === PARTICLE.ANTIBALL) {
+      this.annihilate(quantum, ball);
+      return true;
     }
     if (quantum.kind === PARTICLE.PHOTON) {
       this.absorbPhoton(ball, quantum);
@@ -5991,6 +5997,36 @@ export class ShatterGame {
     } else {
       this.splitNucleus(quantum, ball);
     }
+    return false;
+  }
+
+  /**
+   * ANTIBALL: it cannot be hit. Whatever meets it — a ball, or a bolt — is
+   * annihilated with it, in a whiteout and PYRE's crater round the contact.
+   *
+   * **The trade is the one PYRE already sells**: a spare ball for thirteen
+   * bricks and five hundred. The ball it takes is simply gone, the way a PYRE
+   * ball is — no drain, no ANGEL — and if it was the only one the lost-ball
+   * check at the end of the tick takes a life for it. A bolt makes the same
+   * crater and costs nothing, which is what makes LASER the tool for one.
+   */
+  private annihilate(antiball: Quantum, ball: Ball | null): void {
+    const x = antiball.x;
+    const y = antiball.y;
+    if (ball) {
+      ball.active = false;
+      ball.stuckOffsetX = null;
+      ball.clearHoming();
+      ball.pyreCrown = 0;
+    }
+    this.chamber.spend(antiball, false);
+    this.chamber.flash(x, y);
+    this.bumpChain();
+    this.popGain(x, y, this.award(gameConfig.particles.antiball.points, ball ? "ball" : "laser", ball));
+    this.pyreBricksWithin(x, y);
+    this.particles.sparkBurst(x, y, gameConfig.powerUps.pyre.fireBurst);
+    this.quake.rattle(gameConfig.powerUps.pyre.shakeTicks, gameConfig.powerUps.pyre.shakeAmplitude);
+    this.deps.sfx.annihilation();
   }
 
   /**
@@ -6142,6 +6178,8 @@ export class ShatterGame {
       this.bumpChain();
       this.popGain(quantum.x, quantum.y, this.award(gameConfig.particles.electron.points, "laser"));
       this.deps.sfx.electronKnocked();
+    } else if (quantum.kind === PARTICLE.ANTIBALL) {
+      this.annihilate(quantum, null);
     } else if (quantum.daughter) {
       this.killDaughter(quantum, null);
     } else {

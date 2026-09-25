@@ -2376,6 +2376,25 @@ export const gameConfig = {
         points: 200,
       },
     },
+    antiball: {
+      joins: 25,
+      radius: 4,
+      speed: 0.8,
+      points: 500,
+      lifeTicks: 1200,
+      fadeTicks: 60,
+      // How close a ball has to come before the thread ties it to one.
+      threadReach: 24,
+      // The halo's breath: once every two seconds, and how far out it sits.
+      haloTicks: 120,
+      haloGap: 2,
+      // The whiteout where it met something: its radius and how long it lasts.
+      flashRadius: 12,
+      flashTicks: 6,
+      // Under BLACKOUT: its own dim pool of light, so a threat is never unseen.
+      poolRadius: 16,
+      poolPeak: 0.45,
+    },
   },
   /**
    * THE TITLE (SHA-211): the mockup's home. Where the Observer sits behind the

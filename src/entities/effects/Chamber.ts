@@ -127,6 +127,8 @@ const MAX_STEP_PX = 2;
  */
 export class Chamber {
   readonly quanta: Quantum[] = [];
+  // ANTIBALL's whiteouts, where one met something, until their light is gone.
+  readonly flashes: { x: number; y: number; ticks: number }[] = [];
   readonly gates: readonly [Gate, Gate] = [shutGate(GATE_SIDE.LEFT), shutGate(GATE_SIDE.RIGHT)];
   // Ticks to the next release. Only counts in play: the serve screen is a
   // player looking at a fresh room, not one filling up behind their back.
@@ -203,6 +205,7 @@ export class Chamber {
 
   reset(): void {
     this.quanta.length = 0;
+    this.flashes.length = 0;
     for (const gate of this.gates) {
       Object.assign(gate, shutGate(gate.side));
     }
@@ -471,8 +474,7 @@ export class Chamber {
     if (quantum.kind === PARTICLE.ELECTRON) {
       return this.stepElectron(quantum, field);
     }
-    const { lifeTicks } = gameConfig.particles.photon;
-    if (quantum.kind === PARTICLE.PHOTON && quantum.age >= lifeTicks) {
+    if (quantum.age >= lifeOf(quantum.kind)) {
       quantum.dead = true;
       return false;
     }
@@ -617,7 +619,17 @@ export class Chamber {
     remember(quantum);
   }
 
+  /** An annihilation's whiteout, centred where it happened. */
+  flash(x: number, y: number): void {
+    this.flashes.push({ x, y, ticks: gameConfig.particles.antiball.flashTicks });
+  }
+
   private sweep(): void {
+    for (let index = this.flashes.length - 1; index >= 0; index--) {
+      if (--this.flashes[index].ticks <= 0) {
+        this.flashes.splice(index, 1);
+      }
+    }
     for (let index = this.quanta.length - 1; index >= 0; index--) {
       const quantum = this.quanta[index];
       if (quantum.dead && quantum.bloomTicks === 0) {
@@ -625,6 +637,20 @@ export class Chamber {
       }
     }
   }
+}
+
+/**
+ * How long a species lives, in ticks: the two that dim out have a lifetime,
+ * and the rest live until something takes them.
+ */
+export function lifeOf(kind: ParticleKind): number {
+  if (kind === PARTICLE.PHOTON) {
+    return gameConfig.particles.photon.lifeTicks;
+  }
+  if (kind === PARTICLE.ANTIBALL) {
+    return gameConfig.particles.antiball.lifeTicks;
+  }
+  return Number.POSITIVE_INFINITY;
 }
 
 function shutGate(side: GateSide): Gate {

@@ -44,6 +44,24 @@ const SHELL_WIDTH = 2;
 const BALLS = new SpriteCache();
 
 /**
+ * The three tones a ball is lit in. The ball's own, unless this is THE
+ * CHAMBER's antiball (SHA-183) — the one thing the house lets wear the ball's
+ * silhouette, because it is the ball's twin, and it wears it in its own night
+ * tones through this recipe rather than a copy of it.
+ */
+export interface BallTones {
+  body: string;
+  highlight: string;
+  shade: string;
+}
+
+export const BALL_TONES: BallTones = {
+  body: canvasPalette.ballBody,
+  highlight: canvasPalette.ballHighlight,
+  shade: canvasPalette.ballShade,
+};
+
+/**
  * One ball, `size` game pixels across, on its own fine-grid surface.
  *
  * Kept separate from `hdBallSprite` so the whole recipe can be checked under
@@ -51,7 +69,7 @@ const BALLS = new SpriteCache();
  * and `scripts/check-pix.mjs` pins this drawing's silhouette against
  * `ballRows` at every diameter GIANT can produce.
  */
-export function hdBallPix(size: number, demade = false): Pix {
+export function hdBallPix(size: number, demade = false, tones: BallTones = BALL_TONES): Pix {
   const diameter = size * FINE;
   const scale = diameter / AUTHORED;
   const at = (authored: number): number => authored * scale;
@@ -62,16 +80,16 @@ export function hdBallPix(size: number, demade = false): Pix {
   // body sits one authored pixel up and to the left of it, which is the whole
   // of why the shade reads as a terminator rather than as an outline — it is
   // thick where the light is not.
-  pix.disc(at(12), at(12), at(12), mix(canvasPalette.ballShade, "#000000", 0.4));
-  pix.disc(at(12), at(12), at(11), canvasPalette.ballShade);
-  pix.disc(at(11), at(11), at(10), canvasPalette.ballBody);
+  pix.disc(at(12), at(12), at(12), mix(tones.shade, "#000000", 0.4));
+  pix.disc(at(12), at(12), at(11), tones.shade);
+  pix.disc(at(11), at(11), at(10), tones.body);
   // Half a pixel off both axes on purpose: `Pix.disc` rounds its columns and
   // its rows differently, so a half-integer centre lays this dithered rim
   // *outside* the solid body on the lower right instead of over it. One pixel
   // of anti-aliasing out of ordered dither, with no blended tone anywhere.
-  pix.disc(at(11.5), at(11.5), at(10.5), canvasPalette.ballBody, 0.5);
-  pix.disc(at(9), at(9), at(4.5), canvasPalette.ballHighlight);
-  pix.disc(at(9.5), at(9.5), at(5.5), canvasPalette.ballHighlight, 0.5);
+  pix.disc(at(11.5), at(11.5), at(10.5), tones.body, 0.5);
+  pix.disc(at(9), at(9), at(4.5), tones.highlight);
+  pix.disc(at(9.5), at(9.5), at(5.5), tones.highlight, 0.5);
 
   // The specular: a square with a pixel off two of its corners, which at this
   // size reads as a round catchlight and at 1x would read as a blob. Rounded to
@@ -131,8 +149,8 @@ export function hdBallShellPix(size: number, hex: string, demade = false): Pix {
  * sprite back to the demade caller and the demade one back for the rest of the
  * level.
  */
-export function hdBallSprite(size: number, demade = false): HTMLCanvasElement {
-  return BALLS.get(`ball:${size}:${demade}`, () => hdBallPix(size, demade).toCanvas());
+export function hdBallSprite(size: number, demade = false, tones: BallTones = BALL_TONES): HTMLCanvasElement {
+  return BALLS.get(`ball:${size}:${demade}:${tones.body}`, () => hdBallPix(size, demade, tones).toCanvas());
 }
 
 /** One pace ghost, baked, per size the capsule pair can produce. */

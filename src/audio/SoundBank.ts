@@ -737,6 +737,20 @@ export class SoundBank {
     this.tone({ freq: 554, freqEnd: 831, dur: 0.06, vol: 0.04, delayS: 0.07 });
   }
 
+  /**
+   * ANTIBALL: annihilation. A womp with a noise burst — the trap catch's
+   * detuned sawtooth family, pitched down and made big — and the loudest thing
+   * a particle does, because it is the one that can cost a life.
+   */
+  annihilation(): void {
+    if (!this.allow("annihilation")) {
+      return;
+    }
+    this.tone({ freq: 330, freqEnd: 55, dur: 0.35, vol: 0.1, type: "sawtooth" });
+    this.tone({ freq: 326, freqEnd: 54, dur: 0.35, vol: 0.08, type: "sawtooth", detuneCents: 20 });
+    this.noise({ dur: 0.3, vol: 0.28, filter: { type: "lowpass", freq: 2400, freqEnd: 120 } });
+  }
+
   /** A daughter gone: a pop, short and dry. */
   daughterPops(): void {
     if (!this.allow("daughter")) {
