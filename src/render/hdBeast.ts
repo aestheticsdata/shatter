@@ -76,13 +76,13 @@ function flashed(
  * One creature's bitmap at three times the size, with its staircases rounded.
  *
  * **Applied to the bitmap the game would have drawn, whatever produced it.** A
- * boss is `doubled()` of its species, a ceiling snail is `flipped()`, a grub
+ * boss is `grown()` of its species, a ceiling snail is `flipped()`, a grub
  * walking the other way is `mirrored()` — all three produce rows, and the art
  * path takes it from there, so the transforms compose in any order without a
  * second recipe. The one thing to watch is what that does to the rounding: on
- * a doubled bitmap every cell is a 2 x 2 block, so Scale3x spends its work on
- * the doubling's own corners rather than on the authored silhouette's. A boss
- * that came out softer than its species instead of bigger came from there.
+ * a bitmap grown by blocks, Scale3x spends its work on the blocks' own corners
+ * rather than on the authored silhouette's — which is why `grown` is Scale2x
+ * and not nearest-neighbour (SHA-258).
  *
  * No `ink` argument, because the palette has already been chosen for the
  * machine — a species carries its own `demade` set, and a brood sprite gets

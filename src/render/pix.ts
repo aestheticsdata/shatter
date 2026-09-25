@@ -506,10 +506,9 @@ export class SpriteCache {
  * which is the one thing a creature this size actually gains at 3x: the
  * silhouette stops being blocky while every tell stays exactly where it was.
  *
- * Nearest-neighbour is what the house does elsewhere and is still right there —
- * a boss is its species *grown*, every pixel drawn twice over, and the blocks
- * are the point. This is the other case: the same creature at the same size,
- * drawn on a finer grid.
+ * A boss is the other half of the same idea: its species *grown* by Scale2x
+ * (`grown` in `@entities/creatures/bitmap`), bigger with its edges redrawn,
+ * and then through here like any creature.
  *
  * `palette` maps a character to a tone; a character it has no entry for is a
  * hole, which is how `.` stays transparent.

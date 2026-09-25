@@ -96,7 +96,7 @@ export function paintRows(pixel: Pixel, rows: readonly string[], x: number, y: n
         index += 1;
         continue;
       }
-      // Runs rather than cells: a doubled king's legs are a thousand cells at
+      // Runs rather than cells: a grown king's legs are a thousand cells at
       // 3x and about forty spans, and a span is one `fillRect`.
       let span = 1;
       while (index + span < line.length && line[index + span] !== ".") {

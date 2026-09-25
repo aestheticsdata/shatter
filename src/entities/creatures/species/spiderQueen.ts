@@ -1,4 +1,5 @@
 import { gameConfig } from "@core/config/GameConfig";
+import { smoothDoubled } from "@entities/creatures/bitmap";
 import { CREATURE } from "@interfaces/creatures";
 import { BRICK_COLORS, canvasPalette } from "@render/palette";
 
@@ -17,8 +18,8 @@ import type { Creature, CreatureSight, Species } from "@entities/creatures/Creat
  * A species like the others, only bigger and with more hit points: the fight
  * is the game's (`wallCleared`, `strikeBoss`), the creature is hers.
  */
-const WIDTH = 40;
-const HEIGHT = 26;
+// Drawn at 40 x 26 and doubled (SHA-258): at her drawn size she read as a big
+// spider rather than the end of a level.
 
 const QUEEN_STATE = { ENTER: "enter", HANG: "hang", DROP: "drop", CLIMB: "climb" } as const;
 const STUNG = "STUNG";
@@ -81,6 +82,9 @@ const LEGS_IN: readonly string[] = [
   "....k......k.................k......k...",
 ];
 
+const WIDTH = LEGS_OUT[0].length * 2;
+const HEIGHT = LEGS_OUT.length * 2;
+
 function centreX(creature: Creature): number {
   return creature.x + WIDTH / 2;
 }
@@ -105,7 +109,7 @@ export const SPIDER_QUEEN: Species = {
   tip: "WHEN SHE STOPS ABOVE YOU, MOVE",
   lore: "SHE COMES DOWN FROM ABOVE THE CEILING WHEN THE LAST BRICK FALLS. SHE HANGS ON HER THREAD AND STALKS, SLIDING ALONG THE TOP UNTIL SHE IS RIGHT ABOVE YOUR DECK — THAT SLIDE IS YOUR ONLY WARNING — THEN SHE DROPS. CAUGHT BENEATH HER, YOUR DECK TURNS TO STONE. TEN HITS TO BRING HER DOWN.",
   solid: true,
-  frames: [LEGS_OUT, LEGS_IN],
+  frames: [smoothDoubled(LEGS_OUT), smoothDoubled(LEGS_IN)],
   frameTicks: 10,
   // The brood's red for the body, a paler mark on the abdomen, silver eyes: a
   // creature of the Observer's, in the Observer's colours, and nothing yellow.

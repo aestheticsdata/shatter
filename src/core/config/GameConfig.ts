@@ -2289,7 +2289,7 @@ export const gameConfig = {
       // The stalk along the top toward the deck, in pixels a tick, and how
       // close to over it she has to be before she drops.
       stalkSpeed: 0.6,
-      aimWidth: 10,
+      aimWidth: 20,
       dropSpeed: 3,
       climbSpeed: 1.4,
       // Ticks she hangs between drops: the whole of the player's window.
@@ -2336,7 +2336,7 @@ export const gameConfig = {
       // The tongue: how far it reaches from the mouth, how fast the ball it
       // catches is sent down, how much of that sideways, how long the tongue
       // is out, and how long before it can flick again.
-      tongueRange: 56,
+      tongueRange: 72,
       spitSpeed: 5,
       spitSideways: 0.4,
       tongueTicks: 12,
@@ -2356,7 +2356,7 @@ export const gameConfig = {
       // how much of his front is head rather than shell.
       layRows: 2,
       layKind: "2",
-      headWidth: 12,
+      headWidth: 24,
     },
     /**
      * THE MAN O' WAR (SHA-130), the boss at the end of level 45. Ten hits,

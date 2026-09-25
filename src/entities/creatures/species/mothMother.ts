@@ -1,5 +1,5 @@
 import { gameConfig } from "@core/config/GameConfig";
-import { doubled } from "@entities/creatures/bitmap";
+import { BOSS_GROWTH, grown } from "@entities/creatures/bitmap";
 import { MOTH, MOTH_FRAMES } from "@entities/creatures/species/moth";
 import { CREATURE } from "@interfaces/creatures";
 import { canvasPalette } from "@render/palette";
@@ -10,7 +10,7 @@ import type { Creature, Species } from "@entities/creatures/Creature";
  * THE MOTH MOTHER (SHA-213): the boss at the end of level 15, TETRA.
  *
  * Her children loop round the eye and drop a capsule when hit; she is the same
- * creature twice the size, and she does the same thing twelve times over. She
+ * creature four times the size, and she does the same thing twelve times over. She
  * flies a figure of eight across the whole upper field — wide and slow enough
  * to be led, never where she was a second ago — and the ball passes through
  * her like through any moth: one strike a pass, a capsule out of her every
@@ -23,11 +23,12 @@ import type { Creature, Species } from "@entities/creatures/Creature";
  * in flashes of dark with a dozen capsules falling through them. The shake
  * is the telegraph: she hangs still and sheds before the dark comes.
  */
-const WIDTH = MOTH.width * 2;
-const HEIGHT = MOTH.height * 2;
+const WIDTH = MOTH.width * BOSS_GROWTH;
+const HEIGHT = MOTH.height * BOSS_GROWTH;
 
 const MOTHER_STATE = { ENTER: "enter", FLY: "fly", SHAKE: "shake" } as const;
 const DUST = "DUST";
+const DUST_SPECKS = 10;
 
 function centreX(creature: Creature): number {
   return creature.x + WIDTH / 2;
@@ -56,9 +57,9 @@ export const MOTH_MOTHER: Species = {
     return gameConfig.creatures.mothMother.killPoints;
   },
   tip: "WHEN SHE SHUDDERS, THE DARK IS COMING",
-  lore: "THE MOTHER OF EVERY MOTH, TWICE THEIR SIZE AND TWELVE TIMES THEIR TROUBLE. SHE FLIES A GREAT FIGURE OF EIGHT ACROSS THE ROOM, AND EVERY HIT SHAKES ANOTHER CAPSULE LOOSE. BUT WHEN SHE HANGS STILL AND SHUDDERS, BEWARE: HER DUST PUTS THE LIGHTS OUT, AND THE FIGHT GOES ON IN THE DARK.",
+  lore: "THE MOTHER OF EVERY MOTH, FOUR TIMES THEIR SIZE AND TWELVE TIMES THEIR TROUBLE. SHE FLIES A GREAT FIGURE OF EIGHT ACROSS THE ROOM, AND EVERY HIT SHAKES ANOTHER CAPSULE LOOSE. BUT WHEN SHE HANGS STILL AND SHUDDERS, BEWARE: HER DUST PUTS THE LIGHTS OUT, AND THE FIGHT GOES ON IN THE DARK.",
   solid: false,
-  frames: MOTH_FRAMES.map(doubled),
+  frames: MOTH_FRAMES.map(grown),
   frameTicks: 8,
   palette: MOTH.palette,
   demade: MOTH.demade,
@@ -107,9 +108,9 @@ export const MOTH_MOTHER: Species = {
         return;
       }
       default: {
-        // Hanging still and shuddering: two pixels either way on a quick beat.
+        // Hanging still and shuddering: one moth's pixel either way on a quick beat.
         const at = onEight(creature.phase);
-        place(at.x + (creature.clock % 4 < 2 ? -2 : 2), at.y);
+        place(at.x + (creature.clock % 4 < 2 ? -BOSS_GROWTH : BOSS_GROWTH), at.y);
         if (creature.clock >= knobs.shakeTicks) {
           effects.dust(knobs.dustTicks);
           effects.pop(centreX(creature), creature.y - 6, DUST, true);
@@ -137,9 +138,16 @@ export const MOTH_MOTHER: Species = {
     const tone = demade ? canvasPalette.demakeInk : MOTH.palette.w;
     const x = Math.round(creature.x);
     const y = Math.round(creature.y);
-    for (let speck = 0; speck < 6; speck += 1) {
-      const fall = (creature.clock * 2 + speck * 5) % 24;
-      pixel(x + 3 + speck * 5 + (speck % 2), y + HEIGHT - 4 + fall, 1, 1, tone);
+    const size = BOSS_GROWTH / 2;
+    for (let speck = 0; speck < DUST_SPECKS; speck += 1) {
+      const fall = (creature.clock * 2 + speck * 11) % HEIGHT;
+      pixel(
+        x + Math.round(((speck + 0.5) * WIDTH) / DUST_SPECKS) + (speck % 2),
+        y + HEIGHT - 8 + fall,
+        size,
+        size,
+        tone,
+      );
     }
   },
 };

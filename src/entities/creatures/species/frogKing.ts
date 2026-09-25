@@ -1,5 +1,5 @@
 import { gameConfig } from "@core/config/GameConfig";
-import { doubled } from "@entities/creatures/bitmap";
+import { BOSS_GROWTH, grown } from "@entities/creatures/bitmap";
 import {
   FROG,
   FROG_BODY,
@@ -17,7 +17,7 @@ import type { Creature, CreatureSight, Species } from "@entities/creatures/Creat
  * THE FROG KING (SHA-213): the boss at the end of level 25, CASCADE.
  *
  * His subjects sit on a brick and leap when the ball comes near, and die of
- * one hit in the air. He is the same animal twice the size, on the floor of
+ * one hit in the air. He is the same animal four times the size, on the floor of
  * the room now that the wall is gone, and the same rule turned into the whole
  * fight: **sitting, he is armour** — the ball bounces off his back and the hit
  * is refused with a HIDE — **and in the air he is soft.** He hops the floor in
@@ -31,21 +31,21 @@ import type { Creature, CreatureSight, Species } from "@entities/creatures/Creat
  * deck can move. The tongue is drawn for the flick's span, so a ball that
  * suddenly dives was seen to be hit.
  */
-const WIDTH = FROG.width * 2;
-const BODY_HEIGHT = FROG_BODY.length * 2;
-const LEGS_HEIGHT = FROG_LEGS_SIT.length * 2;
+const WIDTH = FROG.width * BOSS_GROWTH;
+const BODY_HEIGHT = FROG_BODY.length * BOSS_GROWTH;
+const LEGS_HEIGHT = FROG_LEGS_SIT.length * BOSS_GROWTH;
 const HEIGHT = BODY_HEIGHT + LEGS_HEIGHT;
 
 const KING_STATE = { ENTER: "enter", SIT: FROG_STATE.SIT, LEAP: FROG_STATE.LEAP } as const;
 const HIDE = "HIDE";
 const LICK = "LICK";
 
-// Where the mouth is on the body: the row of the grin, doubled.
-const MOUTH_Y = 12;
-const TONGUE_THICKNESS = 2;
+// Where the mouth is on the body: the row of the grin, grown.
+const MOUTH_Y = 6 * BOSS_GROWTH;
+const TONGUE_THICKNESS = BOSS_GROWTH;
 
-const LEGS_SIT_BIG = doubled(FROG_LEGS_SIT);
-const LEGS_LEAP_BIG = doubled(FROG_LEGS_LEAP);
+const LEGS_SIT_BIG = grown(FROG_LEGS_SIT);
+const LEGS_LEAP_BIG = grown(FROG_LEGS_LEAP);
 
 function centreX(creature: Creature): number {
   return creature.x + WIDTH / 2;
@@ -61,9 +61,9 @@ function tongueBox(creature: Creature): { x: number; y: number; width: number; h
   const mouthY = creature.y + MOUTH_Y;
   return {
     x: creature.facing === 1 ? creature.x + WIDTH : creature.x - tongueRange,
-    y: mouthY - 4,
+    y: mouthY - 2 * BOSS_GROWTH,
     width: tongueRange,
-    height: 8 + TONGUE_THICKNESS,
+    height: 4 * BOSS_GROWTH + TONGUE_THICKNESS,
   };
 }
 
@@ -89,7 +89,7 @@ export const FROG_KING: Species = {
   tip: "STRIKE HIM IN THE AIR, NEVER NEAR HIS MOUTH",
   lore: "HIS SUBJECTS LEAP; HE MAKES THE FLOOR SHAKE. SITTING, THE KING IS A GREEN BOULDER THE BALL BOUNCES OFF WITH A SCORNFUL HIDE. ONLY IN THE AIR, BETWEEN TWO THUDS, IS HE SOFT. AND NEVER PASS HIS MOUTH: HIS TONGUE FLICKS THE BALL STRAIGHT DOWN, FASTER THAN ANY DECK CAN FOLLOW.",
   solid: true,
-  frames: [doubled(FROG_BODY)],
+  frames: [grown(FROG_BODY)],
   frameTicks: 12,
   palette: FROG.palette,
   demade: FROG.demade,
@@ -174,7 +174,7 @@ export const FROG_KING: Species = {
   },
 
   // The legs by state under the body, in the frog's own way; and the tongue,
-  // red and two pixels thick, from the mouth to the reach while the flick runs.
+  // red and a frog's pixel thick, from the mouth to the reach while the flick runs.
   decorate(pixel, creature, _frame, demade, unit) {
     const legs = creature.state === KING_STATE.LEAP ? LEGS_LEAP_BIG : LEGS_SIT_BIG;
     const tone = creature.flashTicks > 0 ? canvasPalette.deathFlash : BRICK_COLORS["4"].dark;
@@ -187,8 +187,9 @@ export const FROG_KING: Species = {
       const box = tongueBox(creature);
       const red = demade ? canvasPalette.demakeInk : BRICK_COLORS["1"].flat;
       pixel(Math.round(box.x), y + MOUTH_Y, Math.round(box.width), TONGUE_THICKNESS, red);
-      const tipX = creature.facing === 1 ? Math.round(box.x + box.width) - 3 : Math.round(box.x);
-      pixel(tipX, y + MOUTH_Y - 1, 3, TONGUE_THICKNESS + 2, red);
+      const tip = TONGUE_THICKNESS + 2;
+      const tipX = creature.facing === 1 ? Math.round(box.x + box.width) - tip : Math.round(box.x);
+      pixel(tipX, y + MOUTH_Y - 1, tip, TONGUE_THICKNESS + 2, red);
     }
   },
 };

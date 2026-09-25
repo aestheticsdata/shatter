@@ -1,5 +1,5 @@
 import { gameConfig } from "@core/config/GameConfig";
-import { doubled } from "@entities/creatures/bitmap";
+import { BOSS_GROWTH, grown } from "@entities/creatures/bitmap";
 import { JELLYFISH, JELLYFISH_BELL } from "@entities/creatures/species/jellyfish";
 import { CREATURE } from "@interfaces/creatures";
 import { BRICK_COLORS, canvasPalette } from "@render/palette";
@@ -9,10 +9,10 @@ import type { Creature, Species } from "@entities/creatures/Creature";
 /**
  * THE MAN O' WAR (SHA-130): the boss at the end of level 45, BRIDGE.
  *
- * The jellyfish go for the deck; he is the same hunter twice the size, and
- * everything that follows from the size follows. The bell is twice as wide, so
- * the tentacles under it are a curtain the width of half a deck rather than a
- * fringe; they are longer, so they reach the deck from higher up; and a sting
+ * The jellyfish go for the deck; he is the same hunter four times the size, and
+ * everything that follows from the size follows. The bell is four times as
+ * wide, so the tentacles under it are a curtain most of a deck wide rather
+ * than a fringe; they are longer, so they reach the deck from higher up; and a sting
  * from that much of him numbs the deck for twice as long. He is slower on the
  * beat, because a bigger body pushes more water.
  *
@@ -26,15 +26,15 @@ import type { Creature, Species } from "@entities/creatures/Creature";
  * and coming down, flicker on the last stretch over the rail, and go dull when
  * he is spent and on his way back up.
  */
-const BELL = doubled(JELLYFISH_BELL.slice(0, 6));
+const BELL = grown(JELLYFISH_BELL.slice(0, 6));
 const WIDTH = BELL[0].length;
-/** How far the tentacles hang under the bell: twice his children's and then some. */
-const TENTACLES = 20;
+/** How far the tentacles hang under the bell: four times his children's and then some. */
+const TENTACLES = 10 * BOSS_GROWTH;
 const HEIGHT = BELL.length + TENTACLES;
 
 /** The rim row, where every strand starts, and the strands' columns under it. */
 const RIM = BELL.length - 1;
-const STRANDS = [2, 6, 10, 14] as const;
+const STRANDS = [1, 3, 5, 7].map((column) => column * BOSS_GROWTH);
 
 const MAN_STATE = { ENTER: "enter", REST: "rest", SINK: "sink", HOVER: "hover", RISE: "rise" } as const;
 const STING = "STING";
@@ -74,7 +74,7 @@ export const MAN_O_WAR: Species = {
     return gameConfig.creatures.manOWar.killPoints;
   },
   tip: "EVERY HIT SENDS HIM BACK UP",
-  lore: "THE FATHER OF EVERY JELLYFISH, TWICE AS WIDE, WITH A CURTAIN OF TENTACLES TWICE AS LONG. HE SINKS STRAIGHT FOR YOUR DECK, AND ONE TOUCH NUMBS IT FOR TWICE AS LONG AS HIS CHILDREN CAN. EVERY HIT KNOCKS HIM BACK TO THE TOP, SPENT, BUT HE ALWAYS COMES DOWN AGAIN.",
+  lore: "THE FATHER OF EVERY JELLYFISH, FOUR TIMES AS WIDE, WITH A CURTAIN OF TENTACLES FOUR TIMES AS LONG. HE SINKS STRAIGHT FOR YOUR DECK, AND ONE TOUCH NUMBS IT FOR TWICE AS LONG AS HIS CHILDREN CAN. EVERY HIT KNOCKS HIM BACK TO THE TOP, SPENT, BUT HE ALWAYS COMES DOWN AGAIN.",
   solid: false,
   frames: [[...BELL, ...Array.from({ length: TENTACLES }, () => ".".repeat(WIDTH))]],
   frameTicks: 12,
@@ -139,7 +139,7 @@ export const MAN_O_WAR: Species = {
           }
         }
         const tips = creature.y + HEIGHT;
-        if (tips >= deck.y && creature.x + 2 < deck.right && creature.x + WIDTH - 2 > deck.left) {
+        if (tips >= deck.y && creature.x + BOSS_GROWTH < deck.right && creature.x + WIDTH - BOSS_GROWTH > deck.left) {
           effects.stingDeck(knobs.stingTicks);
           effects.pop(centre, deck.y - 10, STING, true);
           settle(MAN_STATE.RISE);
@@ -159,7 +159,7 @@ export const MAN_O_WAR: Species = {
     return false;
   },
 
-  // His children's tentacles at his size: two pixels a strand, twenty long,
+  // His children's tentacles at his size: a jellyfish's pixel a strand, forty long,
   // straight behind the thrust and swaying on the sink; the tips lit while he
   // is armed, flickering over the rail, dull when he is spent.
   decorate(pixel, creature, _frame, demade, unit) {
@@ -179,19 +179,19 @@ export const MAN_O_WAR: Species = {
         : armed && !flicker
           ? canvasPalette.wallLight
           : BRICK_COLORS["1"].light;
-    const length = thrust ? TENTACLES - 1 : TENTACLES - 5;
-    const thickness = unit > 1 ? 4 / unit : 2;
+    const length = thrust ? TENTACLES - BOSS_GROWTH / 2 : TENTACLES - (5 * BOSS_GROWTH) / 2;
+    const thickness = unit > 1 ? (2 * BOSS_GROWTH) / unit : BOSS_GROWTH;
     const steps = length * unit;
     for (const [index, column] of STRANDS.entries()) {
       for (let step = 0; step < steps; step += 1) {
         const depth = step / unit;
-        const reach = thrust ? 0 : (depth / length) * 2.4;
+        const reach = thrust ? 0 : (depth / length) * 1.2 * BOSS_GROWTH;
         const sway = Math.sin(cycle * Math.PI * 2 + depth * 0.5 + index * 1.7) * reach;
         const offset = Math.round(sway * unit) / unit;
         if (demade && !armed && Math.floor(depth / 2) % 2 === 1) {
           continue;
         }
-        const last = depth >= length - 3;
+        const last = depth >= length - (3 * BOSS_GROWTH) / 2;
         pixel(x + column + offset, y + RIM + 1 + depth, thickness, 1 / unit, last ? tip : strand);
       }
     }

@@ -1,5 +1,5 @@
 import { gameConfig } from "@core/config/GameConfig";
-import { doubled, flipped } from "@entities/creatures/bitmap";
+import { BOSS_GROWTH, flipped, grown } from "@entities/creatures/bitmap";
 import { SNAIL, SNAIL_FRAMES } from "@entities/creatures/species/snail";
 import { CREATURE } from "@interfaces/creatures";
 import { BRICK_COLORS, canvasPalette } from "@render/palette";
@@ -10,7 +10,7 @@ import type { Creature, Species } from "@entities/creatures/Creature";
  * THE SNAIL ELDER (SHA-213): the boss at the end of level 35, PACHINKO.
  *
  * The snails mend the wall: a hit point back on every brick they cross. He is
- * the same mason twice the size and, with no wall left to mend, he builds one.
+ * the same mason four times the size and, with no wall left to mend, he builds one.
  * He crawls the ceiling upside down, end to end and back, and under every
  * column he passes he lays a brick in the top rows — first the top row, then
  * the one under it, then the top again where it has been broken — so the wall
@@ -23,14 +23,16 @@ import type { Creature, Species } from "@entities/creatures/Creature";
  * stalks hanging down, takes the hit. He is slow, which is the whole fairness
  * of it: there is always time to break through to where he is going.
  */
-const WIDTH = SNAIL.width * 2;
-const HEIGHT = SNAIL.height * 2;
+const WIDTH = SNAIL.width * BOSS_GROWTH;
+const HEIGHT = SNAIL.height * BOSS_GROWTH;
 
 const ELDER_STATE = { ENTER: "enter", CRAWL: "crawl" } as const;
 const SHELL = "SHELL";
 
-const STALK_INSETS: readonly number[] = [0, 4];
-const STALK_HEIGHT = 12;
+// In the snail's own pixels, grown with him.
+const STALK_INSETS: readonly number[] = [0, 2 * BOSS_GROWTH];
+const STALK_HEIGHT = 6 * BOSS_GROWTH;
+const STALK_WIDTH = BOSS_GROWTH;
 
 function centreX(creature: Creature): number {
   return creature.x + WIDTH / 2;
@@ -58,7 +60,7 @@ export const SNAIL_ELDER: Species = {
   lore: "THE OLDEST MASON OF ALL, CRAWLING UPSIDE DOWN ACROSS THE CEILING. WITH NO WALL LEFT TO MEND, HE BUILDS A NEW ONE: A BRICK UNDER EVERY COLUMN HE PASSES, ROW AFTER ROW, SO THE WALL YOU TORE DOWN GROWS BACK OVER YOUR HEAD. HIS SHELL SHRUGS OFF THE BALL. ONLY HIS HEAD CAN BE HURT.",
   solid: true,
   // The snail's own two frames, a size up and the right way up for a ceiling.
-  frames: SNAIL_FRAMES.map((rows) => flipped(doubled(rows))),
+  frames: SNAIL_FRAMES.map((rows) => flipped(grown(rows))),
   frameTicks: 14,
   palette: SNAIL.palette,
   demade: SNAIL.demade,
@@ -117,19 +119,19 @@ export const SNAIL_ELDER: Species = {
     return head ? null : SHELL;
   },
 
-  // The stalks, hanging from the ceiling end on the head side, two pixels
-  // wide at his size, an eye at the tip in the silver's light.
+  // The stalks, hanging from the ceiling end on the head side, a snail's
+  // pixel wide at his size, an eye at the tip in the silver's light.
   decorate(pixel, creature, frame, demade) {
     const x = Math.round(creature.x);
     const y = Math.round(creature.y);
     const stalk = demade ? canvasPalette.demakeInk : BRICK_COLORS["2"].light;
     const eye = demade ? canvasPalette.demakeInk : BRICK_COLORS.S.light;
-    const head = creature.facing === 1 ? WIDTH - 2 : 0;
+    const head = creature.facing === 1 ? WIDTH - STALK_WIDTH : 0;
     const sway = Math.floor(frame / SNAIL_ELDER.frameTicks) % 2 === 0 ? 0 : -creature.facing;
     for (const inset of STALK_INSETS) {
       const column = x + head - creature.facing * inset;
-      pixel(column, y + 2, 2, STALK_HEIGHT - 2, stalk);
-      pixel(column + sway, y + STALK_HEIGHT, 2, 2, eye);
+      pixel(column, y + STALK_WIDTH, STALK_WIDTH, STALK_HEIGHT - STALK_WIDTH, stalk);
+      pixel(column + sway * STALK_WIDTH, y + STALK_HEIGHT, STALK_WIDTH, STALK_WIDTH, eye);
     }
   },
 };
