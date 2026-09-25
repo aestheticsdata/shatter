@@ -3,6 +3,7 @@ import { gameConfig } from "@core/config/GameConfig";
 import { wordRows } from "@core/levels/wordFont";
 import { CREATURE } from "@interfaces/creatures";
 import { EYE_ACT, EYE_LAYER, EYE_PATH, EYE_WATCH } from "@interfaces/eye";
+import { PARTICLE } from "@interfaces/particles";
 
 import type { LevelDefinition, SeededDrop } from "@interfaces/types";
 
@@ -460,6 +461,13 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "ORBIT",
     background: "starfield",
     rows: ["....5555....", "..55....55..", ".5..GGGG..5.", ".5..GGGG..5.", "..55....55..", "....5555...."],
+    // THE CHAMBER (SHA-184): the layout was already drawing an orbit, and these
+    // are the two things on it — an electron on each of the gold core's
+    // opposite corners, in orbit before the ball is launched.
+    inhabitants: [
+      { kind: PARTICLE.ELECTRON, row: 2, column: 4 },
+      { kind: PARTICLE.ELECTRON, row: 3, column: 7 },
+    ],
     // A moon on the ring's path: small and dim behind the wall at the top of its
     // orbit, big and solid down by the deck at the bottom.
     eye: {

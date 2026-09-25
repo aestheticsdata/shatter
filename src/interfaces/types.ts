@@ -2,6 +2,7 @@ import type { BrickKind } from "@core/config/bricks";
 import type { PowerUpKind } from "@core/config/powerUps";
 import type { CreaturePin } from "@interfaces/creatures";
 import type { EYE_ACT, EyeLayer, EyePathMode, EyeWatch } from "@interfaces/eye";
+import type { ParticlePin } from "@interfaces/particles";
 
 export interface Vector2D {
   x: number;
@@ -442,6 +443,9 @@ export interface LevelDefinition {
   // THE BESTIARY (SHA-207): this level's creatures, species and pins. From
   // level 1, and each level's own — the veils keep their brood beside these.
   creatures?: readonly CreaturePin[];
+  // THE CHAMBER (SHA-184): particles the level is built with, in on its first
+  // serve and counted against the cap. ORBIT's two electrons, so far.
+  inhabitants?: readonly ParticlePin[];
   // Empty on all but three: SUPER MAZE, whose two LASERs are the only way
   // through a wall of 4-hit granite in anything under a very long while;
   // HOURGLASS, whose TEMPO and STASIS on the spine are the ticket's promise

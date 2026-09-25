@@ -66,7 +66,7 @@ import type { TraceRules } from "@core/ballTrace";
 import type { ComboId } from "@core/config/combos";
 import type { Creature, CreatureEffects, CreatureSight } from "@entities/creatures/Creature";
 import type { Beast } from "@entities/effects/Brood";
-import type { Cell, Quantum } from "@entities/effects/Chamber";
+import type { Cell, ChamberField, Quantum } from "@entities/effects/Chamber";
 import type { EyeSight } from "@entities/effects/Observer";
 import type { Landing } from "@entities/effects/Slump";
 import type { EchoContact } from "@entities/effects/Superposition";
@@ -1403,7 +1403,7 @@ export class ShatterGame {
     }
     if (this.screen === SCREEN.SERVE) {
       // The room after a lost ball, dimming out, and a gate finishing its close.
-      this.chamber.stepIdle();
+      this.chamber.stepIdle(this.chamberField());
       this.balls[0].followPaddle(this.paddle);
       return;
     }
@@ -5904,26 +5904,33 @@ export class ShatterGame {
     if (this.inside.active) {
       return;
     }
-    if (this.chamber.tickClock(this.paddle.centerX)) {
+    // A level's free pins first, on the first ticks of play (SHA-184), then
+    // the clock.
+    if (this.chamber.letIn(this.paddle.centerX) || this.chamber.tickClock(this.paddle.centerX)) {
       this.deps.sfx.gateOpens();
     }
+    if (this.ward !== null && --this.ward.ticks <= 0) {
+      this.ward = null;
+    }
+    const { freed } = this.chamber.step(this.chamberField());
+    if (freed > 0) {
+      this.deps.sfx.photonLaunch();
+    }
+  }
+
+  /** The room as the chamber sees it this tick. */
+  private chamberField(): ChamberField {
     // GHOST's wall is not there for particles either, and for the ball's
     // reason: a photon rebounding off an invisible brick is the one bug the
     // capsule could not survive.
     const phasing = this.timers.isActive("GH");
-    if (this.ward !== null && --this.ward.ticks <= 0) {
-      this.ward = null;
-    }
-    const { freed } = this.chamber.step({
+    return {
       solid: (x, y) => !phasing && this.grid.cellAt(x, y) !== null,
       deck: this.paddleSegments(),
       held: this.timers.isActive("I"),
       pickHost: (x, y, taken) => this.heaviestBrickNear(x, y, taken),
       hostCentre: (row, column) => this.brickCentre(row, column),
-    });
-    if (freed > 0) {
-      this.deps.sfx.photonLaunch();
-    }
+    };
   }
 
   /**
@@ -8179,6 +8186,9 @@ export class ShatterGame {
     this.grid.sheet = this.wallOffsets;
     this.grid.fence = this.fence;
     this.resetServe();
+    // THE CHAMBER's pins (SHA-184), after the serve's reset and before the
+    // player has the field: the level's own inhabitants are part of the level.
+    this.chamber.pin(definition.inhabitants ?? [], (row, column) => this.brickCentre(row, column));
   }
 
   private resetServe(): void {

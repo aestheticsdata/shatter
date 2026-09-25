@@ -23,3 +23,14 @@ export const GATE_SIDE = {
 } as const;
 
 export type GateSide = (typeof GATE_SIDE)[keyof typeof GATE_SIDE];
+
+/**
+ * One of a level's own inhabitants (SHA-184): a species, and for an electron
+ * the brick it orbits, by the cell it is typed in. Everything else pinned comes
+ * through the far gate at the first launch.
+ */
+export interface ParticlePin {
+  kind: ParticleKind;
+  row?: number;
+  column?: number;
+}

@@ -21,6 +21,10 @@
 //      levels after it are handed back untouched.
 //   5. The tier shares are what the config claims — in particular traps near
 //      the 17 % the roster has always been aimed at.
+//   6. A pinned electron orbits a real brick (SHA-184). A level's inhabitants
+//      are placed by cell the way its seeded drops are, and an electron pinned
+//      on air would be a shield round nothing, freed as a photon on its first
+//      tick.
 //
 // Run with: pnpm run check:drops
 import { registerHooks } from "node:module";
@@ -231,6 +235,24 @@ for (const level of [1, 2, 7, LEVELS.length]) {
   }
 }
 
+// ---- 6. A pinned electron orbits a real brick. -------------------------------
+let pinnedElectrons = 0;
+for (const level of LEVELS) {
+  for (const pin of level.inhabitants ?? []) {
+    if (pin.kind !== "electron" || (pin.row === undefined && pin.column === undefined)) {
+      continue;
+    }
+    pinnedElectrons++;
+    if (pin.row === undefined || pin.column === undefined) {
+      failures.push(`${level.name} pins an electron with half a cell: row ${pin.row}, column ${pin.column}`);
+      continue;
+    }
+    if (!isBrickKind(level.rows[pin.row]?.[pin.column] ?? ".")) {
+      failures.push(`${level.name} pins an electron on air at row ${pin.row}, column ${pin.column}`);
+    }
+  }
+}
+
 // ---- 5. Tier shares, and traps in particular. ------------------------------
 const tierRows = [];
 for (const [tier, tickets] of Object.entries(TIER_TICKETS)) {
@@ -280,4 +302,7 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("Every capsule comes out of each pass, no drought outlasts two, and level 1 always holds a DEMAKE.");
+console.log(
+  "Every capsule comes out of each pass, no drought outlasts two, level 1 always holds a DEMAKE, " +
+    `and all ${pinnedElectrons} pinned electrons orbit a brick.`,
+);

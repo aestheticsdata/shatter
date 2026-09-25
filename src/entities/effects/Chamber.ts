@@ -2,7 +2,7 @@ import { gameConfig } from "@core/config/GameConfig";
 import { PARTICLES } from "@core/config/particles";
 import { GATE_SIDE, PARTICLE } from "@interfaces/particles";
 
-import type { GateSide, ParticleKind } from "@interfaces/particles";
+import type { GateSide, ParticleKind, ParticlePin } from "@interfaces/particles";
 import type { RectangleBounds } from "@interfaces/types";
 
 /**
@@ -136,10 +136,12 @@ export class Chamber {
   // The bag: one ticket per species this depth allows, reshuffled when empty.
   private bag: ParticleKind[] = [];
   private allowed: readonly ParticleKind[] = [];
+  // A level's free pins, waiting for the first launch and then for a gate.
+  private waiting: ParticleKind[] = [];
 
   /** Whether anything is on the field or on its way in. */
   get live(): boolean {
-    return this.quanta.length > 0 || this.gates.some((gate) => gate.pending !== null);
+    return this.quanta.length > 0 || this.waiting.length > 0 || this.gates.some((gate) => gate.pending !== null);
   }
 
   /**
@@ -158,7 +160,7 @@ export class Chamber {
         count++;
       }
     }
-    return count;
+    return count + this.waiting.length;
   }
 
   /**
@@ -200,10 +202,52 @@ export class Chamber {
         gate.phase = GATE_PHASE.CLOSING;
       }
     }
+    this.waiting = [];
     this.clock = firstTicks;
   }
 
+  /**
+   * A level's inhabitants, on its first serve (SHA-184).
+   *
+   * **An electron is already in orbit when the player first sees the level** —
+   * it is part of how the level is built, and a shield the player watches arrive
+   * after launching is a shield they had no chance to read. It fades in on its
+   * ring during the serve. Everything else waits for the first launch and comes
+   * through the far gate, one a gate.
+   */
+  pin(pins: readonly ParticlePin[], hostCentre: ChamberField["hostCentre"]): void {
+    const { radius } = gameConfig.particles.electron;
+    const { arriveTicks } = gameConfig.particles;
+    for (const pin of pins) {
+      if (pin.kind !== PARTICLE.ELECTRON || pin.row === undefined || pin.column === undefined) {
+        this.waiting.push(pin.kind);
+        continue;
+      }
+      const centre = hostCentre(pin.row, pin.column);
+      if (centre === null) {
+        continue;
+      }
+      const electron = fresh(PARTICLE.ELECTRON, centre.x, centre.y, radius);
+      electron.hostRow = pin.row;
+      electron.hostColumn = pin.column;
+      electron.orbitTicks = 1;
+      electron.arriveTicks = arriveTicks;
+      this.quanta.push(electron);
+    }
+  }
+
+  /** The waiting pins, through whichever gates are free. `true` if one opened. */
+  letIn(deckCenterX: number): boolean {
+    let opened = false;
+    while (this.waiting.length > 0 && this.release(this.waiting[0], deckCenterX)) {
+      this.waiting.shift();
+      opened = true;
+    }
+    return opened;
+  }
+
   reset(): void {
+    this.waiting = [];
     this.quanta.length = 0;
     this.flashes.length = 0;
     for (const gate of this.gates) {
@@ -282,7 +326,7 @@ export class Chamber {
    * moves while the ball is still on the deck, and a gate halfway through
    * closing behind a lost ball finishes closing in front of the player.
    */
-  stepIdle(): void {
+  stepIdle(field: ChamberField): void {
     for (const gate of this.gates) {
       if (gate.phase === GATE_PHASE.CLOSING) {
         this.stepGate(gate);
@@ -290,6 +334,11 @@ export class Chamber {
     }
     for (const quantum of this.quanta) {
       this.stepFades(quantum);
+      // A pinned electron keeps turning on the serve: the shield is read
+      // before the launch, and a still one reads as a painted dot.
+      if (quantum.kind === PARTICLE.ELECTRON && quantum.orbitTicks > 0 && !quantum.dead && quantum.leaveTicks === 0) {
+        this.stepElectron(quantum, field);
+      }
     }
     this.sweep();
   }
