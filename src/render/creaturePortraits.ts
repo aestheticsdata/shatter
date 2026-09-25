@@ -35,8 +35,9 @@ const AT = 8;
 // The beetle's loop: on its feet, then on its back.
 const BEETLE_WALK = 300;
 const BEETLE_CYCLE = BEETLE_WALK + gameConfig.creatures.beetle.flipTicks;
-// How tall the vine is grown, and how much the crab is carrying.
-const VINE_SEGMENTS = 5;
+// How tall the vine is grown — four, so it stands in the book's ordinary
+// window (SHA-257) — and how much the crab is carrying.
+const VINE_SEGMENTS = 4;
 const CRAB_PIPS = 2;
 // The air between two of the brood's forms.
 const BROOD_GAP = 4;

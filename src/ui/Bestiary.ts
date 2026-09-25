@@ -47,10 +47,20 @@ export const STATS_GAP = 8;
  * a moth here because it is bigger than a moth on the field.
  */
 const PORTRAIT_ZOOM = 3;
-// The box the creature has inside its panel, in stage pixels. Every portrait
-// fits it at `PORTRAIT_ZOOM` today; a bigger one would be drawn smaller rather
-// than spill out of its window.
-const PORTRAIT_BOX = { width: 144, height: 208 } as const;
+/**
+ * The creature's window, in stage pixels, border included (SHA-257): half the
+ * 168×240 column it stands in, which at ×3 still leaves every ordinary species
+ * room around it. One that needs more (a boss, the brood) gets a window cut to
+ * it with `FRAME_MARGIN` all round, so its window is bigger because it is.
+ */
+const FRAME = { width: 84, height: 120 } as const;
+const FRAME_MARGIN = 12;
+// `.creature-stage`'s border, which the creature is set inside.
+const FRAME_BORDER = 1;
+// The most a creature can measure: the whole column less the margin. Every
+// portrait fits it at `PORTRAIT_ZOOM` today; a bigger one would be drawn
+// smaller rather than spill out of the page.
+const PORTRAIT_BOX = { width: 168 - 2 * FRAME_MARGIN, height: 240 - 2 * FRAME_MARGIN } as const;
 // How finely the portrait's loop is sampled to find everything it covers.
 // Every clock a portrait keeps turns over on a multiple of this or faster than
 // it, and a frog's hop peaks on frame 138 of its loop, which is one.
@@ -171,6 +181,10 @@ export function creatureStats(entry: BestiaryEntry): readonly (readonly [string,
     ],
     ["WORTH", worth],
   ];
+}
+
+function even(length: number): number {
+  return 2 * Math.ceil(length / 2);
 }
 
 // `readable` for the scratch room the trim reads back, and only for it: the
@@ -309,7 +323,7 @@ export class Bestiary {
     this.elements.facts.textContent = "CLICK TO RETURN";
   }
 
-  // The panel on the left, with the creature in it at `PORTRAIT_ZOOM`.
+  // The window on the left, with the creature in it at `PORTRAIT_ZOOM`.
   private stage(entry: BestiaryEntry): HTMLElement {
     const hd = this.art() !== ART_MODE.CLASSIC;
     const key = `${hd ? "hd" : "classic"}:${entry.kind}`;
@@ -328,13 +342,26 @@ export class Bestiary {
       1,
       Math.min(PORTRAIT_ZOOM, Math.floor(Math.min(PORTRAIT_BOX.width / real.width, PORTRAIT_BOX.height / real.height))),
     );
-    canvas.style.width = `${real.width * zoom}px`;
-    canvas.style.height = `${real.height * zoom}px`;
+    const shown = { width: real.width * zoom, height: real.height * zoom };
+    canvas.style.width = `${shown.width}px`;
+    canvas.style.height = `${shown.height}px`;
     this.portrait = { canvas, kind: entry.kind, trim, hd };
     this.paintPortrait();
 
+    // Even, so the column's centring puts the window on whole pixels; and the
+    // creature set in it by hand, rounded down, where centring would split an
+    // odd leftover into two half pixels and smear every edge of the sprite.
+    const frame = {
+      width: even(Math.max(FRAME.width, shown.width + 2 * FRAME_MARGIN)),
+      height: even(Math.max(FRAME.height, shown.height + 2 * FRAME_MARGIN)),
+    };
+    canvas.style.marginLeft = `${Math.floor((frame.width - 2 * FRAME_BORDER - shown.width) / 2)}px`;
+    canvas.style.marginTop = `${Math.floor((frame.height - 2 * FRAME_BORDER - shown.height) / 2)}px`;
+
     const stage = document.createElement("div");
     stage.className = "creature-stage";
+    stage.style.width = `${frame.width}px`;
+    stage.style.height = `${frame.height}px`;
     stage.appendChild(canvas);
     return stage;
   }

@@ -1166,11 +1166,15 @@
 }
 
 /* The creature's own window: the field's blue behind it, framed in the rule's
-   blue, so it reads as a thing on show rather than a sprite on the page. */
+   blue, so it reads as a thing on show rather than a sprite on the page. Its
+   size is set on the element — half the column, or the creature and its margin
+   when that is bigger (SHA-257) — and it sits in the middle of the column. The
+   creature is placed in it on whole pixels by `@ui/Bestiary`, which also holds
+   this border's width as `FRAME_BORDER`. */
 .creature-stage {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  box-sizing: border-box;
+  align-self: center;
+  justify-self: center;
   background: var(--color-field);
   border: 1px solid var(--color-title-divider);
 }
