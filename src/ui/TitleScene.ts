@@ -91,7 +91,7 @@ export class TitleScene {
   /** One frame: the eye steps toward the pointer (stage pixels) and the dial turns. */
   draw(pointer: { x: number; y: number }): void {
     this.frame += 1;
-    this.eye.step(pointer, { standing: () => false });
+    this.eye.step(pointer, { standing: () => false, wallFraction: 0, ball: null });
     // Anything but classic paints the fine grid — under `split` the title is
     // not the arena and has no half to give, so it takes the new art, as the
     // galleries do.

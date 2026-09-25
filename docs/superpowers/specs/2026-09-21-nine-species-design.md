@@ -408,6 +408,17 @@ thirteen species, to the placements spec's own rules:
 A guard script in the shape of `check:backgrounds` verifies the adjacency and
 the cap, so the rule is machine-checked rather than eyeballed over 43 levels.
 
+**Dealt** (SHA-247): 126 creatures across the 38 ordinary levels, 3–4 each:
+MOTH 16, FROG 14, FIREFLY 12, SPIDER 11, BEETLE 10, JELLYFISH 10, WISP 9,
+SNAIL 8, WOODPECKER 8, VINE 8, CRAB 8, BAT 7, SLUG 5. Each new species keeps
+the level its own ticket picked for it. Series I gets the gentle ones and the
+three named slots, series II adds the ally, the beetle and the vine, and the
+deck-takers start at 21. `pnpm run check:bestiary` holds all of that. It also
+checks each pin is somewhere its species can live — frogs and snails on a brick
+with air above, bats under a brick with air below, the band's creatures under
+the wall. That check found a SHA-210 frog on PLAY that had been floating in
+mid-air since it was placed.
+
 ## Out of scope
 
 - **Bosses for the nine.** The rule since 2026-09-20 is that every boss is a

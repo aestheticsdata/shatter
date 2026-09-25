@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "check:backgrounds": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/check-backgrounds.mjs",
+    "check:bestiary": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/check-bestiary.mjs",
     "check:drops": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/check-drops.mjs",
     "check:pix": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/check-pix.mjs",
     "lint": "oxlint .",

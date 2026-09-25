@@ -20,3 +20,16 @@ export const EYE_TINT = {
 } as const;
 
 export type EyeTint = (typeof EYE_TINT)[keyof typeof EYE_TINT];
+
+/**
+ * What a placed eye does, when it does anything (SHA-200 on). A handful of
+ * shared tricks that the thirty-eight ordinary levels are built out of; a
+ * level names at most one, and a name joins this list the day its trick lands.
+ */
+export const EYE_ACT = {
+  RISE: "rise",
+  PATROL: "patrol",
+  PULSE: "pulse",
+} as const;
+
+export type EyeActKind = (typeof EYE_ACT)[keyof typeof EYE_ACT];

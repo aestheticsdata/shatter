@@ -226,6 +226,7 @@ pnpm run fmt:check
 pnpm run lint
 pnpm run typecheck
 pnpm run check:backgrounds
+pnpm run check:bestiary
 ```
 
 Auto-fix formatting and lint issues:
@@ -345,6 +346,7 @@ scripts/
   deploy.sh          # Deploy the game + rollback (auto/manual)
   deploy-api.sh      # Deploy shatter-api (rsync + pnpm install + pm2 reload)
   check-backgrounds.mjs # Background readability + level-assignment guard (pnpm run check:backgrounds)
+  check-bestiary.mjs # Creature deal guard: per-level count, neighbours, cap, pin geometry (pnpm run check:bestiary)
 ```
 
 ### Engine details

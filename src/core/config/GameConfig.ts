@@ -1554,6 +1554,18 @@ export const gameConfig = {
       pupilRadius: 0.34,
       // How much of the remaining distance the look closes each tick.
       trackEase: 0.35,
+      // THE RISE (SHA-200): how much of the way to where the wall says it
+      // should be the eye closes each tick. A brick moves it on over about
+      // half a second, so each one is a nudge rather than a jump.
+      riseEase: 0.08,
+      // THE PATROL (SHA-202): how much of the way to its cruising speed the
+      // eye closes each tick — about a third of a second to start or stop —
+      // and how many pixels from the end of its beat it starts slowing.
+      patrolEase: 0.12,
+      patrolBrake: 14,
+      // THE PULSE (SHA-203): the share of each beat spent swelling; the rest
+      // is the let-go.
+      pulseRise: 0.2,
     },
     /**
      * THE ZODIAC RING (SHA-211): the dial round the eye, from the mockup —

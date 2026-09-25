@@ -1,8 +1,8 @@
 import { gameConfig } from "@core/config/GameConfig";
-import { EYE_LAYER, EYE_TINT } from "@interfaces/eye";
+import { EYE_ACT, EYE_LAYER, EYE_TINT } from "@interfaces/eye";
 
 import type { EyeLayer, EyeTint } from "@interfaces/eye";
-import type { EyePlacement, FieldRect, ObserverDefinition } from "@interfaces/types";
+import type { EyeAct, EyePlacement, FieldRect, ObserverDefinition } from "@interfaces/types";
 
 /** A socket: where the almond is, and how big. */
 export interface EyeSocket {
@@ -45,12 +45,21 @@ export function eyePupilPoint(
   };
 }
 
+/** Whether a point is inside a field rectangle. */
+export function insideRect(rect: FieldRect, point: { x: number; y: number }): boolean {
+  return point.x >= rect.x && point.x < rect.x + rect.w && point.y >= rect.y && point.y < rect.y + rect.h;
+}
+
 /**
  * What a placed eye reads off the level each tick (SHA-188). The game builds
  * it; the eye never touches the grid.
  */
 export interface EyeSight {
   standing(column: number, row: number): boolean;
+  /** How much of the wall is gone: 0 fresh, 1 on the last brick (SHA-200). */
+  wallFraction: number;
+  /** The ball in flight nearest the eye, or null on a serve (SHA-202). */
+  ball: { x: number; y: number } | null;
 }
 
 /** A brick-hosted eye's socket: centred on its cell, at the placement's size. */
@@ -133,6 +142,25 @@ export class Observer {
    * back but the next level.
    */
   private empty = false;
+  /**
+   * THE RISE (SHA-200): how far the eye has ridden the wall down, eased toward
+   * the share of it broken — so a brick moves it on over a few ticks rather
+   * than in a jump, and a brick put back (a snail's mortar, a vine's lay)
+   * lets it sink the same way.
+   */
+  private fraction = 0;
+  /** Whether it was tracking last tick: the tick it wakes is a blink. */
+  private wasAwake = true;
+  /**
+   * THE PATROL (SHA-202): how far along its beat, 0 at rest to 1 at `to`,
+   * which way it is headed, and its speed in pixels a tick — eased, so it
+   * slows into a turn and into a hold rather than stopping dead.
+   */
+  private travel = 0;
+  private travelDir: 1 | -1 = 1;
+  private travelSpeed = 0;
+  /** THE PULSE (SHA-203): ticks since the level loaded, which is the beat's clock. */
+  private clock = 0;
 
   get live(): boolean {
     return this.definition !== null || this.placement !== null;
@@ -156,7 +184,64 @@ export class Observer {
       return null;
     }
     const cell = this.hostCell;
-    return cell ? cellSocket(cell, placed.hw, placed.hh) : { x: placed.x, y: placed.y, hw: placed.hw, hh: placed.hh };
+    return cell ? cellSocket(cell, placed.hw, placed.hh) : this.posture(placed);
+  }
+
+  /** The placement's act, or null when it only sits and watches. */
+  get act(): EyeAct | null {
+    return this.placement?.act ?? null;
+  }
+
+  /**
+   * Whether the look follows the ball. Only THE RISE ever says no, and only
+   * until its wall is far enough down: a dead stare straight out is the tell
+   * that the eye has not noticed you yet.
+   */
+  get awake(): boolean {
+    const act = this.placement?.act;
+    return act?.kind === EYE_ACT.RISE && act.wakeAt !== undefined ? this.fraction >= act.wakeAt : true;
+  }
+
+  /**
+   * THE PULSE's phase, 0 at rest and 1 at the top of the thump: a fast rise
+   * over the first fifth of the beat and a slow let-go over the rest, both
+   * eased, so the eye swells like a muscle rather than ticking like a gauge.
+   */
+  private beat(period: number): number {
+    const phase = (this.clock % period) / period;
+    const rise = gameConfig.observer.eye.pulseRise;
+    return phase < rise
+      ? Math.sin(((phase / rise) * Math.PI) / 2)
+      : (1 + Math.cos(((phase - rise) / (1 - rise)) * Math.PI)) / 2;
+  }
+
+  /** The placement's socket after its act has moved it this frame. */
+  private posture(placed: EyePlacement): EyeSocket {
+    const rest = { x: placed.x, y: placed.y, hw: placed.hw, hh: placed.hh };
+    const act = placed.act;
+    if (act?.kind === EYE_ACT.PULSE) {
+      const swell = 1 + (act.scale - 1) * this.beat(act.period);
+      return { x: rest.x, y: rest.y, hw: Math.round(rest.hw * swell), hh: Math.round(rest.hh * swell) };
+    }
+    if (act?.kind === EYE_ACT.PATROL) {
+      return {
+        x: Math.round(rest.x + (act.to.x - rest.x) * this.travel),
+        y: Math.round(rest.y + (act.to.y - rest.y) * this.travel),
+        hw: rest.hw,
+        hh: rest.hh,
+      };
+    }
+    if (act?.kind !== EYE_ACT.RISE || !act.to) {
+      return rest;
+    }
+    // Whole pixels: the eye climbs a pixel at a time, never a smear of them.
+    const ride = (from: number, to: number | undefined) => Math.round(from + ((to ?? from) - from) * this.fraction);
+    return {
+      x: ride(rest.x, act.to.x),
+      y: ride(rest.y, act.to.y),
+      hw: ride(rest.hw, act.to.hw),
+      hh: ride(rest.hh, act.to.hh),
+    };
   }
 
   /** In front of the wall while it is in a brick — it is drawn on the brick's face. */
@@ -165,7 +250,16 @@ export class Observer {
   }
 
   get opacity(): number {
-    return this.placement?.opacity ?? 1;
+    const placed = this.placement;
+    if (!placed) {
+      return 1;
+    }
+    const base = placed.opacity ?? 1;
+    const act = placed.act;
+    if (act?.kind === EYE_ACT.RISE && act.to?.opacity !== undefined) {
+      return base + (act.to.opacity - base) * this.fraction;
+    }
+    return base;
   }
 
   /** The brick's face while it is in one; otherwise whatever window the level gave it. */
@@ -269,6 +363,12 @@ export class Observer {
     this.cellHeld = (this.placement?.cells?.length ?? 0) > 0;
     this.pendingCell = null;
     this.empty = false;
+    this.fraction = 0;
+    this.wasAwake = this.awake;
+    this.travel = 0;
+    this.travelDir = 1;
+    this.travelSpeed = 0;
+    this.clock = 0;
     this.blinkLeft = 0;
     this.nextBlink = this.drawNextBlink();
     this.stars.length = 0;
@@ -305,6 +405,7 @@ export class Observer {
     }
     const { blinkTicks } = gameConfig.observer.eye;
     let blinked = false;
+    this.clock += 1;
     // THE LID does not blink, shut or woken: the clock is skipped rather than
     // having its result thrown away by `open`, so an eye that is later opened
     // by something else cannot come up mid-blink from a lid nobody watched.
@@ -313,6 +414,8 @@ export class Observer {
       return false;
     }
     this.stepHost(sight);
+    this.stepRise(sight);
+    this.stepPatrol(sight);
     if (this.blinkLeft > 0) {
       this.blinkLeft -= 1;
       // A hop lands at the bottom of the blink: shut here, open there.
@@ -329,8 +432,29 @@ export class Observer {
       this.nextBlink = this.drawNextBlink();
       blinked = true;
     }
-    this.lookAt(at);
+    // Asleep, the look is on the socket's own centre — straight out.
+    this.lookAt(this.awake ? at : null);
     return blinked;
+  }
+
+  /**
+   * THE RISE (SHA-200): ride the wall, and wake on a blink. The blink is the
+   * eye noticing you — without it the pupil would simply start drifting
+   * toward the ball, and a look that changes without the face doing anything
+   * reads as a glitch rather than as something waking up.
+   */
+  private stepRise(sight: EyeSight): void {
+    if (this.placement?.act?.kind !== EYE_ACT.RISE) {
+      return;
+    }
+    const target = Math.max(0, Math.min(1, sight.wallFraction));
+    this.fraction += (target - this.fraction) * gameConfig.observer.eye.riseEase;
+    const awake = this.awake;
+    if (awake && !this.wasAwake && this.blinkLeft <= 0) {
+      this.blinkLeft = gameConfig.observer.eye.blinkTicks;
+      this.nextBlink = this.drawNextBlink();
+    }
+    this.wasAwake = awake;
   }
 
   /**
@@ -359,6 +483,31 @@ export class Observer {
     if (this.blinkLeft <= 0) {
       this.blinkLeft = gameConfig.observer.eye.blinkTicks;
       this.nextBlink = this.drawNextBlink();
+    }
+  }
+
+  /**
+   * THE PATROL (SHA-202): a sentry's beat. Full speed on the open stretch,
+   * slowing over the last few pixels into each end so the turn is a turn and
+   * not a bounce, and easing to a stop while a ball is inside `hold` — where
+   * it stays, watching, until the ball has gone.
+   */
+  private stepPatrol(sight: EyeSight): void {
+    const placed = this.placement;
+    const act = placed?.act;
+    if (!placed || act?.kind !== EYE_ACT.PATROL) {
+      return;
+    }
+    const { patrolEase, patrolBrake } = gameConfig.observer.eye;
+    const length = Math.hypot(act.to.x - placed.x, act.to.y - placed.y) || 1;
+    const held = act.hold !== undefined && sight.ball !== null && insideRect(act.hold, sight.ball);
+    const ahead = (this.travelDir === 1 ? 1 - this.travel : this.travel) * length;
+    const cruise = held ? 0 : act.speed * Math.max(0.15, Math.min(1, ahead / patrolBrake));
+    this.travelSpeed += (cruise - this.travelSpeed) * patrolEase;
+    this.travel += (this.travelDir * this.travelSpeed) / length;
+    if (this.travel >= 1 || this.travel <= 0) {
+      this.travel = Math.max(0, Math.min(1, this.travel));
+      this.travelDir = this.travelDir === 1 ? -1 : 1;
     }
   }
 

@@ -631,7 +631,12 @@ almond's socket, plus which side of the wall (`EYE_LAYER`, in
 `src/interfaces/eye.ts`), an opacity and a clip window — or `cells`,
 the bricks it lives in, one at a time, masked by the brick's face and blinking
 to the next when its own dies — the Observer at rest on that level, drawn by
-the arena and by the gallery still alike. A
+the arena and by the gallery still alike. It may also name one `act` (`EYE_ACT`):
+**THE RISE** (SHA-200) rides the wall down by the share of it broken and stares
+dead out until `wakeAt`, then blinks and tracks the ball; **THE PATROL**
+(SHA-202) walks between its socket and `to`, slowing into each turn, and eases
+to a stop while a ball is inside `hold`. The game hands the eye what it reads
+in `EyeSight`, and the eye never touches the grid. A
 theme may paint a **foreground** over it (`paintForeground` in
 `backgrounds.ts`; only `horizon`'s ground and dunes so far), which is how
 SUNRISE's sun sets behind the hills. A level with neither block has no eye.
@@ -806,10 +811,11 @@ ls src/entities/creatures/species | grep -vc index  # species built (bosses incl
 grep -c ': CREATURE' src/core/levels/bosses.ts       # boss fights placed (levels.ts: isBossLevel)
 grep -c 'case "' src/core/DevConsole.ts             # console words
 pnpm run check:backgrounds                          # prints "N levels, N themes"
+pnpm run check:bestiary                             # prints the deal: creatures, levels, per species
 ```
 
 And these are the gates a change has to pass:
 
 ```bash
-pnpm run typecheck && pnpm run lint && pnpm run fmt:check && pnpm run check:backgrounds && pnpm run build
+pnpm run typecheck && pnpm run lint && pnpm run fmt:check && pnpm run check:backgrounds && pnpm run check:bestiary && pnpm run build
 ```

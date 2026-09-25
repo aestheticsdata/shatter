@@ -2,7 +2,7 @@ import { isBrickKind } from "@core/config/bricks";
 import { gameConfig } from "@core/config/GameConfig";
 import { wordRows } from "@core/levels/wordFont";
 import { CREATURE } from "@interfaces/creatures";
-import { EYE_LAYER } from "@interfaces/eye";
+import { EYE_ACT, EYE_LAYER } from "@interfaces/eye";
 
 import type { LevelDefinition, SeededDrop } from "@interfaces/types";
 
@@ -19,12 +19,24 @@ export const LEVELS: readonly LevelDefinition[] = [
     // The sun: enormous, behind the wall at a fifth, half under the horizon —
     // the theme's ground and dunes are painted over it, so it sets behind the
     // hills rather than being cut at the line (y 180).
-    eye: { x: 186, y: 182, hw: 150, hh: 60, opacity: 0.2 },
-    // Three moths round the sun, each carrying a capsule.
+    // THE RISE (SHA-200): it climbs as the wall comes down — sixty bricks,
+    // sixty-six pixels, about a pixel a brick — brightening as it goes, and it
+    // stares dead out until six bricks from the end, when it blinks and looks
+    // at you.
+    eye: {
+      x: 186,
+      y: 182,
+      hw: 150,
+      hh: 60,
+      opacity: 0.2,
+      act: { kind: EYE_ACT.RISE, to: { y: 116, opacity: 1 }, wakeAt: 0.9 },
+    },
+    // A moth round the sun, a snail along the top of the wall and a spider
+    // over it — the three gentlest things in the bestiary, on the first level.
     creatures: [
       { kind: CREATURE.MOTH, x: 110, y: 160 },
-      { kind: CREATURE.MOTH, x: 262, y: 200 },
-      { kind: CREATURE.MOTH, x: 186, y: 120 },
+      { kind: CREATURE.SNAIL, x: 13, y: 28 },
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
     ],
   },
   {
@@ -49,11 +61,12 @@ export const LEVELS: readonly LevelDefinition[] = [
         [9, 1],
       ],
     },
-    // Three frogs on the smile's bricks, pinned with their feet on the brick.
+    // Two frogs on the eyes' bricks, pinned with their feet on the brick, and a
+    // bat asleep under the middle of the smile.
     creatures: [
       { kind: CREATURE.FROG, x: 74, y: 26 },
       { kind: CREATURE.FROG, x: 284, y: 26 },
-      { kind: CREATURE.FROG, x: 194, y: 86 },
+      { kind: CREATURE.BAT, x: 166, y: 110 },
     ],
   },
   {
@@ -62,11 +75,14 @@ export const LEVELS: readonly LevelDefinition[] = [
     rows: [".....55.....", "....5445....", "...433334...", "..32222223..", ".3111111113."],
     // The eye on the dollar: floating in the sky over the apex, faint, where
     // the bill puts it. It brightens as the pyramid comes down.
-    eye: { x: 186, y: 21, hw: 22, hh: 8, opacity: 0.35 },
-    // Two moths round the eye over the apex.
+    // THE RISE without the climb (SHA-200): it stays over the apex, and stares
+    // dead out until half the pyramid is gone.
+    eye: { x: 186, y: 21, hw: 22, hh: 8, opacity: 0.35, act: { kind: EYE_ACT.RISE, to: { opacity: 1 }, wakeAt: 0.5 } },
+    // Two moths round the eye over the apex, and a wisp under the pyramid.
     creatures: [
       { kind: CREATURE.MOTH, x: 110, y: 160 },
       { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.WISP, x: 181, y: 151 },
     ],
   },
   {
@@ -88,13 +104,21 @@ export const LEVELS: readonly LevelDefinition[] = [
     background: "grid",
     rows: ["SS........SS", "SS4......4SS", "..44....44..", "...333333...", "....2222....", "SS...11...SS"],
     // A sentry peering round the left pillar: half of it behind the silver,
-    // half out. It will patrol to the other pillar and back.
-    eye: { x: 66, y: 42, hw: 30, hh: 9 },
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    // half out. THE PATROL (SHA-202): it walks to peer round the right pillar
+    // and back, 0.4 px a tick — ten seconds a crossing — and while the ball is
+    // through the gate, under the arch between the pillars, it stops and
+    // stares.
+    eye: {
+      x: 66,
+      y: 42,
+      hw: 30,
+      hh: 9,
+      act: { kind: EYE_ACT.PATROL, to: { x: 306, y: 42 }, speed: 0.4, hold: { x: 66, y: 98, w: 240, h: 60 } },
+    },
     creatures: [
       { kind: CREATURE.MOTH, x: 110, y: 160 },
       { kind: CREATURE.MOTH, x: 262, y: 200 },
-      { kind: CREATURE.MOTH, x: 186, y: 120 },
+      { kind: CREATURE.BAT, x: 166, y: 110 },
     ],
   },
   {
@@ -102,7 +126,10 @@ export const LEVELS: readonly LevelDefinition[] = [
     background: "nebula",
     rows: ["...55..55...", "..55555555..", "..44444444..", "...333333...", "....2222....", ".....11....."],
     // Inside the heart, behind its bricks: revealed as it dies.
-    eye: { x: 186, y: 74, hw: 44, hh: 16 },
+    // THE PULSE (SHA-203): it beats — a quarter bigger and back, once a
+    // second — so what the player uncovers brick by brick is a heart that is
+    // alive.
+    eye: { x: 186, y: 74, hw: 44, hh: 16, act: { kind: EYE_ACT.PULSE, scale: 1.25, period: 60 } },
     // HEART is the firefly level (SHA-243): three lamps under the heart, each
     // blinking on its own beat off its own pin. Lit, they are three pretty
     // things worth a brick and a half; catch a BLACKOUT here and they are the
@@ -130,6 +157,7 @@ export const LEVELS: readonly LevelDefinition[] = [
       { kind: CREATURE.WISP, x: 180, y: 74 },
       { kind: CREATURE.WISP, x: 60, y: 150 },
       { kind: CREATURE.WISP, x: 300, y: 190 },
+      { kind: CREATURE.SNAIL, x: 13, y: 28 },
     ],
   },
   {
@@ -160,11 +188,10 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "CHECKER",
     background: "vault",
     rows: ["1.2.3.4.5.1.", ".2.3.4.5.1.2", "3.4.5.1.2.3.", ".4.5.1.2.3.4", "5.1.2.3.4.5."],
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
     creatures: [
       { kind: CREATURE.MOTH, x: 110, y: 160 },
-      { kind: CREATURE.MOTH, x: 262, y: 200 },
-      { kind: CREATURE.MOTH, x: 186, y: 120 },
+      { kind: CREATURE.FROG, x: 194, y: 26 },
+      { kind: CREATURE.FIREFLY, x: 177, y: 151 },
     ],
   },
   /**
@@ -218,11 +245,10 @@ export const LEVELS: readonly LevelDefinition[] = [
       ".2.2.....2.2",
       "....22.22...",
     ],
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
     creatures: [
-      { kind: CREATURE.MOTH, x: 110, y: 160 },
-      { kind: CREATURE.MOTH, x: 262, y: 200 },
-      { kind: CREATURE.MOTH, x: 186, y: 120 },
+      { kind: CREATURE.FIREFLY, x: 102, y: 152 },
+      { kind: CREATURE.FIREFLY, x: 252, y: 232 },
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
     ],
   },
   {
@@ -258,63 +284,58 @@ export const LEVELS: readonly LevelDefinition[] = [
     creatures: [
       { kind: CREATURE.WOODPECKER, x: 96, y: 150 },
       { kind: CREATURE.WOODPECKER, x: 266, y: 150 },
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
     ],
   },
   {
     name: "HELIX",
     background: "nebula",
     rows: ["55........55", "..44....44..", "....SSSS....", "....SSSS....", "..22....22..", "11........11"],
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
     creatures: [
+      { kind: CREATURE.VINE, x: 108, y: 128 },
+      { kind: CREATURE.VINE, x: 258, y: 208 },
       { kind: CREATURE.SPIDER, x: 120, y: 4 },
-      { kind: CREATURE.SPIDER, x: 250, y: 4 },
-      { kind: CREATURE.FROG, x: 44, y: 26 },
     ],
   },
   {
     name: "TETRA",
     background: "cathode",
     rows: ["........5...", "........5...", "............", "11224433.211", "22114433.112", "44332211.421"],
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
     creatures: [
-      { kind: CREATURE.SNAIL, x: 8, y: 64 },
-      { kind: CREATURE.SNAIL, x: 228, y: 64 },
       { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.SNAIL, x: 8, y: 64 },
     ],
   },
   {
     name: "ORBIT",
     background: "starfield",
     rows: ["....5555....", "..55....55..", ".5..GGGG..5.", ".5..GGGG..5.", "..55....55..", "....5555...."],
-    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
     creatures: [
       { kind: CREATURE.FROG, x: 74, y: 38 },
       { kind: CREATURE.FROG, x: 284, y: 38 },
-      { kind: CREATURE.FROG, x: 194, y: 26 },
-      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+      { kind: CREATURE.WISP, x: 176, y: 163 },
     ],
   },
   {
     name: "COOL",
     background: "circuit",
     rows: wordRows("COOL", ["1", "2", "3", "4"]),
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
     creatures: [
-      { kind: CREATURE.MOTH, x: 110, y: 160 },
-      { kind: CREATURE.MOTH, x: 262, y: 200 },
-      { kind: CREATURE.MOTH, x: 186, y: 120 },
+      { kind: CREATURE.WOODPECKER, x: 101, y: 112 },
+      { kind: CREATURE.WOODPECKER, x: 251, y: 128 },
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
     ],
   },
   {
     name: "HIVE",
     background: "vault",
     rows: ["3.3.3.3.3.3.", ".4.4.4.4.4.4", "3.3.3.3.3.3.", ".4.4.4.4.4.4", "S.S.S.S.S.S.", ".G.G.G.G.G.G"],
-    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
     creatures: [
+      { kind: CREATURE.BEETLE, x: 89, y: 128 },
+      { kind: CREATURE.BEETLE, x: 239, y: 208 },
+      { kind: CREATURE.FIREFLY, x: 181, y: 163 },
       { kind: CREATURE.FROG, x: 74, y: 26 },
-      { kind: CREATURE.FROG, x: 254, y: 26 },
-      { kind: CREATURE.SPIDER, x: 120, y: 4 },
-      { kind: CREATURE.SPIDER, x: 250, y: 4 },
     ],
   },
   {
@@ -329,11 +350,10 @@ export const LEVELS: readonly LevelDefinition[] = [
       "..5......1..",
       ".5GGGGGGGG1.",
     ],
-    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
     creatures: [
+      { kind: CREATURE.VINE, x: 108, y: 140 },
+      { kind: CREATURE.VINE, x: 258, y: 220 },
       { kind: CREATURE.MOTH, x: 110, y: 160 },
-      { kind: CREATURE.MOTH, x: 262, y: 200 },
-      { kind: CREATURE.MOTH, x: 186, y: 120 },
       { kind: CREATURE.SNAIL, x: 38, y: 28 },
     ],
   },
@@ -390,35 +410,32 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "SKULL",
     background: "cathode",
     rows: ["..44444444..", ".4444444444.", ".44..44..44.", ".4444..4444.", "..44444444..", "..S4S44S4S.."],
-    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
     creatures: [
       { kind: CREATURE.FROG, x: 74, y: 26 },
       { kind: CREATURE.FROG, x: 284, y: 26 },
-      { kind: CREATURE.FROG, x: 194, y: 26 },
-      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+      { kind: CREATURE.JELLYFISH, x: 101, y: 114 },
+      { kind: CREATURE.JELLYFISH, x: 251, y: 130 },
     ],
   },
   {
     name: "MIRROR",
     background: "grid",
     rows: ["111......SSS", "22........SS", "333......SSS", "22........SS", "111......SSS"],
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
     creatures: [
-      { kind: CREATURE.MOTH, x: 110, y: 160 },
-      { kind: CREATURE.MOTH, x: 262, y: 200 },
-      { kind: CREATURE.MOTH, x: 186, y: 120 },
+      { kind: CREATURE.SPIDER, x: 120, y: 4 },
+      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+      { kind: CREATURE.WISP, x: 167, y: 151 },
     ],
   },
   {
     name: "BUNKER",
     background: "vault",
     rows: ["....GGGG....", "..SSSSSSSS..", ".S........S.", ".S.555555.S.", ".S.555555.S.", ".SSSSSSSSSS."],
-    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
     creatures: [
-      { kind: CREATURE.FROG, x: 74, y: 38 },
-      { kind: CREATURE.FROG, x: 284, y: 38 },
-      { kind: CREATURE.SPIDER, x: 120, y: 4 },
-      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+      { kind: CREATURE.BEETLE, x: 94, y: 128 },
+      { kind: CREATURE.BEETLE, x: 244, y: 208 },
+      { kind: CREATURE.FIREFLY, x: 186, y: 163 },
+      { kind: CREATURE.SLUG, x: 300, y: 0 },
     ],
   },
   {
@@ -442,11 +459,10 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "PLAY",
     background: "circuit",
     rows: wordRows("PLAY", ["2", "3", "4", "5"]),
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
     creatures: [
-      { kind: CREATURE.SPIDER, x: 120, y: 4 },
-      { kind: CREATURE.SPIDER, x: 250, y: 4 },
-      { kind: CREATURE.FROG, x: 60, y: 60 },
+      { kind: CREATURE.WOODPECKER, x: 101, y: 112 },
+      { kind: CREATURE.WOODPECKER, x: 251, y: 128 },
+      { kind: CREATURE.FROG, x: 74, y: 26 },
     ],
   },
   {
@@ -461,11 +477,11 @@ export const LEVELS: readonly LevelDefinition[] = [
       "S.S....S...S",
       "SS.SSSSSS.SS",
     ],
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
     creatures: [
       { kind: CREATURE.SNAIL, x: 8, y: 28 },
-      { kind: CREATURE.SNAIL, x: 348, y: 28 },
-      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.CRAB, x: 106, y: 140 },
+      { kind: CREATURE.CRAB, x: 256, y: 220 },
+      { kind: CREATURE.FIREFLY, x: 181, y: 175 },
     ],
   },
   {
@@ -488,11 +504,10 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "1991",
     background: "cathode",
     rows: wordRows("1991", ["G", "S", "G", "S"]),
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
     creatures: [
       { kind: CREATURE.MOTH, x: 110, y: 160 },
       { kind: CREATURE.MOTH, x: 262, y: 200 },
-      { kind: CREATURE.MOTH, x: 186, y: 120 },
+      { kind: CREATURE.BAT, x: 196, y: 74 },
     ],
   },
   /**
@@ -565,11 +580,10 @@ export const LEVELS: readonly LevelDefinition[] = [
       ".55555......",
       ".S....555S..",
     ],
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
     creatures: [
+      { kind: CREATURE.JELLYFISH, x: 92, y: 126 },
+      { kind: CREATURE.JELLYFISH, x: 242, y: 142 },
       { kind: CREATURE.SPIDER, x: 120, y: 4 },
-      { kind: CREATURE.SPIDER, x: 250, y: 4 },
-      { kind: CREATURE.FROG, x: 74, y: 26 },
     ],
   },
   {
@@ -599,11 +613,11 @@ export const LEVELS: readonly LevelDefinition[] = [
       { row: 7, column: 4, kind: "L" },
       { row: 4, column: 7, kind: "L" },
     ],
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
     creatures: [
-      { kind: CREATURE.SNAIL, x: 8, y: 28 },
-      { kind: CREATURE.SNAIL, x: 348, y: 28 },
-      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.SLUG, x: 300, y: 0 },
+      { kind: CREATURE.BEETLE, x: 104, y: 152 },
+      { kind: CREATURE.BEETLE, x: 254, y: 232 },
+      { kind: CREATURE.WISP, x: 177, y: 187 },
     ],
   },
   // The run's one exhale, and its only joke. SUPER MAZE before it is 212 hits of
@@ -635,12 +649,11 @@ export const LEVELS: readonly LevelDefinition[] = [
       "...........G",
       ".....5.....G",
     ],
-    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
     creatures: [
+      { kind: CREATURE.CRAB, x: 106, y: 140 },
+      { kind: CREATURE.CRAB, x: 256, y: 220 },
+      { kind: CREATURE.FIREFLY, x: 181, y: 175 },
       { kind: CREATURE.FROG, x: 14, y: 26 },
-      { kind: CREATURE.FROG, x: 344, y: 74 },
-      { kind: CREATURE.FROG, x: 164, y: 26 },
-      { kind: CREATURE.SPIDER, x: 120, y: 4 },
     ],
   },
   // A peg board, and the ball is the ball. Sixteen lone gold pegs in four
@@ -671,11 +684,10 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "PACHINKO",
     background: "vault",
     rows: ["555555555555", "G..G..G..G..", "..G..G..G..G", "G..G..G..G..", "..G..G..G..G"],
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
     creatures: [
-      { kind: CREATURE.MOTH, x: 110, y: 160 },
-      { kind: CREATURE.MOTH, x: 262, y: 200 },
       { kind: CREATURE.SNAIL, x: 8, y: 28 },
+      { kind: CREATURE.JELLYFISH, x: 97, y: 102 },
+      { kind: CREATURE.JELLYFISH, x: 247, y: 118 },
     ],
   },
   // A padlock, gutted through its own keyhole. BUNKER's cousin and its
@@ -718,12 +730,10 @@ export const LEVELS: readonly LevelDefinition[] = [
       ".SSSS..SSSS.",
       "..SSS..SSS..",
     ],
-    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
     creatures: [
-      { kind: CREATURE.FROG, x: 104, y: 26 },
-      { kind: CREATURE.FROG, x: 254, y: 26 },
-      { kind: CREATURE.SPIDER, x: 120, y: 4 },
-      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+      { kind: CREATURE.WOODPECKER, x: 97, y: 148 },
+      { kind: CREATURE.WOODPECKER, x: 247, y: 164 },
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
     ],
   },
   // One eye, filling the wall, looking down the field at the deck. An eight-row
@@ -773,11 +783,11 @@ export const LEVELS: readonly LevelDefinition[] = [
       "..2SSSSSS2..",
       "....2222....",
     ],
-    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
     creatures: [
-      { kind: CREATURE.MOTH, x: 110, y: 160 },
-      { kind: CREATURE.MOTH, x: 262, y: 200 },
-      { kind: CREATURE.MOTH, x: 186, y: 120 },
+      { kind: CREATURE.WISP, x: 96, y: 152 },
+      { kind: CREATURE.WISP, x: 246, y: 232 },
+      { kind: CREATURE.FROG, x: 164, y: 26 },
+      { kind: CREATURE.SLUG, x: 300, y: 0 },
     ],
   },
   // An hourglass: two sand piles pinched at a one-brick gold neck. Each
@@ -818,11 +828,10 @@ export const LEVELS: readonly LevelDefinition[] = [
       { row: 2, column: 5, kind: "T" },
       { row: 4, column: 5, kind: "I" },
     ],
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
     creatures: [
-      { kind: CREATURE.SPIDER, x: 120, y: 4 },
-      { kind: CREATURE.SPIDER, x: 250, y: 4 },
-      { kind: CREATURE.FROG, x: 74, y: 26 },
+      { kind: CREATURE.CRAB, x: 107, y: 140 },
+      { kind: CREATURE.CRAB, x: 257, y: 220 },
+      { kind: CREATURE.BAT, x: 196, y: 74 },
     ],
   },
   // The arcade bug, three lanes of it, winding down the field toward the deck.
@@ -864,11 +873,10 @@ export const LEVELS: readonly LevelDefinition[] = [
       ".S...S...S..",
     ],
     drops: [{ row: 6, column: 9, kind: "CR" }],
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
     creatures: [
-      { kind: CREATURE.SNAIL, x: 38, y: 28 },
-      { kind: CREATURE.SNAIL, x: 348, y: 28 },
-      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.FIREFLY, x: 107, y: 152 },
+      { kind: CREATURE.FIREFLY, x: 257, y: 232 },
+      { kind: CREATURE.VINE, x: 198, y: 187 },
     ],
   },
   /**
@@ -955,23 +963,22 @@ export const LEVELS: readonly LevelDefinition[] = [
       ".SSGGGGGGSS.",
       ".SSGGGGGGSS.",
     ],
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
     creatures: [
-      { kind: CREATURE.MOTH, x: 110, y: 160 },
-      { kind: CREATURE.MOTH, x: 262, y: 200 },
+      { kind: CREATURE.JELLYFISH, x: 92, y: 138 },
+      { kind: CREATURE.JELLYFISH, x: 242, y: 154 },
       { kind: CREATURE.SNAIL, x: 38, y: 28 },
+      { kind: CREATURE.BEETLE, x: 169, y: 187 },
     ],
   },
   {
     name: "FINALE",
     background: "starfield",
     rows: ["GGGGGGGGGGGG", "S5S5S5S5S5S5", "444444444444", "S3S3S3S3S3S3", "GG22222222GG", "S1S1S1S1S1S1"],
-    // SHA-210's mix, 4 of them; the level's own species comes with its ticket.
     creatures: [
       { kind: CREATURE.FROG, x: 74, y: 26 },
-      { kind: CREATURE.FROG, x: 284, y: 26 },
       { kind: CREATURE.SPIDER, x: 120, y: 4 },
-      { kind: CREATURE.SPIDER, x: 250, y: 4 },
+      { kind: CREATURE.MOTH, x: 110, y: 160 },
+      { kind: CREATURE.SLUG, x: 300, y: 0 },
     ],
   },
   /**

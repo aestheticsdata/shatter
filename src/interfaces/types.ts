@@ -1,7 +1,7 @@
 import type { BrickKind } from "@core/config/bricks";
 import type { PowerUpKind } from "@core/config/powerUps";
 import type { CreaturePin } from "@interfaces/creatures";
-import type { EyeLayer } from "@interfaces/eye";
+import type { EYE_ACT, EyeLayer } from "@interfaces/eye";
 
 export interface Vector2D {
   x: number;
@@ -327,6 +327,32 @@ export interface FieldRect {
  * and how much of it the field lets you see. A veil has its own block
  * (`ObserverDefinition`) and none of this; a level with neither has no eye.
  */
+/**
+ * What a placed eye does (SHA-200 on). One branch per shared trick.
+ */
+export type EyeAct =
+  // THE RISE: the eye rides the wall coming down. `to` is where the socket has
+  // got to by the last brick, eased there by the share of the wall broken;
+  // `wakeAt` is the share past which it tracks the ball — before it, a dead
+  // stare straight out.
+  | {
+      kind: typeof EYE_ACT.RISE;
+      to?: { x?: number; y?: number; hw?: number; hh?: number; opacity?: number };
+      wakeAt?: number;
+    }
+  // THE PATROL: back and forth between the socket and `to`, at most `speed`
+  // pixels a tick, slowing into each turn; while a ball is inside `hold` it
+  // eases to a stop where it is and watches.
+  | {
+      kind: typeof EYE_ACT.PATROL;
+      to: { x: number; y: number };
+      speed: number;
+      hold?: FieldRect;
+    }
+  // THE PULSE: the socket swells to `scale` of itself and lets go, every
+  // `period` ticks — a thump, a fifth of the beat up and the rest down.
+  | { kind: typeof EYE_ACT.PULSE; scale: number; period: number };
+
 export interface EyePlacement {
   // The socket: centre, half-width, half-height, in field pixels.
   x: number;
@@ -352,6 +378,8 @@ export interface EyePlacement {
   // `layer` and `clip` are the brick's; `x`, `y` and the rest are where it is
   // left once none of them stands.
   cells?: readonly (readonly [number, number])[];
+  // What it does, if anything. Absent means it sits there and watches.
+  act?: EyeAct;
 }
 
 export interface LevelDefinition {

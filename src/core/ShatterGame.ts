@@ -654,6 +654,9 @@ export class ShatterGame {
   // THE IRIS's gaze (SHA-173), and the stone it leaves on the deck.
   private readonly gaze = new Gaze();
   private petrifyTicks = 0;
+  // How many bricks the level's wall was built with: what THE RISE (SHA-200)
+  // measures the share broken against.
+  private wallSize = 0;
   // THE TEAR's drops (SHA-174).
   private readonly tears = new Tears();
   // THE LID's loose pupil (SHA-176), and how much of its seal has been cut.
@@ -6388,11 +6391,17 @@ export class ShatterGame {
   private eyeSight(): EyeSight {
     return {
       standing: (column, row) => (this.grid.rows[row]?.[column] ?? null) !== null,
+      // THE RISE (SHA-200): against what the wall was built with, so a brick
+      // put back (mortar, a vine's lay) counts against the eye as it should.
+      wallFraction: this.wallSize > 0 ? 1 - this.grid.remaining / this.wallSize : 1,
+      // THE PATROL's hold (SHA-202): the ball the eye is watching, which is the
+      // one `eyeTarget` already picks — nearest the socket.
+      ball: this.nearestBallTo(this.observer.socket),
     };
   }
 
-  private eyeTarget(): { x: number; y: number } | null {
-    const socket = this.observer.socket;
+  /** The centre of the ball in flight nearest a socket, or null on a serve. */
+  private nearestBallTo(socket: { x: number; y: number } | null): { x: number; y: number } | null {
     if (!socket) {
       return null;
     }
@@ -6408,9 +6417,15 @@ export class ShatterGame {
         nearest = ball;
       }
     }
-    return nearest === null
-      ? { x: this.paddle.centerX, y: this.paddle.y }
-      : { x: nearest.centerX, y: nearest.y + nearest.size / 2 };
+    return nearest === null ? null : { x: nearest.centerX, y: nearest.y + nearest.size / 2 };
+  }
+
+  private eyeTarget(): { x: number; y: number } | null {
+    const socket = this.observer.socket;
+    if (!socket) {
+      return null;
+    }
+    return this.nearestBallTo(socket) ?? { x: this.paddle.centerX, y: this.paddle.y };
   }
 
   private freeCatchPopY(): number {
@@ -7671,6 +7686,7 @@ export class ShatterGame {
   private buildLevel(level: number): void {
     const definition = levelAt(level);
     this.grid.load(wallFor(level), () => this.rollBrickCapsule());
+    this.wallSize = this.grid.remaining;
     // The eye, and the line that names it over the serve prompt. Both are the
     // level's, so both are set where the level is: a death re-serves without
     // coming through here, and neither may be re-read then.
