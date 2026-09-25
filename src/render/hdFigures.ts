@@ -20,7 +20,7 @@
 import { mirrored } from "@entities/creatures/bitmap";
 import { FINE } from "@interfaces/art";
 import { canvasPalette, demakeTone } from "@render/palette";
-import { mix, pillRows, Pix, scale3x, SpriteCache } from "@render/pix";
+import { mix, Pix, pillRows, SpriteCache, scale3x } from "@render/pix";
 
 const FIGURES = new SpriteCache();
 

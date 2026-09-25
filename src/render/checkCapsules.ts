@@ -1,6 +1,6 @@
 import { COMBO_GLYPHS } from "@core/config/combos";
 import { POWER_UP_GLYPHS, POWER_UPS } from "@core/config/powerUps";
-import { dropGlyphFont, DROP_GLYPH_SPAN, SCALE } from "@render/CanvasRenderer";
+import { DROP_GLYPH_SPAN, dropGlyphFont, SCALE } from "@render/CanvasRenderer";
 import { canvasPalette } from "@render/palette";
 import { capsuleLabel, ENTRY_BLURB_LINES, ENTRY_FONT, ENTRY_TEXT_ROOM } from "@ui/CapsuleCatalogue";
 

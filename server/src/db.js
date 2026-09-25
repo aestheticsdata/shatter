@@ -1,6 +1,5 @@
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-
 import Database from "better-sqlite3";
 
 export function openDatabase(filePath) {

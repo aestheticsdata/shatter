@@ -17,14 +17,14 @@ import { isBossLevel, levelAt, levelIndexOf, VEIL_LEVELS, wallFor } from "@core/
 import { computePaddleBounceVelocity, relativePaddleHit } from "@core/physics/PaddleBounce";
 import { Ball, ballSizeFor, paceGhost } from "@entities/ball/Ball";
 import { BrickGrid } from "@entities/bricks/BrickGrid";
-import { creatureBox, Creatures } from "@entities/creatures/Creatures";
+import { Creatures, creatureBox } from "@entities/creatures/Creatures";
 import { SPECIES } from "@entities/creatures/species";
 import * as Fx from "@entities/effects";
 import { ShotPool } from "@entities/laser/ShotPool";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
 import { Paddle } from "@entities/paddle/Paddle";
 import { DropBag } from "@entities/powerups/DropBag";
-import { type Drop, DROP_HEIGHT, DROP_WIDTH, DropPool } from "@entities/powerups/DropPool";
+import { DROP_HEIGHT, DROP_WIDTH, type Drop, DropPool } from "@entities/powerups/DropPool";
 import { PowerUpTimers } from "@entities/powerups/PowerUpTimers";
 import { InputController } from "@input/InputController";
 import { CREATURE } from "@interfaces/creatures";
@@ -49,8 +49,8 @@ import type {
   BurstSpec,
   CatchPop,
   ChainBolt,
-  PanelView,
   PaddleShard,
+  PanelView,
   Peel,
   PowerUpKind,
   PyreBlast,

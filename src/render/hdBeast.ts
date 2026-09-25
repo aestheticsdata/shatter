@@ -8,7 +8,7 @@
 //
 // See the spec: `docs/superpowers/specs/2026-09-21-observer-hd-design.md`.
 
-import { scale3x, SpriteCache } from "@render/pix";
+import { SpriteCache, scale3x } from "@render/pix";
 
 import type { Pix } from "@render/pix";
 

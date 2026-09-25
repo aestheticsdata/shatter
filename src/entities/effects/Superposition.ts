@@ -242,7 +242,7 @@ export class Superposition {
     const { left, top, brickWidth, brickHeight } = gameConfig.grid;
     const { offsetX, offsetY } = gameConfig.powerUps.superpose;
     const rows = grid.rows;
-    const worn = grid.erosion !== null && grid.erosion.worn;
+    const erosion = grid.erosion?.worn ? grid.erosion : null;
     this.rects.length = 0;
     for (let row = 0; row < rows.length && row < this.rowCount; row++) {
       for (let column = 0; column < COLUMN_COUNT; column++) {
@@ -261,8 +261,8 @@ export class Superposition {
         }
         // The brick's painted rect, all three displacements and the wear, the
         // way the hitbox reads them — then moved.
-        const insetX = worn ? grid.erosion!.insetXAt(row, column) : 0;
-        const insetY = worn ? grid.erosion!.insetYAt(row, column) : 0;
+        const insetX = erosion?.insetXAt(row, column) ?? 0;
+        const insetY = erosion?.insetYAt(row, column) ?? 0;
         const sag = grid.sheet?.offsetAt(row, column) ?? 0;
         const x = left + column * brickWidth + insetX + offsetX * reach;
         const y = top + row * brickHeight - grid.topOffset + sag + insetY + offsetY * reach;

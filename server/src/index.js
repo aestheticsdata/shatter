@@ -1,7 +1,5 @@
 import { fileURLToPath } from "node:url";
-
 import Fastify, { LogController } from "fastify";
-
 import { openDatabase } from "./db.js";
 import { isValidScore, normalizeName } from "./validate.js";
 

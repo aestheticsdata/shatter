@@ -215,8 +215,9 @@ const { paintRows } = await import("../src/entities/creatures/species/frog.ts");
 const { BROOD_BITMAPS, BROOD_OUTLINE, broodPalette } = await import("../src/render/broodSprite.ts");
 const { IRIS_COLORS, paintIris } = await import("../src/render/backgrounds.ts");
 const { INSIDE_IRIS, bleedRadius, fibreAngle, fibreRadius, fibreSteps } = await import("../src/render/hdInside.ts");
-const { BEAM_NEST, GAZE_BEAM, beamNestFits, chargeRadius, chargeSteps, rungSlide } =
-  await import("../src/render/hdGaze.ts");
+const { BEAM_NEST, GAZE_BEAM, beamNestFits, chargeRadius, chargeSteps, rungSlide } = await import(
+  "../src/render/hdGaze.ts"
+);
 
 const failures = [];
 const check = (condition, message) => {
@@ -589,6 +590,7 @@ for (const r of [3, 5.5, 10, 12]) {
 }
 
 // 12. The frame's rails
+// biome-ignore lint/complexity/noUselessLoneBlockStatements: every numbered check is its own block
 {
   check(FRAME_RAILS.length === 3 * FINE, `the frame ramp is ${FRAME_RAILS.length} tones, want ${3 * FINE}`);
   for (const tone of FRAME_RAILS) {

@@ -6,7 +6,7 @@ import { SPECIES } from "@entities/creatures/species";
 import { ART_MODE } from "@interfaces/art";
 import { BESTIARY_BROOD, CREATURE } from "@interfaces/creatures";
 import { SCALE } from "@render/CanvasRenderer";
-import { paintCreaturePortrait, PORTRAIT_CYCLE, PORTRAIT_ROOM } from "@render/creaturePortraits";
+import { PORTRAIT_CYCLE, PORTRAIT_ROOM, paintCreaturePortrait } from "@render/creaturePortraits";
 import { zeroPad } from "@shared/format";
 import { renderPageIndicator } from "@ui/pagePips";
 

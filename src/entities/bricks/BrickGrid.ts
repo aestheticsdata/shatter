@@ -223,7 +223,7 @@ export class BrickGrid {
       return post;
     }
     const middle = Math.floor(withinY / brickHeight);
-    const band = this.sheet !== null && this.sheet.rippling ? Math.ceil(this.sheet.reach / brickHeight) : 0;
+    const band = this.sheet?.rippling ? Math.ceil(this.sheet.reach / brickHeight) : 0;
     // Outward from the row the point would be in on a flat wall, so a cell that
     // has not moved still answers first: the commonest case on a rippling wall
     // is still a brick sitting near enough its own row, and two neighbours that
@@ -393,7 +393,7 @@ export class BrickGrid {
     const farX = ballX + size - inset;
     const nearY = ballY + inset;
     const farY = ballY + size - inset;
-    const band = this.sheet !== null && this.sheet.rippling ? Math.ceil(this.sheet.reach / brickHeight) : 0;
+    const band = this.sheet?.rippling ? Math.ceil(this.sheet.reach / brickHeight) : 0;
     const firstColumn = Math.floor((nearX - left) / brickWidth);
     const lastColumn = Math.floor((farX - left) / brickWidth);
     const firstRow = Math.floor((nearY - top + this.topOffset) / brickHeight) - band;

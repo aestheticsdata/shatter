@@ -176,7 +176,7 @@ export function trace(ball: Ball, rules: TraceRules = {}): Trace {
       x += dx;
       y += dy;
 
-      if (blocked !== undefined && blocked(x + size / 2, y + size / 2)) {
+      if (blocked?.(x + size / 2, y + size / 2)) {
         points.push({ x: x - dx + size / 2, y: y - dy });
         return { points, arrival: null };
       }

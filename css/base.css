@@ -23,5 +23,6 @@ body {
 }
 
 [hidden] {
+  /* biome-ignore lint/complexity/noImportantStyles: [hidden] has to beat every component's display */
   display: none !important;
 }

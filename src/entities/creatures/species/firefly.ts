@@ -174,7 +174,7 @@ export const FIREFLY: Species = {
    * kills it, and a species that claimed the kill itself would go on dying to a
    * first hit if `hitPoints` were ever raised past one.
    */
-  struck(creature, _by, effects) {
+  struck(_creature, _by, effects) {
     effects.glow(gameConfig.creatures.firefly.glowTicks);
     return false;
   },

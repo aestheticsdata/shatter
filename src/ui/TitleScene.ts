@@ -1,6 +1,6 @@
 import { gameConfig } from "@core/config/GameConfig";
 import { Observer } from "@entities/effects/Observer";
-import { ART_MODE, FINE, type ArtMode } from "@interfaces/art";
+import { ART_MODE, type ArtMode, FINE } from "@interfaces/art";
 import { EYE_TINT } from "@interfaces/eye";
 import { dialTonesFor } from "@render/backgrounds";
 import { drawEye, drawZodiac } from "@render/CanvasRenderer";

@@ -41,8 +41,9 @@ registerHooks({
   },
 });
 
-const { BACKGROUND_COLORS, IRIS_COLORS, paintBackground, paintForeground, paintIrisField } =
-  await import("../src/render/backgrounds.ts");
+const { BACKGROUND_COLORS, IRIS_COLORS, paintBackground, paintForeground, paintIrisField } = await import(
+  "../src/render/backgrounds.ts"
+);
 const { BRICK_COLORS, DROP_COLORS, canvasPalette } = await import("../src/render/palette.ts");
 const { LEVELS } = await import("../src/core/levels/levels.ts");
 
@@ -207,7 +208,7 @@ function stubContext() {
     // A composed layer reads whatever it is landing on before it writes
     // (SHA-224). Nothing under it here, which is the right answer for a guard
     // that only asks whether the foreground paints.
-    getImageData(x, y, width, height) {
+    getImageData(_x, _y, width, height) {
       return new ImageData(new Uint8ClampedArray(width * height * 4), width, height);
     },
   };

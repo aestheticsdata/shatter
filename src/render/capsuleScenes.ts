@@ -7,16 +7,16 @@ import {
   BLACKOUT_TORCH,
   drawAngelWings,
   drawBall,
-  drawGambleReel,
   drawBlackoutVeil,
   drawBrick,
   drawCapsule,
+  drawDeckBody,
+  drawGambleReel,
   drawKlaxonBulb,
   drawKlaxonFront,
   drawMouldBud,
-  drawWormholeMouth,
   drawRibbonStamp,
-  drawDeckBody,
+  drawWormholeMouth,
   MIRROR_BANDS,
   PADDLE_BANDS,
 } from "@render/CanvasRenderer";
@@ -187,7 +187,9 @@ class Field {
   }
 
   wall(kinds: readonly BrickKind[] = DEFAULT_WALL, fade = 0, top = 0, worn = 0): void {
-    kinds.forEach((kind, index) => this.row(top + index, kind, fade, worn));
+    kinds.forEach((kind, index) => {
+      this.row(top + index, kind, fade, worn);
+    });
   }
 
   /**
@@ -1678,7 +1680,9 @@ const SCENES: Record<PowerUpKind, Painter> = {
         field.clear(column, gone);
       }
     });
-    caster.forEach((row, column) => field.shadow(column, row, sunX));
+    caster.forEach((row, column) => {
+      field.shadow(column, row, sunX);
+    });
     // The contact, and the report, staged as far apart as the wedge allows: the
     // ball down at the tip where it met the shadow, the band already up near the
     // mouth, and the caster lit. Three things reading as one event travelling —
@@ -1724,7 +1728,9 @@ const SCENES: Record<PowerUpKind, Painter> = {
      */
     const row = 3;
     const kinds: readonly BrickKind[] = ["1", "2", "3", "4"];
-    kinds.forEach((kind, index) => field.brick(4 + index, row, kind));
+    kinds.forEach((kind, index) => {
+      field.brick(4 + index, row, kind);
+    });
     // The shimmer caught at its bright end. A still with faint ghosts beside
     // firm bricks would say the opposite of the capsule — that one of the two
     // is the real one — so the doubles are drawn as solid-looking as what threw
@@ -1925,7 +1931,9 @@ const SCENES: Record<PowerUpKind, Painter> = {
       [168, 170],
       [190, 176],
     ];
-    line.forEach(([x, y], index) => field.stamp(x, y, index === line.length - 1 ? 2 : undefined));
+    line.forEach(([x, y], index) => {
+      field.stamp(x, y, index === line.length - 1 ? 2 : undefined);
+    });
     field.ball(200, 190);
     field.deck();
   },

@@ -42,16 +42,16 @@ import { hdPill } from "@render/hdPaddle";
 import { gateSlide, twinkleArm, twinkleSwell } from "@render/hdVeil";
 import {
   BRICK_COLORS,
-  canvasPalette,
   CHUNK_COLORS,
+  canvasPalette,
   DARK_LETTER_DROP_KINDS,
-  demakeTone,
   DROP_COLORS,
+  demakeTone,
   FRAME_RAILS,
   FRAME_RIVET,
-  type PaddleBandColors,
   KLAXON_TONES,
   MOULD_TONES,
+  type PaddleBandColors,
   RIBBON_TONES,
   WORMHOLE_TONES,
 } from "@render/palette";
@@ -4629,7 +4629,7 @@ export const FIREFLY_TORCH = {
  * proportion to the ball's the whole way in and the whole way back out.
  */
 function blackoutSpread(blend: number): number {
-  return Math.pow(BLACKOUT_TORCH.openReach / BLACKOUT_TORCH.ballRadius, 1 - Math.sqrt(blend));
+  return (BLACKOUT_TORCH.openReach / BLACKOUT_TORCH.ballRadius) ** (1 - Math.sqrt(blend));
 }
 
 // One pool of light punched out of the veil: where it is, how far it reaches,
@@ -5100,7 +5100,7 @@ export class CanvasRenderer {
           // brick is killed. Under the revealed pill below, which is a thing to
           // read rather than weather.
           if (view.erodeBlend > 0 && view.erodeBlend < 1) {
-            this.drawErodeGrains(x, y, erodeX, erodeY, view.erodeBlend, view.erodeSetting);
+            this.drawErodeGrains(x, y, erodeY, view.erodeBlend, view.erodeSetting);
           }
           // The fractures this brick is opening, drawn from the brick for the
           // trickle's reason exactly: they ride the wall through QUAKE's shake
@@ -7993,7 +7993,7 @@ export class CanvasRenderer {
    * are the ones opening widest, and a trickle that came only off the bottom
    * edge would say the wall was settling rather than coming apart.
    */
-  private drawErodeGrains(x: number, y: number, erodeX: number, erodeY: number, blend: number, setting: boolean): void {
+  private drawErodeGrains(x: number, y: number, erodeY: number, blend: number, setting: boolean): void {
     const { grains, grainFall, grainSpeed } = gameConfig.powerUps.erode;
     const { brickWidth, brickHeight } = gameConfig.grid;
     // The lip they leave from: the bottom of the body, which is the seam that
@@ -8287,8 +8287,8 @@ export class CanvasRenderer {
     const lengths: number[] = [];
     let total = 0;
     for (let index = 1; index < thread.points.length; index++) {
-      const from = thread.points[index - 1]!;
-      const to = thread.points[index]!;
+      const from = thread.points[index - 1];
+      const to = thread.points[index];
       const length = Math.hypot(to.x - from.x, to.y - from.y);
       lengths.push(length);
       total += length;
@@ -8313,16 +8313,16 @@ export class CanvasRenderer {
     // the thickness. A guide the player has to hunt for is worse than none.
     const pitch = this.fine ? finePitch(dotPitch) : dotPitch;
     for (let walked = 0; walked <= reach; walked += pitch) {
-      while (segment < lengths.length && walked > consumed + lengths[segment]!) {
-        consumed += lengths[segment]!;
+      while (segment < lengths.length && walked > consumed + lengths[segment]) {
+        consumed += lengths[segment];
         segment++;
       }
       if (segment >= lengths.length) {
         break;
       }
-      const from = thread.points[segment]!;
-      const to = thread.points[segment + 1]!;
-      const length = lengths[segment]!;
+      const from = thread.points[segment];
+      const to = thread.points[segment + 1];
+      const length = lengths[segment];
       const at = length === 0 ? 0 : (walked - consumed) / length;
       this.mote(from.x + (to.x - from.x) * at, from.y + (to.y - from.y) * at, 1, canvasPalette.tracerThread);
     }
