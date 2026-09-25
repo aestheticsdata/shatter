@@ -667,6 +667,36 @@ export class SoundBank {
   }
 
   /**
+   * THE CHAMBER (SHA-179): a gate in a side bar parting.
+   *
+   * A mechanical slide and two short clicks — the latch going and the bar
+   * reaching the end of its travel — so the ear knows something is coming in
+   * before the eye has found which side. Noise for the slide and two bare
+   * squares for the clicks: a click with a pitch to it is a beep.
+   */
+  gateOpens(): void {
+    if (!this.allow("gate")) {
+      return;
+    }
+    this.noise({ dur: 0.09, vol: 0.05, filter: { type: "bandpass", freq: 900, freqEnd: 2200, q: 3 } });
+    this.tone({ freq: 1900, dur: 0.012, vol: 0.05 });
+    this.tone({ freq: 1500, dur: 0.012, vol: 0.05, delayS: 0.09 });
+  }
+
+  /**
+   * PHOTON: taken by a ball. A high blip chirping down — light going into
+   * something rather than off it — short enough to sit under a brick's break
+   * landing on the same tick.
+   */
+  photonAbsorbed(): void {
+    if (!this.allow("photon")) {
+      return;
+    }
+    this.tone({ freq: 2600, freqEnd: 900, dur: 0.07, vol: 0.05 });
+    this.tone({ freq: 3900, freqEnd: 1350, dur: 0.05, vol: 0.02 });
+  }
+
+  /**
    * CHAIN: one step up the ladder.
    *
    * A bare square note, 70 Hz a step, so the eighth sits a little over an octave

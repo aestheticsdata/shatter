@@ -21,6 +21,7 @@ import { creatureBox, Creatures } from "@entities/creatures/Creatures";
 import { SPECIES } from "@entities/creatures/species";
 import { Brood } from "@entities/effects/Brood";
 import { BumperField } from "@entities/effects/BumperField";
+import { Chamber } from "@entities/effects/Chamber";
 import { Chart } from "@entities/effects/Chart";
 import { Critter } from "@entities/effects/Critter";
 import { Decoherence } from "@entities/effects/Decoherence";
@@ -55,6 +56,7 @@ import { PowerUpTimers } from "@entities/powerups/PowerUpTimers";
 import { InputController } from "@input/InputController";
 import { CREATURE } from "@interfaces/creatures";
 import { EYE_ACT, EYE_WATCH } from "@interfaces/eye";
+import { PARTICLE } from "@interfaces/particles";
 import { SCREEN } from "@interfaces/screens";
 import { SCORE_DIGITS, zeroPad } from "@shared/format";
 import { type HiScores, TABLE_SIZE } from "@state/HiScores";
@@ -64,6 +66,7 @@ import type { TraceRules } from "@core/ballTrace";
 import type { ComboId } from "@core/config/combos";
 import type { Creature, CreatureEffects, CreatureSight } from "@entities/creatures/Creature";
 import type { Beast } from "@entities/effects/Brood";
+import type { Quantum } from "@entities/effects/Chamber";
 import type { EyeSight } from "@entities/effects/Observer";
 import type { Landing } from "@entities/effects/Slump";
 import type { EchoContact } from "@entities/effects/Superposition";
@@ -71,6 +74,7 @@ import type { Tear } from "@entities/effects/Tears";
 import type { LeapField } from "@entities/effects/Tunnelling";
 import type { WidthCurve } from "@entities/paddle/Paddle";
 import type { CreatureKind } from "@interfaces/creatures";
+import type { ParticleKind } from "@interfaces/particles";
 import type { ScreenName } from "@interfaces/screens";
 import type {
   BrickFlash,
@@ -539,6 +543,18 @@ export class ShatterGame {
             this.creatures.add(kind, this.paddle.centerX - species.width / 2, this.paddle.y - 80);
             return true;
           },
+          // `particle photon`: one through the far gate, over the cap.
+          releaseParticle: (name) => {
+            const kind = (Object.values(PARTICLE) as string[]).includes(name) ? (name as ParticleKind) : null;
+            if (kind === null) {
+              return "unknown";
+            }
+            if (!this.chamber.release(kind, this.paddle.centerX)) {
+              return "busy";
+            }
+            this.deps.sfx.gateOpens();
+            return "released";
+          },
           // `level N` is 1-based; rebuilding the grid serves at the new level.
           jumpToLevel: (levelNumber) => {
             this.level = levelNumber - 1;
@@ -635,6 +651,9 @@ export class ShatterGame {
   private readonly brood = new Brood();
   // THE BESTIARY (SHA-207): the ordinary levels' creatures, beside the veils' brood.
   private readonly creatures = new Creatures();
+  // THE CHAMBER (SHA-179): the particles let in through the side bars, on
+  // every level, and the clock that lets them in.
+  private readonly chamber = new Chamber();
   // THE BOSSES (SHA-209): the one creature that ends a boss level, in a pool of
   // its own so the fight can be told from the roster — and the flag that says
   // it is over, which is what lets the clear card follow.
@@ -1233,6 +1252,7 @@ export class ShatterGame {
       paddleBreak: this.paddleBreak,
       paddleShards: this.paddleShards,
       bumpers: this.bumpers.discs,
+      chamber: this.chamber,
       peels: this.peels,
       railMarks: this.railMarks,
       balls: this.balls,
@@ -1369,6 +1389,8 @@ export class ShatterGame {
       this.deps.sfx.oculiReset();
     }
     if (this.screen === SCREEN.SERVE) {
+      // The room after a lost ball, dimming out, and a gate finishing its close.
+      this.chamber.stepIdle();
       this.balls[0].followPaddle(this.paddle);
       return;
     }
@@ -2025,6 +2047,7 @@ export class ShatterGame {
       this.hasCombo("LANCE"),
     );
     this.strikeBroodWithShots();
+    this.stepChamber();
     this.stepCritter();
     this.stepMeteors();
 
@@ -3621,7 +3644,10 @@ export class ShatterGame {
   }
 
   private strikeBroodWithShots(): void {
-    if (this.inside.active || (!this.brood.live && !this.tears.active && !this.loosePupil.active)) {
+    if (
+      this.inside.active ||
+      (!this.brood.live && !this.tears.active && !this.loosePupil.active && !this.chamber.live)
+    ) {
       return;
     }
     for (const shot of this.shotPool.shots) {
@@ -3646,6 +3672,14 @@ export class ShatterGame {
       if (tear) {
         shot.active = false;
         this.burstTear(tear, null);
+        continue;
+      }
+      // A particle, first of the band's tenants: the smallest thing a bolt can
+      // reach, and the one that is gone quickest if it is not taken now.
+      const quantum = this.chamber.live ? this.chamber.at(shot.x, shot.y, 2, 9) : null;
+      if (quantum) {
+        shot.active = false;
+        this.boltQuantum(quantum);
         continue;
       }
       const beast = this.brood.at(shot.x, shot.y, 2, 9);
@@ -4416,6 +4450,12 @@ export class ShatterGame {
           // the departure being seen as well as taken.
           this.bumpers.retire();
         }
+      }
+
+      // THE CHAMBER (SHA-179), beside the discs and for their reason: a
+      // particle is a free-standing thing in the band, not part of the frame.
+      if (this.chamber.live && !this.inside.active) {
+        this.touchQuanta(ball);
       }
 
       // The paddle test upside down, over the same 10 px window. A ball that
@@ -5832,6 +5872,99 @@ export class ShatterGame {
   }
 
   /**
+   * THE CHAMBER's tick (SHA-179): the clock, then everything loose in it.
+   *
+   * Below the freeze gates with the shots and the critter, because a particle
+   * is a thing the ball meets: one that kept flying behind a shockwave would be
+   * somewhere else by the time the field was the player's again. Held inside
+   * the eye, where none of the room is drawn.
+   */
+  private stepChamber(): void {
+    if (this.inside.active) {
+      return;
+    }
+    if (this.chamber.tickClock(this.paddle.centerX)) {
+      this.deps.sfx.gateOpens();
+    }
+    // GHOST's wall is not there for particles either, and for the ball's
+    // reason: a photon rebounding off an invisible brick is the one bug the
+    // capsule could not survive.
+    const phasing = this.timers.isActive("GH");
+    this.chamber.step({
+      solid: (x, y) => !phasing && this.grid.cellAt(x, y) !== null,
+      deck: this.paddleSegments(),
+      held: this.timers.isActive("I"),
+    });
+  }
+
+  /**
+   * A ball meeting a particle: the species' verb.
+   *
+   * Each is scored the way a beast is — the chain takes a link and the pop
+   * says what it paid while the chain is standing — and each is silent about
+   * it otherwise, as a bumper's kick is: a particle is a small thing in a busy
+   * band, and a number over every one would be a field of numbers.
+   */
+  private touchQuanta(ball: Ball): void {
+    const quantum = this.chamber.touching(ball.centerX, ball.y + ball.size / 2, ball.size / 2);
+    if (quantum === null) {
+      return;
+    }
+    if (quantum.kind === PARTICLE.PHOTON) {
+      this.absorbPhoton(ball, quantum);
+    }
+  }
+
+  /**
+   * PHOTON: absorbed, and the ball leaves bent toward where it was going.
+   *
+   * **Scatter, not a kick.** The turn is toward the photon's own heading and
+   * capped at thirty degrees, and the speed is the speed the ball arrived with
+   * — so a photon never slows a ball, never speeds one, and never sends one
+   * straight back the way it came. It sends it somewhere the player did not
+   * plan, which is Arkanoid's enemy role in one line.
+   */
+  private absorbPhoton(ball: Ball, photon: Quantum): void {
+    const { scatter, points } = gameConfig.particles.photon;
+    const speed = Math.hypot(ball.velocity.x, ball.velocity.y);
+    const heading = Math.atan2(ball.velocity.y, ball.velocity.x);
+    let turn = Math.atan2(photon.vy, photon.vx) - heading;
+    turn = Math.atan2(Math.sin(turn), Math.cos(turn));
+    const bent = heading + Math.max(-scatter, Math.min(scatter, turn));
+    ball.velocity.x = Math.cos(bent) * speed;
+    ball.velocity.y = Math.sin(bent) * speed;
+    this.chamber.spend(photon);
+    this.bumpChain();
+    this.popGain(photon.x, photon.y, this.award(points, "ball", ball));
+    this.deps.sfx.photonAbsorbed();
+  }
+
+  /** A laser bolt reaching a particle. */
+  private boltQuantum(quantum: Quantum): void {
+    if (quantum.kind === PARTICLE.PHOTON) {
+      this.chamber.spend(quantum);
+      this.bumpChain();
+      this.popGain(quantum.x, quantum.y, this.award(gameConfig.particles.photon.points, "laser"));
+      this.deps.sfx.photonAbsorbed();
+    }
+  }
+
+  /**
+   * NUKE takes the room with the wall: every particle out at once, each for
+   * its own points, as a nuked brick is paid for its own. No chain — nothing
+   * the player hit — and no sound of their own under the shockwave's.
+   */
+  private nukeQuanta(): void {
+    for (const quantum of this.chamber.quanta) {
+      if (quantum.dead || quantum.leaveTicks > 0) {
+        continue;
+      }
+      this.chamber.spend(quantum);
+      this.award(gameConfig.particles[quantum.kind].points);
+    }
+  }
+
+  /**
    * A brick's points, multiplied and banked.
    *
    * **The rounding is the whole reason this is a method.** Every multiplier in
@@ -5954,6 +6087,7 @@ export class ShatterGame {
     this.bolts = [];
     this.closeCores();
     this.bumpers.reset();
+    this.chamber.reset();
     this.quake.reset();
     this.critter.reset();
     this.meteors.reset();
@@ -6611,6 +6745,7 @@ export class ShatterGame {
     if (kind === "N") {
       // The shockwave ring starts where the capsule was caught: the paddle centre.
       this.detonation.start(this.paddle.x + this.paddle.width / 2, this.paddle.y);
+      this.nukeQuanta();
     }
     if (kind === "U") {
       // Split, because a refusal is a different sentence from an arrival and the
@@ -7764,6 +7899,9 @@ export class ShatterGame {
     this.observer.load(definition.observer, definition.eye);
     this.brood.load(definition.observer);
     this.creatures.load(definition.creatures);
+    // A new room, and the bag for this depth of the loop.
+    this.chamber.reset();
+    this.chamber.setDepth(levelIndexOf(level) + 1);
     this.bossPool.reset();
     this.bossDone = false;
     this.oculi.load(definition.observer);
@@ -7858,6 +7996,8 @@ export class ShatterGame {
     this.bolts = [];
     this.closeCores();
     this.bumpers.reset();
+    // A lost ball empties the room, seen leaving, and starts the clock over.
+    this.chamber.restart();
     this.quake.reset();
     this.critter.reset();
     this.meteors.reset();
@@ -7949,6 +8089,7 @@ export class ShatterGame {
     this.bolts = [];
     this.closeCores();
     this.bumpers.reset();
+    this.chamber.reset();
     this.quake.reset();
     this.critter.reset();
     this.meteors.reset();

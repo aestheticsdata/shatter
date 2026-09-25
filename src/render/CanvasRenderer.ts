@@ -1,5 +1,6 @@
 import { BRICK_BY_ID, BRICK_RAMPS, BRICK_STRAIN_RAMPS } from "@core/config/bricks";
 import { gameConfig, peelFlightTicks } from "@core/config/GameConfig";
+import { PARTICLE_TONES } from "@core/config/particles";
 import { MALUS_KINDS, POWER_UP_GLYPHS } from "@core/config/powerUps";
 import { type Ball, paceGhost } from "@entities/ball/Ball";
 import { SPECIES } from "@entities/creatures/species";
@@ -12,6 +13,7 @@ import { DROP_HEIGHT } from "@entities/powerups/DropPool";
 import { ART_MODE, type ArtMode, FINE, finePitch } from "@interfaces/art";
 import { CREATURE } from "@interfaces/creatures";
 import { EYE_LAYER } from "@interfaces/eye";
+import { GATE_SIDE, PARTICLE } from "@interfaces/particles";
 import { BACKGROUND_COLORS, BackgroundLayer, dialTonesFor, IrisLayer } from "@render/backgrounds";
 import { type BallRow, ballGlints, ballRows } from "@render/ballSprite";
 import { BROOD_BITMAPS, BROOD_FRAMES, BROOD_OUTLINE, broodPalette } from "@render/broodSprite";
@@ -47,12 +49,13 @@ import {
   FRAME_RIVET,
   type PaddleBandColors,
 } from "@render/palette";
-import { ditherTile, mix, SpriteCache } from "@render/pix";
+import { ditherTile, mix, Pix, SpriteCache } from "@render/pix";
 
 import type { BrickDefinition, BrickGrain } from "@core/config/bricks";
 import type { WallErosion, WallSheet } from "@entities/bricks/BrickGrid";
 import type { Creature } from "@entities/creatures/Creature";
 import type { Beast } from "@entities/effects/Brood";
+import type { Chamber, Gate, Quantum } from "@entities/effects/Chamber";
 import type { Critter } from "@entities/effects/Critter";
 import type { Decoherence } from "@entities/effects/Decoherence";
 import type { Detonation } from "@entities/effects/Detonation";
@@ -950,6 +953,9 @@ export interface RenderView {
   // and is not pretending to be one.
   paddleShards: readonly PaddleShard[];
   bumpers: readonly Bumper[];
+  // THE CHAMBER (SHA-179): what is loose in the field, and the two gates in the
+  // side bars it came in through.
+  chamber: Chamber;
   // BANANA's peels on the paddle rail, oldest first.
   peels: readonly Peel[];
   // The rail JAMMER has taken back, dying out where the deck used to be.
@@ -2967,6 +2973,195 @@ export function drawCreature(
 }
 
 /**
+ * Where a gate's bar is cut this frame, in `unit` pixels — game ones for
+ * classic, fine ones for HD — or null while it is shut.
+ *
+ * Parted from the middle out, six pixels up and six down at full travel, so a
+ * gate opening reads as a bar splitting rather than as a hole appearing.
+ */
+function gateCut(gate: Gate | undefined, unit: number): { top: number; bottom: number } | null {
+  if (!gate || gate.open <= 0) {
+    return null;
+  }
+  const { y, height } = gameConfig.particles.gate;
+  const half = (height / 2) * gate.open;
+  const top = Math.round((y - half) * unit);
+  const bottom = Math.round((y + half) * unit);
+  return bottom > top ? { top, bottom } : null;
+}
+
+// A side bar as the spans it is painted in: the whole height, or the two either
+// side of a cut.
+function barSpans(cut: { top: number; bottom: number } | null, height: number): readonly (readonly [number, number])[] {
+  return cut
+    ? [
+        [0, cut.top],
+        [cut.bottom, height],
+      ]
+    : [[0, height]];
+}
+
+const QUANTA = new SpriteCache();
+
+/**
+ * How much of a particle is there: 0 to 1 over a pin's arrival, 1 to 0 over the
+ * room emptying, and over its own last ticks for a species that dims out.
+ */
+function quantumPresence(quantum: Quantum): number {
+  const { arriveTicks, leaveTicks } = gameConfig.particles;
+  let presence = 1;
+  if (quantum.arriveTicks > 0) {
+    presence = Math.min(presence, 1 - quantum.arriveTicks / arriveTicks);
+  }
+  if (quantum.leaveTicks > 0) {
+    presence = Math.min(presence, quantum.leaveTicks / leaveTicks);
+  }
+  if (quantum.kind === PARTICLE.PHOTON) {
+    const { lifeTicks, fadeTicks } = gameConfig.particles.photon;
+    presence = Math.min(presence, (lifeTicks - quantum.age) / fadeTicks);
+  }
+  return Math.max(0, Math.min(1, presence));
+}
+
+/**
+ * One of THE CHAMBER's particles (SHA-179), at whatever scale it is asked for.
+ *
+ * Module-level and scale-taking for `drawCreature`'s reason: the bestiary's
+ * cards draw the same particle the field does, and a second copy of it would
+ * drift the first time one is retouched.
+ */
+export function drawQuantum(
+  ctx: CanvasRenderingContext2D,
+  quantum: Quantum,
+  frameCount: number,
+  scale: number,
+  demade = false,
+  hd = false,
+): void {
+  const fine = hd && scale === FINE;
+  if (quantum.dead) {
+    if (quantum.bloomTicks > 0) {
+      drawQuantumBloom(ctx, quantum, scale, demade, fine);
+    }
+    return;
+  }
+  const presence = quantumPresence(quantum);
+  if (presence <= 0) {
+    return;
+  }
+  ctx.save();
+  ctx.globalAlpha = presence;
+  if (quantum.kind === PARTICLE.PHOTON) {
+    drawPhoton(ctx, quantum, scale, demade, fine);
+  }
+  ctx.restore();
+}
+
+/**
+ * PHOTON: a speck of light on a dead-straight line, with the line behind it.
+ *
+ * **The trail is the tell, and it is walked back along where the photon has
+ * actually been** rather than along its heading: straight is what a photon is,
+ * and a trail that cut the corner of a bounce would draw the one curve it
+ * never makes. Six pixels at one a pixel, fading out, in the energy wall's
+ * glow — and on the tube it is the only thing a two-by-two dot has that a
+ * mote of debris does not.
+ */
+function drawPhoton(
+  ctx: CanvasRenderingContext2D,
+  photon: Quantum,
+  scale: number,
+  demade: boolean,
+  fine: boolean,
+): void {
+  const tones = PARTICLE_TONES.photon;
+  const ink = inkFor(demade);
+  const presence = ctx.globalAlpha;
+  const { trail } = gameConfig.particles.photon;
+  const points = trailPoints(photon.trail, trail);
+  for (const [index, [x, y]] of points.entries()) {
+    ctx.globalAlpha = presence * (1 - index / trail);
+    ctx.fillStyle = ink(tones.trail);
+    if (fine) {
+      // A game pixel wide on the fine grid too: a hairline trail behind a
+      // speck is a trail nobody sees, and the trail is the photon's tell.
+      ctx.fillRect(Math.round(x * FINE) - 1, Math.round(y * FINE) - 1, FINE, FINE);
+    } else {
+      ctx.fillRect(Math.round((x - 0.5) * scale), Math.round((y - 0.5) * scale), scale, scale);
+    }
+  }
+  ctx.globalAlpha = presence;
+  if (fine) {
+    const sprite = QUANTA.get(`photon:${demade}`, () => {
+      const pix = new Pix(12, 12, demade ? demakeTone : undefined);
+      pix.disc(6, 6, 6, tones.trail, 0.5);
+      pix.disc(6, 6, 4.5, tones.trail);
+      pix.disc(6, 6, 3, tones.core);
+      return pix.toCanvas();
+    });
+    ctx.drawImage(sprite, Math.round(photon.x * FINE) - 6, Math.round(photon.y * FINE) - 6);
+    return;
+  }
+  const pixel = spriteBrush(ctx, scale, demade);
+  // A plus four pixels across, the glow on its arms and the core in the middle.
+  pixel(photon.x - 2, photon.y - 1, 4, 2, tones.trail);
+  pixel(photon.x - 1, photon.y - 2, 2, 4, tones.trail);
+  pixel(photon.x - 1, photon.y - 1, 2, 2, tones.core);
+}
+
+/**
+ * The points `count` pixels back along a path, one a pixel, newest first. The
+ * path is the particle's own recent positions, so a trail round a bounce goes
+ * round it.
+ */
+function trailPoints(path: readonly number[], count: number): [number, number][] {
+  const points: [number, number][] = [];
+  let walked = 0;
+  let want = 1;
+  for (let index = 0; index + 3 < path.length && points.length < count; index += 2) {
+    const [x0, y0, x1, y1] = [path[index], path[index + 1], path[index + 2], path[index + 3]];
+    const length = Math.hypot(x1 - x0, y1 - y0);
+    const reach = walked + length;
+    const here = length > 0 ? Math.min(count - points.length, Math.floor(reach) - want + 1) : 0;
+    for (let step = 0; step < here; step++, want++) {
+      const t = (want - walked) / length;
+      points.push([x0 + (x1 - x0) * t, y0 + (y1 - y0) * t]);
+    }
+    walked = reach;
+  }
+  return points;
+}
+
+/**
+ * A particle going out: its core blooming to twice its width and gone, the
+ * last thing it does whatever took it. Light, not debris.
+ */
+function drawQuantumBloom(
+  ctx: CanvasRenderingContext2D,
+  quantum: Quantum,
+  scale: number,
+  demade: boolean,
+  fine: boolean,
+): void {
+  const { bloomTicks } = gameConfig.particles.photon;
+  const left = quantum.bloomTicks / bloomTicks;
+  const size = 6;
+  const tone = PARTICLE_TONES.photon.core;
+  ctx.save();
+  ctx.globalAlpha = left;
+  if (fine) {
+    const disc = hdBallDisc(size * FINE, tone, demade);
+    ctx.drawImage(disc, Math.round(quantum.x * FINE - disc.width / 2), Math.round(quantum.y * FINE - disc.height / 2));
+  } else {
+    const pixel = spriteBrush(ctx, scale, demade);
+    for (const [row, [offset, span]] of ballRows(size).entries()) {
+      pixel(quantum.x - size / 2 + offset, quantum.y - size / 2 + row, span, 1, tone);
+    }
+  }
+  ctx.restore();
+}
+
+/**
  * THE TEAR's drops (SHA-174), falling down the corridor.
  *
  * The same five-pixel sprite the whole way down, with no wobble and no trail:
@@ -4544,6 +4739,11 @@ export class CanvasRenderer {
           drawCreature(this.ctx, creature, this.frameCount, SCALE, this.demade, this.fine);
         }
       }
+      // THE CHAMBER, with the brood: out on the band where the ball is, over
+      // the wall and under everything the player is holding.
+      for (const quantum of view.chamber.quanta) {
+        drawQuantum(this.ctx, quantum, this.frameCount, SCALE, this.demade, this.fine);
+      }
       // With the brood and over the wall: a tear is out on the field where the
       // ball is, and one falling behind a brick would be one the player could
       // not burst.
@@ -4818,7 +5018,7 @@ export class CanvasRenderer {
 
     // Inside the turn with the field: the frame is closed at the top and open
     // at the bottom, so which edge kills is drawn rather than remembered.
-    this.drawWalls(view.oculi.gap);
+    this.drawWalls(view.oculi.gap, view.chamber.gates);
     // The door, over the frame it is cut into and painted in the same pass: the
     // gap is left unpainted above and this fills it with light, so what closes
     // when the window runs out is the real frame coming back rather than a lid
@@ -7974,17 +8174,37 @@ export class CanvasRenderer {
    * PORTAL's mouths make, and for the same reason. A ball is let through
    * exactly the pixels that are missing.
    */
-  private drawWalls(gap: { left: number; right: number } | null = null): void {
+  private drawWalls(gap: { left: number; right: number } | null = null, gates: readonly Gate[] = []): void {
     if (this.fine) {
-      this.paintHdWalls(gap);
+      this.paintHdWalls(gap, gates);
       return;
     }
 
     const { width, height } = gameConfig.field;
-    this.pixel(0, 0, 3, height, canvasPalette.wallLight);
-    this.pixel(2, 0, 1, height, canvasPalette.wallShade);
-    this.pixel(width - 3, 0, 3, height, canvasPalette.wallLight);
-    this.pixel(width - 3, 0, 1, height, canvasPalette.wallShade);
+    // THE CHAMBER's gates (SHA-179): each bar painted as the two spans either
+    // side of its cut, so an open gate is a real hole in the frame and what
+    // shows through it is the room — and the particle coming out of it.
+    for (const gate of gates) {
+      const cut = gateCut(gate, 1);
+      const x = gate.side === GATE_SIDE.LEFT ? 0 : width - 3;
+      const shadeX = gate.side === GATE_SIDE.LEFT ? 2 : width - 3;
+      for (const [from, to] of barSpans(cut, height)) {
+        this.pixel(x, from, 3, to - from, canvasPalette.wallLight);
+        this.pixel(shadeX, from, 1, to - from, canvasPalette.wallShade);
+      }
+      // The cut's two lips, in the bar's own shade: a gap with square light
+      // ends reads as the bar missing a piece, one with a lip as a door.
+      if (cut) {
+        this.pixel(x, cut.top - 1, 3, 1, canvasPalette.wallShade);
+        this.pixel(x, cut.bottom, 3, 1, canvasPalette.wallShade);
+      }
+    }
+    if (gates.length === 0) {
+      this.pixel(0, 0, 3, height, canvasPalette.wallLight);
+      this.pixel(2, 0, 1, height, canvasPalette.wallShade);
+      this.pixel(width - 3, 0, 3, height, canvasPalette.wallLight);
+      this.pixel(width - 3, 0, 1, height, canvasPalette.wallShade);
+    }
     if (!gap) {
       this.pixel(0, 0, width, 3, canvasPalette.wallLight);
       this.pixel(0, 2, width, 1, canvasPalette.wallShade);
@@ -8017,15 +8237,31 @@ export class CanvasRenderer {
    * would fall in the opening is not driven at all rather than being painted
    * and then cut.
    */
-  private paintHdWalls(gap: { left: number; right: number } | null): void {
+  private paintHdWalls(gap: { left: number; right: number } | null, gates: readonly Gate[]): void {
     const width = gameConfig.field.width * SCALE;
     const height = gameConfig.field.height * SCALE;
     const door = gap === null ? null : { left: Math.round(gap.left * SCALE), right: Math.round(gap.right * SCALE) };
+    // THE CHAMBER's gates, on the fine grid: the cut is placed in fine pixels,
+    // so a bar parting over six ticks slides a fine pixel at a time.
+    const leftCut = gateCut(
+      gates.find((gate) => gate.side === GATE_SIDE.LEFT),
+      FINE,
+    );
+    const rightCut = gateCut(
+      gates.find((gate) => gate.side === GATE_SIDE.RIGHT),
+      FINE,
+    );
 
     FRAME_RAILS.forEach((tone, index) => {
       this.ctx.fillStyle = this.ink(tone);
-      this.ctx.fillRect(index, index, 1, height - index);
-      this.ctx.fillRect(width - 1 - index, index, 1, height - index);
+      for (const [from, to] of barSpans(leftCut, height)) {
+        const top = Math.max(from, index);
+        this.ctx.fillRect(index, top, 1, to - top);
+      }
+      for (const [from, to] of barSpans(rightCut, height)) {
+        const top = Math.max(from, index);
+        this.ctx.fillRect(width - 1 - index, top, 1, to - top);
+      }
       if (door === null) {
         this.ctx.fillRect(index, index, width - 2 * index, 1);
         return;
@@ -8033,6 +8269,19 @@ export class CanvasRenderer {
       this.ctx.fillRect(index, index, Math.max(0, door.left - index), 1);
       this.ctx.fillRect(door.right, index, Math.max(0, width - index - door.right), 1);
     });
+
+    // The cuts' lips, in the rail's lip tone across its whole width: the ends of
+    // a machined bar, not the bar stopping.
+    this.ctx.fillStyle = this.ink(FRAME_RAILS[FRAME_RAILS.length - 1]);
+    for (const [cut, x] of [
+      [leftCut, 0],
+      [rightCut, width - FRAME_RAILS.length],
+    ] as const) {
+      if (cut) {
+        this.ctx.fillRect(x, cut.top - 1, FRAME_RAILS.length, 1);
+        this.ctx.fillRect(x, cut.bottom, FRAME_RAILS.length, 1);
+      }
+    }
 
     for (const y of [HD_RIVET_FROM_START, Math.round(height / 2) - 1, height - HD_RIVET_FROM_END]) {
       this.paintHdRivet(FINE, y);

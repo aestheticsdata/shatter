@@ -22,6 +22,10 @@ export interface DevConsoleHost {
   // THE BESTIARY: one creature of this species, born over the deck. `false`
   // for a name that is not a species.
   dropCreature(name: string): boolean;
+  // THE CHAMBER: one particle of this species through the far gate, over the
+  // cap. Says which of the three ways it went, because a busy gate is not a
+  // typo and should not be answered as one.
+  releaseParticle(name: string): "released" | "busy" | "unknown";
   jumpToLevel(levelNumber: number): void;
   // THE OBSERVER's levels, numbered among themselves rather than by where they
   // sit in the roster. `false` when there is no such veil.
@@ -76,6 +80,7 @@ const EXAMPLES: readonly (readonly [string, string])[] = [
   // said in five characters less.
   ["VEIL <N>", "JUMP TO THAT VEIL · THE EYE'S LEVELS"],
   ["OPEN", "OPEN THE EYE · TAKES THE THREE OCULI"],
+  ["PARTICLE <KIND>", "ONE THROUGH A GATE · OVER THE CAP"],
   ["BONUS <0-1>", "CHANCE A BRICK DROPS ONE · 1 = ALWAYS"],
   ["GAMBLE <CAPSULE>", "PIN WHAT GAMBLE PAYS · BARE = UNPIN"],
   ["ART <MODE>", "CLASSIC · HD · SPLIT COMPARES THEM"],
@@ -236,6 +241,8 @@ export class DevConsole {
         return this.dropCapsules(operands);
       case "creature":
         return this.dropCreature(operands);
+      case "particle":
+        return this.releaseParticle(operands);
       case "level":
         return this.jumpToLevel(operands);
       case "veil":
@@ -299,6 +306,19 @@ export class DevConsole {
       return "CREATURE WHICH";
     }
     return this.host.dropCreature(name) ? null : `NO SUCH CREATURE ${name.toUpperCase()}`;
+  }
+
+  /** `particle photon` — one of the chamber's, through the gate farther from the deck. */
+  private releaseParticle(operands: string[]): string | null {
+    const name = operands[0]?.toLowerCase() ?? "";
+    if (operands.length !== 1 || name === "") {
+      return "PARTICLE WHICH";
+    }
+    const result = this.host.releaseParticle(name);
+    if (result === "unknown") {
+      return `NO SUCH PARTICLE ${name.toUpperCase()}`;
+    }
+    return result === "busy" ? "BOTH GATES BUSY" : null;
   }
 
   /**

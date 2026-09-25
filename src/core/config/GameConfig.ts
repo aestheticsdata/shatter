@@ -2291,6 +2291,55 @@ export const gameConfig = {
     clearBonus: 5000,
   },
   /**
+   * THE CHAMBER (SHA-179): particles let into the field through two gates in
+   * the side bars, on a clock, out of a bag that widens with the loop.
+   *
+   * **A clock the player can read.** Eight seconds of quiet after the first
+   * launch, then one every twelve, never more than three loose at once — and a
+   * lost ball empties the room and starts the eight seconds over, so a serve is
+   * always a clean field. At the cap the clock holds, and the next one comes
+   * twelve seconds after the room has space again.
+   */
+  particles: {
+    firstTicks: 480,
+    intervalTicks: 720,
+    cap: 3,
+    // Arrival and departure for the things that do not come through a gate: a
+    // level's pins materialising on the serve, and the room emptying after a
+    // lost ball. The gate is the arrival for everything else.
+    arriveTicks: 20,
+    leaveTicks: 20,
+    gate: {
+      // Band height: under the deepest wall the game ships (y 134), over the
+      // deck, clear of BUMPERS' discs.
+      y: 200,
+      height: 12,
+      // Six ticks for the bar to part, and six to close after the particle is
+      // twelve pixels in.
+      travelTicks: 6,
+      holdTicks: 6,
+      clearPx: 12,
+      // The heading a particle comes out on, off the horizontal, up or down at
+      // random: never flat along the band, never straight at the ceiling.
+      minHeading: Math.PI / 9,
+      maxHeading: Math.PI / 3,
+    },
+    photon: {
+      // The loop position it joins the bag at, 1-based.
+      joins: 1,
+      radius: 2,
+      speed: 2.5,
+      // How far a ball is bent toward the photon's heading when it takes one.
+      scatter: Math.PI / 6,
+      points: 50,
+      lifeTicks: 1200,
+      fadeTicks: 60,
+      // The trail behind it, in pixels, and the bloom it goes out in.
+      trail: 6,
+      bloomTicks: 4,
+    },
+  },
+  /**
    * THE TITLE (SHA-211): the mockup's home. Where the Observer sits behind the
    * wordmark, in stage pixels, and how big — it looks at the mouse.
    */
