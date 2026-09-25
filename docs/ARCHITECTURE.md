@@ -415,8 +415,8 @@ live miniatures of the _real_ field through
 [`levelStill.ts`](../src/render/levelStill.ts) and
 [`capsuleScenes.ts`](../src/render/capsuleScenes.ts); the bestiary is a book of
 cards, each creature posed and animated by
-[`creaturePortraits.ts`](../src/render/creaturePortraits.ts) and blown up by a
-whole number. All three use the same sprites and the same renderer, so adding a
+[`creaturePortraits.ts`](../src/render/creaturePortraits.ts) and drawn at three
+times its size. All three use the same sprites and the same renderer, so adding a
 level, a capsule or a species makes it appear in its gallery with no second edit
 anywhere. The screens' names are the `SCREEN`
 constants in [`screens.ts`](../src/interfaces/screens.ts).

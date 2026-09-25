@@ -34,10 +34,23 @@ export const NAME_FONT = "10px 'Press Start 2P', monospace";
 // The air between a stat's label and its value, set on `.creature-stats`.
 export const STATS_GAP = 8;
 
-// The box the creature is blown up into, inside its panel, in stage pixels,
-// and the biggest the blow-up may go: past ten a wisp is a wall of squares.
+/**
+ * How much bigger than on the field every creature is drawn — the same for all
+ * of them (SHA-256).
+ *
+ * Three, because the portrait is backed at `SCALE` and three is the zoom that
+ * puts one fine pixel of it on one stage pixel: the grid the page's own type is
+ * set on, and as fine as the book can go while a moth is still worth looking
+ * at. The first cut zoomed each creature to fill its window, up to ten, and a
+ * fine pixel came out three times coarser than anything else on the screen.
+ * One zoom for all also keeps the creatures' true sizes: a boss is bigger than
+ * a moth here because it is bigger than a moth on the field.
+ */
+const PORTRAIT_ZOOM = 3;
+// The box the creature has inside its panel, in stage pixels. Every portrait
+// fits it at `PORTRAIT_ZOOM` today; a bigger one would be drawn smaller rather
+// than spill out of its window.
 const PORTRAIT_BOX = { width: 144, height: 208 } as const;
-const MAX_ZOOM = 10;
 // How finely the portrait's loop is sampled to find everything it covers.
 // Every clock a portrait keeps turns over on a multiple of this or faster than
 // it, and a frog's hop peaks on frame 138 of its loop, which is one.
@@ -244,8 +257,8 @@ function trimOf(kind: BestiaryKind, hd: boolean): Trim {
 
 /**
  * The BESTIARY screen (SHA-255): a book of cards, one creature to a page — the
- * creature drawn big and alive on the left, and on the right its name, its
- * four facts, its lore and a tip.
+ * creature alive on the left at three times its size (SHA-256), and on the
+ * right its name, its four facts, its lore and a tip.
  *
  * It reads the registry and paints. It never touches the game's state and the
  * running game never touches it — the screen is only ever open from the title.
@@ -296,8 +309,7 @@ export class Bestiary {
     this.elements.facts.textContent = "CLICK TO RETURN";
   }
 
-  // The panel on the left, with the creature in it at the biggest whole-number
-  // zoom its box allows.
+  // The panel on the left, with the creature in it at `PORTRAIT_ZOOM`.
   private stage(entry: BestiaryEntry): HTMLElement {
     const hd = this.art() !== ART_MODE.CLASSIC;
     const key = `${hd ? "hd" : "classic"}:${entry.kind}`;
@@ -314,7 +326,7 @@ export class Bestiary {
     const real = { width: trim.width / SCALE, height: trim.height / SCALE };
     const zoom = Math.max(
       1,
-      Math.min(MAX_ZOOM, Math.floor(Math.min(PORTRAIT_BOX.width / real.width, PORTRAIT_BOX.height / real.height))),
+      Math.min(PORTRAIT_ZOOM, Math.floor(Math.min(PORTRAIT_BOX.width / real.width, PORTRAIT_BOX.height / real.height))),
     );
     canvas.style.width = `${real.width * zoom}px`;
     canvas.style.height = `${real.height * zoom}px`;

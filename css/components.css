@@ -1175,9 +1175,9 @@
   border: 1px solid var(--color-title-divider);
 }
 
-/* Blown up by a whole number from a canvas backed at SCALE — its box is set on
-   the element, since every creature's outline is its own — and never smoothed:
-   big pixels are the point. */
+/* Three times its field size from a canvas backed at SCALE, so one fine pixel
+   lands on one stage pixel (SHA-256) — its box is set on the element, since
+   every creature's outline is its own — and never smoothed. */
 .creature-portrait {
   display: block;
   image-rendering: pixelated;
