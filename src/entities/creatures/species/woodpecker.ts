@@ -66,11 +66,11 @@ export const WOODPECKER_BODY: readonly string[] = [
 ];
 
 // Out on the downbeat and up on the up, for the second it is in the air.
-const WING_DOWN: readonly string[] = ["xxxxx.", ".xxxxx", "..xxx."];
-const WING_UP: readonly string[] = flipped(WING_DOWN);
-const WING_LEFT_DOWN = mirrored(WING_DOWN);
+export const WOODPECKER_WING: readonly string[] = ["xxxxx.", ".xxxxx", "..xxx."];
+const WING_UP: readonly string[] = flipped(WOODPECKER_WING);
+const WING_LEFT_DOWN = mirrored(WOODPECKER_WING);
 const WING_LEFT_UP = mirrored(WING_UP);
-const WING_SPAN = WING_DOWN[0].length;
+const WING_SPAN = WOODPECKER_WING[0].length;
 const SHOULDER = 5;
 
 /**
@@ -227,6 +227,6 @@ export const WOODPECKER: Species = {
       creature.flashTicks > 0 ? canvasPalette.deathFlash : demade ? canvasPalette.demakeInk : BRICK_COLORS.R.dark;
     const up = Math.floor(creature.clock / gameConfig.creatures.woodpecker.flapTicks) % 2 === 0;
     paintRows(pixel, up ? WING_LEFT_UP : WING_LEFT_DOWN, x - WING_SPAN + 1, y + SHOULDER, tone, unit);
-    paintRows(pixel, up ? WING_UP : WING_DOWN, x + WIDTH - 1, y + SHOULDER, tone, unit);
+    paintRows(pixel, up ? WING_UP : WOODPECKER_WING, x + WIDTH - 1, y + SHOULDER, tone, unit);
   },
 };

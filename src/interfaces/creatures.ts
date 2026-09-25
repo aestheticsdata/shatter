@@ -28,6 +28,12 @@ export const CREATURE = {
   FROG_KING: "frogKing",
   SNAIL_ELDER: "snailElder",
   MAN_O_WAR: "manOWar",
+  // The veils' own bosses (SHA-261), the ones that come down when a veil breaks.
+  BAT_COUNT: "batCount",
+  SCARAB: "scarab",
+  CRAB_BARON: "crabBaron",
+  DRUMMER: "drummer",
+  GREAT_SLUG: "greatSlug",
 } as const;
 
 export type CreatureKind = (typeof CREATURE)[keyof typeof CREATURE];

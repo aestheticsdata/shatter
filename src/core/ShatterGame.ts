@@ -3545,7 +3545,8 @@ export class ShatterGame {
     this.deps.sfx.observerBlinded();
     this.blinded = true;
     this.chart.stroke(gameConfig.observer.chart.bossStrokes);
-    this.clearCountdown = gameConfig.effects.clearDelayTicks;
+    // THE GREAT SLUG comes down now (SHA-261); the card follows his death.
+    this.wallCleared();
   }
 
   /**
@@ -6944,11 +6945,17 @@ export class ShatterGame {
    * from above the ceiling instead of the clear card; the card follows its
    * death. Every idempotent clear trigger in the game comes through here, so
    * a rock, a capsule or a spent ball taking the last brick starts the same
-   * fight a rally would. A veil is its own boss and keeps its own ending.
+   * fight a rally would.
+   *
+   * A veil has one too (SHA-261), on top of the eye: its broken veil brings it
+   * down the same way. THE LID's comes when the pupil is blinded, which is that
+   * veil's end — its wall is scenery, so an empty one there still ends the
+   * level the old way.
    */
   private wallCleared(): void {
     const kind = BOSS_OF_LEVEL[this.level];
-    if (this.bossDone || this.observer.level !== null || !isBossLevel(this.level) || kind === undefined) {
+    const lidOpen = this.observer.level?.mode === "lid" && !this.blinded;
+    if (this.bossDone || lidOpen || !isBossLevel(this.level) || kind === undefined) {
       this.clearCountdown = gameConfig.effects.clearDelayTicks;
       return;
     }
@@ -6969,7 +6976,10 @@ export class ShatterGame {
   private stepBossShots(): void {
     const boss = this.bossPool.live && !this.inside.active ? this.bossPool.creatures.find((c) => c.alive) : undefined;
     const box = boss ? creatureBox(boss) : null;
-    const muzzle = boss && box ? { kind: boss.kind, x: boss.x + box.width / 2, y: boss.y + box.height } : null;
+    const muzzle =
+      boss && box
+        ? { kind: boss.kind, entering: boss.state === "enter", x: boss.x + box.width / 2, y: boss.y + box.height }
+        : null;
     if (this.bossShots.step(muzzle, this.paddle.y)) {
       this.deps.sfx.bossShot();
     }

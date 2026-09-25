@@ -51,7 +51,7 @@ const SNATCHED = "SNATCHED";
  * claws, its arms and its legs and came out as a bar; it needed the ground to
  * carry it, which meant the shell had to be the big thing on it.
  */
-const SCUTTLE_OUT: readonly string[] = [
+export const SCUTTLE_OUT: readonly string[] = [
   ".kk.........kk.",
   "kwwk.......kwwk",
   ".kw...k.k...wk.",
@@ -68,7 +68,7 @@ const SCUTTLE_OUT: readonly string[] = [
 // you, and a creature waving them about while it walked would be two
 // animations arguing over one read — and a set of legs sliding sideways is
 // what a crab's walk *is*.
-const SCUTTLE_IN: readonly string[] = [
+export const SCUTTLE_IN: readonly string[] = [
   ".kk.........kk.",
   "kwwk.......kwwk",
   ".kw...k.k...wk.",

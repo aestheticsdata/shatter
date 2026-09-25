@@ -1,16 +1,8 @@
 import { gameConfig } from "@core/config/GameConfig";
 import { smoothDoubled } from "@entities/creatures/bitmap";
 
-import type { CREATURE, CreatureKind } from "@interfaces/creatures";
+import type { CreatureKind } from "@interfaces/creatures";
 import type { RectangleBounds } from "@interfaces/types";
-
-/** The five that fire, and only them: an ordinary creature never shoots. */
-export type ShootingBoss =
-  | typeof CREATURE.SPIDER_QUEEN
-  | typeof CREATURE.MOTH_MOTHER
-  | typeof CREATURE.FROG_KING
-  | typeof CREATURE.SNAIL_ELDER
-  | typeof CREATURE.MAN_O_WAR;
 
 /**
  * What each boss drops, in its own species' palette letters, so a shot is
@@ -19,13 +11,23 @@ export type ShootingBoss =
  * them point down, which is the only way they go. Doubled by Scale2x like the
  * bosses that fire them, or a five-pixel drop under a boss that size is a speck.
  */
-export const BOSS_SHOT_BITMAPS: Readonly<Record<ShootingBoss, readonly string[]>> = {
+export const BOSS_SHOT_BITMAPS = {
   spiderQueen: smoothDoubled(["..k..", ".kmk.", ".kmk.", "kmhmk", "kmmmk", "kmmmk", ".kkk."]),
   mothMother: smoothDoubled([".s.w.", "s.w.s", ".wsw.", "w.s.w", ".wsw.", "s.w.s", ".s.w."]),
   frogKing: smoothDoubled(["..k..", ".klk.", "kglgk", "kgggk", "kgggk", ".kkk."]),
   snailElder: smoothDoubled([".kkk..", "klllk.", "kolllk", "kooook", "kooook", ".kkkk."]),
   manOWar: smoothDoubled(["..l..", ".kpk.", "..p..", "..p..", "..m..", ".kmk.", "..k.."]),
-};
+  // The veils' bosses (SHA-261): the count's screech, the scarab's chitin, the
+  // baron's bubble, the drummer's splinter and the great slug's gob.
+  batCount: smoothDoubled(["l...l", ".l.l.", "..l..", "l...l", ".l.l.", "..l.."]),
+  scarab: smoothDoubled(["..k..", ".kck.", ".kck.", "kcsck", ".kck.", "..k.."]),
+  crabBaron: smoothDoubled([".kkk.", "kw..k", "k...k", "k...k", ".kkk."]),
+  drummer: smoothDoubled(["..y..", ".kyk.", ".kyk.", ".kwk.", ".kwk.", "..k.."]),
+  greatSlug: smoothDoubled(["..k..", ".kbk.", "kbsbk", "kbbbk", "kbbbk", ".kkk."]),
+} as const satisfies Readonly<Partial<Record<CreatureKind, readonly string[]>>>;
+
+/** The ten that fire, and only them: an ordinary creature never shoots. */
+export type ShootingBoss = keyof typeof BOSS_SHOT_BITMAPS;
 
 export interface BossShot {
   kind: ShootingBoss;
@@ -37,6 +39,8 @@ export interface BossShot {
 /** Where a boss fires from: its own kind, and the middle of its underside. */
 export interface Muzzle {
   kind: CreatureKind;
+  /** Still coming down from the ceiling: every boss's first state is `enter`. */
+  entering: boolean;
   x: number;
   y: number;
 }
@@ -84,7 +88,7 @@ export class BossShots {
     }
     this.shots.splice(0, this.shots.length, ...this.shots.filter((shot) => shot.y < gameConfig.field.height));
     const { chargeTicks, headroom } = gameConfig.bosses.shots;
-    if (muzzle === null || !isShooter(muzzle.kind) || muzzle.y < gameConfig.field.top) {
+    if (muzzle === null || !isShooter(muzzle.kind) || muzzle.entering) {
       // A boss still coming down from the ceiling, or none at all: the clock
       // waits, and a wind-up in progress is dropped rather than left hanging.
       this.charging = null;

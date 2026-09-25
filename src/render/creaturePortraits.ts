@@ -44,6 +44,8 @@ const BEETLE_CYCLE = BEETLE_WALK + gameConfig.creatures.beetle.flipTicks;
 // window (SHA-257) — and how much the crab is carrying.
 const VINE_SEGMENTS = 4;
 const CRAB_PIPS = 2;
+// How far a flying boss's left wing reaches past its body (SHA-261).
+const WING_REACH = 20;
 // The air between two of the brood's forms.
 const BROOD_GAP = 4;
 // A frog's hop on the spot: how often, and how long it is in the air.
@@ -273,6 +275,13 @@ const PORTRAITS: Record<BestiaryKind, Portrait> = {
   [CREATURE.SNAIL_ELDER]: still(CREATURE.SNAIL_ELDER, () => ({ facing: 1 })),
   // Hung at the top on his beat, tips dull: resting between descents.
   [CREATURE.MAN_O_WAR]: still(CREATURE.MAN_O_WAR, (frame) => ({ state: "rest", clock: frame })),
+  // The veils' bosses (SHA-261), each in the pose it spends its fight in. The
+  // two with wings are set in by the wing's reach, or the left one is off the page.
+  [CREATURE.BAT_COUNT]: still(CREATURE.BAT_COUNT, (frame) => ({ x: AT + WING_REACH, state: "flit", clock: frame })),
+  [CREATURE.SCARAB]: still(CREATURE.SCARAB, (frame) => ({ state: "walk", clock: frame })),
+  [CREATURE.CRAB_BARON]: still(CREATURE.CRAB_BARON),
+  [CREATURE.DRUMMER]: still(CREATURE.DRUMMER, (frame) => ({ x: AT + WING_REACH, state: "fly", clock: frame })),
+  [CREATURE.GREAT_SLUG]: still(CREATURE.GREAT_SLUG, (frame) => ({ state: "crawl", clock: frame })),
 };
 
 /**

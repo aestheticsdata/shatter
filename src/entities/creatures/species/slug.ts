@@ -39,7 +39,7 @@ const BELLY = 4;
 // A shell-less snail: a long foot rounded at both ends so either can be the
 // head, a mantle saddle over the front half with the leopard slug's spots in
 // it, and the same spots down the flank.
-const CRAWL_A: readonly string[] = [
+export const CRAWL_A: readonly string[] = [
   "................",
   "................",
   "................",
@@ -52,7 +52,7 @@ const CRAWL_A: readonly string[] = [
 ];
 
 // The foot rippling, which is the only thing on a slug that says it is moving.
-const CRAWL_B: readonly string[] = [
+export const CRAWL_B: readonly string[] = [
   "................",
   "................",
   "................",

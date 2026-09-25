@@ -54,6 +54,11 @@ const BOSSES = [
   CREATURE.FROG_KING,
   CREATURE.SNAIL_ELDER,
   CREATURE.MAN_O_WAR,
+  CREATURE.BAT_COUNT,
+  CREATURE.SCARAB,
+  CREATURE.CRAB_BARON,
+  CREATURE.DRUMMER,
+  CREATURE.GREAT_SLUG,
 ];
 // On a brick, under a brick, or in the band under the wall. The rest go
 // anywhere in the field: the moth orbits the eye, the spider drops from the

@@ -65,14 +65,14 @@ export const BAT_BODY: readonly string[] = [
 ];
 
 // Wrapped round itself, hugging the body's free columns: the sleeping wing.
-const WING_FOLDED_RIGHT: readonly string[] = ["xx", "xx", "xx", "xx", "xx", "x."];
+export const WING_FOLDED_RIGHT: readonly string[] = ["xx", "xx", "xx", "xx", "xx", "x."];
 const WING_FOLDED_LEFT: readonly string[] = mirrored(WING_FOLDED_RIGHT);
 
 // The beat, out to the right; the left is this mirrored. One tone rather than
 // a membrane inside an outline — a wing is a silhouette at this size, and a
 // lighter interior only muddies the shape it is read by.
-const WING_DOWN: readonly string[] = ["xxxxxx.", "xxxxxxx", ".xxxxxx", "..xxxxx", "...xxxx", "....xx."];
-const WING_UP: readonly string[] = ["....xx.", "...xxxx", "..xxxxx", ".xxxxxx", "xxxxxxx", "xxxxxx."];
+export const WING_DOWN: readonly string[] = ["xxxxxx.", "xxxxxxx", ".xxxxxx", "..xxxxx", "...xxxx", "....xx."];
+export const WING_UP: readonly string[] = ["....xx.", "...xxxx", "..xxxxx", ".xxxxxx", "xxxxxxx", "xxxxxx."];
 
 const WING_LEFT_DOWN = mirrored(WING_DOWN);
 const WING_LEFT_UP = mirrored(WING_UP);

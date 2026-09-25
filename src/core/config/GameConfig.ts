@@ -2388,6 +2388,73 @@ export const gameConfig = {
       armedFlickerAt: 50,
       flickerTicks: 5,
     },
+    /**
+     * THE VEILS' BOSSES (SHA-261): what comes down from the ceiling when a veil
+     * breaks — its level's own boss, on top of the eye.
+     */
+    // THE BAT COUNT (THE VEIL): flits in no curve across the upper field, and
+    // roosts at the ceiling for a breath between flights.
+    batCount: {
+      hitPoints: 12,
+      points: 200,
+      killPoints: 2500,
+      enterSpeed: 1,
+      hangY: 12,
+      // The lowest his flight goes: well over the headroom his shots need.
+      lowY: 110,
+      flitSpeed: 1.2,
+      flitTicks: 420,
+      roostTicks: 140,
+      flapTicks: 6,
+    },
+    // THE SCARAB (THE IRIS): walks the top, armour above and belly below, and
+    // every third belly hit rolls him into a charge.
+    scarab: {
+      hitPoints: 10,
+      points: 250,
+      killPoints: 2500,
+      enterSpeed: 1,
+      hangY: 24,
+      walkSpeed: 0.5,
+      rollSpeed: 2.2,
+      rollTicks: 120,
+      rollEvery: 3,
+    },
+    // THE CRAB BARON (THE TEAR): stalks over the deck along the top, snatches
+    // what falls through him, and a hit spills one back.
+    crabBaron: {
+      hitPoints: 10,
+      points: 250,
+      killPoints: 2500,
+      enterSpeed: 1,
+      hangY: 24,
+      stalkSpeed: 0.7,
+    },
+    // THE DRUMMER (THE WRATH): flies to a spot on the ceiling, clings and
+    // drums until the room shakes, then flies on.
+    drummer: {
+      hitPoints: 10,
+      points: 250,
+      killPoints: 3000,
+      enterSpeed: 1,
+      hangY: 6,
+      flySpeed: 1.6,
+      clingTicks: 200,
+      drumEvery: 24,
+      drumShake: 5,
+      flapTicks: 5,
+    },
+    // THE GREAT SLUG (THE LID): crawls the band under the wall, and what drips
+    // off him slimes the rail below.
+    greatSlug: {
+      hitPoints: 12,
+      points: 250,
+      killPoints: 3000,
+      enterSpeed: 1,
+      crawlSpeed: 0.35,
+      slimeEvery: 30,
+      slimeTicks: 600,
+    },
   },
   /**
    * THE BOSSES (SHA-209): the fight at the end of every fifth level. What a
@@ -2412,6 +2479,11 @@ export const gameConfig = {
       frogKing: { intervalTicks: 130, speed: 2.6 },
       snailElder: { intervalTicks: 170, speed: 1.4 },
       manOWar: { intervalTicks: 120, speed: 2.2 },
+      batCount: { intervalTicks: 100, speed: 2.4 },
+      scarab: { intervalTicks: 140, speed: 2 },
+      crabBaron: { intervalTicks: 120, speed: 1.5 },
+      drummer: { intervalTicks: 90, speed: 2.8 },
+      greatSlug: { intervalTicks: 150, speed: 1.4 },
     },
   },
   /**

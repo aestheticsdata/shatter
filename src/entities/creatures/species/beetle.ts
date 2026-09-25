@@ -62,12 +62,12 @@ export const BEETLE_SHELL: readonly string[] = [
 
 // The head, out at the leading end: jaw, crown and one antenna. Facing right;
 // the other way is this mirrored.
-const HEAD_RIGHT: readonly string[] = ["...x", "..x.", ".xxx", ".xxx", "..xx"];
+export const HEAD_RIGHT: readonly string[] = ["...x", "..x.", ".xxx", ".xxx", "..xx"];
 const HEAD_LEFT: readonly string[] = mirrored(HEAD_RIGHT);
 
 // Three pairs, splayed, with feet on the end. Under it on its feet, over it
 // on its back.
-const LEGS: readonly string[] = ["..x...x...x...", ".x....x....x..", "xx...xx....xx."];
+export const LEGS: readonly string[] = ["..x...x...x...", ".x....x....x..", "xx...xx....xx."];
 const LEGS_UP: readonly string[] = LEGS.toReversed();
 
 export const BEETLE: Species = {

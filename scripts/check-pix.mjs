@@ -1578,6 +1578,11 @@ function lids(span, floor) {
     ["frog", "frogKing"],
     ["snail", "snailElder"],
     ["jellyfish", "manOWar"],
+    ["bat", "batCount"],
+    ["beetle", "scarab"],
+    ["crab", "crabBaron"],
+    ["woodpecker", "drummer"],
+    ["slug", "greatSlug"],
   ]) {
     const species = rounded(SPECIES[small].frames[0]);
     const boss = rounded(SPECIES[big].frames[0]);
@@ -1630,8 +1635,10 @@ function lids(span, floor) {
   check(flashOf(0.25) === FLASH.OUTLINE, "the second half of a strike is not the outline alone");
 
   // The key space, which is the argument for baking these and not the almond.
+  // 320 since the veils' five bosses (SHA-261) took it past 256: still a few
+  // hundred canvases baked once, not a key that grows with play.
   const keys = sprites.length * 3 * 2;
-  check(keys <= 256, `the bestiary would bake ${keys} sprites, which is no longer a small and finite key`);
+  check(keys <= 320, `the bestiary would bake ${keys} sprites, which is no longer a small and finite key`);
 }
 
 // 21. THE PLAQUES, THE DIADEM and THE GATE (SHA-234).
