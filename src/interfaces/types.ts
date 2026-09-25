@@ -30,7 +30,7 @@ export type { BrickKind };
  * widening to take colours: a paddle tearing in two throws pieces of paddle,
  * and nothing in the core has to learn what blue the paddle is to say so.
  */
-export type ChunkMaterial = BrickKind | "deck" | "ribbon";
+export type ChunkMaterial = BrickKind | "deck" | "ribbon" | "wormhole";
 
 export interface BrickCell {
   kind: BrickKind;

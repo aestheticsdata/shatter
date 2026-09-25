@@ -506,6 +506,41 @@ export const gameConfig = {
       },
     },
     /**
+     * WORMHOLE (SHA-165): the pair of mouths. The whole capsule is here and in
+     * `@entities/effects/Wormhole`.
+     */
+    wormhole: {
+      // A mouth's radius: 16 px across. The transit tests the ball's *centre*
+      // against it, so a 24 px GIANT goes through a 16 px hole — a wormhole has
+      // no width to speak of.
+      radius: 8,
+      // The lip: within this far of the rim a ball's heading is bent toward the
+      // centre by `lipTurnRad` a tick, speed untouched — a near miss becomes a
+      // hit and a clean miss stays a miss.
+      lip: 20,
+      lipTurnRad: 0.09,
+      // Both ends dilate from a pixel and collapse back over this, on arrival,
+      // on every re-roll and at expiry — the singularity iris exactly.
+      dilateTicks: 12,
+      // Placement: off the side walls (which also keeps the transit and PORTAL's
+      // from ever contending), off any live ball, off the top of the deck, and
+      // the two ends apart from each other.
+      wallMargin: 20,
+      ballMargin: 24,
+      deckMargin: 40,
+      pairGap: 60,
+      tries: 24,
+      // The box that must stand clear where a mouth opens: where the ball will
+      // come out, not the ring, which may lie over a brick's edge.
+      probe: 10,
+      // The exit's facing, in the upward half only: 20 to 160 degrees above
+      // the horizon. A hole that could spit straight at the gutter would be a
+      // free death from an event the player did not start.
+      minFacing: 0.35,
+      maxFacing: 2.79,
+      cooldownTicks: 10,
+    },
+    /**
      * KLAXON (SHA-143): the bulb horn and its pressure fronts. The whole capsule
      * is here and in `@entities/effects/Klaxon`.
      */

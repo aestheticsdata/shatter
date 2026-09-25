@@ -56,6 +56,9 @@ export class Ball {
   // several sub-steps of overlap, and a ball that grazed a wedge would take
   // four hit points off the brick for it without this.
   umbraCooldown = 0;
+  // WORMHOLE: ticks before this ball may be swallowed again, so the frame it
+  // leaves the exit on cannot hand it straight back.
+  wormholeCooldown = 0;
   // MULTI/SWARM: ticks left of this ball's birth, 0 for a ball that was always
   // here. Purely how the ball is drawn — a clone collides at full 8 px from the
   // frame it is stamped, and the mask is always smaller than that.

@@ -609,6 +609,17 @@ export const FRAME_RIVET = {
  * one row here, and the simulation still names a material rather than a colour.
  */
 /**
+ * WORMHOLE (SHA-165): the throat, the rim in the pill's own aqua, and the rim's
+ * lit pixels. The throat is darker than any field theme, so a mouth is a hole
+ * in the picture on every background.
+ */
+export const WORMHOLE_TONES = {
+  throat: "#020409",
+  rim: "#4effc9",
+  rimLight: "#d6fff2",
+} as const;
+
+/**
  * KLAXON (SHA-143): the bulb in the capsule's own mint with a dark rib for each
  * honk left, the brass bell it blows through, and the front's two strokes.
  */
@@ -650,6 +661,7 @@ export const RIBBON_TONES: BrickColorSet = {
 export const CHUNK_COLORS: Record<ChunkMaterial, BrickColorSet> = {
   ...BRICK_COLORS,
   ribbon: RIBBON_TONES,
+  wormhole: { flat: WORMHOLE_TONES.rim, light: WORMHOLE_TONES.rimLight, dark: "#1a7a5e" },
   deck: {
     flat: canvasPalette.paddleBody,
     light: canvasPalette.paddleTopSheen,

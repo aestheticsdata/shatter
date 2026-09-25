@@ -13,6 +13,7 @@ import {
   drawKlaxonBulb,
   drawKlaxonFront,
   drawMouldBud,
+  drawWormholeMouth,
   drawRibbonStamp,
   drawDeckBody,
   MIRROR_BANDS,
@@ -494,6 +495,11 @@ class Field {
    * along the cut — so the catalogue's picture of an arriving fence is the same
    * sprite the field paints rather than a second one that could drift off it.
    */
+  /** WORMHOLE: one mouth, fully open, the exit open on its facing. */
+  wormholeMouth(x: number, y: number, exit: boolean, facing = -Math.PI / 2): void {
+    drawWormholeMouth(this.ctx, { x, y, facing }, 1, 6, exit ? 7 : 3, exit, this.scale, this.demade);
+  }
+
   /** KLAXON: the bulb on the deck's right cap, with this many honks left. */
   klaxonBulb(honks: number, x = DECK_HOME): void {
     drawKlaxonBulb(this.ctx, x + gameConfig.paddle.baseWidth - 4, DECK_Y, 1, honks, 0, 0, this.scale, this.demade);
@@ -1830,6 +1836,22 @@ const SCENES: Record<PowerUpKind, Painter> = {
    * the near anchor, so the reader can follow the whole sentence in one glance
    * — *this* was struck, *that* died.
    */
+  /**
+   * WORMHOLE: the shot nobody can aim.
+   *
+   * A short wall, a mouth under it and a mouth in the sky above it, and the
+   * ball just leaving the far one on its facing — up and over, behind the wall,
+   * about to come down through it. Both ends in one frame is what says they are
+   * a pair; the ball already on the far side is what says what the pair is for.
+   */
+  WO: (field) => {
+    field.wall(["1", "2", "3"], 0, 1);
+    field.wormholeMouth(130, 170, false);
+    const facing = -Math.PI * 0.3;
+    field.wormholeMouth(250, 22, true, facing);
+    field.ball(250 + Math.cos(facing) * 16 - 4, 22 + Math.sin(facing) * 16 - 4);
+    field.deck();
+  },
   /**
    * KLAXON: one honk, caught mid-field.
    *

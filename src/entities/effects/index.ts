@@ -33,4 +33,5 @@ export * from "./Superposition";
 export * from "./Tears";
 export * from "./Tunnelling";
 export * from "./Uncertainty";
+export * from "./Wormhole";
 export * from "./WallOffsets";

@@ -1411,6 +1411,27 @@ export class SoundBank {
     this.noise({ dur: 0.09, vol: 0.09, filter: { type: "highpass", freq: 1800 } });
   }
 
+  // WORMHOLE (SHA-165): a pair of holes punched open — a low thump under a
+  // rising whistle, the same shape the transit plays twice.
+  wormholeOpen(): void {
+    if (!this.allow("wormholeOpen")) {
+      return;
+    }
+    this.tone({ freq: 80, freqEnd: 50, dur: 0.12, vol: 0.06, type: "sine" });
+    this.tone({ freq: 300, freqEnd: 700, dur: 0.18, vol: 0.03, type: "sine" });
+  }
+
+  // The transit: one gulp and the same gulp backwards. The swallow falls, the
+  // spit rises over exactly the same span, so the ear hears one event with a
+  // join in the middle rather than two sounds.
+  wormholeTransit(): void {
+    if (!this.allow("wormholeTransit", 60)) {
+      return;
+    }
+    this.tone({ freq: 720, freqEnd: 140, dur: 0.12, vol: 0.06, type: "sine" });
+    this.tone({ freq: 140, freqEnd: 720, dur: 0.12, vol: 0.06, type: "sine", delayS: 0.12 });
+  }
+
   // KLAXON (SHA-143): the bulb filling — a rubber squeak climbing over the ten
   // ticks it takes, so the catch is heard as air going in.
   klaxonInflate(): void {

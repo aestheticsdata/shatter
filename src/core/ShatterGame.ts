@@ -447,6 +447,8 @@ export class ShatterGame {
   private readonly mould = new Fx.Mould();
   // KLAXON's bulb and its pressure fronts (SHA-143).
   private readonly klaxon = new Fx.Klaxon();
+  // WORMHOLE's pair of mouths (SHA-165).
+  private readonly wormhole = new Fx.Wormhole();
   // The posts that finished arriving and leaving this tick, reused rather than
   // allocated for the reason `landings` is.
   private readonly fenceSeated: number[] = [];
@@ -1205,6 +1207,7 @@ export class ShatterGame {
       ribbon: this.ribbon,
       mould: this.mould,
       klaxon: this.klaxon,
+      wormhole: this.wormhole,
       shadows: this.shadows,
       // The echo field itself, the way the sheet above it goes over: the
       // renderer needs the rect every echo is standing in this frame and the
@@ -1674,6 +1677,14 @@ export class ShatterGame {
     }
     this.mould.stepPicture();
     this.stepKlaxonBulb();
+    // WORMHOLE's rims, above the gates: dilating, collapsing and re-rolling are
+    // a picture, and the transit is gated on the pair being fully open anyway.
+    if (this.wormhole.live) {
+      if (this.timers.remaining("WO") > 0 && this.timers.remaining("WO") <= gameConfig.powerUps.wormhole.dilateTicks) {
+        this.wormhole.release();
+      }
+      this.wormhole.step(this.wormholeField());
+    }
 
     // A pending level clear freezes the rest of the simulation so the final
     // brick's shatter can play out — no ball can be lost, no capsule caught,
@@ -2198,6 +2209,7 @@ export class ShatterGame {
         return true;
       });
       this.stepGravel();
+      this.carryDropsThroughWormhole();
     }
   }
 
@@ -3065,6 +3077,136 @@ export class ShatterGame {
       return true;
     }
     return false;
+  }
+
+  /**
+   * WORMHOLE (SHA-165): the field as a mouth sees it — LEAP's `free` for what is
+   * solid, the balls to keep clear of, where the wall stops, and its gaps.
+   */
+  private wormholeField(): Fx.WormholeField {
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    const rows = this.grid.rows;
+    let lowest = -1;
+    for (let row = rows.length - 1; row >= 0 && lowest < 0; row--) {
+      if (rows[row].some((cell) => cell !== null)) {
+        lowest = row;
+      }
+    }
+    const wallBottom = top + (lowest + 1) * brickHeight - this.grid.topOffset;
+    const gaps: Array<{ x: number; y: number }> = [];
+    for (let row = 0; row <= lowest; row++) {
+      rows[row].forEach((cell, column) => {
+        if (cell === null) {
+          gaps.push({
+            x: left + (column + 0.5) * brickWidth,
+            y: top + (row + 0.5) * brickHeight - this.grid.topOffset,
+          });
+        }
+      });
+    }
+    return {
+      free: this.leapField(1).free,
+      balls: this.balls,
+      wallBottom,
+      gaps,
+      deckY: this.paddle.y,
+    };
+  }
+
+  // Held is not loose: a glued ball or a STASIS-frozen one is not swallowed,
+  // and not bent toward the hole either.
+  private wormholeLoose(ball: Ball): boolean {
+    return ball.active && ball.stuckOffsetX === null && !this.timers.isActive("I");
+  }
+
+  /**
+   * The lip: inside `lip` of the rim, the heading turns toward the centre by at
+   * most `lipTurnRad` a tick. Heading only — `steerBall`'s idiom — so a near
+   * miss becomes a hit and a clean miss stays a miss. Deliberately not a `Core`:
+   * it pulls nothing but balls, and nothing from further than its lip.
+   */
+  private bendIntoWormhole(ball: Ball): void {
+    const entry = this.wormhole.entry;
+    if (entry === null || !this.wormholeLoose(ball) || ball.wormholeCooldown > 0) {
+      return;
+    }
+    const { radius, lip, lipTurnRad } = gameConfig.powerUps.wormhole;
+    const dx = entry.x - ball.centerX;
+    const dy = entry.y - (ball.y + ball.size / 2);
+    if (Math.hypot(dx, dy) > radius + lip) {
+      return;
+    }
+    const speed = Math.hypot(ball.velocity.x, ball.velocity.y);
+    if (speed === 0) {
+      return;
+    }
+    const heading = Math.atan2(ball.velocity.y, ball.velocity.x);
+    let turn = Math.atan2(dy, dx) - heading;
+    turn = Math.atan2(Math.sin(turn), Math.cos(turn));
+    // Only a ball already heading roughly toward the hole is drawn in: one
+    // flying away from it is past it, and bending it round would be a pull.
+    if (Math.abs(turn) > Math.PI / 2) {
+      return;
+    }
+    const next = heading + Math.max(-lipTurnRad, Math.min(lipTurnRad, turn));
+    ball.velocity.x = Math.cos(next) * speed;
+    ball.velocity.y = Math.sin(next) * speed;
+  }
+
+  /**
+   * The transit: a loose ball whose centre is inside the entry leaves the exit
+   * on the exit's facing, **at unchanged speed** — `glitchBall`'s rule. Under
+   * SNAP the facing snaps to the nearest 45 degrees, so the lattice survives.
+   * Then the pair is spent and re-rolls.
+   */
+  private throughWormhole(ball: Ball): boolean {
+    const { entry, exit } = this.wormhole;
+    if (entry === null || exit === null || !this.wormholeLoose(ball)) {
+      return false;
+    }
+    const { radius, cooldownTicks } = gameConfig.powerUps.wormhole;
+    if (Math.hypot(ball.centerX - entry.x, ball.y + ball.size / 2 - entry.y) > radius) {
+      return false;
+    }
+    const speed = Math.hypot(ball.velocity.x, ball.velocity.y);
+    let facing = exit.facing;
+    if (this.timers.isActive("SN")) {
+      facing = Math.round(facing / (Math.PI / 4)) * (Math.PI / 4);
+      // A snapped facing may not land flat on the horizon: 45 is the floor.
+      facing = Math.max(-(3 * Math.PI) / 4, Math.min(-Math.PI / 4, facing));
+    }
+    ball.x = exit.x - ball.size / 2;
+    ball.y = exit.y - ball.size / 2;
+    ball.velocity.x = Math.cos(facing) * speed;
+    ball.velocity.y = Math.sin(facing) * speed;
+    ball.wormholeCooldown = cooldownTicks;
+    this.particles.burst(exit.x, exit.y, "wormhole", gameConfig.powerUps.mould.sproutBurst);
+    this.wormhole.spend();
+    this.deps.sfx.wormholeTransit();
+    return true;
+  }
+
+  /**
+   * Loot goes through too, and comes out still falling. Nothing is granted and
+   * nothing is lost — the contrast with SINGULARITY, which eats a capsule, is
+   * the difference between a hole that destroys and a hole that connects. A
+   * capsule does not spend the pair: it is the ball's.
+   */
+  private carryDropsThroughWormhole(): void {
+    const { entry, exit } = this.wormhole;
+    if (!this.wormhole.swallowing || entry === null || exit === null) {
+      return;
+    }
+    const { radius } = gameConfig.powerUps.wormhole;
+    for (const drop of this.dropPool.drops) {
+      if (drop.active && Math.hypot(drop.x + DROP_WIDTH / 2 - entry.x, drop.y + DROP_HEIGHT / 2 - entry.y) <= radius) {
+        drop.x = exit.x - DROP_WIDTH / 2;
+        drop.y = exit.y - DROP_HEIGHT / 2;
+        drop.lift = 0;
+        drop.push = 0;
+        this.deps.sfx.wormholeTransit();
+      }
+    }
   }
 
   /**
@@ -4433,6 +4575,11 @@ export class ShatterGame {
     if (this.timers.isActive("H") && !insideCore) {
       this.steerBall(ball);
     }
+    // WORMHOLE's lip, with the other guidance and for its reason: it bends a
+    // heading and never a speed, once a tick.
+    if (this.wormhole.swallowing) {
+      this.bendIntoWormhole(ball);
+    }
     // Last of the three, and deliberately after HOMING: a capsule whose whole
     // job is to take the player's aim away has to be able to take the game's
     // too. Caught together, HOMING re-aims at its brick every tick and HAYWIRE
@@ -4478,6 +4625,9 @@ export class ShatterGame {
     const mouth = this.portalMouth();
     if (ball.portalCooldown > 0) {
       ball.portalCooldown--;
+    }
+    if (ball.wormholeCooldown > 0) {
+      ball.wormholeCooldown--;
     }
     if (ball.umbraCooldown > 0) {
       ball.umbraCooldown--;
@@ -4726,6 +4876,13 @@ export class ShatterGame {
         ball.y = mirrorCatch.bottom;
         this.bumpers.streak = 0;
         this.deps.sfx.mirrorBounce(relativeHit);
+      }
+
+      // WORMHOLE's transit, above PORTAL's and for its reason: it moves a ball
+      // without bouncing it. A ball that goes through is walked no further this
+      // tick — it has just arrived somewhere else.
+      if (this.wormhole.swallowing && ball.wormholeCooldown === 0 && this.throughWormhole(ball)) {
+        return;
       }
 
       // A transit replaces the bounce the ball would otherwise have taken, which
@@ -6529,7 +6686,7 @@ export class ShatterGame {
   // The two halves are independent and stay that way: `bonusSpreadAmount` is a
   // coin per brick, and the bag decides only *which* capsule a winning coin
   // yields. A wall of 40 bricks therefore spends about 12 tickets, which is what
-  // makes a 92-ticket pass last about eight levels.
+  // makes a 93-ticket pass last about eight levels.
   private rollBrickCapsule(): PowerUpKind | null {
     return Math.random() < this.bonusSpreadAmount() ? this.dropBag.draw(this.dropExcludes()) : null;
   }
@@ -6586,6 +6743,7 @@ export class ShatterGame {
     this.ribbon.reset();
     this.mould.reset();
     this.klaxon.reset();
+    this.wormhole.reset();
     this.shadows.reset();
     this.superposition.reset();
     this.decoherence.reset();
@@ -7504,6 +7662,13 @@ export class ShatterGame {
       // whatever is still standing stands, and the balls go on laying.
       this.timers.activate("RI", durations.RI);
       this.ribbon.start();
+    }
+    if (kind === "WO") {
+      // A second WORMHOLE over a live one re-rolls the pair and restarts the
+      // clock rather than opening a third hole.
+      this.timers.activate("WO", durations.WO);
+      this.wormhole.start(this.wormholeField());
+      this.deps.sfx.wormholeOpen();
     }
     if (kind === "KL") {
       // The bulb fills over ten ticks and parps when it is full. A second
@@ -8466,6 +8631,7 @@ export class ShatterGame {
       ball.stuckOffsetX = null;
       ball.clearHoming();
       ball.portalCooldown = 0;
+      ball.wormholeCooldown = 0;
       // Its own line, exactly like the cooldown above it: `topUpBalls` clones
       // into any free slot including `balls[0]`, so a MULTI caught after the
       // first ball drained stamps the very ball a lost life re-serves — and a
@@ -8537,6 +8703,7 @@ export class ShatterGame {
     this.ribbon.reset();
     this.mould.reset();
     this.klaxon.reset();
+    this.wormhole.reset();
     this.shadows.reset();
     this.superposition.reset();
     this.decoherence.reset();
@@ -8632,6 +8799,7 @@ export class ShatterGame {
     this.ribbon.reset();
     this.mould.reset();
     this.klaxon.reset();
+    this.wormhole.reset();
     this.shadows.reset();
     this.superposition.reset();
     this.decoherence.reset();

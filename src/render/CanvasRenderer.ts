@@ -52,6 +52,7 @@ import {
   KLAXON_TONES,
   MOULD_TONES,
   RIBBON_TONES,
+  WORMHOLE_TONES,
 } from "@render/palette";
 import { ditherTile, mix, Pix, SpriteCache } from "@render/pix";
 
@@ -858,6 +859,8 @@ export interface RenderView {
   mould: Fx.Mould;
   // KLAXON's bulb and its fronts (SHA-143).
   klaxon: Fx.Klaxon;
+  // WORMHOLE's pair of mouths (SHA-165).
+  wormhole: Fx.Wormhole;
   /**
    * UMBRA's shadow field, as the object.
    *
@@ -1280,6 +1283,97 @@ export function drawBrick(
     drawGrownSpeckle(ctx, scale, bodyX, bodyY, bodyWidth, bodyHeight, cell.seed, ink, false);
   }
   ctx.globalAlpha = 1;
+}
+
+/**
+ * WORMHOLE (SHA-165): one mouth, at whatever scale — the field and the CAPSULES
+ * miniature paint the same one.
+ *
+ * A dark throat inside a ring of lit pixels that **travel**: inward on the
+ * entry, outward on the exit, counter-rotating, so the two read as one pair
+ * without a thread between them (a thread is TWIN's language). The exit's ring
+ * is open on its facing, a mouth pointing somewhere — at this size that reads
+ * where an arrow would not — so the player sees where the far end aims before
+ * deciding to go in.
+ *
+ * `open` dilates it from a single pixel; the rim overshoots by a pixel for the
+ * first few ticks after it lands, so the hole reads as punched rather than
+ * drawn. `rimOnly` is BLACKOUT's pass: the rim on its own light over the veil,
+ * the one object in the game more legible with the lights out.
+ */
+export function drawWormholeMouth(
+  ctx: CanvasRenderingContext2D,
+  mouth: Fx.Mouth,
+  open: number,
+  settled: number,
+  spin: number,
+  exit: boolean,
+  scale: number,
+  demade = false,
+  rimOnly = false,
+): void {
+  if (open <= 0) {
+    return;
+  }
+  const ink = inkFor(demade);
+  const { radius } = gameConfig.powerUps.wormhole;
+  const overshoot = open >= 1 && settled < 6 ? 1 - settled / 6 : 0;
+  const r = Math.max(0.5, radius * open + overshoot);
+  if (!rimOnly) {
+    ctx.fillStyle = ink(WORMHOLE_TONES.throat);
+    ctx.beginPath();
+    ctx.arc(mouth.x * scale, mouth.y * scale, r * scale, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // The rim itself, a solid ring a game pixel wide — open on the exit's facing
+  // — so the mouth reads at a glance on the darkest theme. The travelling
+  // pixels ride on top of it.
+  ctx.strokeStyle = ink(WORMHOLE_TONES.rim);
+  ctx.lineWidth = scale;
+  ctx.globalAlpha = 0.75;
+  ctx.beginPath();
+  if (exit) {
+    ctx.arc(mouth.x * scale, mouth.y * scale, r * scale, mouth.facing + 0.55, mouth.facing - 0.55 + Math.PI * 2);
+  } else {
+    ctx.arc(mouth.x * scale, mouth.y * scale, r * scale, 0, Math.PI * 2);
+  }
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  const dots = 14;
+  const turn = (exit ? -1 : 1) * spin * 0.06;
+  for (let index = 0; index < dots; index++) {
+    const angle = (index / dots) * Math.PI * 2 + turn;
+    if (exit) {
+      const off = Math.atan2(Math.sin(angle - mouth.facing), Math.cos(angle - mouth.facing));
+      if (Math.abs(off) < 0.55) {
+        continue;
+      }
+    }
+    // The pixels drift across the rim — in on the entry, out on the exit.
+    const phase = ((spin * 0.25 + index * 0.7) % 3) / 3;
+    const reach = r + (exit ? phase * 2 : (1 - phase) * 2) - 1;
+    ctx.fillStyle = ink(index % 3 === 0 ? WORMHOLE_TONES.rimLight : WORMHOLE_TONES.rim);
+    ctx.fillRect(
+      Math.round((mouth.x + Math.cos(angle) * reach) * scale - scale / 2),
+      Math.round((mouth.y + Math.sin(angle) * reach) * scale - scale / 2),
+      scale,
+      scale,
+    );
+  }
+  if (exit) {
+    // The lips either side of the opening, brightest, so the facing is the
+    // first thing the eye finds.
+    for (const side of [-0.6, 0.6]) {
+      const angle = mouth.facing + side;
+      ctx.fillStyle = ink(WORMHOLE_TONES.rimLight);
+      ctx.fillRect(
+        Math.round((mouth.x + Math.cos(angle) * (r + 1)) * scale),
+        Math.round((mouth.y + Math.sin(angle) * (r + 1)) * scale),
+        scale,
+        scale,
+      );
+    }
+  }
 }
 
 /**
@@ -5083,6 +5177,12 @@ export class CanvasRenderer {
       this.drawFence(view.fence);
     }
 
+    // WORMHOLE's mouths, with the fence and for its reason: free-standing in the
+    // field, riding the shake and the turn, and under the balls they swallow.
+    if (view.wormhole.live) {
+      this.drawWormhole(view.wormhole, false);
+    }
+
     // KLAXON's fronts, with the fence and for its reason: free-standing in the
     // field, riding the shake, and under the balls they are shoving.
     for (const front of view.klaxon.fronts) {
@@ -5424,6 +5524,11 @@ export class CanvasRenderer {
     if (view.blackoutBlend > 0) {
       this.drawBlackout(view);
       this.drawDrops(view);
+      // A hole in space is where the light is not: the rims burn on their own
+      // light through the dark.
+      if (view.wormhole.live) {
+        this.drawWormhole(view.wormhole, true);
+      }
     }
 
     for (const pop of view.pops) {
@@ -7784,6 +7889,16 @@ export class CanvasRenderer {
         const hash = grainHash(seed, 300 + spore);
         dot((hash % (brickWidth - 2)) + 1, -dry * 18 - (hash % 4), MOULD_TONES.tip);
       }
+    }
+  }
+
+  private drawWormhole(wormhole: Fx.Wormhole, rimOnly: boolean): void {
+    const { entry, exit, open, settled, spin } = wormhole;
+    if (entry !== null) {
+      drawWormholeMouth(this.ctx, entry, open, settled, spin, false, SCALE, this.demade, rimOnly);
+    }
+    if (exit !== null) {
+      drawWormholeMouth(this.ctx, exit, open, settled, spin, true, SCALE, this.demade, rimOnly);
     }
   }
 
