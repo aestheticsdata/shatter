@@ -15,7 +15,7 @@ export type PowerUpTier = "common" | "uncommon" | "rare" | "trap";
 
 // How many tickets a tier puts in the bag — see `DropBag`, which draws without
 // replacement instead of rolling weighted odds. A tier is a count of copies, not
-// a probability, and it is almost the whole of the rarity system: 90 tickets,
+// a probability, and it is almost the whole of the rarity system: 91 tickets,
 // about eight levels, every capsule out once to three times a pass. Two rows carry an
 // exception, and `POWER_UP_DROP_TICKETS` says why.
 //
@@ -604,6 +604,12 @@ export const POWER_UPS = [
   // MULTI, 0.485 luminance, and clear of every speck — and it is the colour of
   // the game whose rule the capsule plays by. The track it lays is this body
   // taken down a step, so the pill and the maze are one colour.
+  // Leaf green, and not the ticket's moss: `#627b32` sat 18 from TRACER and
+  // under the luminance the red iris needs for 3:1. This is the one legal point
+  // left in the whole yellow-green band — 60.7 from XRAY, 0.429 luminance, clear
+  // of every speck. The fur the capsule grows on the field is this body taken
+  // down to a dark olive, which is where the mould's own colour lives.
+  { id: "MO", name: "MOULD", color: "#3fc912", dark: true, ticks: 540, tier: "trap", timed: true, blurb: "HOLES FUR OVER · GROWTH STAYS", lasts: "9 S · BRICKS STAY" },
   { id: "RI", name: "RIBBON", color: "#73cd73", dark: true, ticks: 480, tier: "trap", timed: true, blurb: "THE BALL BUILDS YOUR MAZE" },
 ] as const satisfies readonly PowerUpDefinition[];
 
@@ -645,7 +651,7 @@ export const POWER_UP_NAMES: Record<PowerUpKind, string> = byId((definition) => 
  */
 export const POWER_UP_GLYPHS: Record<PowerUpKind, string> = byId((definition) => glyphFor(definition.name));
 export const POWER_UP_DURATIONS: Record<PowerUpKind, number> = byId((definition) => definition.ticks);
-// Tickets per capsule: tier-derived for 58 of the 60 rows, and two kept back.
+// Tickets per capsule: tier-derived for 59 of the 61 rows, and two kept back.
 //
 // There were three weight exceptions — DEMAKE, VORTEX and GIANT — each promoted a
 // class because it was "landing too rarely to enjoy". The instinct was to retire

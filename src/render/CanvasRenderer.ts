@@ -49,6 +49,7 @@ import {
   FRAME_RAILS,
   FRAME_RIVET,
   type PaddleBandColors,
+  MOULD_TONES,
   RIBBON_TONES,
 } from "@render/palette";
 import { ditherTile, mix, Pix, SpriteCache } from "@render/pix";
@@ -852,6 +853,8 @@ export interface RenderView {
   fence: Fx.Fence;
   // RIBBON's track (SHA-139), the object the ball is collided against.
   ribbon: Fx.Ribbon;
+  // MOULD's fur, its buds, and how far the fur has crept or dried (SHA-142).
+  mould: Fx.Mould;
   /**
    * UMBRA's shadow field, as the object.
    *
@@ -1240,6 +1243,9 @@ export function drawBrick(
       unmoored,
       ink,
     });
+    if (cell.grown) {
+      drawGrownSpeckle(ctx, scale, bodyX, bodyY, bodyWidth, bodyHeight, cell.seed, ink, true);
+    }
     ctx.globalAlpha = 1;
     return;
   }
@@ -1266,6 +1272,98 @@ export function drawBrick(
   // brick has no whole face left to engrave.
   if (bodyWidth === gameConfig.grid.brickWidth - 2 && bodyHeight === gameConfig.grid.brickHeight - 2) {
     drawFaceMark(pixel, bodyX, bodyY, cell.kind, scarred(definition.dark), scarred(sheen));
+  }
+  if (cell.grown) {
+    drawGrownSpeckle(ctx, scale, bodyX, bodyY, bodyWidth, bodyHeight, cell.seed, ink, false);
+  }
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * MOULD (SHA-142): the speckle a grown brick keeps for the rest of the level, so
+ * it never passes for the level's own stone. A handful of dark-olive spots
+ * hashed off the cell's seed, the way granite's grain is — on the fine grid in
+ * HD, where a spot is a third of a game pixel and reads as spores rather than
+ * as damage.
+ */
+function drawGrownSpeckle(
+  ctx: CanvasRenderingContext2D,
+  scale: number,
+  bodyX: number,
+  bodyY: number,
+  bodyWidth: number,
+  bodyHeight: number,
+  seed: number,
+  ink: InkFilter,
+  fine: boolean,
+): void {
+  ctx.fillStyle = ink(MOULD_TONES.speckle);
+  const spots = fine ? 14 : 6;
+  const unit = fine ? scale / FINE : scale;
+  const across = fine ? (bodyWidth - 2) * FINE : bodyWidth - 2;
+  const down = fine ? (bodyHeight - 2) * FINE : bodyHeight - 2;
+  for (let index = 0; index < spots; index++) {
+    const hash = grainHash(seed + 7919, index);
+    const size = fine && index % 3 === 0 ? 2 : 1;
+    ctx.fillRect(
+      Math.round((bodyX + 1) * scale + (hash % across) * unit),
+      Math.round((bodyY + 1) * scale + ((hash >>> 8) % down) * unit),
+      size * unit,
+      size * unit,
+    );
+  }
+}
+
+/**
+ * MOULD (SHA-142): a bud rising out of the cell floor, at whatever scale — the
+ * field and the CAPSULES miniature paint the same one.
+ *
+ * A soft olive cap pushing *up* out of the floor, not a brick swelling out of
+ * its middle (that is ERODE's regrowth), with a ragged tip; in the last quarter
+ * of the rise the brick it is becoming shows through it, so what the player
+ * watches is something organic hardening into a brick rather than a brick
+ * reappearing.
+ */
+export function drawMouldBud(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  cellBottom: number,
+  kind: BrickKind,
+  progress: number,
+  seed: number,
+  scale: number,
+  demade = false,
+): void {
+  const pixel = spriteBrush(ctx, scale, demade);
+  const { brickWidth, brickHeight } = gameConfig.grid;
+  const height = Math.max(1, Math.round((brickHeight - 2) * Math.min(1, progress)));
+  const top = cellBottom - 1 - height;
+  const harden = Math.max(0, (progress - 0.75) / 0.25);
+  if (harden > 0) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x * scale, top * scale, brickWidth * scale, (height + 1) * scale);
+    ctx.clip();
+    ctx.globalAlpha = harden;
+    drawBrick(
+      ctx,
+      x,
+      cellBottom - brickHeight,
+      { kind, hitPoints: 1, points: 0, seed, capsule: null, seeded: false, scarTicks: 0, grown: true },
+      scale,
+      { demade },
+    );
+    ctx.restore();
+    ctx.globalAlpha = 1 - harden;
+  }
+  pixel(x + 2, top + 1, brickWidth - 4, height, MOULD_TONES.bud);
+  pixel(x + 1, top + 2, brickWidth - 2, Math.max(0, height - 1), MOULD_TONES.bud);
+  // The ragged tip: every other column a pixel higher, hashed so no two buds
+  // wear the same crown.
+  for (let column = 2; column < brickWidth - 2; column += 2) {
+    if (grainHash(seed, column) % 3 !== 0) {
+      pixel(x + column, top, 1, 1, MOULD_TONES.tip);
+    }
   }
   ctx.globalAlpha = 1;
 }
@@ -4786,6 +4884,12 @@ export class CanvasRenderer {
             // longer resting on anything.
             unmoored: view.slump.hesitating,
           });
+          // MOULD's fur on this brick's seams. Stood down under ERODE: the seams
+          // are physically gone there, and fur on mortar that is not there
+          // would be a picture of the wrong capsule.
+          if (view.mould.fur > 0 && !view.erosion.worn) {
+            this.drawMouldFur(x, y, cell.seed, view.grid.length - 1 - rowIndex, view.mould);
+          }
           // The fog eating this brick's edge, drawn from the brick for the
           // trickle's reason below: it rides the wall through QUAKE's shake and
           // stops the tick the brick is killed.
@@ -4831,6 +4935,23 @@ export class CanvasRenderer {
         }
       });
     });
+
+    // MOULD's buds, over the wall in their own cells and inside the shake with
+    // it. A bud is a picture and nothing else until it lands.
+    if (chamber) {
+      for (const bud of view.mould.buds) {
+        drawMouldBud(
+          this.ctx,
+          left + bud.column * brickWidth,
+          wallY + (bud.row + 1) * brickHeight,
+          bud.kind,
+          bud.rise / gameConfig.powerUps.mould.riseTicks,
+          bud.row * gameConfig.grid.columns + bud.column,
+          SCALE,
+          this.demade,
+        );
+      }
+    }
 
     // SUPERPOSE's echoes, over the wall rather than under it. A double
     // exposure is the picture, and echoes painted beneath the bricks would be
@@ -7460,6 +7581,81 @@ export class CanvasRenderer {
    * post's own shade, laid along the cut, so the thing coming down has a bottom
    * to it — and it is skipped on a seated post, which has its real bevel back.
    */
+  /**
+   * MOULD (SHA-142): the fur along one live brick's seams.
+   *
+   * **Ragged, dark and per cell** — hashed off the brick's own seed and drawn on
+   * the seams of live bricks only, so it traces the silhouette of what is left,
+   * which is also the map of where the mould can spread. That is what keeps it
+   * from being SNAP's picture: a crisp acid lattice over the whole field is a
+   * grid, and a frayed olive outline of the wall is a growth.
+   *
+   * Arrival: the horizontal seams fur over in the first half of the creep and
+   * the vertical ones in the second, left to right and top to bottom, and then
+   * it never moves again — ERODE's grains *fall* out of the seam, this *creeps*.
+   * Expiry: it dries course by course from the bottom up, olive to grey to gone,
+   * and lifts off as spores drifting upward — the one thing here that leaves
+   * upward.
+   */
+  private drawMouldFur(x: number, y: number, seed: number, fromBottom: number, mould: Fx.Mould): void {
+    const { brickWidth, brickHeight } = gameConfig.grid;
+    const across = Math.min(1, mould.fur * 2);
+    const down = Math.max(0, Math.min(1, mould.fur * 2 - 1));
+    // This course's own dryness: the bottom course starts first and each one
+    // above it a beat later, all of them gone by the tick the capsule ends.
+    const courses = Math.max(1, fromBottom + 1);
+    const dry = mould.dry > 0 ? Math.max(0, Math.min(1, mould.dry * (courses + 2) - fromBottom)) : 0;
+    if (dry >= 1) {
+      return;
+    }
+    const tone = dry > 0.4 ? MOULD_TONES.dry : MOULD_TONES.fur;
+    const tip = dry > 0.4 ? MOULD_TONES.dry : MOULD_TONES.tip;
+    const step = this.fine ? 1 / FINE : 1;
+    // Two fine pixels deep on the HD grid: one in the seam and one on the
+    // brick's own edge, so the fur reads against both the dark mortar and the
+    // lit bevel it is creeping over.
+    const dot = (dx: number, dy: number, color: string, vertical = false): void => {
+      if (this.fine) {
+        this.fineRect(x + dx, y + dy, vertical ? 2 : 1, vertical ? 1 : 2, color);
+      } else {
+        this.pixel(x + Math.round(dx), y + Math.round(dy), 1, 1, color);
+      }
+    };
+    const thin = dry > 0.7;
+    let index = 0;
+    for (let along = 0; along < brickWidth * across; along += step * 2) {
+      const hash = grainHash(seed, index++);
+      if (thin && hash % 2 === 0) {
+        continue;
+      }
+      if (hash % 5 < 3) {
+        dot(along, 0, tone);
+        dot(along, brickHeight - step * 2, tone);
+      }
+      if (hash % 4 === 0) {
+        dot(along, -step, tip);
+      }
+    }
+    for (let along = 0; along < brickHeight * down; along += step * 2) {
+      const hash = grainHash(seed, 100 + index++);
+      if (thin && hash % 2 === 0) {
+        continue;
+      }
+      if (hash % 5 < 3) {
+        dot(0, along, tone, true);
+        dot(brickWidth - step * 2, along, tone, true);
+      }
+    }
+    // The spores: two per brick while its course is drying, rising out of the
+    // seam and thinning as they go.
+    if (dry > 0) {
+      for (let spore = 0; spore < 2; spore++) {
+        const hash = grainHash(seed, 300 + spore);
+        dot((hash % (brickWidth - 2)) + 1, -dry * 18 - (hash % 4), MOULD_TONES.tip);
+      }
+    }
+  }
+
   private drawFence(fence: Fx.Fence): void {
     const { left, top, columns, brickWidth, brickHeight } = gameConfig.grid;
     const fenceY = top + fence.row * brickHeight;

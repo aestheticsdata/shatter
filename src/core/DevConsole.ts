@@ -89,7 +89,7 @@ const EXAMPLES: readonly (readonly [string, string])[] = [
 // The modes, as the line is typed. Off the constant rather than written out, so
 // a mode added there is typable here without a second edit.
 const ART_WORDS: readonly ArtMode[] = Object.values(ART_MODE);
-// The roster is printed underneath, whole, a page at a time: sixty capsules is
+// The roster is printed underneath, whole, a page at a time: sixty-one capsules is
 // far more than anyone keeps in their head, and it grows with the registry it is
 // built from. Not one count here is written down — how many cells fit a row is
 // measured against the field, how many rows fit a page comes from the room the

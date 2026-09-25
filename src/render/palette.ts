@@ -609,6 +609,20 @@ export const FRAME_RIVET = {
  * one row here, and the simulation still names a material rather than a colour.
  */
 /**
+ * MOULD (SHA-142): the fur on the seams, dark olive over a lighter olive tip;
+ * the grey it dries to on the way out; and the speckle a grown brick wears for
+ * the rest of the level. The pill is a leaf green and this is that green taken
+ * well down — the mould's own colour, and far from SNAP's acid lattice.
+ */
+export const MOULD_TONES = {
+  fur: "#5f7d22",
+  tip: "#a2c64e",
+  bud: "#3c5218",
+  dry: "#8a8b7a",
+  speckle: "#2c3f12",
+} as const;
+
+/**
  * RIBBON's track (SHA-139): the pill's green taken down a step for the body, the
  * pill itself for the lit edge and a deep moss for the shadow, banded the way a
  * brick is so a block reads as a solid thing and not a smear of trail.

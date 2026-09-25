@@ -43,6 +43,7 @@ import type { CreatureKind } from "@interfaces/creatures";
 import type { ParticleKind } from "@interfaces/particles";
 import type { ScreenName } from "@interfaces/screens";
 import type {
+  BrickCell,
   BrickFlash,
   BrickHit,
   BurstSpec,
@@ -441,6 +442,9 @@ export class ShatterGame {
   // collided here rather than through the grid — they sit anywhere on the
   // field, not on its cells.
   private readonly ribbon = new Fx.Ribbon();
+  // MOULD's growth (SHA-142). Its buds live in here until they land; the grid
+  // only learns about a brick on the tick it is finished.
+  private readonly mould = new Fx.Mould();
   // The posts that finished arriving and leaving this tick, reused rather than
   // allocated for the reason `landings` is.
   private readonly fenceSeated: number[] = [];
@@ -1197,6 +1201,7 @@ export class ShatterGame {
       slump: this.slump,
       fence: this.fence,
       ribbon: this.ribbon,
+      mould: this.mould,
       shadows: this.shadows,
       // The echo field itself, the way the sheet above it goes over: the
       // renderer needs the rect every echo is standing in this frame and the
@@ -1658,6 +1663,14 @@ export class ShatterGame {
       this.mirrorAfterImageTicks = gameConfig.effects.mirrorAfterImageTicks;
     }
 
+    // MOULD's fur and the shrivel of its buds, above the gates with the rest of
+    // the pictures. A pending clear knocks every bud in flight back into its
+    // cell floor, so the CLEARED hold shows them sinking rather than a blink.
+    if (this.clearCountdown > 0) {
+      this.mould.shakeLoose();
+    }
+    this.mould.stepPicture();
+
     // A pending level clear freezes the rest of the simulation so the final
     // brick's shatter can play out — no ball can be lost, no capsule caught,
     // no timer expiring behind the effect.
@@ -1726,6 +1739,19 @@ export class ShatterGame {
      */
     this.erodeBlend = stepBlend(this.erodeBlend, this.timers.isActive("ER"), gameConfig.effects.erodeTicks);
     this.erosion.follow(this.erodeBlend, this.balls, this.grid.topOffset);
+    /**
+     * MOULD's growth, beside the mortar and below the freeze gates for its
+     * reason and a sharper one: a landed bud is a brick in `remaining`, and the
+     * clear is armed off `remaining <= 0` and never re-checked. Up here, a bud
+     * landing on the tick a clear was armed would leave a brick standing behind
+     * the CLEARED overlay. Down here the gate has already said no.
+     */
+    if (this.timers.remaining("MO") > 0 && this.timers.remaining("MO") <= gameConfig.powerUps.mould.dryTicks) {
+      this.mould.release();
+    }
+    this.mould.step(this.grid, this.balls, this.timers.remaining("MO"), this.grid.remaining > 0, (row, column, cell) =>
+      this.sproutBrick(row, column, cell),
+    );
     /**
      * The sheet, beside the mortar and below the freeze gates for its reason
      * exactly: this is the wall's own hitbox and not a picture of it, and a
@@ -1956,6 +1982,12 @@ export class ShatterGame {
     // The track already reeled in, for the posts' reason just above.
     if (expired.includes("RI")) {
       this.ribbon.reset();
+    }
+    // The fur has been drying for the last forty-five ticks; this stops the
+    // clock and sends anything still rising back into the floor. **What grew
+    // stays** — the bricks are the wall's now, which is the whole of the trap.
+    if (expired.includes("MO")) {
+      this.mould.stop();
     }
     // The echoes already home: they stopped being surfaces twelve ticks ago and
     // have spent them travelling back into their bricks, so by this tick the
@@ -3025,6 +3057,22 @@ export class ShatterGame {
       return true;
     }
     return false;
+  }
+
+  /**
+   * MOULD (SHA-142): a bud finished and the lane clear — the brick goes in.
+   * Nothing else here: the grid counts it and it is a brick from this tick on.
+   */
+  private sproutBrick(row: number, column: number, cell: BrickCell): void {
+    this.grid.plant(row, column, cell);
+    const { left, top, brickWidth, brickHeight } = gameConfig.grid;
+    this.particles.burst(
+      left + column * brickWidth + brickWidth / 2,
+      top + row * brickHeight - this.grid.topOffset + brickHeight,
+      cell.kind,
+      gameConfig.powerUps.mould.sproutBurst,
+    );
+    this.deps.sfx.mouldSprout();
   }
 
   /**
@@ -6344,7 +6392,7 @@ export class ShatterGame {
   // The two halves are independent and stay that way: `bonusSpreadAmount` is a
   // coin per brick, and the bag decides only *which* capsule a winning coin
   // yields. A wall of 40 bricks therefore spends about 12 tickets, which is what
-  // makes a 90-ticket pass last about eight levels.
+  // makes a 91-ticket pass last about eight levels.
   private rollBrickCapsule(): PowerUpKind | null {
     return Math.random() < this.bonusSpreadAmount() ? this.dropBag.draw(this.dropExcludes()) : null;
   }
@@ -6399,6 +6447,7 @@ export class ShatterGame {
     this.slump.reset();
     this.fence.reset();
     this.ribbon.reset();
+    this.mould.reset();
     this.shadows.reset();
     this.superposition.reset();
     this.decoherence.reset();
@@ -7218,6 +7267,7 @@ export class ShatterGame {
       // The cells move by reference and their wear moves with them: a brick
       // ERODE has taken 5 px off is still that brick a row further down.
       this.erosion.shiftDown();
+      this.mould.shakeLoose();
       this.sheet.shiftDown();
       this.slump.shiftDown();
       // TWIN's couples are cell indices, so they ride the slide the way the wear
@@ -7316,6 +7366,15 @@ export class ShatterGame {
       // whatever is still standing stands, and the balls go on laying.
       this.timers.activate("RI", durations.RI);
       this.ribbon.start();
+    }
+    if (kind === "MO") {
+      // A second MOULD over a live one tops the nine seconds up and keeps the
+      // rounds going on the clock it already had; only a fresh one blooms.
+      if (!this.mould.live) {
+        this.deps.sfx.mouldBloom();
+      }
+      this.timers.activate("MO", durations.MO);
+      this.mould.start();
     }
     if (kind === "JE") {
       // The one capsule whose effect object has to be told the catch happened,
@@ -8321,6 +8380,7 @@ export class ShatterGame {
     this.slump.reset();
     this.fence.reset();
     this.ribbon.reset();
+    this.mould.reset();
     this.shadows.reset();
     this.superposition.reset();
     this.decoherence.reset();
@@ -8414,6 +8474,7 @@ export class ShatterGame {
     this.slump.reset();
     this.fence.reset();
     this.ribbon.reset();
+    this.mould.reset();
     this.shadows.reset();
     this.superposition.reset();
     this.decoherence.reset();

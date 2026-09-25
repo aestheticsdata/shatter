@@ -123,7 +123,16 @@ const PARTICLE_PORTRAITS = {
       ctx,
       brick.x,
       brick.y,
-      { kind: "S", hitPoints: BRICK_BY_ID.S.hitPoints, points: 0, seed: 1, capsule: null, seeded: false, scarTicks: 0 },
+      {
+        kind: "S",
+        hitPoints: BRICK_BY_ID.S.hitPoints,
+        points: 0,
+        seed: 1,
+        capsule: null,
+        seeded: false,
+        scarTicks: 0,
+        grown: false,
+      },
       scale,
       { hd },
     );

@@ -19,6 +19,7 @@ export * from "./Inside";
 export * from "./JellySheet";
 export * from "./LoosePupil";
 export * from "./MeteorField";
+export * from "./Mould";
 export * from "./Observer";
 export * from "./Oculi";
 export * from "./ParticleField";

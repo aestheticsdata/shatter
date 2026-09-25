@@ -101,6 +101,7 @@ export class Fence {
         capsule: null,
         seeded: false,
         scarTicks: 0,
+        grown: false,
       };
       // Staggered left to right across the six, so the player watches a fence go
       // up across their own half of the field rather than having one appear.

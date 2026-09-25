@@ -8,14 +8,14 @@ const NO_EXCLUSIONS: readonly PowerUpKind[] = [];
  * Which capsule the wall hands over next — drawn from a shuffled bag rather than
  * rolled against weights.
  *
- * One pass is 90 tickets (see `TIER_TICKETS`): every capsule in the roster, three
+ * One pass is 91 tickets (see `TIER_TICKETS`): every capsule in the roster, three
  * times for a common — and for DEMAKE and GIANT, which keep a common's count for the
  * reason `POWER_UP_DROP_TICKETS` gives — once for everything else, in a random
  * order. Drawing
  * takes a ticket out. When the bag runs dry a fresh pass is shuffled in behind
  * whatever is left, so the guarantee the whole thing exists for holds by
  * construction — **no capsule can be absent for longer than two passes**, which
- * at about 12 capsules seeded per level is roughly fifteen levels in the worst case
+ * at about 12 capsules seeded per level is roughly sixteen levels in the worst case
  * and eight on average.
  *
  * The weighted roll this replaced could not promise that at any weight. Its

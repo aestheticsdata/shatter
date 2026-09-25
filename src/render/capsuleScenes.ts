@@ -10,12 +10,13 @@ import {
   drawBlackoutVeil,
   drawBrick,
   drawCapsule,
+  drawMouldBud,
   drawRibbonStamp,
   drawDeckBody,
   MIRROR_BANDS,
   PADDLE_BANDS,
 } from "@render/CanvasRenderer";
-import { BRICK_COLORS, canvasPalette } from "@render/palette";
+import { BRICK_COLORS, canvasPalette, MOULD_TONES } from "@render/palette";
 
 import type { BrickCell, BrickKind, PowerUpKind } from "@interfaces/types";
 import type { Torch } from "@render/CanvasRenderer";
@@ -76,7 +77,16 @@ const INSET = 2 * EDGE;
 // as 1: `drawBrick` reads the damage stage out of them, and a silver brick one
 // short would be drawn chipped in a catalogue that never hit it.
 function cell(kind: BrickKind, seed: number): BrickCell {
-  return { kind, hitPoints: BRICK_BY_ID[kind].hitPoints, points: 0, seed, capsule: null, seeded: false, scarTicks: 0 };
+  return {
+    kind,
+    hitPoints: BRICK_BY_ID[kind].hitPoints,
+    points: 0,
+    seed,
+    capsule: null,
+    seeded: false,
+    scarTicks: 0,
+    grown: false,
+  };
 }
 
 /**
@@ -482,6 +492,45 @@ class Field {
    * along the cut — so the catalogue's picture of an arriving fence is the same
    * sprite the field paints rather than a second one that could drift off it.
    */
+  /**
+   * MOULD: a brick the mould grew — one hit point, its kind's colours, and the
+   * speckle it keeps.
+   */
+  grownBrick(column: number, row: number, kind: BrickKind): void {
+    const { x, y } = this.brickAt(column, row);
+    drawBrick(this.ctx, x, y, { ...cell(kind, row * COLUMNS + column), hitPoints: 1, grown: true }, this.scale, {
+      demade: this.demade,
+    });
+  }
+
+  /** MOULD: a bud part way out of a cleared cell's floor. */
+  bud(column: number, row: number, kind: BrickKind, progress: number): void {
+    const { x, y } = this.brickAt(column, row);
+    drawMouldBud(this.ctx, x, y + BRICK_HEIGHT, kind, progress, row * COLUMNS + column, this.scale, this.demade);
+  }
+
+  /**
+   * MOULD: the fur along a live brick's seams. A fixed fray rather than the
+   * field's hashed one — a still only has to show that the seams have grown
+   * something, and every third pixel dropped reads as ragged at a third of the
+   * size.
+   */
+  fur(column: number, row: number): void {
+    const { x, y } = this.brickAt(column, row);
+    for (let along = 0; along < BRICK_WIDTH; along += 2) {
+      if ((along + column * 3 + row) % 6 === 4) {
+        continue;
+      }
+      this.rect(x + along, y, 1, 1, MOULD_TONES.fur);
+      this.rect(x + along, y + BRICK_HEIGHT - 1, 1, 1, MOULD_TONES.fur);
+    }
+    for (let along = 2; along < BRICK_HEIGHT - 1; along += 3) {
+      this.rect(x, y + along, 1, 1, MOULD_TONES.fur);
+      this.rect(x + BRICK_WIDTH - 1, y + along, 1, 1, MOULD_TONES.fur);
+    }
+    this.rect(x + ((column * 7) % (BRICK_WIDTH - 4)) + 2, y - 1, 1, 1, MOULD_TONES.tip);
+  }
+
   /**
    * RIBBON: one block of track, top-left corner and age, through the sprite the
    * field paints.
@@ -1769,6 +1818,42 @@ const SCENES: Record<PowerUpKind, Painter> = {
    * the near anchor, so the reader can follow the whole sentence in one glance
    * — *this* was struck, *that* died.
    */
+  /**
+   * MOULD: the wall healing, in three states in one frame.
+   *
+   * The wall is eaten along its bottom edge, because the mould feeds on the
+   * *edge* of what has been opened — a whole wall has nothing to grow into, and
+   * a picture of one would say the capsule does nothing. Fur on the seams of
+   * every brick still standing; one hole already grown shut and wearing the
+   * speckle it keeps; one bud half risen out of a cleared cell's floor. What
+   * the reader has to come away knowing is that the holes are closing.
+   */
+  MO: (field) => {
+    field.wall();
+    const opened: readonly (readonly [number, number])[] = [
+      [2, 3],
+      [3, 3],
+      [4, 3],
+      [7, 3],
+      [8, 3],
+      [3, 2],
+      [8, 2],
+    ];
+    for (const [column, row] of opened) {
+      field.clear(column, row);
+    }
+    for (let row = 0; row < DEFAULT_WALL.length; row++) {
+      for (let column = 0; column < COLUMNS; column++) {
+        if (!opened.some(([c, r]) => c === column && r === row)) {
+          field.fur(column, row);
+        }
+      }
+    }
+    field.grownBrick(4, 3, DEFAULT_WALL[3]);
+    field.bud(7, 3, DEFAULT_WALL[3], 0.5);
+    field.ball(150, 150);
+    field.deck();
+  },
   /**
    * RIBBON: the pen the ball built.
    *

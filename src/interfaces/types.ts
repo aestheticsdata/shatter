@@ -61,6 +61,10 @@ export interface BrickCell {
   // reason: QUAKE slides cells down by reference, and a flicker tracked by
   // (row, column) would stay behind on the row the brick has left.
   scarTicks: number;
+  // MOULD (SHA-142): this brick grew back into a hole rather than being built.
+  // It wears a permanent speckle so it never passes for the level's own stone,
+  // and on the cell for `seed`'s reason — QUAKE slides cells by reference.
+  grown: boolean;
 }
 
 export interface BrickHit {

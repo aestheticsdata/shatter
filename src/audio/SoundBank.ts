@@ -1411,6 +1411,35 @@ export class SoundBank {
     this.noise({ dur: 0.09, vol: 0.09, filter: { type: "highpass", freq: 1800 } });
   }
 
+  // MOULD (SHA-142): the bloom coming out of the mortar — a low wet swell that
+  // rises and does not resolve, the wall starting to breathe.
+  mouldBloom(): void {
+    if (!this.allow("mouldBloom")) {
+      return;
+    }
+    this.tone({ freq: 70, freqEnd: 140, dur: 0.4, vol: 0.06, type: "sine" });
+    this.noise({ dur: 0.35, vol: 0.03, filter: { type: "lowpass", freq: 500 } });
+  }
+
+  // A bud hardening into a brick: a soft thick pop, lower than a brick hit, so a
+  // player hears the wall getting *bigger*.
+  mouldSprout(): void {
+    if (!this.allow("mouldSprout", 40)) {
+      return;
+    }
+    this.tone({ freq: 160, freqEnd: 260, dur: 0.07, vol: 0.06, type: "sine" });
+    this.tone({ freq: 90, dur: 0.05, vol: 0.04, delayS: 0.05 });
+  }
+
+  // The fur drying and lifting as spores: a dry hiss that thins upward.
+  mouldDry(): void {
+    if (!this.allow("mouldDry")) {
+      return;
+    }
+    this.noise({ dur: 0.6, vol: 0.04, filter: { type: "highpass", freq: 3200 } });
+    this.tone({ freq: 300, freqEnd: 900, dur: 0.5, vol: 0.02, type: "sine" });
+  }
+
   // RIBBON (SHA-139): a ball knocking off its own track. Dull and wooden and
   // short — a block is not a brick, it pays nothing and it breaks nothing, and
   // by second six it is played on most bounces, so it has to sit under the

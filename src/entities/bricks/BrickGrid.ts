@@ -164,6 +164,7 @@ export class BrickGrid {
           capsule: pin ?? (definition.capsules === false ? null : rollCapsule()),
           seeded: pin !== undefined,
           scarTicks: 0,
+          grown: false,
         });
         this.remainingCount++;
       }
@@ -553,7 +554,24 @@ export class BrickGrid {
       capsule: null,
       seeded: false,
       scarTicks: flickerTicks,
+      grown: false,
     };
+    this.remainingCount++;
+  }
+
+  /**
+   * MOULD (SHA-142): a grown brick into an empty cell, as the mould built it.
+   *
+   * The cell is the caller's whole — kind, one hit point, a quarter of the
+   * points, no capsule, `grown` — because what a regrown brick is worth is the
+   * capsule's rule and not the wall's. The wall only counts it: it is a brick
+   * like any other from here, and the level does not clear until it is gone.
+   */
+  plant(row: number, column: number, cell: BrickCell): void {
+    if (this.grid[row]?.[column] !== null) {
+      return;
+    }
+    this.grid[row][column] = cell;
     this.remainingCount++;
   }
 

@@ -469,6 +469,42 @@ export const gameConfig = {
      * RIBBON (SHA-139): the track every ball lays behind it. The whole capsule is
      * here and in `@entities/effects/Ribbon`.
      */
+    /**
+     * MOULD (SHA-142): the wall growing back. The whole capsule is here and in
+     * `@entities/effects/Mould`.
+     */
+    mould: {
+      // The fur creeping along the seams on arrival, and the first round of
+      // growth fires on the tick it lands — something the capsule is about is
+      // happening inside the first half second, not on the fur's credit alone.
+      furTicks: 24,
+      // Nine rounds of two buds, fifty ticks apart: the last is sown at 424 of
+      // the 540, and nothing is sown in the last `quietTicks`, so no bud is
+      // still rising when the fur dries.
+      roundTicks: 50,
+      rounds: 9,
+      budsPerRound: 2,
+      quietTicks: 90,
+      // A bud rising out of the cell floor, a pixel every few ticks. Not a
+      // collider until it finishes — a player can watch one grow straight
+      // through the ball's lane and it will not touch the ball.
+      riseTicks: 45,
+      // The fur drying on the way out, green to grey to gone from the bottom
+      // course up, armed off the timer so the last course lifts as it ends.
+      dryTicks: 45,
+      // What a grown brick pays of its kind's points. It holds no capsule.
+      pointsShare: 0.25,
+      // The puff a bud throws as it hardens: the fence's seat, a touch softer.
+      sproutBurst: {
+        chunkCount: 3,
+        minChunkSize: 1,
+        maxChunkSize: 2,
+        minSpeed: 0.2,
+        maxSpeed: 0.8,
+        minLifeTicks: 8,
+        maxLifeTicks: 14,
+      },
+    },
     ribbon: {
       // Pixels of travel between two blocks — a distance, not a tick count, so
       // every speed the game has lays the same line. Just under four ball-widths:
