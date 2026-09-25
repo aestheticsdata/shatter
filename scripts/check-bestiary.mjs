@@ -4,7 +4,7 @@
 // nothing counted them: MOTH alone was on 39. This checks the rules the re-deal
 // was made to, and exits non-zero with a report when one breaks:
 //
-//   1. Three or four creatures on every ordinary level. The veils keep their
+//   1. Six to eight creatures on every ordinary level (SHA-259 doubled the deal). The veils keep their
 //      brood and carry no pins.
 //   2. No species on two consecutive levels — including across the wrap back to
 //      level 1, which is the same rule `check:backgrounds` holds the themes to.
@@ -44,8 +44,8 @@ const { CREATURE } = await import("../src/interfaces/creatures.ts");
 const { SPECIES } = await import("../src/entities/creatures/species/index.ts");
 const { gameConfig } = await import("../src/core/config/GameConfig.ts");
 
-const CAP = 20;
-const PER_LEVEL = { min: 3, max: 4 };
+const CAP = 40;
+const PER_LEVEL = { min: 6, max: 8 };
 const DECK_TAKERS = [CREATURE.SLUG, CREATURE.JELLYFISH, CREATURE.CRAB];
 const NAMED = { HEART: CREATURE.FIREFLY, VORTEX: CREATURE.WISP, BOLT: CREATURE.BAT };
 const BOSSES = [
@@ -174,4 +174,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 console.log(`${total} creatures across ${LEVELS.filter((level) => !level.observer).length} levels: ${tally}.`);
-console.log("Three or four a level, no species on two neighbours, none over the cap, every pin where it can live.");
+console.log("Six to eight a level, no species on two neighbours, none over the cap, every pin where it can live.");
