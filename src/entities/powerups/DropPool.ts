@@ -47,6 +47,11 @@ export interface Drop {
   y: number;
   kind: PowerUpKind;
   active: boolean;
+  // KLAXON (SHA-143): a honk's shove, in pixels a tick — `lift` up the field,
+  // bled off against the fall, and `push` sideways, decaying. Both zero for
+  // every capsule nobody has blown on, which is all of them almost always.
+  lift: number;
+  push: number;
 }
 
 // MAGNET: slide one capsule toward the deck's centre. The pull is strongest at
@@ -127,12 +132,26 @@ function sinkOrFall(drop: Drop, tide: DropField["tide"]): number {
   return dropFallSpeed * sea.sinkScale + swell * sea.bobSpeed;
 }
 
+// KLAXON: a honked capsule rising against its own fall and drifting sideways,
+// both bleeding off tick by tick — an arc, not a teleport, since the capsule is
+// the one thing on the field the player is watching.
+function blow(drop: Drop): void {
+  const { liftDecay, pushDecay } = gameConfig.powerUps.klaxon;
+  const { left, right } = gameConfig.field;
+  drop.y -= drop.lift;
+  drop.lift = Math.max(0, drop.lift - liftDecay);
+  drop.x = Math.max(left, Math.min(right - DROP_WIDTH, drop.x + drop.push));
+  drop.push = Math.abs(drop.push) < 0.05 ? 0 : drop.push * pushDecay;
+}
+
 export class DropPool {
   readonly drops: Drop[] = Array.from({ length: gameConfig.powerUps.maxDrops }, () => ({
     x: 0,
     y: 0,
     kind: "E",
     active: false,
+    lift: 0,
+    push: 0,
   }));
 
   /**
@@ -158,6 +177,8 @@ export class DropPool {
     drop.x = brickLeft + 5;
     drop.y = brickTop;
     drop.active = true;
+    drop.lift = 0;
+    drop.push = 0;
     return true;
   }
 
@@ -211,6 +232,8 @@ export class DropPool {
       // this one is not, because a capsule may only ever start higher.
       drop.y = top - DROP_HEIGHT - Math.random() * gameConfig.powerUps.ceilingSpawnSpread;
       drop.active = true;
+      drop.lift = 0;
+      drop.push = 0;
       spawned++;
     }
     return spawned;
@@ -242,7 +265,7 @@ export class DropPool {
    * with the rest of the field instead of vanishing into the paddle.
    *
    * Motion is a pipeline, and this is the order it runs in: magnet pull, core
-   * pull, then the fall. Later capsules that push a drop around insert their
+   * pull, KLAXON's shove, then the fall. Later capsules that push a drop around insert their
    * stage here rather than widening these parameters again.
    *
    * The core runs after the magnet on purpose: when both have hold of the same
@@ -264,6 +287,9 @@ export class DropPool {
         continue;
       }
 
+      if (drop.lift > 0 || drop.push !== 0) {
+        blow(drop);
+      }
       drop.y += sinkOrFall(drop, field.tide);
       if (drop.y > gameConfig.field.height) {
         drop.active = false;

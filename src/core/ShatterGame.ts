@@ -24,7 +24,7 @@ import { ShotPool } from "@entities/laser/ShotPool";
 import { mirrorBounds, mirrorGap, mirrorSpan } from "@entities/paddle/MirrorPaddle";
 import { Paddle } from "@entities/paddle/Paddle";
 import { DropBag } from "@entities/powerups/DropBag";
-import { DROP_HEIGHT, DROP_WIDTH, DropPool } from "@entities/powerups/DropPool";
+import { type Drop, DROP_HEIGHT, DROP_WIDTH, DropPool } from "@entities/powerups/DropPool";
 import { PowerUpTimers } from "@entities/powerups/PowerUpTimers";
 import { InputController } from "@input/InputController";
 import { CREATURE } from "@interfaces/creatures";
@@ -445,6 +445,8 @@ export class ShatterGame {
   // MOULD's growth (SHA-142). Its buds live in here until they land; the grid
   // only learns about a brick on the tick it is finished.
   private readonly mould = new Fx.Mould();
+  // KLAXON's bulb and its pressure fronts (SHA-143).
+  private readonly klaxon = new Fx.Klaxon();
   // The posts that finished arriving and leaving this tick, reused rather than
   // allocated for the reason `landings` is.
   private readonly fenceSeated: number[] = [];
@@ -1202,6 +1204,7 @@ export class ShatterGame {
       fence: this.fence,
       ribbon: this.ribbon,
       mould: this.mould,
+      klaxon: this.klaxon,
       shadows: this.shadows,
       // The echo field itself, the way the sheet above it goes over: the
       // renderer needs the rect every echo is standing in this frame and the
@@ -1670,6 +1673,7 @@ export class ShatterGame {
       this.mould.shakeLoose();
     }
     this.mould.stepPicture();
+    this.stepKlaxonBulb();
 
     // A pending level clear freezes the rest of the simulation so the final
     // brick's shatter can play out — no ball can be lost, no capsule caught,
@@ -1715,6 +1719,10 @@ export class ShatterGame {
     // behind one would spend its kicks on balls nobody can see move — then let
     // several land at once on the frame the field comes back.
     this.stepHaywire();
+    // KLAXON's fronts, beside the fault and below the gates for its reason: a
+    // front passing over balls a shockwave is holding still would spend its
+    // shove on balls nobody can see move.
+    this.stepKlaxonFronts();
     // Below the gates, unlike the blend above: the threads are a claim about
     // where balls are going, and balls behind a shockwave are not going
     // anywhere. Re-walking them there would redraw the same picture at some
@@ -3057,6 +3065,135 @@ export class ShatterGame {
       return true;
     }
     return false;
+  }
+
+  /**
+   * KLAXON (SHA-143): a click spends a honk, if there is one and the field is
+   * the player's. Gated on the three freezes `step` returns early for, since
+   * `advance` never consults them: a front fired behind a shockwave would be a
+   * save the player spent and did not get.
+   */
+  private honk(): boolean {
+    if (!this.klaxon.armed || this.detonation.active || this.clearCountdown > 0 || this.deathCountdown > 0) {
+      return false;
+    }
+    if (this.inside.active) {
+      return false;
+    }
+    const { top, brickHeight } = gameConfig.grid;
+    const wallBottom = top + this.grid.rows.length * brickHeight - this.grid.topOffset;
+    const x = this.paddle.x + this.paddle.width - 4;
+    const y = this.paddle.y;
+    if (!this.klaxon.honk(x, y, Math.max(60, y - wallBottom))) {
+      return false;
+    }
+    this.deps.sfx.klaxonHonk();
+    if (!this.klaxon.armed) {
+      this.deps.sfx.klaxonDeflate();
+    }
+    return true;
+  }
+
+  /**
+   * The bulb, above the gates: a picture. Its two moments both touch the drops,
+   * and lightly — the parp as it fills shoves whatever is in the air a few
+   * pixels up, the machine acquiring a voice and using it by accident, and the
+   * last weak puff as it empties nudges the one capsule nearest the rail and no
+   * further.
+   */
+  private stepKlaxonBulb(): void {
+    const { parp, spent } = this.klaxon.stepBulb();
+    const { parpLift, puffLift } = gameConfig.powerUps.klaxon;
+    if (parp) {
+      for (const drop of this.dropPool.drops) {
+        if (drop.active) {
+          drop.lift = Math.max(drop.lift, parpLift);
+        }
+      }
+      this.deps.sfx.klaxonParp();
+    }
+    if (spent) {
+      let lowest: Drop | null = null;
+      for (const drop of this.dropPool.drops) {
+        if (drop.active && (lowest === null || drop.y > lowest.y)) {
+          lowest = drop;
+        }
+      }
+      if (lowest !== null) {
+        lowest.lift = Math.max(lowest.lift, puffLift);
+      }
+    }
+  }
+
+  /**
+   * The fronts, below the gates: every loose ball a front reaches is turned into
+   * the upward cone, and every capsule it reaches is thrown back up the field
+   * and sideways. Once each per honk.
+   *
+   * STASIS-held balls are not honked — they are held, not loose — and neither
+   * is a ball parked on the deck under GLUE.
+   */
+  private stepKlaxonFronts(): void {
+    this.klaxon.stepFronts();
+    if (this.klaxon.fronts.length === 0) {
+      return;
+    }
+    const held = this.timers.isActive("I");
+    const { dropLift, pushSpan, maxPush } = gameConfig.powerUps.klaxon;
+    for (const front of this.klaxon.fronts) {
+      const reach = this.klaxon.radius(front);
+      if (!held) {
+        for (const ball of this.balls) {
+          if (!ball.active || ball.stuckOffsetX !== null || front.touched.has(ball)) {
+            continue;
+          }
+          const dx = ball.centerX - front.x;
+          const dy = ball.y + ball.size / 2 - front.y;
+          if (dy <= 4 && Math.hypot(dx, dy) <= reach) {
+            front.touched.add(ball);
+            this.honkBall(ball, dx, dy);
+          }
+        }
+      }
+      for (const drop of this.dropPool.drops) {
+        if (!drop.active || front.touched.has(drop)) {
+          continue;
+        }
+        const dx = drop.x + DROP_WIDTH / 2 - front.x;
+        const dy = drop.y + DROP_HEIGHT / 2 - front.y;
+        if (dy <= 4 && Math.hypot(dx, dy) <= reach) {
+          front.touched.add(drop);
+          drop.lift = dropLift;
+          // Away from the honk's centre line, harder the further off it was. A
+          // capsule dead over the bulb goes straight up and comes straight down
+          // on it — which is the one the player keeps.
+          drop.push = Math.sign(dx) * Math.min(maxPush, Math.abs(dx) / pushSpan);
+        }
+      }
+    }
+  }
+
+  /**
+   * One ball, turned by a front: **heading only, never speed** — `glitchBall`'s
+   * rule. Pointed up and away from the bulb, no further off vertical than
+   * `coneRad`, at the speed it already had. A kick that added speed would be a
+   * permanent one, since nothing renormalises a ball until it next meets the
+   * deck. Under SNAP the vertical sense is flipped and nothing else, so the
+   * 45-degree lattice survives.
+   */
+  private honkBall(ball: Ball, dx: number, dy: number): void {
+    const speed = Math.hypot(ball.velocity.x, ball.velocity.y);
+    if (speed === 0) {
+      return;
+    }
+    if (this.timers.isActive("SN")) {
+      ball.velocity.y = -Math.abs(ball.velocity.y);
+      return;
+    }
+    const { coneRad } = gameConfig.powerUps.klaxon;
+    const angle = Math.max(-coneRad, Math.min(coneRad, Math.atan2(dx, -Math.min(dy, -1))));
+    ball.velocity.x = speed * Math.sin(angle);
+    ball.velocity.y = -speed * Math.cos(angle);
   }
 
   /**
@@ -6392,7 +6529,7 @@ export class ShatterGame {
   // The two halves are independent and stay that way: `bonusSpreadAmount` is a
   // coin per brick, and the bag decides only *which* capsule a winning coin
   // yields. A wall of 40 bricks therefore spends about 12 tickets, which is what
-  // makes a 91-ticket pass last about eight levels.
+  // makes a 92-ticket pass last about eight levels.
   private rollBrickCapsule(): PowerUpKind | null {
     return Math.random() < this.bonusSpreadAmount() ? this.dropBag.draw(this.dropExcludes()) : null;
   }
@@ -6448,6 +6585,7 @@ export class ShatterGame {
     this.fence.reset();
     this.ribbon.reset();
     this.mould.reset();
+    this.klaxon.reset();
     this.shadows.reset();
     this.superposition.reset();
     this.decoherence.reset();
@@ -7367,6 +7505,12 @@ export class ShatterGame {
       this.timers.activate("RI", durations.RI);
       this.ribbon.start();
     }
+    if (kind === "KL") {
+      // The bulb fills over ten ticks and parps when it is full. A second
+      // KLAXON over a live one refills it to two rather than stacking.
+      this.klaxon.arm();
+      this.deps.sfx.klaxonInflate();
+    }
     if (kind === "MO") {
       // A second MOULD over a live one tops the nine seconds up and keeps the
       // rounds going on the clock it already had; only a fresh one blooms.
@@ -8185,7 +8329,15 @@ export class ShatterGame {
         // Under CHARGE (GLUE+LASER) the release means one more thing: the fire
         // the hold has been sitting on comes out with the balls. Only on a real
         // release, or every idle click would be a free salvo.
+        //
+        // KLAXON makes it three, and takes the middle: **release, then honk,
+        // then PYRE.** A honk is a half-second save and a grenade is not. A click
+        // the release swallows makes the bulb twitch without honking, so the
+        // player can see why nothing came out.
         if (this.releaseStuckBalls() > 0) {
+          if (this.klaxon.armed) {
+            this.klaxon.twitch = gameConfig.powerUps.klaxon.twitchTicks;
+          }
           if (this.hasCombo("CHARGE")) {
             this.shotPool.fireFromPaddle(this.paddle);
             this.deps.sfx.laserFire();
@@ -8193,6 +8345,9 @@ export class ShatterGame {
               ? gameConfig.powerUps.comboLaserCadenceTicks
               : gameConfig.powerUps.laserCadenceTicks;
           }
+          break;
+        }
+        if (this.honk()) {
           break;
         }
         if (this.firePyre()) {
@@ -8381,6 +8536,7 @@ export class ShatterGame {
     this.fence.reset();
     this.ribbon.reset();
     this.mould.reset();
+    this.klaxon.reset();
     this.shadows.reset();
     this.superposition.reset();
     this.decoherence.reset();
@@ -8475,6 +8631,7 @@ export class ShatterGame {
     this.fence.reset();
     this.ribbon.reset();
     this.mould.reset();
+    this.klaxon.reset();
     this.shadows.reset();
     this.superposition.reset();
     this.decoherence.reset();
@@ -8841,6 +8998,9 @@ export class ShatterGame {
     }
     if (this.angelCharged) {
       live.add("A");
+    }
+    if (this.klaxon.armed) {
+      live.add("KL");
     }
     if (this.gambleTicksLeft > 0) {
       live.add("GB");

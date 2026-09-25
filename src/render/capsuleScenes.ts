@@ -10,6 +10,8 @@ import {
   drawBlackoutVeil,
   drawBrick,
   drawCapsule,
+  drawKlaxonBulb,
+  drawKlaxonFront,
   drawMouldBud,
   drawRibbonStamp,
   drawDeckBody,
@@ -492,6 +494,16 @@ class Field {
    * along the cut — so the catalogue's picture of an arriving fence is the same
    * sprite the field paints rather than a second one that could drift off it.
    */
+  /** KLAXON: the bulb on the deck's right cap, with this many honks left. */
+  klaxonBulb(honks: number, x = DECK_HOME): void {
+    drawKlaxonBulb(this.ctx, x + gameConfig.paddle.baseWidth - 4, DECK_Y, 1, honks, 0, 0, this.scale, this.demade);
+  }
+
+  /** KLAXON: a front off the bulb, this far up its life. */
+  klaxonFront(radius: number, progress: number, x = DECK_HOME): void {
+    drawKlaxonFront(this.ctx, x + gameConfig.paddle.baseWidth - 4, DECK_Y, radius, progress, this.scale, this.demade);
+  }
+
   /**
    * MOULD: a brick the mould grew — one hit point, its kind's colours, and the
    * speckle it keeps.
@@ -1818,6 +1830,25 @@ const SCENES: Record<PowerUpKind, Painter> = {
    * the near anchor, so the reader can follow the whole sentence in one glance
    * — *this* was struck, *that* died.
    */
+  /**
+   * KLAXON: one honk, caught mid-field.
+   *
+   * The bulb has one rib left, so the still says it was two and one is spent.
+   * The front is half way up, and three balls that were on their way down are
+   * leaving it on the upward cone — the save. And the price is in the same
+   * frame: a capsule that was about to be caught is up in the air and off to
+   * the left, somewhere the deck is not.
+   */
+  KL: (field) => {
+    field.wall();
+    field.klaxonFront(90, 0.45);
+    field.ball(206, 196);
+    field.ball(246, 210);
+    field.ball(170, 222);
+    field.capsule(120, 200, "P");
+    field.deck();
+    field.klaxonBulb(1);
+  },
   /**
    * MOULD: the wall healing, in three states in one frame.
    *

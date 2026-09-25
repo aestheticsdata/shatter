@@ -609,6 +609,20 @@ export const FRAME_RIVET = {
  * one row here, and the simulation still names a material rather than a colour.
  */
 /**
+ * KLAXON (SHA-143): the bulb in the capsule's own mint with a dark rib for each
+ * honk left, the brass bell it blows through, and the front's two strokes.
+ */
+export const KLAXON_TONES = {
+  bulb: "#00d989",
+  bulbLight: "#8dffd0",
+  rib: "#006b44",
+  brass: "#c99a3a",
+  brassLight: "#ffe08a",
+  front: "#b8ffe2",
+  frontEdge: "#00ff9b",
+} as const;
+
+/**
  * MOULD (SHA-142): the fur on the seams, dark olive over a lighter olive tip;
  * the grey it dries to on the way out; and the speckle a grown brick wears for
  * the rest of the level. The pill is a leaf green and this is that green taken

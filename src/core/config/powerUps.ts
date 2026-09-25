@@ -15,7 +15,7 @@ export type PowerUpTier = "common" | "uncommon" | "rare" | "trap";
 
 // How many tickets a tier puts in the bag — see `DropBag`, which draws without
 // replacement instead of rolling weighted odds. A tier is a count of copies, not
-// a probability, and it is almost the whole of the rarity system: 91 tickets,
+// a probability, and it is almost the whole of the rarity system: 92 tickets,
 // about eight levels, every capsule out once to three times a pass. Two rows carry an
 // exception, and `POWER_UP_DROP_TICKETS` says why.
 //
@@ -609,6 +609,12 @@ export const POWER_UPS = [
   // left in the whole yellow-green band — 60.7 from XRAY, 0.429 luminance, clear
   // of every speck. The fur the capsule grows on the field is this body taken
   // down to a dark olive, which is where the mould's own colour lives.
+  // Mint, and not the ticket's verdigris jade: `#10b988` landed 6.4 from TIDE,
+  // which shipped into that exact gap after the spec was written. This is the
+  // widest legal point left in the blue-green quarter — 62.4 from CHAIN, 64.5
+  // from SWARM, 0.739 luminance and clear of every speck. With it, MOULD and
+  // RIBBON, the green family is closed: the next capsule cannot be green.
+  { id: "KL", name: "KLAXON", color: "#00ff9b", dark: true, ticks: 0, tier: "uncommon", timed: false, blurb: "A HONK SHOVES BALLS AND LOOT", lasts: "TWO HONKS" },
   { id: "MO", name: "MOULD", color: "#3fc912", dark: true, ticks: 540, tier: "trap", timed: true, blurb: "HOLES FUR OVER · GROWTH STAYS", lasts: "9 S · BRICKS STAY" },
   { id: "RI", name: "RIBBON", color: "#73cd73", dark: true, ticks: 480, tier: "trap", timed: true, blurb: "THE BALL BUILDS YOUR MAZE" },
 ] as const satisfies readonly PowerUpDefinition[];
@@ -651,7 +657,7 @@ export const POWER_UP_NAMES: Record<PowerUpKind, string> = byId((definition) => 
  */
 export const POWER_UP_GLYPHS: Record<PowerUpKind, string> = byId((definition) => glyphFor(definition.name));
 export const POWER_UP_DURATIONS: Record<PowerUpKind, number> = byId((definition) => definition.ticks);
-// Tickets per capsule: tier-derived for 59 of the 61 rows, and two kept back.
+// Tickets per capsule: tier-derived for 60 of the 62 rows, and two kept back.
 //
 // There were three weight exceptions — DEMAKE, VORTEX and GIANT — each promoted a
 // class because it was "landing too rarely to enjoy". The instinct was to retire

@@ -505,6 +505,42 @@ export const gameConfig = {
         maxLifeTicks: 14,
       },
     },
+    /**
+     * KLAXON (SHA-143): the bulb horn and its pressure fronts. The whole capsule
+     * is here and in `@entities/effects/Klaxon`.
+     */
+    klaxon: {
+      // Two, not three: at `uncommon` it draws more often than WALL or ANGEL,
+      // and three aimed field-wide saves would be the strongest save on the
+      // board at a middling price.
+      honks: 2,
+      // The bulb swelling on the catch, and sagging after the last honk.
+      inflateTicks: 10,
+      deflateTicks: 20,
+      // How long a honk squeezes the bulb, and how long a click GLUE swallowed
+      // makes it twitch.
+      squeezeTicks: 8,
+      twitchTicks: 8,
+      // A front's whole life, off the bulb to the bottom course of the wall.
+      frontTicks: 24,
+      // The widest a front may point a ball off straight up, either side. The
+      // heading is turned and never the speed — see `honkBall`.
+      coneRad: 0.7,
+      // A capsule the front passes: thrown back up the field at this many pixels
+      // a tick, bled off by `liftDecay` a tick against the fall, and pushed
+      // sideways away from the honk's centre line — a pixel a tick per `pushSpan`
+      // pixels it was off, to at most `maxPush`. The sideways half is the cost:
+      // the capsule you were about to catch lands somewhere else on the rail.
+      dropLift: 4.2,
+      liftDecay: 0.18,
+      pushSpan: 40,
+      maxPush: 2.2,
+      pushDecay: 0.94,
+      // The involuntary parp as the bulb fills, and the last weak puff as it
+      // empties: the mechanic played at nothing.
+      parpLift: 1.4,
+      puffLift: 0.9,
+    },
     ribbon: {
       // Pixels of travel between two blocks — a distance, not a tick count, so
       // every speed the game has lays the same line. Just under four ball-widths:

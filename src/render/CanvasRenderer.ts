@@ -49,6 +49,7 @@ import {
   FRAME_RAILS,
   FRAME_RIVET,
   type PaddleBandColors,
+  KLAXON_TONES,
   MOULD_TONES,
   RIBBON_TONES,
 } from "@render/palette";
@@ -855,6 +856,8 @@ export interface RenderView {
   ribbon: Fx.Ribbon;
   // MOULD's fur, its buds, and how far the fur has crept or dried (SHA-142).
   mould: Fx.Mould;
+  // KLAXON's bulb and its fronts (SHA-143).
+  klaxon: Fx.Klaxon;
   /**
    * UMBRA's shadow field, as the object.
    *
@@ -1277,6 +1280,107 @@ export function drawBrick(
     drawGrownSpeckle(ctx, scale, bodyX, bodyY, bodyWidth, bodyHeight, cell.seed, ink, false);
   }
   ctx.globalAlpha = 1;
+}
+
+/**
+ * KLAXON (SHA-143): the bulb horn on the deck's right cap, at whatever scale —
+ * the field and the CAPSULES miniature paint the same one.
+ *
+ * `x` is the cap's inner edge and `deckY` the deck's top. The brass bell points
+ * up and in over the deck; the rubber bulb sits on the cap behind it and is the
+ * held cue: **one dark rib per honk left**, so a full bulb and a half-spent one
+ * are two different shapes and the player never has to remember the count.
+ *
+ * Arrival **inflates** rather than extrudes — the radius swells from a flat
+ * wrinkled disc, which is what keeps it from reading as LASER's cannons coming
+ * up out of the deck. Expiry is the same swell run backwards and squashed, the
+ * rubber sagging. A honk squeezes it; a click GLUE swallowed twitches it.
+ */
+export function drawKlaxonBulb(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  deckY: number,
+  blend: number,
+  honks: number,
+  squeeze: number,
+  twitch: number,
+  scale: number,
+  demade = false,
+): void {
+  if (blend <= 0) {
+    return;
+  }
+  const ink = inkFor(demade);
+  const pixel = spriteBrush(ctx, scale, demade);
+  const shake = twitch > 0 ? (twitch % 2 === 0 ? 1 : -1) : 0;
+  const squash = squeeze > 0 ? 1 - 0.35 * (squeeze / gameConfig.powerUps.klaxon.squeezeTicks) : 1;
+  const radius = 1 + 3.2 * blend;
+  const cx = x + 1 + shake;
+  const cy = deckY - radius * squash;
+  // The bell first, under the bulb: a flare of brass pointing up over the deck,
+  // growing with the bulb so a flat bulb has no horn yet.
+  const bell = Math.round(5 * blend);
+  for (let step = 0; step < bell; step++) {
+    const width = 1 + Math.floor(step / 2);
+    pixel(
+      cx - 3 - step,
+      deckY - 3 - step - width + 1,
+      1,
+      width,
+      step === bell - 1 ? KLAXON_TONES.brassLight : KLAXON_TONES.brass,
+    );
+  }
+  ctx.fillStyle = ink(KLAXON_TONES.bulb);
+  ctx.beginPath();
+  ctx.ellipse(cx * scale, cy * scale, radius * scale, radius * squash * scale, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = ink(KLAXON_TONES.bulbLight);
+  ctx.beginPath();
+  ctx.ellipse(
+    (cx - radius * 0.35) * scale,
+    (cy - radius * squash * 0.35) * scale,
+    radius * 0.35 * scale,
+    radius * 0.3 * squash * scale,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+  // The ribs: one per honk left, across the bulb's waist.
+  for (let rib = 0; rib < honks; rib++) {
+    const ribY = cy - radius * squash * 0.2 + rib * Math.max(1, radius * squash * 0.55);
+    pixel(cx - radius * 0.8, ribY, radius * 1.6, 1 / 3, KLAXON_TONES.rib);
+  }
+}
+
+/**
+ * KLAXON (SHA-143): one pressure front — a half ring off the bulb, bright and
+ * thick at the rail and thinning as it climbs, fading against the wall it dies
+ * on.
+ */
+export function drawKlaxonFront(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  progress: number,
+  scale: number,
+  demade = false,
+): void {
+  const ink = inkFor(demade);
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, 1 - progress) * 0.9;
+  ctx.lineWidth = Math.max(1, (1 - progress) * 3) * (scale / 3) * 2;
+  ctx.strokeStyle = ink(KLAXON_TONES.frontEdge);
+  ctx.beginPath();
+  ctx.arc(x * scale, y * scale, radius * scale, Math.PI, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha *= 0.5;
+  ctx.strokeStyle = ink(KLAXON_TONES.front);
+  ctx.beginPath();
+  ctx.arc(x * scale, y * scale, Math.max(0, radius - 3) * scale, Math.PI, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
 }
 
 /**
@@ -4979,6 +5083,20 @@ export class CanvasRenderer {
       this.drawFence(view.fence);
     }
 
+    // KLAXON's fronts, with the fence and for its reason: free-standing in the
+    // field, riding the shake, and under the balls they are shoving.
+    for (const front of view.klaxon.fronts) {
+      drawKlaxonFront(
+        this.ctx,
+        front.x,
+        front.y,
+        view.klaxon.radius(front),
+        front.age / gameConfig.powerUps.klaxon.frontTicks,
+        SCALE,
+        this.demade,
+      );
+    }
+
     // RIBBON's track, with the fence and for its reason — a free-standing thing
     // in the field, riding the shake — and under every ball, so the sprite that
     // laid it is never touched by it.
@@ -5173,6 +5291,19 @@ export class CanvasRenderer {
     }
     if (!view.paddleHidden) {
       this.drawPaddle(view.paddle);
+      if (view.klaxon.visible) {
+        drawKlaxonBulb(
+          this.ctx,
+          view.paddle.x + view.paddle.width - 4,
+          view.paddle.y,
+          view.klaxon.blend,
+          view.klaxon.honks,
+          view.klaxon.squeeze,
+          view.klaxon.twitch,
+          SCALE,
+          this.demade,
+        );
+      }
       if (view.angelArmed) {
         drawAngelWings(this.ctx, view.paddle.x, view.paddle.width, view.paddle.y, SCALE, this.frameCount, this.demade);
       }

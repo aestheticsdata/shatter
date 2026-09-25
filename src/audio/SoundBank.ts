@@ -1411,6 +1411,46 @@ export class SoundBank {
     this.noise({ dur: 0.09, vol: 0.09, filter: { type: "highpass", freq: 1800 } });
   }
 
+  // KLAXON (SHA-143): the bulb filling — a rubber squeak climbing over the ten
+  // ticks it takes, so the catch is heard as air going in.
+  klaxonInflate(): void {
+    if (!this.allow("klaxonInflate")) {
+      return;
+    }
+    this.tone({ freq: 420, freqEnd: 900, dur: 0.16, vol: 0.035, type: "sine" });
+  }
+
+  // The involuntary parp as it fills: the honk, small and by accident.
+  klaxonParp(): void {
+    if (!this.allow("klaxonParp")) {
+      return;
+    }
+    this.tone({ freq: 330, dur: 0.07, vol: 0.05 });
+    this.tone({ freq: 347, dur: 0.07, vol: 0.04 });
+  }
+
+  // The honk: two squares a beat apart in pitch, which is what makes a bulb
+  // horn sound like a bulb horn rather than a beep, sagging a little at the end
+  // as the rubber gives out.
+  klaxonHonk(): void {
+    if (!this.allow("klaxonHonk", 60)) {
+      return;
+    }
+    this.tone({ freq: 330, freqEnd: 300, dur: 0.26, vol: 0.08 });
+    this.tone({ freq: 349, freqEnd: 318, dur: 0.26, vol: 0.06 });
+    this.noise({ dur: 0.08, vol: 0.05, filter: { type: "bandpass", freq: 900 } });
+  }
+
+  // The last honk's raspberry: the bulb sagging flat over twenty ticks on a long
+  // descending blat, after the honk itself has finished.
+  klaxonDeflate(): void {
+    if (!this.allow("klaxonDeflate")) {
+      return;
+    }
+    this.tone({ freq: 190, freqEnd: 55, dur: 0.4, vol: 0.06, delayS: 0.26 });
+    this.noise({ dur: 0.35, vol: 0.03, delayS: 0.28, filter: { type: "lowpass", freq: 700 } });
+  }
+
   // MOULD (SHA-142): the bloom coming out of the mortar — a low wet swell that
   // rises and does not resolve, the wall starting to breathe.
   mouldBloom(): void {

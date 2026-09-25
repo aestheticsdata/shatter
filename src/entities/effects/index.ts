@@ -17,6 +17,7 @@ export * from "./Gaze";
 export * from "./GravelField";
 export * from "./Inside";
 export * from "./JellySheet";
+export * from "./Klaxon";
 export * from "./LoosePupil";
 export * from "./MeteorField";
 export * from "./Mould";

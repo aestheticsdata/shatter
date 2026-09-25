@@ -8,7 +8,7 @@ const NO_EXCLUSIONS: readonly PowerUpKind[] = [];
  * Which capsule the wall hands over next — drawn from a shuffled bag rather than
  * rolled against weights.
  *
- * One pass is 91 tickets (see `TIER_TICKETS`): every capsule in the roster, three
+ * One pass is 92 tickets (see `TIER_TICKETS`): every capsule in the roster, three
  * times for a common — and for DEMAKE and GIANT, which keep a common's count for the
  * reason `POWER_UP_DROP_TICKETS` gives — once for everything else, in a random
  * order. Drawing
