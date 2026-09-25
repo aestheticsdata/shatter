@@ -31,6 +31,7 @@ export const EYE_ACT = {
   PATROL: "patrol",
   PULSE: "pulse",
   STAIRS: "stairs",
+  GAZE: "gaze",
 } as const;
 
 export type EyeActKind = (typeof EYE_ACT)[keyof typeof EYE_ACT];

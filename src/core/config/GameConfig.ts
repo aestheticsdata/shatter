@@ -1572,6 +1572,13 @@ export const gameConfig = {
      * frame that decays over `fadeTicks`, at `peak` rather than full white so
      * the ball is never lost in it, and a rattle.
      */
+    /**
+     * THE THROAT (SHA-205): ticks between a ball entering the mouth and the
+     * charge starting — and between shots while it stays in there.
+     */
+    throat: {
+      idleTicks: 20,
+    },
     strike: {
       fadeTicks: 18,
       peak: 0.55,

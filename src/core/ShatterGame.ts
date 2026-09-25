@@ -34,7 +34,7 @@ import { Inside } from "@entities/effects/Inside";
 import { JellySheet } from "@entities/effects/JellySheet";
 import { LoosePupil } from "@entities/effects/LoosePupil";
 import { MeteorField } from "@entities/effects/MeteorField";
-import { Observer } from "@entities/effects/Observer";
+import { insideRect, Observer } from "@entities/effects/Observer";
 import { OCULUS_HEIGHT, OCULUS_POSITIONS, OCULUS_WIDTH, Oculi } from "@entities/effects/Oculi";
 import { ParticleField } from "@entities/effects/ParticleField";
 import { Quake } from "@entities/effects/Quake";
@@ -54,6 +54,7 @@ import { DROP_HEIGHT, DROP_WIDTH, DropPool } from "@entities/powerups/DropPool";
 import { PowerUpTimers } from "@entities/powerups/PowerUpTimers";
 import { InputController } from "@input/InputController";
 import { CREATURE } from "@interfaces/creatures";
+import { EYE_ACT } from "@interfaces/eye";
 import { SCORE_DIGITS, zeroPad } from "@shared/format";
 import { type HiScores, TABLE_SIZE } from "@state/HiScores";
 
@@ -1374,6 +1375,8 @@ export class ShatterGame {
     // charge they are owed would have run down behind the serve prompt.
     // Silenced inside the eye, where there is no wall for it to come out of.
     if (!this.inside.active) {
+      // THE THROAT (SHA-205) arms and stands down the same gaze first.
+      this.stepThroat();
       this.stepGaze();
       this.stepTears();
     }
@@ -3398,14 +3401,41 @@ export class ShatterGame {
    * stood still — and standing still is exactly what it has just forced them
    * to do.
    */
+  /**
+   * THE THROAT (SHA-205): the gaze is armed while a ball is in the mouth and
+   * stood down once it is out — after the shot in flight, never during it: a
+   * beam cut off mid-charge would be a warning that lied.
+   */
+  private stepThroat(): void {
+    const act = this.observer.act;
+    if (act?.kind !== EYE_ACT.GAZE) {
+      return;
+    }
+    const ball = this.nearestBallTo(this.observer.socket);
+    const inMouth = ball !== null && insideRect(act.zone, ball);
+    if (inMouth && !this.gaze.active) {
+      this.gaze.load(true, gameConfig.observer.throat.idleTicks);
+    } else if (!inMouth && this.gaze.active && this.gaze.phase === "idle") {
+      this.gaze.reset();
+    }
+  }
+
   private stepGaze(): void {
     // Whichever pupil is doing the looking. THE IRIS fires out of the socket;
     // THE LID's has left the socket and fires from wherever it is in the room,
     // off its own lower edge so the beam comes out of the disc rather than out
     // of the middle of it.
     const { radius } = gameConfig.observer.lid;
-    const from = this.loosePupil.active ? { x: this.loosePupil.x, y: this.loosePupil.y + radius } : this.observer.pupil;
-    const started = this.gaze.step(from, this.paddle.centerX);
+    const pupil = this.loosePupil.active
+      ? { x: this.loosePupil.x, y: this.loosePupil.y + radius }
+      : this.observer.pupil;
+    // THE THROAT (SHA-205) fires down the middle of the mouth rather than
+    // hunting the deck: the beam leaves the eye at the throat's column and
+    // stays on it, so the one place the deck must not be is always the same.
+    const act = this.observer.act;
+    const throat = act?.kind === EYE_ACT.GAZE ? act.zone.x + act.zone.w / 2 : null;
+    const from = throat === null ? pupil : { x: throat, y: pupil.y };
+    const started = this.gaze.step(from, throat ?? this.paddle.centerX);
     if (started === "charge") {
       this.deps.sfx.gazeCharges();
     } else if (started === "fire") {

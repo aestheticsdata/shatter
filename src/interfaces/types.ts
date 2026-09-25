@@ -355,7 +355,12 @@ export type EyeAct =
   // THE STAIRS: `steps` are socket centres, in order; every blink the eye hops
   // to the next, the lid shut over the move, and landing on the last one with
   // `strike` flashes the field. The next blink takes it back to the first.
-  | { kind: typeof EYE_ACT.STAIRS; steps: readonly (readonly [number, number])[]; strike?: boolean };
+  | { kind: typeof EYE_ACT.STAIRS; steps: readonly (readonly [number, number])[]; strike?: boolean }
+  // THE THROAT: while a ball is inside `zone`, THE IRIS's gaze is armed and
+  // fires straight down the zone's middle — the deck under it turns to stone,
+  // as on the veil. A shot that has started finishes; only a resting gaze is
+  // put away.
+  | { kind: typeof EYE_ACT.GAZE; zone: FieldRect };
 
 export interface EyePlacement {
   // The socket: centre, half-width, half-height, in field pixels.

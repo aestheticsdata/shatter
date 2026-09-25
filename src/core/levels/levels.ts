@@ -91,7 +91,10 @@ export const LEVELS: readonly LevelDefinition[] = [
     rows: [".111.....22.", "1111....2222", "111...5.2222", "1111....2222", ".111....2.2."],
     // In the mouth, between the jaws' upper teeth and above the uvula, so it
     // is seen whole through the gap rather than half behind the 5.
-    eye: { x: 186, y: 50, hw: 40, hh: 11 },
+    // THE THROAT (SHA-205): get the ball into the mouth and it charges and
+    // fires THE IRIS's gaze straight down the throat — so the deck has to
+    // catch whatever comes out of the mouth without standing under it.
+    eye: { x: 186, y: 50, hw: 40, hh: 11, act: { kind: EYE_ACT.GAZE, zone: { x: 126, y: 38, w: 120, h: 60 } } },
     // Two spiders at the ceiling over the mouth, and a frog on the lower jaw.
     creatures: [
       { kind: CREATURE.SPIDER, x: 120, y: 4 },
