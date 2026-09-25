@@ -25,6 +25,9 @@
 //      are placed by cell the way its seeded drops are, and an electron pinned
 //      on air would be a shield round nothing, freed as a photon on its first
 //      tick.
+//   7. A pinned cell never rolls (SHA-156). Every level asks the bag exactly
+//      once per brick that can hold a capsule and is not pinned, so no ticket is
+//      drawn only to be overwritten by the level's own drop.
 //
 // Run with: pnpm run check:drops
 import { registerHooks } from "node:module";
@@ -48,7 +51,7 @@ registerHooks({
 
 const { POWER_UPS, POWER_UP_DROP_TICKETS, POWER_UP_IDS, TIER_TICKETS } = await import("../src/core/config/powerUps.ts");
 const { DropBag } = await import("../src/entities/powerups/DropBag.ts");
-const { isBrickKind } = await import("../src/core/config/bricks.ts");
+const { BRICK_BY_ID, isBrickKind } = await import("../src/core/config/bricks.ts");
 const { LEVELS, levelAt, wallFor } = await import("../src/core/levels/levels.ts");
 const { BrickGrid } = await import("../src/entities/bricks/BrickGrid.ts");
 
@@ -222,6 +225,38 @@ const SEED_BUILDS = 2000;
     failures.push("the first level's DEMAKE is on the wall but not marked seeded: an indirect kill would drop nothing");
   } else if (levelAt(0).rows.length - held[0].row < 3) {
     failures.push(`the built wall put its DEMAKE ${levelAt(0).rows.length - held[0].row} row(s) from the bottom`);
+  }
+}
+
+// A pinned cell never rolls (SHA-156). A roll is a ticket out of the bag, and one
+// spent on a cell the pin then overwrites is a capsule that never reaches the
+// field — invisible to the pass checks above, which draw from a bare bag. So
+// every level is built with a counting roll and must ask exactly once per brick
+// that can hold a capsule and is not pinned, with every answer ending up on a
+// cell.
+for (const [index, level] of LEVELS.entries()) {
+  const wall = wallFor(index);
+  const pins = new Set((wall.drops ?? []).map((drop) => `${drop.row},${drop.column}`));
+  let expected = 0;
+  for (const [row, line] of wall.rows.entries()) {
+    for (let column = 0; column < line.length; column++) {
+      const char = line[column];
+      if (isBrickKind(char) && BRICK_BY_ID[char].capsules !== false && !pins.has(`${row},${column}`)) {
+        expected++;
+      }
+    }
+  }
+  let rolls = 0;
+  const grid = new BrickGrid();
+  grid.load(wall, () => {
+    rolls++;
+    return "L";
+  });
+  const rolled = grid.rows.flat().filter((cell) => cell && !cell.seeded && cell.capsule === "L").length;
+  if (rolls !== expected || rolled !== rolls) {
+    failures.push(
+      `${level.name} drew ${rolls} ticket(s) for ${expected} rollable brick(s), and ${rolled} reached a cell`,
+    );
   }
 }
 

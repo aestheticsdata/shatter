@@ -131,6 +131,11 @@ export class BrickGrid {
     this.topOffset = 0;
 
     const { columns } = gameConfig.grid;
+    // The level's own capsules, by cell, before anything rolls: a pinned cell is
+    // not a roll at all, so it must not draw a ticket from the bag only to have
+    // the pin stamped over it (SHA-156) — that ticket would be spent on a capsule
+    // no brick ever holds, and the bag's two-pass promise would quietly break.
+    const pinned = new Map((level.drops ?? []).map((drop) => [drop.row * columns + drop.column, drop.kind]));
     for (const [rowIndex, row] of level.rows.entries()) {
       const line: Array<BrickCell | null> = [];
       const plan: Array<BrickKind | null> = [];
@@ -142,6 +147,7 @@ export class BrickGrid {
           continue;
         }
         const definition = BRICK_BY_ID[char];
+        const pin = pinned.get(rowIndex * columns + column);
         plan.push(char);
         line.push({
           kind: char,
@@ -154,25 +160,15 @@ export class BrickGrid {
           // Skipped rather than rolled and thrown away on the one kind that
           // never holds one: the roll is one call per brick that *can* pay, and
           // a lid asked about sixty times would be sixty draws nobody could win.
-          capsule: definition.capsules === false ? null : rollCapsule(),
-          seeded: false,
+          // A pin holds its capsule whatever the kind says, the way it always has.
+          capsule: pin ?? (definition.capsules === false ? null : rollCapsule()),
+          seeded: pin !== undefined,
           scarTicks: 0,
         });
         this.remainingCount++;
       }
       this.grid.push(line);
       this.layout.push(plan);
-    }
-
-    // The level's own capsules, stamped over whatever those cells rolled. Last
-    // so the roll above stays one call per brick — the odds are the level's
-    // business, and a seeded cell is not a roll at all.
-    for (const drop of level.drops ?? []) {
-      const cell = this.grid[drop.row]?.[drop.column];
-      if (cell) {
-        cell.capsule = drop.kind;
-        cell.seeded = true;
-      }
     }
   }
 
