@@ -62,7 +62,7 @@ import type { Pip } from "@entities/effects/GravelField";
 import type { Inside } from "@entities/effects/Inside";
 import type { JellySheet } from "@entities/effects/JellySheet";
 import type { Meteor } from "@entities/effects/MeteorField";
-import type { Observer } from "@entities/effects/Observer";
+import type { EyeSocket, Observer } from "@entities/effects/Observer";
 import type { Particle } from "@entities/effects/ParticleField";
 import type { Quake } from "@entities/effects/Quake";
 import type { ShadowCast } from "@entities/effects/ShadowCast";
@@ -83,6 +83,7 @@ import type {
   Bumper,
   CatchPop,
   ChainBolt,
+  FieldRect,
   PaddleShard,
   Peel,
   PowerUpKind,
@@ -5284,8 +5285,26 @@ export class CanvasRenderer {
     if (!socket || eye.layer !== layer) {
       return;
     }
+    this.paintObserverEye(view, socket, eye.open, eye.target, eye.opacity, eye.clip);
+    // MIRROR's reflection (SHA-189): the same eye again, across the level's
+    // line, wide open and at its own opacity.
+    const image = eye.reflection;
+    if (image) {
+      this.paintObserverEye(view, image.socket, 1, image.target, image.opacity, null);
+    }
+  }
+
+  private paintObserverEye(
+    view: RenderView,
+    socket: EyeSocket,
+    open: number,
+    target: { x: number; y: number },
+    opacity: number,
+    clip: FieldRect | null,
+  ): void {
+    const eye = view.observer;
     const paint = (ctx: CanvasRenderingContext2D): void => {
-      drawEye(ctx, socket, eye.open, eye.target, view.oculi.gap ? "gold" : eye.tint, SCALE, {
+      drawEye(ctx, socket, open, target, view.oculi.gap ? "gold" : eye.tint, SCALE, {
         demade: this.demade,
         weeping: eye.level?.mode === "tear",
         veined: eye.level?.mode === "wrath",
@@ -5294,13 +5313,11 @@ export class CanvasRenderer {
       });
     };
     this.ctx.save();
-    const clip = eye.clip;
     if (clip) {
       this.ctx.beginPath();
       this.ctx.rect(clip.x * SCALE, clip.y * SCALE, clip.w * SCALE, clip.h * SCALE);
       this.ctx.clip();
     }
-    const { opacity } = eye;
     if (opacity >= 1) {
       paint(this.ctx);
     } else if (!this.demade) {

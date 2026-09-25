@@ -86,6 +86,24 @@ The almond, plus per socket: **opacity** (a dim tone set in colour, a dither in 
 - Tickets SHA-190..195 and SHA-197 are cancelled. SHA-189 (socket list) is parked in Backlog with its code in the stash — only MIRROR's reflection needs two sockets. SHA-196 (watch something other than the ball) and SHA-198 (the gallery of 43) stay.
 - Next: creatures per level (a small bestiary reused with different counts and placements, not twenty-one species), then cut the tickets for the eight tricks and the first series.
 
+## Status on 2026-09-25 — all 43 placed
+
+Every ordinary level carries a placement and the five veils their own block;
+SHA-188 closed. The tricks landed as `EYE_ACT` (RISE, PATROL, PULSE, STAIRS,
+GAZE, PATH, HAUNT, DUCK, BOUNCE, FOLLOW), plus `watch` (SHA-196) and MIRROR's
+`reflection` (SHA-189, one eye and its image rather than a socket list). The
+LEVELS gallery's stills draw every placement at rest, which is the gallery of
+43 that SHA-198 asked for.
+
+Where the build departs from the list above, it is the rule of 43 doing the
+re-cutting. CHECKER is behind the board watching the deck rather than in a
+brick. HIVE is a breathing queen at a third rather than huge at a fifth.
+BUNKER keeps the slit, and KEYHOLE and FLOPPY are no longer windows: KEYHOLE is
+huge and clipped to the hole, FLOPPY is a translucent label watching the
+capsules. FINALE breathes slowly at under a fifth rather than cycling every
+trick. PONG follows the ball but does not return it, because the eye is not
+matter. SUPER MAZE watches the deck from its dead end.
+
 ## The bestiary — twenty
 
 The mockup carries only the three brood forms (its "comets" are lives). Seven exist on paper; thirteen are new. One line each: what it is · how it moves · what hitting it does.

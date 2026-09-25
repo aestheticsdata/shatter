@@ -631,15 +631,25 @@ almond's socket, plus which side of the wall (`EYE_LAYER`, in
 `src/interfaces/eye.ts`), an opacity and a clip window — or `cells`,
 the bricks it lives in, one at a time, masked by the brick's face and blinking
 to the next when its own dies — the Observer at rest on that level, drawn by
-the arena and by the gallery still alike. It may also name one `act` (`EYE_ACT`):
-**THE RISE** (SHA-200) rides the wall down by the share of it broken and stares
-dead out until `wakeAt`, then blinks and tracks the ball; **THE PATROL**
-(SHA-202) walks between its socket and `to`, slowing into each turn, and eases
-to a stop while a ball is inside `hold`. The game hands the eye what it reads
-in `EyeSight`, and the eye never touches the grid. A
-theme may paint a **foreground** over it (`paintForeground` in
+the arena and by the gallery still alike. It may also name one `act` (`EYE_ACT`), and every level but the veils now
+carries one placement or another (SHA-188): **RISE** rides the wall down by the
+share broken and stares dead out until `wakeAt`; **PATROL** walks to `to` and
+eases to a stop while a ball is in `hold`; **PULSE** swells (and optionally
+beats its opacity); **STAIRS** hops a list of spots a blink at a time, with an
+optional `strike` that flashes the field; **GAZE** arms THE IRIS's beam while a
+ball is in `zone`; **PATH** walks points (loop, ping-pong or restart), each
+point able to carry an opacity and a scale; **HAUNT** holds a place while any
+of its guard bricks stands, then hops or glides to the next; **DUCK** blinks
+away from a ball that comes near; **BOUNCE** is let out when its bricks are
+gone and drifts off the edges of an area; **FOLLOW** rides its line after the
+ball's height. Every move that is not a glide happens with the lid down. A
+placement may also say what it `watch`es (`EYE_WATCH`: ball, deck or the
+nearest capsule, SHA-196) and carry a `reflection` across a vertical line
+(SHA-189 — MIRROR's image, drawn at its own opacity and never blinking). The
+game hands the eye what it reads in `EyeSight`, and the eye never touches the
+grid. A theme may paint a **foreground** over it (`paintForeground` in
 `backgrounds.ts`; only `horizon`'s ground and dunes so far), which is how
-SUNRISE's sun sets behind the hills. A level with neither block has no eye.
+SUNRISE's sun sets behind the hills.
 Add an entry and the level exists, is
 playable, and appears in the LEVELS gallery — the gallery renders the roster, it
 does not have a list of its own.

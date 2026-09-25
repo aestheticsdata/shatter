@@ -1,7 +1,7 @@
 import type { BrickKind } from "@core/config/bricks";
 import type { PowerUpKind } from "@core/config/powerUps";
 import type { CreaturePin } from "@interfaces/creatures";
-import type { EYE_ACT, EyeLayer } from "@interfaces/eye";
+import type { EYE_ACT, EyeLayer, EyePathMode, EyeWatch } from "@interfaces/eye";
 
 export interface Vector2D {
   x: number;
@@ -351,7 +351,8 @@ export type EyeAct =
     }
   // THE PULSE: the socket swells to `scale` of itself and lets go, every
   // `period` ticks — a thump, a fifth of the beat up and the rest down.
-  | { kind: typeof EYE_ACT.PULSE; scale: number; period: number }
+  // `opacity`, when given, beats too: from its first number to its second.
+  | { kind: typeof EYE_ACT.PULSE; scale: number; period: number; opacity?: readonly [number, number] }
   // THE STAIRS: `steps` are socket centres, in order; every blink the eye hops
   // to the next, the lid shut over the move, and landing on the last one with
   // `strike` flashes the field. The next blink takes it back to the first.
@@ -360,7 +361,51 @@ export type EyeAct =
   // fires straight down the zone's middle — the deck under it turns to stone,
   // as on the veil. A shot that has started finishes; only a resting gaze is
   // put away.
-  | { kind: typeof EYE_ACT.GAZE; zone: FieldRect };
+  | { kind: typeof EYE_ACT.GAZE; zone: FieldRect }
+  // THE PATH: the socket walks `points` at `speed` pixels a tick. A point may
+  // carry an opacity and a scale the eye passes through on its way, which is
+  // how a moon comes closer at the bottom of its orbit.
+  | {
+      kind: typeof EYE_ACT.PATH;
+      points: readonly EyePathPoint[];
+      speed: number;
+      mode?: EyePathMode;
+    }
+  // THE HAUNT: a list of places, each held while any of its `guard` bricks
+  // stands. When the last one falls the eye moves to the next place — on a
+  // blink, or gliding at `glide` pixels a tick. A place with no guard is where
+  // it ends up.
+  | { kind: typeof EYE_ACT.HAUNT; spots: readonly EyeSpot[]; glide?: number }
+  // THE DUCK: a ball within `near` of it and it blinks away to another of
+  // `spots`, never the one it is leaving.
+  | { kind: typeof EYE_ACT.DUCK; spots: readonly (readonly [number, number])[]; near: number }
+  // THE BOUNCE: held at rest while any `guard` brick stands; then it is let
+  // out, drifting inside `area` at `speed`, off its edges like a ball, at
+  // `opacity`.
+  | {
+      kind: typeof EYE_ACT.BOUNCE;
+      guard?: readonly (readonly [number, number])[];
+      speed: number;
+      area: FieldRect;
+      opacity?: number;
+    }
+  // THE FOLLOW: it rides its own line — the socket's x — and follows the
+  // ball's height between `min` and `max`, at most `speed` pixels a tick.
+  | { kind: typeof EYE_ACT.FOLLOW; min: number; max: number; speed: number };
+
+/** A point on THE PATH: where, and optionally how visible and how big there. */
+export type EyePathPoint = readonly [number, number] | readonly [number, number, number, number];
+
+/** A place THE HAUNT holds, and the bricks that keep it there. */
+export interface EyeSpot {
+  x: number;
+  y: number;
+  hw?: number;
+  hh?: number;
+  layer?: EyeLayer;
+  clip?: FieldRect;
+  guard?: readonly (readonly [number, number])[];
+}
 
 export interface EyePlacement {
   // The socket: centre, half-width, half-height, in field pixels.
@@ -389,6 +434,12 @@ export interface EyePlacement {
   cells?: readonly (readonly [number, number])[];
   // What it does, if anything. Absent means it sits there and watches.
   act?: EyeAct;
+  // What it looks at (SHA-196). Absent means the ball.
+  watch?: EyeWatch;
+  // Its reflection (SHA-189): the same eye drawn again, mirrored across the
+  // vertical line `axis`, at `opacity`, looking the opposite way — and it does
+  // not blink, because a reflection is of the eye and not of its lid's clock.
+  reflection?: { axis: number; opacity: number };
 }
 
 export interface LevelDefinition {

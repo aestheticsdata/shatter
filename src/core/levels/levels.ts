@@ -2,7 +2,7 @@ import { isBrickKind } from "@core/config/bricks";
 import { gameConfig } from "@core/config/GameConfig";
 import { wordRows } from "@core/levels/wordFont";
 import { CREATURE } from "@interfaces/creatures";
-import { EYE_ACT, EYE_LAYER } from "@interfaces/eye";
+import { EYE_ACT, EYE_LAYER, EYE_PATH, EYE_WATCH } from "@interfaces/eye";
 
 import type { LevelDefinition, SeededDrop } from "@interfaces/types";
 
@@ -181,8 +181,8 @@ export const LEVELS: readonly LevelDefinition[] = [
     // zigging right where the bolt does — and when it lands at the tip, just
     // past the last brick, the field flashes. The next blink takes it back up.
     eye: {
-      x: 56,
-      y: 131,
+      x: 170,
+      y: 44,
       hw: 16,
       hh: 6,
       layer: EYE_LAYER.FRONT,
@@ -214,6 +214,9 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "CHECKER",
     background: "vault",
     rows: ["1.2.3.4.5.1.", ".2.3.4.5.1.2", "3.4.5.1.2.3.", ".4.5.1.2.3.4", "5.1.2.3.4.5."],
+    // Behind the board, wide and at sixty percent, seen square by square through
+    // the checker's holes — and it watches the deck, not the ball (SHA-196).
+    eye: { x: 186, y: 68, hw: 110, hh: 26, opacity: 0.6, watch: EYE_WATCH.DECK },
     creatures: [
       { kind: CREATURE.MOTH, x: 110, y: 160 },
       { kind: CREATURE.FROG, x: 194, y: 26 },
@@ -271,6 +274,33 @@ export const LEVELS: readonly LevelDefinition[] = [
       ".2.2.....2.2",
       "....22.22...",
     ],
+    // The invader's eye, marching: a step sideways every blink behind the wall,
+    // peeking through a different gap each time, dropping to the legs at the far
+    // edge and marching back.
+    eye: {
+      x: 141,
+      y: 80,
+      hw: 14,
+      hh: 5,
+      act: {
+        kind: EYE_ACT.STAIRS,
+        steps: [
+          [141, 80],
+          [171, 80],
+          [201, 80],
+          [231, 80],
+          [261, 80],
+          [291, 80],
+          [291, 116],
+          [231, 116],
+          [171, 116],
+          [111, 116],
+          [81, 116],
+          [81, 80],
+          [111, 80],
+        ],
+      },
+    },
     creatures: [
       { kind: CREATURE.FIREFLY, x: 102, y: 152 },
       { kind: CREATURE.FIREFLY, x: 252, y: 232 },
@@ -281,6 +311,24 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "RAMPART",
     background: "grid",
     rows: ["SS.SS..SS.SS", "444444444444", "..3..33..3..", "222222222222", "1.1..11..1.1"],
+    // A sentry: only its top half shows over the battlements, in one of the
+    // crenels. A ball comes near and it ducks — a blink — and comes up in
+    // another.
+    eye: {
+      x: 81,
+      y: 50,
+      hw: 14,
+      hh: 7,
+      act: {
+        kind: EYE_ACT.DUCK,
+        spots: [
+          [81, 50],
+          [186, 50],
+          [291, 50],
+        ],
+        near: 45,
+      },
+    },
     // RAMPART is the beetle level (SHA-239): three of them patrolling the band
     // at three heights, so the lane the ball comes back up is never the same
     // one twice. Well clear of the wall's underside at y 98 and of the deck.
@@ -303,6 +351,37 @@ export const LEVELS: readonly LevelDefinition[] = [
       "..5.1111.5..",
       "...5.55.5...",
     ],
+    // The pilot in the porthole, framed by the window. Break the window and it
+    // comes out — bigger, gliding down out of the rocket.
+    eye: {
+      x: 186,
+      y: 74,
+      hw: 24,
+      hh: 9,
+      layer: EYE_LAYER.FRONT,
+      clip: { x: 156, y: 62, w: 60, h: 24 },
+      act: {
+        kind: EYE_ACT.HAUNT,
+        glide: 1.2,
+        spots: [
+          {
+            x: 186,
+            y: 74,
+            hw: 24,
+            hh: 9,
+            layer: EYE_LAYER.FRONT,
+            clip: { x: 156, y: 62, w: 60, h: 24 },
+            guard: [
+              [5, 2],
+              [6, 2],
+              [5, 3],
+              [6, 3],
+            ],
+          },
+          { x: 186, y: 160, hw: 44, hh: 15, layer: EYE_LAYER.FRONT },
+        ],
+      },
+    },
     // ROCKET is the woodpecker level (SHA-240). Two, not three: they open
     // bricks the player would otherwise have hit, so a flock of them clears
     // the wall and takes the score with it. Pinned in open air under the
@@ -317,6 +396,33 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "HELIX",
     background: "nebula",
     rows: ["55........55", "..44....44..", "....SSSS....", "....SSSS....", "..22....22..", "11........11"],
+    // Climbs the helix a rung a blink, in front at seventy percent: up one
+    // strand, then down the other.
+    eye: {
+      x: 36,
+      y: 104,
+      hw: 12,
+      hh: 4,
+      layer: EYE_LAYER.FRONT,
+      opacity: 0.7,
+      act: {
+        kind: EYE_ACT.STAIRS,
+        steps: [
+          [36, 104],
+          [96, 92],
+          [156, 80],
+          [216, 68],
+          [276, 56],
+          [336, 44],
+          [36, 44],
+          [96, 56],
+          [156, 68],
+          [216, 80],
+          [276, 92],
+          [336, 104],
+        ],
+      },
+    },
     creatures: [
       { kind: CREATURE.VINE, x: 108, y: 128 },
       { kind: CREATURE.VINE, x: 258, y: 208 },
@@ -327,6 +433,23 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "TETRA",
     background: "cathode",
     rows: ["........5...", "........5...", "............", "11224433.211", "22114433.112", "44332211.421"],
+    // The next piece: it appears at the top of the one empty column, drops a row
+    // every blink, lands at the bottom and appears at the top again.
+    eye: {
+      x: 261,
+      y: 68,
+      hw: 13,
+      hh: 5,
+      act: {
+        kind: EYE_ACT.STAIRS,
+        steps: [
+          [261, 68],
+          [261, 80],
+          [261, 92],
+          [261, 104],
+        ],
+      },
+    },
     creatures: [
       { kind: CREATURE.MOTH, x: 110, y: 160 },
       { kind: CREATURE.MOTH, x: 262, y: 200 },
@@ -337,6 +460,36 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "ORBIT",
     background: "starfield",
     rows: ["....5555....", "..55....55..", ".5..GGGG..5.", ".5..GGGG..5.", "..55....55..", "....5555...."],
+    // A moon on the ring's path: small and dim behind the wall at the top of its
+    // orbit, big and solid down by the deck at the bottom.
+    eye: {
+      x: 186,
+      y: 50,
+      hw: 16,
+      hh: 6,
+      act: {
+        kind: EYE_ACT.PATH,
+        speed: 0.5,
+        points: [
+          [186, 50, 0.25, 0.7],
+          [243, 58, 0.28, 0.72],
+          [292, 79, 0.36, 0.79],
+          [325, 112, 0.48, 0.89],
+          [336, 150, 0.62, 1.0],
+          [325, 188, 0.77, 1.11],
+          [292, 221, 0.89, 1.21],
+          [243, 242, 0.97, 1.28],
+          [186, 250, 1.0, 1.3],
+          [129, 242, 0.97, 1.28],
+          [80, 221, 0.89, 1.21],
+          [47, 188, 0.77, 1.11],
+          [36, 150, 0.63, 1.0],
+          [47, 112, 0.48, 0.89],
+          [80, 79, 0.36, 0.79],
+          [129, 58, 0.28, 0.72],
+        ],
+      },
+    },
     creatures: [
       { kind: CREATURE.FROG, x: 74, y: 38 },
       { kind: CREATURE.FROG, x: 284, y: 38 },
@@ -347,6 +500,38 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "COOL",
     background: "circuit",
     rows: wordRows("COOL", ["1", "2", "3", "4"]),
+    // It is the first O: behind the O's hole. Erase the O and it blinks over
+    // into the second one.
+    eye: {
+      x: 141,
+      y: 68,
+      hw: 12,
+      hh: 5,
+      act: {
+        kind: EYE_ACT.HAUNT,
+        spots: [
+          {
+            x: 141,
+            y: 68,
+            guard: [
+              [3, 0],
+              [3, 1],
+              [3, 2],
+              [3, 3],
+              [3, 4],
+              [4, 0],
+              [4, 4],
+              [5, 0],
+              [5, 1],
+              [5, 2],
+              [5, 3],
+              [5, 4],
+            ],
+          },
+          { x: 231, y: 68 },
+        ],
+      },
+    },
     creatures: [
       { kind: CREATURE.WOODPECKER, x: 101, y: 112 },
       { kind: CREATURE.WOODPECKER, x: 251, y: 128 },
@@ -357,6 +542,8 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "HIVE",
     background: "vault",
     rows: ["3.3.3.3.3.3.", ".4.4.4.4.4.4", "3.3.3.3.3.3.", ".4.4.4.4.4.4", "S.S.S.S.S.S.", ".G.G.G.G.G.G"],
+    // The queen: large, deep behind the comb at a third, breathing slowly.
+    eye: { x: 186, y: 86, hw: 100, hh: 32, opacity: 0.35, act: { kind: EYE_ACT.PULSE, scale: 1.08, period: 150 } },
     creatures: [
       { kind: CREATURE.BEETLE, x: 89, y: 128 },
       { kind: CREATURE.BEETLE, x: 239, y: 208 },
@@ -376,6 +563,37 @@ export const LEVELS: readonly LevelDefinition[] = [
       "..5......1..",
       ".5GGGGGGGG1.",
     ],
+    // Runs the strands in a figure of eight, in front, crossing at the middle
+    // where they do.
+    eye: {
+      x: 186,
+      y: 80,
+      hw: 10,
+      hh: 4,
+      layer: EYE_LAYER.FRONT,
+      act: {
+        kind: EYE_ACT.PATH,
+        speed: 0.6,
+        points: [
+          [186, 80],
+          [240, 101],
+          [285, 110],
+          [315, 101],
+          [326, 80],
+          [315, 59],
+          [285, 50],
+          [240, 59],
+          [186, 80],
+          [132, 101],
+          [87, 110],
+          [57, 101],
+          [46, 80],
+          [57, 59],
+          [87, 50],
+          [132, 59],
+        ],
+      },
+    },
     creatures: [
       { kind: CREATURE.VINE, x: 108, y: 140 },
       { kind: CREATURE.VINE, x: 258, y: 220 },
@@ -421,6 +639,26 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "SERPENT",
     background: "horizon",
     rows: ["222222222222", "...........2", "333333333333", "3...........", "444444444444"],
+    // The serpent's head: it slides along the gap between its own rows, round
+    // the end of the body behind the bricks, and back along the next gap.
+    eye: {
+      x: 21,
+      y: 56,
+      hw: 14,
+      hh: 5,
+      act: {
+        kind: EYE_ACT.PATH,
+        mode: EYE_PATH.PINGPONG,
+        speed: 0.5,
+        points: [
+          [21, 56],
+          [321, 56],
+          [351, 68],
+          [351, 80],
+          [51, 80],
+        ],
+      },
+    },
     // SERPENT is the slug level (SHA-246): the snail crawls the top of the
     // wall and its shell-less cousin crawls the rail, the two slow things of
     // the bestiary on one level at opposite ends of the field. One slug and
@@ -436,6 +674,32 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "SKULL",
     background: "cathode",
     rows: ["..44444444..", ".4444444444.", ".44..44..44.", ".4444..4444.", "..44444444..", "..S4S44S4S.."],
+    // In the left eye socket. Clear the bone around it and it blinks across into
+    // the right one.
+    eye: {
+      x: 126,
+      y: 68,
+      hw: 24,
+      hh: 5,
+      act: {
+        kind: EYE_ACT.HAUNT,
+        spots: [
+          {
+            x: 126,
+            y: 68,
+            guard: [
+              [2, 2],
+              [5, 2],
+              [3, 1],
+              [4, 1],
+              [3, 3],
+              [4, 3],
+            ],
+          },
+          { x: 246, y: 68 },
+        ],
+      },
+    },
     creatures: [
       { kind: CREATURE.FROG, x: 74, y: 26 },
       { kind: CREATURE.FROG, x: 284, y: 26 },
@@ -447,6 +711,10 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "MIRROR",
     background: "grid",
     rows: ["111......SSS", "22........SS", "333......SSS", "22........SS", "111......SSS"],
+    // On the coloured side, in front, and its reflection on the silver side at
+    // thirty percent, looking the mirrored way. Only the real one blinks
+    // (SHA-189).
+    eye: { x: 126, y: 68, hw: 20, hh: 7, layer: EYE_LAYER.FRONT, reflection: { axis: 186, opacity: 0.3 } },
     creatures: [
       { kind: CREATURE.SPIDER, x: 120, y: 4 },
       { kind: CREATURE.SPIDER, x: 250, y: 4 },
@@ -457,6 +725,16 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "BUNKER",
     background: "vault",
     rows: ["....GGGG....", "..SSSSSSSS..", ".S........S.", ".S.555555.S.", ".S.555555.S.", ".SSSSSSSSSS."],
+    // Through the pillbox slit: one thin strip of it, sliding along behind the
+    // slot.
+    eye: {
+      x: 90,
+      y: 68,
+      hw: 24,
+      hh: 10,
+      clip: { x: 66, y: 63, w: 240, h: 10 },
+      act: { kind: EYE_ACT.PATROL, to: { x: 282, y: 68 }, speed: 0.3 },
+    },
     creatures: [
       { kind: CREATURE.BEETLE, x: 94, y: 128 },
       { kind: CREATURE.BEETLE, x: 244, y: 208 },
@@ -468,6 +746,26 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "CASCADE",
     background: "horizon",
     rows: ["GG..........", "11GG........", "..11GG......", "....11GG....", "......11GG..", "........11GG"],
+    // Tumbles down the stairs, a step a blink, sitting on each gold step in
+    // front; from the bottom one it blinks back to the top.
+    eye: {
+      x: 36,
+      y: 33,
+      hw: 12,
+      hh: 5,
+      layer: EYE_LAYER.FRONT,
+      act: {
+        kind: EYE_ACT.STAIRS,
+        steps: [
+          [36, 33],
+          [96, 45],
+          [156, 57],
+          [216, 69],
+          [276, 81],
+          [336, 93],
+        ],
+      },
+    },
     // CASCADE is the crab level (SHA-244), and it was picked for its wall: a
     // staircase drops capsules across the whole width, which is the one thing
     // a capsule thief needs to be worth pinning. Two crabs on two lines rather
@@ -485,6 +783,34 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "PLAY",
     background: "circuit",
     rows: wordRows("PLAY", ["2", "3", "4", "5"]),
+    // In the A's hole. Break the A and it plays: let out, fading to half, it
+    // drifts round the field and bounces off its edges.
+    eye: {
+      x: 231,
+      y: 56,
+      hw: 10,
+      hh: 4,
+      act: {
+        kind: EYE_ACT.BOUNCE,
+        guard: [
+          [6, 0],
+          [7, 0],
+          [8, 0],
+          [6, 1],
+          [8, 1],
+          [6, 2],
+          [7, 2],
+          [8, 2],
+          [6, 3],
+          [8, 3],
+          [6, 4],
+          [8, 4],
+        ],
+        speed: 0.8,
+        area: { x: 30, y: 60, w: 312, h: 160 },
+        opacity: 0.5,
+      },
+    },
     creatures: [
       { kind: CREATURE.WOODPECKER, x: 101, y: 112 },
       { kind: CREATURE.WOODPECKER, x: 251, y: 128 },
@@ -503,6 +829,27 @@ export const LEVELS: readonly LevelDefinition[] = [
       "S.S....S...S",
       "SS.SSSSSS.SS",
     ],
+    // Lost in the maze, in front and small: it walks the corridors a cell a
+    // second, and back.
+    eye: {
+      x: 51,
+      y: 56,
+      hw: 8,
+      hh: 3,
+      layer: EYE_LAYER.FRONT,
+      act: {
+        kind: EYE_ACT.PATH,
+        mode: EYE_PATH.PINGPONG,
+        speed: 0.5,
+        points: [
+          [51, 56],
+          [261, 56],
+          [261, 104],
+          [321, 104],
+          [321, 56],
+        ],
+      },
+    },
     creatures: [
       { kind: CREATURE.SNAIL, x: 8, y: 28 },
       { kind: CREATURE.CRAB, x: 106, y: 140 },
@@ -514,6 +861,32 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "OMEGA",
     background: "planet",
     rows: ["...SSSSSS...", "..S......S..", "..S.2222.S..", "..S......S..", "...S....S...", ".GGG....GGG."],
+    // It sits in the arch over the box. Break the box and it sinks out through
+    // the Ω's mouth and off the bottom of the field — the first level it
+    // escapes.
+    eye: {
+      x: 186,
+      y: 80,
+      hw: 30,
+      hh: 8,
+      act: {
+        kind: EYE_ACT.HAUNT,
+        glide: 0.8,
+        spots: [
+          {
+            x: 186,
+            y: 80,
+            guard: [
+              [4, 2],
+              [5, 2],
+              [6, 2],
+              [7, 2],
+            ],
+          },
+          { x: 186, y: 340 },
+        ],
+      },
+    },
     // OMEGA is the jellyfish level (SHA-245), and it was picked for its wall:
     // the Ω is a bowl open at the bottom, so two pinned inside it sink out
     // through the mouth between the feet and come back up into it — the
@@ -530,6 +903,20 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "1991",
     background: "cathode",
     rows: wordRows("1991", ["G", "S", "G", "S"]),
+    // In a 9's loop, and at every blink in the other 9's.
+    eye: {
+      x: 141,
+      y: 56,
+      hw: 10,
+      hh: 4,
+      act: {
+        kind: EYE_ACT.STAIRS,
+        steps: [
+          [141, 56],
+          [231, 56],
+        ],
+      },
+    },
     creatures: [
       { kind: CREATURE.MOTH, x: 110, y: 160 },
       { kind: CREATURE.MOTH, x: 262, y: 200 },
@@ -581,6 +968,9 @@ export const LEVELS: readonly LevelDefinition[] = [
       "1.1.1.1.1.1.",
       "G.G.G.G.G.G.",
     ],
+    // Walks behind the colonnade, slowly, strobing between the columns as it
+    // passes.
+    eye: { x: 40, y: 110, hw: 30, hh: 10, act: { kind: EYE_ACT.PATROL, to: { x: 332, y: 110 }, speed: 0.3 } },
     // PILLARS is the vine level (SHA-241), and the level was already the
     // argument for it: six columns of brick with six columns of nothing
     // between them, and a vine that reaches the wall fills one of those gaps
@@ -606,6 +996,15 @@ export const LEVELS: readonly LevelDefinition[] = [
       ".55555......",
       ".S....555S..",
     ],
+    // At the core, a pulsar: in front, beating from thirty percent to solid.
+    eye: {
+      x: 186,
+      y: 80,
+      hw: 14,
+      hh: 5,
+      layer: EYE_LAYER.FRONT,
+      act: { kind: EYE_ACT.PULSE, scale: 1, period: 90, opacity: [0.3, 1] },
+    },
     creatures: [
       { kind: CREATURE.JELLYFISH, x: 92, y: 126 },
       { kind: CREATURE.JELLYFISH, x: 242, y: 142 },
@@ -639,6 +1038,9 @@ export const LEVELS: readonly LevelDefinition[] = [
       { row: 7, column: 4, kind: "L" },
       { row: 4, column: 7, kind: "L" },
     ],
+    // At the dead end the granite leads to, sensed faintly through the stone —
+    // watching the deck (SHA-196).
+    eye: { x: 186, y: 104, hw: 12, hh: 4, opacity: 0.4, watch: EYE_WATCH.DECK },
     creatures: [
       { kind: CREATURE.SLUG, x: 300, y: 0 },
       { kind: CREATURE.BEETLE, x: 104, y: 152 },
@@ -675,6 +1077,16 @@ export const LEVELS: readonly LevelDefinition[] = [
       "...........G",
       ".....5.....G",
     ],
+    // It plays pong: it rides the right edge, in front, following the ball's
+    // height.
+    eye: {
+      x: 352,
+      y: 150,
+      hw: 12,
+      hh: 5,
+      layer: EYE_LAYER.FRONT,
+      act: { kind: EYE_ACT.FOLLOW, min: 50, max: 250, speed: 1.5 },
+    },
     creatures: [
       { kind: CREATURE.CRAB, x: 106, y: 140 },
       { kind: CREATURE.CRAB, x: 256, y: 220 },
@@ -710,6 +1122,29 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "PACHINKO",
     background: "vault",
     rows: ["555555555555", "G..G..G..G..", "..G..G..G..G", "G..G..G..G..", "..G..G..G..G"],
+    // Drops through the pins, in front: it fades in at the top, zigzags down,
+    // fades out at the bottom, and a blink later drops again.
+    eye: {
+      x: 186,
+      y: 40,
+      hw: 10,
+      hh: 4,
+      layer: EYE_LAYER.FRONT,
+      act: {
+        kind: EYE_ACT.PATH,
+        mode: EYE_PATH.RESTART,
+        speed: 0.8,
+        points: [
+          [186, 40, 0, 1],
+          [171, 56, 1, 1],
+          [201, 68, 1, 1],
+          [171, 80, 1, 1],
+          [201, 92, 1, 1],
+          [186, 110, 1, 1],
+          [186, 130, 0, 1],
+        ],
+      },
+    },
     creatures: [
       { kind: CREATURE.SNAIL, x: 8, y: 28 },
       { kind: CREATURE.JELLYFISH, x: 97, y: 102 },
@@ -756,6 +1191,9 @@ export const LEVELS: readonly LevelDefinition[] = [
       ".SSSS..SSSS.",
       "..SSS..SSS..",
     ],
+    // Someone at the door: huge behind the keyhole, and only the part through
+    // the hole is drawn.
+    eye: { x: 186, y: 90, hw: 140, hh: 48, clip: { x: 126, y: 50, w: 120, h: 84 } },
     creatures: [
       { kind: CREATURE.WOODPECKER, x: 97, y: 148 },
       { kind: CREATURE.WOODPECKER, x: 247, y: 164 },
@@ -809,6 +1247,9 @@ export const LEVELS: readonly LevelDefinition[] = [
       "..2SSSSSS2..",
       "....2222....",
     ],
+    // The level is its portrait: the eye behind the brick eye, at the brick
+    // eye's own size and solid.
+    eye: { x: 186, y: 86, hw: 175, hh: 50 },
     creatures: [
       { kind: CREATURE.WISP, x: 96, y: 152 },
       { kind: CREATURE.WISP, x: 246, y: 232 },
@@ -854,6 +1295,9 @@ export const LEVELS: readonly LevelDefinition[] = [
       { row: 2, column: 5, kind: "T" },
       { row: 4, column: 5, kind: "I" },
     ],
+    // It is the sand: in front in the top bulb, and it sinks through the neck to
+    // the bottom bulb as the level empties.
+    eye: { x: 186, y: 56, hw: 14, hh: 5, layer: EYE_LAYER.FRONT, act: { kind: EYE_ACT.RISE, to: { y: 104 } } },
     creatures: [
       { kind: CREATURE.CRAB, x: 107, y: 140 },
       { kind: CREATURE.CRAB, x: 257, y: 220 },
@@ -899,6 +1343,26 @@ export const LEVELS: readonly LevelDefinition[] = [
       ".S...S...S..",
     ],
     drops: [{ row: 6, column: 9, kind: "CR" }],
+    // The centipede's head, in front, crawling the body down the length of the
+    // wall and back.
+    eye: {
+      x: 21,
+      y: 80,
+      hw: 10,
+      hh: 4,
+      layer: EYE_LAYER.FRONT,
+      act: {
+        kind: EYE_ACT.PATH,
+        mode: EYE_PATH.PINGPONG,
+        speed: 0.6,
+        points: [
+          [21, 80],
+          [321, 80],
+          [321, 116],
+          [36, 116],
+        ],
+      },
+    },
     creatures: [
       { kind: CREATURE.FIREFLY, x: 107, y: 152 },
       { kind: CREATURE.FIREFLY, x: 257, y: 232 },
@@ -989,6 +1453,9 @@ export const LEVELS: readonly LevelDefinition[] = [
       ".SSGGGGGGSS.",
       ".SSGGGGGGSS.",
     ],
+    // The disk's label: wide, in front, at under half — and it watches the
+    // capsules, not the ball (SHA-196).
+    eye: { x: 186, y: 74, hw: 100, hh: 22, layer: EYE_LAYER.FRONT, opacity: 0.45, watch: EYE_WATCH.CAPSULE },
     creatures: [
       { kind: CREATURE.JELLYFISH, x: 92, y: 138 },
       { kind: CREATURE.JELLYFISH, x: 242, y: 154 },
@@ -1000,6 +1467,9 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "FINALE",
     background: "starfield",
     rows: ["GGGGGGGGGGGG", "S5S5S5S5S5S5", "444444444444", "S3S3S3S3S3S3", "GG22222222GG", "S1S1S1S1S1S1"],
+    // The mockup's title shot: enormous behind the whole wall at under a fifth,
+    // breathing slowly.
+    eye: { x: 186, y: 110, hw: 180, hh: 64, opacity: 0.18, act: { kind: EYE_ACT.PULSE, scale: 1.06, period: 240 } },
     creatures: [
       { kind: CREATURE.FROG, x: 74, y: 26 },
       { kind: CREATURE.SPIDER, x: 120, y: 4 },

@@ -54,7 +54,7 @@ import { DROP_HEIGHT, DROP_WIDTH, DropPool } from "@entities/powerups/DropPool";
 import { PowerUpTimers } from "@entities/powerups/PowerUpTimers";
 import { InputController } from "@input/InputController";
 import { CREATURE } from "@interfaces/creatures";
-import { EYE_ACT } from "@interfaces/eye";
+import { EYE_ACT, EYE_WATCH } from "@interfaces/eye";
 import { SCORE_DIGITS, zeroPad } from "@shared/format";
 import { type HiScores, TABLE_SIZE } from "@state/HiScores";
 
@@ -6466,7 +6466,32 @@ export class ShatterGame {
     if (!socket) {
       return null;
     }
-    return this.nearestBallTo(socket) ?? { x: this.paddle.centerX, y: this.paddle.y };
+    const deck = { x: this.paddle.centerX, y: this.paddle.y };
+    // What this level's eye watches (SHA-196). The deck is the player; a
+    // capsule is what the player wants — the nearest one falling, and the deck
+    // when there is none, because an eye with nothing of its kind to watch
+    // watches you.
+    const watch = this.observer.watch;
+    if (watch === EYE_WATCH.DECK) {
+      return deck;
+    }
+    if (watch === EYE_WATCH.CAPSULE) {
+      let nearest: { x: number; y: number } | null = null;
+      let best = Number.POSITIVE_INFINITY;
+      for (const drop of this.dropPool.drops) {
+        if (!drop.active) {
+          continue;
+        }
+        const centre = { x: drop.x + DROP_WIDTH / 2, y: drop.y + DROP_HEIGHT / 2 };
+        const distance = (centre.x - socket.x) ** 2 + (centre.y - socket.y) ** 2;
+        if (distance < best) {
+          best = distance;
+          nearest = centre;
+        }
+      }
+      return nearest ?? deck;
+    }
+    return this.nearestBallTo(socket) ?? deck;
   }
 
   private freeCatchPopY(): number {

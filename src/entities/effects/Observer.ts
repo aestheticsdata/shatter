@@ -1,8 +1,8 @@
 import { gameConfig } from "@core/config/GameConfig";
-import { EYE_ACT, EYE_LAYER, EYE_TINT } from "@interfaces/eye";
+import { EYE_ACT, EYE_LAYER, EYE_PATH, EYE_TINT, EYE_WATCH } from "@interfaces/eye";
 
-import type { EyeLayer, EyeTint } from "@interfaces/eye";
-import type { EyeAct, EyePlacement, FieldRect, ObserverDefinition } from "@interfaces/types";
+import type { EyeLayer, EyeTint, EyeWatch } from "@interfaces/eye";
+import type { EyeAct, EyePathPoint, EyePlacement, EyeSpot, FieldRect, ObserverDefinition } from "@interfaces/types";
 
 /** A socket: where the almond is, and how big. */
 export interface EyeSocket {
@@ -169,6 +169,30 @@ export class Observer {
   private stair = 0;
   private pendingStair: number | null = null;
   private strikeEdge = false;
+  /**
+   * Whatever an act wants done with the lid down — a hop to another place, a
+   * path starting again. Applied at the bottom of the blink, like the brick
+   * eye's move, so no act ever moves the eye in plain sight in one frame.
+   */
+  private pendingHop: (() => void) | null = null;
+  /** THE PATH: how far along it in pixels, and which way. */
+  private pathAt = 0;
+  private pathDir: 1 | -1 = 1;
+  /** THE HAUNT: the place it holds, and where it is while gliding to it. */
+  private haunt = 0;
+  private glideX = 0;
+  private glideY = 0;
+  /** THE DUCK: the spot it is at. */
+  private duck = 0;
+  /** THE BOUNCE: out yet, how far out (for the opacity), where and which way. */
+  private loose = false;
+  private looseBlend = 0;
+  private looseX = 0;
+  private looseY = 0;
+  private looseVx = 1;
+  private looseVy = 1;
+  /** THE FOLLOW: the height it has got to. */
+  private followY = 0;
 
   get live(): boolean {
     return this.definition !== null || this.placement !== null;
@@ -200,6 +224,11 @@ export class Observer {
     return this.strikeEdge;
   }
 
+  /** What this eye watches (SHA-196): the ball unless the level says otherwise. */
+  get watch(): EyeWatch {
+    return this.placement?.watch ?? EYE_WATCH.BALL;
+  }
+
   /** The placement's act, or null when it only sits and watches. */
   get act(): EyeAct | null {
     return this.placement?.act ?? null;
@@ -228,10 +257,55 @@ export class Observer {
       : (1 + Math.cos(((phase - rise) / (1 - rise)) * Math.PI)) / 2;
   }
 
+  /** The place THE HAUNT holds right now, or null on any other act. */
+  private get spot(): EyeSpot | null {
+    const act = this.placement?.act;
+    return act?.kind === EYE_ACT.HAUNT ? (act.spots[this.haunt] ?? null) : null;
+  }
+
+  /** Where THE PATH has got to: centre, and the opacity and scale it carries there. */
+  private pathPoint(points: readonly EyePathPoint[]): { x: number; y: number; opacity?: number; scale: number } {
+    const at = walkPath(points, this.pathAt, this.pathLoops);
+    return at;
+  }
+
+  private get pathLoops(): boolean {
+    const act = this.placement?.act;
+    return act?.kind === EYE_ACT.PATH && (act.mode ?? EYE_PATH.LOOP) === EYE_PATH.LOOP;
+  }
+
   /** The placement's socket after its act has moved it this frame. */
   private posture(placed: EyePlacement): EyeSocket {
     const rest = { x: placed.x, y: placed.y, hw: placed.hw, hh: placed.hh };
     const act = placed.act;
+    if (act?.kind === EYE_ACT.PATH) {
+      const at = this.pathPoint(act.points);
+      return {
+        x: Math.round(at.x),
+        y: Math.round(at.y),
+        hw: Math.round(rest.hw * at.scale),
+        hh: Math.round(rest.hh * at.scale),
+      };
+    }
+    if (act?.kind === EYE_ACT.HAUNT) {
+      const spot = this.spot;
+      return {
+        x: Math.round(this.glideX),
+        y: Math.round(this.glideY),
+        hw: spot?.hw ?? rest.hw,
+        hh: spot?.hh ?? rest.hh,
+      };
+    }
+    if (act?.kind === EYE_ACT.DUCK) {
+      const [x, y] = act.spots[this.duck] ?? [rest.x, rest.y];
+      return { x, y, hw: rest.hw, hh: rest.hh };
+    }
+    if (act?.kind === EYE_ACT.BOUNCE) {
+      return { x: Math.round(this.looseX), y: Math.round(this.looseY), hw: rest.hw, hh: rest.hh };
+    }
+    if (act?.kind === EYE_ACT.FOLLOW) {
+      return { x: rest.x, y: Math.round(this.followY), hw: rest.hw, hh: rest.hh };
+    }
     if (act?.kind === EYE_ACT.STAIRS) {
       const [x, y] = act.steps[this.stair] ?? [rest.x, rest.y];
       return { x, y, hw: rest.hw, hh: rest.hh };
@@ -263,7 +337,10 @@ export class Observer {
 
   /** In front of the wall while it is in a brick — it is drawn on the brick's face. */
   get layer(): EyeLayer {
-    return this.hostCell ? EYE_LAYER.FRONT : (this.placement?.layer ?? EYE_LAYER.BEHIND);
+    if (this.hostCell) {
+      return EYE_LAYER.FRONT;
+    }
+    return this.spot?.layer ?? this.placement?.layer ?? EYE_LAYER.BEHIND;
   }
 
   get opacity(): number {
@@ -276,13 +353,45 @@ export class Observer {
     if (act?.kind === EYE_ACT.RISE && act.to?.opacity !== undefined) {
       return base + (act.to.opacity - base) * this.fraction;
     }
+    if (act?.kind === EYE_ACT.PULSE && act.opacity) {
+      const [low, high] = act.opacity;
+      return low + (high - low) * this.beat(act.period);
+    }
+    if (act?.kind === EYE_ACT.PATH) {
+      return this.pathPoint(act.points).opacity ?? base;
+    }
+    if (act?.kind === EYE_ACT.BOUNCE && act.opacity !== undefined) {
+      return base + (act.opacity - base) * this.looseBlend;
+    }
     return base;
   }
 
   /** The brick's face while it is in one; otherwise whatever window the level gave it. */
   get clip(): FieldRect | null {
     const cell = this.hostCell;
-    return cell ? cellWindow(cell) : (this.placement?.clip ?? null);
+    if (cell) {
+      return cellWindow(cell);
+    }
+    const spot = this.spot;
+    return spot ? (spot.clip ?? null) : (this.placement?.clip ?? null);
+  }
+
+  /**
+   * The reflection (SHA-189): the same socket mirrored across the level's
+   * line, looking the mirrored way, never blinking. One eye and its image —
+   * not a second eye.
+   */
+  get reflection(): { socket: EyeSocket; target: { x: number; y: number }; opacity: number } | null {
+    const mirror = this.placement?.reflection;
+    const socket = this.socket;
+    if (!mirror || !socket) {
+      return null;
+    }
+    return {
+      socket: { ...socket, x: 2 * mirror.axis - socket.x },
+      target: { x: 2 * mirror.axis - this.lookX, y: this.lookY },
+      opacity: mirror.opacity,
+    };
   }
 
   /** The brick the eye is in right now, or null when it is not in one. */
@@ -389,6 +498,20 @@ export class Observer {
     this.stair = 0;
     this.pendingStair = null;
     this.strikeEdge = false;
+    this.pendingHop = null;
+    this.pathAt = 0;
+    this.pathDir = 1;
+    this.haunt = 0;
+    this.glideX = this.placement?.act?.kind === EYE_ACT.HAUNT ? (this.placement.act.spots[0]?.x ?? 0) : 0;
+    this.glideY = this.placement?.act?.kind === EYE_ACT.HAUNT ? (this.placement.act.spots[0]?.y ?? 0) : 0;
+    this.duck = 0;
+    this.loose = false;
+    this.looseBlend = 0;
+    this.looseX = this.placement?.x ?? 0;
+    this.looseY = this.placement?.y ?? 0;
+    this.looseVx = 1;
+    this.looseVy = -1;
+    this.followY = this.placement?.y ?? 0;
     this.blinkLeft = 0;
     this.nextBlink = this.drawNextBlink();
     this.stars.length = 0;
@@ -437,6 +560,11 @@ export class Observer {
     this.stepHost(sight);
     this.stepRise(sight);
     this.stepPatrol(sight);
+    this.stepPath();
+    this.stepHaunt(sight);
+    this.stepDuck(sight);
+    this.stepBounce(sight);
+    this.stepFollow(sight);
     if (this.blinkLeft > 0) {
       this.blinkLeft -= 1;
       // A hop lands at the bottom of the blink: shut here, open there.
@@ -452,6 +580,20 @@ export class Observer {
       if (this.pendingStair !== null && this.blinkLeft === Math.floor(blinkTicks / 2)) {
         this.landStair(this.pendingStair);
         this.pendingStair = null;
+      }
+      // And every other act's hop.
+      if (this.pendingHop !== null && this.blinkLeft === Math.floor(blinkTicks / 2)) {
+        const hop = this.pendingHop;
+        this.pendingHop = null;
+        const before = this.socket;
+        hop();
+        const after = this.socket;
+        // The look travels with the socket, so the pupil opens on the new
+        // place looking the way it was looking.
+        if (before && after) {
+          this.lookX += after.x - before.x;
+          this.lookY += after.y - before.y;
+        }
       }
     } else if (--this.nextBlink <= 0) {
       this.blinkLeft = blinkTicks;
@@ -559,6 +701,152 @@ export class Observer {
     this.strikeEdge = act.strike === true && index === act.steps.length - 1;
   }
 
+  /** Shut the lid and do `move` at the bottom of the blink. One at a time. */
+  private hop(move: () => void): void {
+    if (this.pendingHop !== null) {
+      return;
+    }
+    this.pendingHop = move;
+    if (this.blinkLeft <= 0) {
+      this.blinkLeft = gameConfig.observer.eye.blinkTicks;
+      this.nextBlink = this.drawNextBlink();
+    }
+  }
+
+  /** THE PATH (SHA-188): walk it, and turn, wrap or start again at the end. */
+  private stepPath(): void {
+    const act = this.placement?.act;
+    if (act?.kind !== EYE_ACT.PATH) {
+      return;
+    }
+    const mode = act.mode ?? EYE_PATH.LOOP;
+    const total = pathLength(act.points, mode === EYE_PATH.LOOP);
+    if (total <= 0) {
+      return;
+    }
+    if (mode === EYE_PATH.LOOP) {
+      this.pathAt = (this.pathAt + act.speed) % total;
+      return;
+    }
+    if (mode === EYE_PATH.PINGPONG) {
+      this.pathAt += this.pathDir * act.speed;
+      if (this.pathAt >= total || this.pathAt <= 0) {
+        this.pathAt = Math.max(0, Math.min(total, this.pathAt));
+        this.pathDir = this.pathDir === 1 ? -1 : 1;
+      }
+      return;
+    }
+    // RESTART: it waits at the end with its lid coming down, and opens at the start.
+    if (this.pathAt < total) {
+      this.pathAt = Math.min(total, this.pathAt + act.speed);
+      return;
+    }
+    this.hop(() => {
+      this.pathAt = 0;
+    });
+  }
+
+  /**
+   * THE HAUNT (SHA-188): hold the place while any of its bricks stands; when
+   * the last one falls, go to the next place still guarded — or the last
+   * place, which has no guard. On a blink, or gliding if the act says so.
+   */
+  private stepHaunt(sight: EyeSight): void {
+    const act = this.placement?.act;
+    if (act?.kind !== EYE_ACT.HAUNT) {
+      return;
+    }
+    const held = (spot: EyeSpot): boolean =>
+      spot.guard === undefined || spot.guard.some(([column, row]) => sight.standing(column, row));
+    let next = this.haunt;
+    while (next < act.spots.length - 1 && act.spots[next].guard !== undefined && !held(act.spots[next])) {
+      next += 1;
+    }
+    const target = act.spots[next];
+    if (next !== this.haunt) {
+      if (act.glide !== undefined) {
+        this.haunt = next;
+      } else {
+        this.hop(() => {
+          this.haunt = next;
+          this.glideX = target.x;
+          this.glideY = target.y;
+        });
+        return;
+      }
+    }
+    if (!target) {
+      return;
+    }
+    const speed = act.glide ?? Number.POSITIVE_INFINITY;
+    const dx = target.x - this.glideX;
+    const dy = target.y - this.glideY;
+    const distance = Math.hypot(dx, dy);
+    if (distance <= speed) {
+      this.glideX = target.x;
+      this.glideY = target.y;
+    } else {
+      this.glideX += (dx / distance) * speed;
+      this.glideY += (dy / distance) * speed;
+    }
+  }
+
+  /** THE DUCK (SHA-188): a ball too close, and it blinks away somewhere else. */
+  private stepDuck(sight: EyeSight): void {
+    const act = this.placement?.act;
+    const socket = this.socket;
+    if (act?.kind !== EYE_ACT.DUCK || !socket || !sight.ball || act.spots.length < 2) {
+      return;
+    }
+    if (Math.hypot(sight.ball.x - socket.x, sight.ball.y - socket.y) > act.near) {
+      return;
+    }
+    const others = act.spots.map((_, index) => index).filter((index) => index !== this.duck);
+    const pick = others[Math.floor(Math.random() * others.length)];
+    this.hop(() => {
+      this.duck = pick;
+    });
+  }
+
+  /**
+   * THE BOUNCE (SHA-188): held until its bricks are gone, then out — drifting
+   * inside its area and off its edges like a ball, fading to its own opacity.
+   */
+  private stepBounce(sight: EyeSight): void {
+    const act = this.placement?.act;
+    if (act?.kind !== EYE_ACT.BOUNCE) {
+      return;
+    }
+    if (!this.loose) {
+      this.loose = act.guard === undefined || !act.guard.some(([column, row]) => sight.standing(column, row));
+      return;
+    }
+    this.looseBlend = Math.min(1, this.looseBlend + 1 / gameConfig.observer.eye.releaseTicks);
+    // It gets up to speed with the fade rather than leaving at full tilt.
+    const speed = act.speed * this.looseBlend;
+    const { x, y, w, h } = act.area;
+    this.looseX += this.looseVx * speed;
+    this.looseY += this.looseVy * speed;
+    if (this.looseX < x || this.looseX > x + w) {
+      this.looseVx = this.looseX < x ? 1 : -1;
+      this.looseX = Math.max(x, Math.min(x + w, this.looseX));
+    }
+    if (this.looseY < y || this.looseY > y + h) {
+      this.looseVy = this.looseY < y ? 1 : -1;
+      this.looseY = Math.max(y, Math.min(y + h, this.looseY));
+    }
+  }
+
+  /** THE FOLLOW (SHA-188): ride its line after the ball's height. */
+  private stepFollow(sight: EyeSight): void {
+    const act = this.placement?.act;
+    if (act?.kind !== EYE_ACT.FOLLOW) {
+      return;
+    }
+    const want = Math.max(act.min, Math.min(act.max, sight.ball?.y ?? this.placement?.y ?? this.followY));
+    this.followY += Math.max(-act.speed, Math.min(act.speed, want - this.followY));
+  }
+
   private lookAt(at: { x: number; y: number } | null): void {
     const { trackEase } = gameConfig.observer.eye;
     const to = at ?? this.socket ?? { x: this.lookX, y: this.lookY };
@@ -570,4 +858,53 @@ export class Observer {
     const { blinkMin, blinkRand } = gameConfig.observer.eye;
     return blinkMin + Math.floor(Math.random() * blinkRand);
   }
+}
+
+/** THE PATH's length, closed back to its first point when it loops. */
+function pathLength(points: readonly EyePathPoint[], closed: boolean): number {
+  let total = 0;
+  const count = closed ? points.length : points.length - 1;
+  for (let index = 0; index < count; index += 1) {
+    const from = points[index];
+    const to = points[(index + 1) % points.length];
+    total += Math.hypot(to[0] - from[0], to[1] - from[1]);
+  }
+  return total;
+}
+
+/**
+ * The point `distance` pixels along a path, with the opacity and the scale
+ * the points carry, eased between them. Points that do not say are opaque
+ * as the placement says, at full size.
+ */
+function walkPath(
+  points: readonly EyePathPoint[],
+  distance: number,
+  closed: boolean,
+): { x: number; y: number; opacity?: number; scale: number } {
+  const first = points[0];
+  if (!first) {
+    return { x: 0, y: 0, scale: 1 };
+  }
+  const count = closed ? points.length : points.length - 1;
+  let left = distance;
+  for (let index = 0; index < count; index += 1) {
+    const from = points[index];
+    const to = points[(index + 1) % points.length];
+    const length = Math.hypot(to[0] - from[0], to[1] - from[1]);
+    if (left <= length || index === count - 1) {
+      const t = length > 0 ? Math.min(1, left / length) : 0;
+      const between = (a: number | undefined, b: number | undefined, fallback: number) =>
+        (a ?? fallback) + ((b ?? fallback) - (a ?? fallback)) * t;
+      const opacity = from[2] !== undefined || to[2] !== undefined ? between(from[2], to[2], 1) : undefined;
+      return {
+        x: from[0] + (to[0] - from[0]) * t,
+        y: from[1] + (to[1] - from[1]) * t,
+        opacity,
+        scale: between(from[3], to[3], 1),
+      };
+    }
+    left -= length;
+  }
+  return { x: first[0], y: first[1], opacity: first[2], scale: first[3] ?? 1 };
 }

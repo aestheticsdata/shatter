@@ -32,6 +32,36 @@ export const EYE_ACT = {
   PULSE: "pulse",
   STAIRS: "stairs",
   GAZE: "gaze",
+  PATH: "path",
+  HAUNT: "haunt",
+  DUCK: "duck",
+  BOUNCE: "bounce",
+  FOLLOW: "follow",
 } as const;
 
 export type EyeActKind = (typeof EYE_ACT)[keyof typeof EYE_ACT];
+
+/** How THE PATH carries on at its last point. */
+export const EYE_PATH = {
+  /** Straight on to the first point, as a closed loop. */
+  LOOP: "loop",
+  /** Back the way it came. */
+  PINGPONG: "pingpong",
+  /** A blink, and it opens at the first point again. */
+  RESTART: "restart",
+} as const;
+
+export type EyePathMode = (typeof EYE_PATH)[keyof typeof EYE_PATH];
+
+/**
+ * What a placed eye looks at (SHA-196). The ball, unless the level says
+ * otherwise — an eye that watches the deck is watching *you*, and one that
+ * watches the capsules is watching what you want.
+ */
+export const EYE_WATCH = {
+  BALL: "ball",
+  DECK: "deck",
+  CAPSULE: "capsule",
+} as const;
+
+export type EyeWatch = (typeof EYE_WATCH)[keyof typeof EYE_WATCH];

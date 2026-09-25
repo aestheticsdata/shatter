@@ -1566,6 +1566,9 @@ export const gameConfig = {
       // THE PULSE (SHA-203): the share of each beat spent swelling; the rest
       // is the let-go.
       pulseRise: 0.2,
+      // THE BOUNCE (SHA-188): how long a let-out eye takes to fade to its own
+      // opacity and get up to its speed.
+      releaseTicks: 45,
     },
     /**
      * THE STAIRS' strike (SHA-204): the lightning reaching the ground. A white

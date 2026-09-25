@@ -81,6 +81,16 @@ export function paintLevelStill(
     ctx.globalAlpha = placed.opacity;
     drawEye(ctx, placed.socket, 1, { x: placed.socket.x, y: placed.socket.y }, placed.tint, scale, { hd });
     ctx.restore();
+    // MIRROR's reflection (SHA-189), outside the window: it is on the other
+    // side of the level's line, where the window is not.
+    const mirror = eye?.reflection;
+    if (mirror) {
+      const image = { ...placed.socket, x: 2 * mirror.axis - placed.socket.x };
+      ctx.save();
+      ctx.globalAlpha = mirror.opacity;
+      drawEye(ctx, image, 1, { x: image.x, y: image.y }, placed.tint, scale, { hd });
+      ctx.restore();
+    }
   };
   if (placed?.layer === EYE_LAYER.BEHIND) {
     drawPlaced();
