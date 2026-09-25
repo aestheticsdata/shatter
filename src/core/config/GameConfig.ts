@@ -2144,6 +2144,30 @@ export const gameConfig = {
       flickerTicks: 5,
     },
     /**
+     * SLUG (SHA-246): it takes the rail.
+     *
+     * Tuned round how much rail it costs: crossing the field takes it about
+     * fifty seconds, and its slime lasts fifteen, so a live slug keeps about a
+     * third of the rail wet behind it — enough to play around, never the lot.
+     */
+    slug: {
+      hitPoints: 3,
+      points: 70,
+      killPoints: 400,
+      speed: 0.12,
+      slimeTicks: 900,
+      // How fast the deck's grip follows the share of it standing on slime,
+      // per tick: the skid ramps in at a patch's edge and out at the far one
+      // instead of switching.
+      slipRamp: 0.12,
+      // On slime, fully: how much of its speed the deck keeps from one tick to
+      // the next, and how hard the hand pulls it. A deck that keeps nine
+      // tenths and is pulled by three hundredths overshoots where it is
+      // pointed by about a third and swings back — it carries past.
+      slimeCarry: 0.9,
+      slimePull: 0.03,
+    },
+    /**
      * THE SPIDER QUEEN (SHA-209), the boss at the end of level 5. Ten hits;
      * every one pays a brick's worth twice over, and the kill pays the level.
      */

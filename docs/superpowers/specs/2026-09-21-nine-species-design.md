@@ -372,6 +372,22 @@ like a dropped frame rather than like slime.
 
 Solid: no. `hitPoints 3`, `points 70`, `killPoints 400`.
 
+**Built** (SHA-246), pinned once on 21 SERPENT, at the other end of the field
+from the snail. Its back and stalks stand just above the deck's line, so the
+way to kill it is to catch the ball on the deck right over it. That means
+standing in its slime, which is the species. Crossing the field takes it about
+fifty seconds and the slime lasts fifteen, so a live slug keeps about a third
+of the rail wet.
+
+The skid is in `ShatterGame` beside BANANA's, not in `Paddle`, because that is
+where the deck's other handling states already live. The deck's grip follows
+the share of it standing on slime, eased. While it has any slip it is a body
+with a speed that keeps most of it and is pulled toward the hand, which on full
+slime overshoots by about a third and swings back. With no slime the same sum
+is the deck snapping under the hand, so the ramp out is the grip coming back.
+Under pointer lock the hand moves a target the deck slides after. The slime
+dries at every serve, like the peels.
+
 ## The re-deal
 
 The nine are only half the fix. Nine species that each appear on one level

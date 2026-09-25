@@ -375,10 +375,14 @@ export const LEVELS: readonly LevelDefinition[] = [
     name: "SERPENT",
     background: "horizon",
     rows: ["222222222222", "...........2", "333333333333", "3...........", "444444444444"],
-    // SHA-210's mix, 3 of them; the level's own species comes with its ticket.
+    // SERPENT is the slug level (SHA-246): the snail crawls the top of the
+    // wall and its shell-less cousin crawls the rail, the two slow things of
+    // the bestiary on one level at opposite ends of the field. One slug and
+    // not two — a third of the rail wet is the hazard, two thirds is a level
+    // played on ice. The moth stays on from SHA-210's mix.
     creatures: [
       { kind: CREATURE.SNAIL, x: 8, y: 28 },
-      { kind: CREATURE.SNAIL, x: 348, y: 28 },
+      { kind: CREATURE.SLUG, x: 300, y: 0 },
       { kind: CREATURE.MOTH, x: 110, y: 160 },
     ],
   },

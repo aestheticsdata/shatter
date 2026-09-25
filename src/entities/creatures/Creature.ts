@@ -81,6 +81,12 @@ export interface CreatureEffects {
    * IRIS's; numb is slow. Longer of the two if it is already numb.
    */
   stingDeck(ticks: number): void;
+  /**
+   * The rail under this span is slimed for this long (SLUG): the deck skids
+   * over it. Longer of the two where it is already wet, so a slug crawling
+   * back over its own trail freshens it rather than drying it early.
+   */
+  slime(x: number, width: number, ticks: number): void;
   burst(x: number, y: number, material: ChunkMaterial): void;
   /** The lights go out for this long — BLACKOUT's pools (MOTH MOTHER). Longer of the two if already dark. */
   dust(ticks: number): void;

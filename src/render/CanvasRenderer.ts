@@ -122,6 +122,16 @@ const BALL_SMEAR_SPREAD: readonly number[] = [0.85, 0.95];
 // the colour alone.
 // Newest first: a mark is drawn at the step its remaining life falls in, so it
 // walks down the ladder as it dies.
+// SLUG's slime, fresh to nearly dry: the silver brick's light and flat, a
+// trail being the one mark on this field that is meant to look like metal in
+// the light, and then the stone's grey rather than the silver's dark — a
+// saturated blue reads as a line somebody drew, not as slime going dull. Five fine pixels in HD against the rail marks' two — a film, not a
+// scratch.
+const SLIME_TONES: readonly string[] = [BRICK_COLORS.S.light, BRICK_COLORS.S.flat, canvasPalette.stoneCap];
+const SLIME_FINE_HEIGHT = 5;
+// Where the film starts under the rail line: the slug's belly ends at 4.
+const SLIME_BELOW = 4;
+
 const RAIL_MARK_TONES: readonly string[] = [
   canvasPalette.railMarkHot,
   canvasPalette.railMarkMid,
@@ -941,6 +951,11 @@ export interface RenderView {
   peels: readonly Peel[];
   // The rail JAMMER has taken back, dying out where the deck used to be.
   railMarks: readonly RailMark[];
+  /**
+   * SLUG's slime (SHA-246): ticks left before each column of the rail dries,
+   * one number per field pixel. The renderer walks it into runs of one tone.
+   */
+  slime: Readonly<Float32Array>;
   balls: readonly Ball[];
   // RUSH and TURBO: the scale the simulation is stepping balls at, or 0 when
   // nothing is speeding them up. It is a distance rather than a flag because the
@@ -4631,6 +4646,7 @@ export class CanvasRenderer {
     for (const mark of view.railMarks) {
       this.drawRailMark(mark);
     }
+    this.drawSlime(view.slime);
     for (const peel of view.peels) {
       this.drawPeel(peel);
     }
@@ -6202,6 +6218,46 @@ export class CanvasRenderer {
   // A 1 px trace on the rail the deck used to hold, walking down four authored
   // magenta steps as it dies. Drawn in the deck's own middle row, so it lines up
   // with the wood that was there rather than floating above it.
+  /**
+   * SLUG's trail (SHA-246): a silver film along the deck's band, in runs of one
+   * tone. It dries in three whole steps — fresh, tacky, nearly gone — rather
+   * than an alpha ramp, which is how every fade on this field is drawn, and
+   * that is its fade out; its fade in is the slug laying it a pixel at a time.
+   *
+   * Fresh slime carries a glint on its top edge, so a trail laid this second
+   * reads as wet from across the field and one about to dry does not.
+   */
+  private drawSlime(slime: Readonly<Float32Array>): void {
+    const total = gameConfig.creatures.slug.slimeTicks;
+    const toneOf = (ticks: number): number =>
+      ticks <= 0 ? -1 : Math.min(SLIME_TONES.length - 1, Math.floor((1 - ticks / total) * SLIME_TONES.length));
+    // Under the slug's belly rather than across it: the slug sits *in* its
+    // trail, and a film drawn over the bottom of the body would look like a
+    // bar it was crawling behind.
+    const y = gameConfig.paddle.y + SLIME_BELOW;
+    let column = 0;
+    while (column < slime.length) {
+      const tone = toneOf(slime[column]);
+      if (tone < 0) {
+        column += 1;
+        continue;
+      }
+      let run = 1;
+      while (column + run < slime.length && toneOf(slime[column + run]) === tone) {
+        run += 1;
+      }
+      if (this.fine) {
+        this.fineRect(column, y, run * FINE, SLIME_FINE_HEIGHT, SLIME_TONES[tone]);
+        if (tone === 0) {
+          this.fineRect(column, y, run * FINE, 1, canvasPalette.deathFlash);
+        }
+      } else {
+        this.pixel(column, y, run, 2, SLIME_TONES[tone]);
+      }
+      column += run;
+    }
+  }
+
   private drawRailMark(mark: RailMark): void {
     const step = Math.min(
       RAIL_MARK_TONES.length - 1,

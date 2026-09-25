@@ -416,6 +416,13 @@ export class ShatterGame {
   private numbTicks = 0;
   private numbElapsed = 0;
   private handX: number | null = null;
+  // SLUG's slime (SHA-246): ticks left before each pixel of the rail dries,
+  // one number per field column. `slip` is how much of the deck's grip the
+  // slime has, eased toward the share of the deck standing on it, and
+  // `slimeVx` is the speed the deck carries from tick to tick while it has any.
+  private readonly slimeWet = new Float32Array(gameConfig.field.width);
+  private slip = 0;
+  private slimeVx = 0;
   private readonly bumpers = new BumperField();
   private readonly quake = new Quake();
   // GRAVEL's chips, in the air. Its own pool rather than the debris field's,
@@ -1009,8 +1016,18 @@ export class ShatterGame {
         if (this.skidTicksLeft === 0 && this.petrifyTicks === 0) {
           // FLIP: the deck is drawn upside down, so a hand moving right has to
           // move the sim's paddle left for the one on screen to follow it.
+          const delta = this.flipped ? -deltaX : deltaX;
+          // On slime the hand moves a point the deck slides after, rather than
+          // the deck: there is no absolute position under a lock, so the
+          // slime makes one out of where the deck is and where it is going.
+          if (this.onSlime()) {
+            const { left, right } = gameConfig.field;
+            const from = this.pointerTargetX ?? this.paddle.centerX;
+            this.pointerTargetX = Math.max(left, Math.min(right, from + delta));
+            return;
+          }
           // A numb deck takes its share of the movement and no more.
-          this.paddle.moveByDelta((this.flipped ? -deltaX : deltaX) * this.numbFactor());
+          this.paddle.moveByDelta(delta * this.numbFactor());
         }
       },
       onAdvance: () => this.advanceGated(),
@@ -1124,6 +1141,7 @@ export class ShatterGame {
         petrified: this.petrifyBlend(),
         numb: this.numbBlend(),
       },
+      slime: this.slimeWet,
       mirrorForm: this.mirrorForm,
       mirrorAfterImage: this.mirrorAfterImageTicks / gameConfig.effects.mirrorAfterImageTicks,
       // The reach in pixels, not a flag: the band the pull actually has this
@@ -1651,6 +1669,7 @@ export class ShatterGame {
     // like theirs, and a NUKE sweep must not resolve one behind its shockwave.
     this.stepGamble();
     this.stepNumb();
+    this.stepSlime();
     this.stepPeels();
     // Below both freeze gates, unlike the blend above it: a shockwave or a
     // pending clear holds the field still, and a fault that kept counting
@@ -3274,6 +3293,81 @@ export class ShatterGame {
     this.numbElapsed += 1;
     if (this.numbTicks === 0 && this.pointerTargetX !== null && this.skidTicksLeft === 0) {
       this.resyncTicksLeft = gameConfig.powerUps.banana.resyncTicks;
+    }
+  }
+
+  /** Whether the slime has the deck: any slip at all past a rounding error. */
+  private onSlime(): boolean {
+    return this.slip > 0.01;
+  }
+
+  /** SLUG's trail: that span of the rail wet for this long, or longer where it already is. */
+  private slime(x: number, width: number, ticks: number): void {
+    const from = Math.max(0, Math.floor(x));
+    const to = Math.min(this.slimeWet.length, Math.ceil(x + width));
+    for (let column = from; column < to; column += 1) {
+      this.slimeWet[column] = Math.max(this.slimeWet[column], ticks);
+    }
+  }
+
+  /**
+   * The slime drying, and the deck on it (SHA-246).
+   *
+   * The grip is the share of the deck's span over wet rail, eased — so the
+   * skid comes in as the deck walks onto a patch and goes as it walks off
+   * the far side, never at a pixel. While it has any grip the deck is a body
+   * with a speed: it keeps most of it from tick to tick and is pulled toward
+   * where the hand is, which on full slime overshoots and swings back. With
+   * no slime the same sum is `vx = distance`, the deck snapping under the
+   * hand as it always has — the ramp out *is* the deck getting its grip back.
+   *
+   * A deck off the rail — TIDE's — is standing on nothing, like over a peel.
+   * BANANA's skid and its resync own the deck while they run.
+   */
+  private stepSlime(): void {
+    for (let column = 0; column < this.slimeWet.length; column += 1) {
+      if (this.slimeWet[column] > 0) {
+        this.slimeWet[column] -= 1;
+      }
+    }
+    const { slipRamp, slimeCarry, slimePull } = gameConfig.creatures.slug;
+    let wet = 0;
+    if (this.paddle.y >= gameConfig.paddle.y) {
+      const from = Math.max(0, Math.floor(this.paddle.x));
+      const to = Math.min(this.slimeWet.length, Math.ceil(this.paddle.x + this.paddle.width));
+      for (let column = from; column < to; column += 1) {
+        if (this.slimeWet[column] > 0) {
+          wet += 1;
+        }
+      }
+      wet /= Math.max(1, to - from);
+    }
+    const was = this.onSlime();
+    this.slip += (wet - this.slip) * slipRamp;
+    if (this.skidTicksLeft > 0 || this.resyncTicksLeft > 0) {
+      this.slimeVx = 0;
+      return;
+    }
+    if (!this.onSlime()) {
+      // Grip back. On the absolute path the hand is where the deck already
+      // is, since the pull reached a full one on the way out; a numb deck
+      // keeps the target, which is the sting's to hand back.
+      if (was && this.numbTicks === 0) {
+        this.pointerTargetX = null;
+      }
+      this.slip = 0;
+      this.slimeVx = 0;
+      return;
+    }
+    const target = this.pointerTargetX ?? this.paddle.centerX;
+    const carry = slimeCarry * this.slip;
+    const pull = 1 + (slimePull - 1) * this.slip;
+    this.slimeVx = this.slimeVx * carry + (target - this.paddle.centerX) * pull * this.numbFactor();
+    this.paddle.moveByDelta(this.slimeVx);
+    // Into the frame is a stop, not a spring: the clamp has already taken the
+    // move, and speed banked against a wall would fire the deck back out.
+    if (this.paddle.x <= gameConfig.field.left || this.paddle.x >= gameConfig.field.right - this.paddle.width) {
+      this.slimeVx = 0;
     }
   }
 
@@ -6224,6 +6318,7 @@ export class ShatterGame {
       },
       petrifyDeck: () => this.petrifyDeck(),
       stingDeck: (ticks) => this.stingDeck(ticks),
+      slime: (x, width, ticks) => this.slime(x, width, ticks),
       pop: (x, y, label, malus) => {
         this.catchPops.push({
           x: Math.max(40, Math.min(332, x)),
@@ -6894,6 +6989,12 @@ export class ShatterGame {
       this.pointerTargetX = fieldX;
       return;
     }
+    // SLUG's slime (SHA-246): the hand says where, and `stepSlime` slides the
+    // deck after it.
+    if (this.onSlime()) {
+      this.pointerTargetX = fieldX;
+      return;
+    }
     // JELLYFISH's sting (SHA-245): the deck follows the hand's *movement* at
     // its numb share rather than jumping to where the hand is, and remembers
     // where that is so the resync can hand it back when the sting wears off.
@@ -7085,6 +7186,11 @@ export class ShatterGame {
     // across a serve would be a jellyfish nobody can see still holding it.
     this.numbTicks = 0;
     this.numbElapsed = 0;
+    // And the slime: the rail is dry at every serve. The slug is still there
+    // if it was, and starts again from wherever it is.
+    this.slimeWet.fill(0);
+    this.slip = 0;
+    this.slimeVx = 0;
   }
 
   /**
