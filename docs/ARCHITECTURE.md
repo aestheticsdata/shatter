@@ -836,5 +836,5 @@ pnpm run check:bestiary                             # prints the deal: creatures
 And these are the gates a change has to pass:
 
 ```bash
-pnpm run typecheck && pnpm run lint && pnpm run fmt:check && pnpm run check:backgrounds && pnpm run check:bestiary && pnpm run build
+pnpm run typecheck && pnpm run lint && pnpm run check:backgrounds && pnpm run check:bestiary && pnpm run build
 ```

@@ -76,8 +76,8 @@ export interface BrickDefinition {
 // One row per brick, and it must stay one row: the points/hit-points ladder and
 // the tone ramps are what this table exists to be read down, and neither can be
 // seen down a column of eight ten-line blocks. That is what the ignore is for —
-// the block is data, and there is nothing here for oxfmt to get right.
-// oxfmt-ignore
+// the block is data, and there is nothing here for the formatter to get right.
+// biome-ignore format: one row per entry, read down the columns
 export const BRICKS = [
   { id: "1", points: 60, hitPoints: 1, laserDamage: 1, light: "#ff8a9c", flat: "#e8384f", dark: "#8e1220", wear: [] },
   { id: "2", points: 70, hitPoints: 1, laserDamage: 1, light: "#ffc27a", flat: "#f07d10", dark: "#8a3d00", wear: [] },

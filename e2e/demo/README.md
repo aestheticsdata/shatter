@@ -25,8 +25,8 @@ it works and why — the CDP screencast, the drawn pointer, the encode, and ever
 it — is `front/e2e/demo/HOW-TO-FILM-A-DEMO.md` in the Spira repo. Only `shatter.demo.ts` knows what
 Shatter is.
 
-Two things keep the five shared files byte-identical in a repo that formats with oxfmt and lints
-with oxlint: both tools ignore them by name (`.oxfmtrc.json`, `.oxlintrc.json`), and
+Two things keep the five shared files byte-identical in a repo that formats and lints with
+Biome: `biome.json` leaves them out of `files.includes` by name, and
 `e2e/demo/package.json` marks this folder CommonJS — `fixture.ts` uses `__dirname`, which the ES
 module the rest of the repo is does not have, and Playwright decides how to load a `.ts` file from
 the nearest `package.json`. pnpm does not see that file as a workspace package (`pnpm-workspace.yaml`
@@ -186,5 +186,5 @@ The same as PFA's, all environment variables: `DEMO_SPEED`, `DEMO_HEADED=1`, `DE
   one path. `src/entities/powerups/DropPool.ts`: `DROP_WIDTH` exported beside `DROP_HEIGHT`.
 - `vite.config.ts`: the dev server pinned to 5174, `strictPort`.
 - `package.json`: `video:generate`, `@playwright/test`. `tsconfig.json`: the `@e2e/*` alias, and
-  `e2e/` plus the config in `include`. `.oxfmtrc.json` / `.oxlintrc.json`: the five shared files
-  ignored by name. `.gitignore`: `e2e/demo/out/`, `test-results/`.
+  `e2e/` plus the config in `include`. `biome.json`: the five shared files
+  left out of `files.includes` by name. `.gitignore`: `e2e/demo/out/`, `test-results/`.

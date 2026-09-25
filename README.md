@@ -234,17 +234,15 @@ pnpm preview
 Run quality checks:
 
 ```bash
-pnpm run fmt:check
 pnpm run lint
 pnpm run typecheck
 pnpm run check:backgrounds
 pnpm run check:bestiary
 ```
 
-Auto-fix formatting and lint issues:
+Auto-fix formatting, import order and the safe lint fixes:
 
 ```bash
-pnpm run fmt
 pnpm run lint:fix
 ```
 
@@ -398,8 +396,8 @@ scripts/
 
 ### Tooling policy
 
-- Formatter: `oxfmt` (`printWidth: 120`) is the single formatting source of truth.
-- Linter: `oxlint` enforces `correctness` and `suspicious`; `style` is disabled to avoid formatter conflicts.
+- Formatter, linter and import sorter: Biome (`biome.json`), on the same config as the sibling projects — `lineWidth: 120`, double quotes, the `recommended` rules, imports sorted with values above types. `pnpm run lint` is `biome check .`, which fails on formatting and import order as well as lint.
+- Markdown is not formatted: Biome does not read `.md`, so tables in README and `docs/` are aligned by hand.
 - CSS: Lightning CSS transformer with native nesting (`Features.Nesting`); design tokens in `css/tokens/*`.
 - Strict TypeScript (`ES2023` lib for `Array#toSorted`), path aliases in both `tsconfig.json` and `vite.config.ts`: `@`, `@audio`, `@core`, `@entities`, `@input`, `@interfaces`, `@render`, `@shared`, `@state`, `@ui`.
 

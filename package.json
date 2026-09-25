@@ -13,18 +13,15 @@
     "check:bestiary": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/check-bestiary.mjs",
     "check:drops": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/check-drops.mjs",
     "check:pix": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/check-pix.mjs",
-    "lint": "oxlint .",
-    "lint:fix": "oxlint . --fix",
-    "fmt": "oxfmt .",
-    "fmt:check": "oxfmt . --check",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
     "video:generate": "playwright test --config playwright.demo.config.ts"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.3",
     "@playwright/test": "^1.61.1",
     "@types/node": "^25.4.0",
     "lightningcss": "^1.32.0",
-    "oxfmt": "^0.37.0",
-    "oxlint": "^1.52.0",
     "typescript": "^5.9.3",
     "vite": "^7.1.5"
   },

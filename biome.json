@@ -1,0 +1,52 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.3/schema.json",
+  "root": true,
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!docs/superpowers",
+      "!handoff-eye-shatter",
+      "!design_handoff_hd_pixel_art",
+      "!e2e/demo/chapters.ts",
+      "!e2e/demo/cursor.ts",
+      "!e2e/demo/fixture.ts",
+      "!e2e/demo/pacing.ts",
+      "!e2e/demo/recorder.ts"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended"
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": {
+          "level": "on",
+          "options": {
+            "groups": [{ "type": false }, ":BLANK_LINE:", { "type": true }]
+          }
+        }
+      }
+    }
+  }
+}

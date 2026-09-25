@@ -180,9 +180,9 @@ export interface PowerUpDefinition {
 // none of that can be seen down a column of 35 ten-line blocks.
 //
 // The blurb pushed the row past the formatter's 120 columns, which is what the
-// ignore is for — the block is data, there is nothing here for oxfmt to get
-// right, and it would otherwise explode the roster into 350 lines.
-// oxfmt-ignore
+// ignore is for — the block is data, there is nothing here for the formatter to
+// get right, and it would otherwise explode the roster into 350 lines.
+// biome-ignore format: one row per entry, read down the columns
 export const POWER_UPS = [
   { id: "E", name: "WIDE", color: "#2d7fe0", dark: false, ticks: 1440, tier: "common", timed: true, blurb: "WIDER PADDLE" },
   { id: "M", name: "MULTI", color: "#3fbf4f", dark: true, ticks: 180, tier: "common", timed: true, blurb: "MORE BALLS · 3 THEN 6 THEN 9", lasts: "INSTANT" },
