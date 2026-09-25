@@ -16,14 +16,77 @@ export interface ParticleDefinition {
   name: string;
   // What it does to a ball, in one word: the four verbs of the premise.
   verb: string;
+  // Its page in the BESTIARY (SHA-185), in the book's voice and to the book's
+  // measure — `checkBestiaryText` holds both to the column in pixels.
+  lore: string;
+  tip: string;
+  // The page's three facts after where it is met: how many hits, what the ball
+  // does on contact, and what it pays.
+  hits: string;
+  ball: string;
+  worth: string;
 }
 
 export const PARTICLES: readonly ParticleDefinition[] = [
-  { id: PARTICLE.PHOTON, name: "PHOTON", verb: "SCATTER" },
-  { id: PARTICLE.ELECTRON, name: "ELECTRON", verb: "SHIELD" },
-  { id: PARTICLE.NUCLEUS, name: "NUCLEUS", verb: "SPLIT" },
-  { id: PARTICLE.ANTIBALL, name: "ANTIBALL", verb: "ANNIHILATE" },
+  {
+    id: PARTICLE.PHOTON,
+    name: "PHOTON",
+    verb: "SCATTER",
+    lore:
+      "A SPECK OF LIGHT LET IN THROUGH THE SIDE GATES, AND THE ONLY THING IN THE ROOM THAT NEVER CURVES. " +
+      "IT CROSSES THE FIELD ON A DEAD-STRAIGHT LINE, GLANCING OFF WALL, BRICK AND DECK WITHOUT HARMING ANY OF THEM. " +
+      "MEET IT WITH THE BALL AND THE LIGHT GOES INTO IT — AND THE BALL LEAVES BENT TOWARD WHERE THE PHOTON WAS GOING. " +
+      "LEFT ALONE, IT DIMS AWAY IN TWENTY SECONDS.",
+    tip: "READ ITS LINE BEFORE YOUR BALL CROSSES IT",
+    hits: "1",
+    ball: "BENT TOWARD ITS PATH",
+    worth: "50",
+  },
+  {
+    id: PARTICLE.ELECTRON,
+    name: "ELECTRON",
+    verb: "SHIELD",
+    lore:
+      "A COLD LITTLE SPARK THAT FLIES STRAIGHT TO THE HEAVIEST BRICK IN THE WALL AND CIRCLES IT, " +
+      "ITS DOTTED ORBIT DRAWN ROUND THE STONE LIKE A WARD. WHILE IT TURNS, IT TAKES THE BLOW MEANT FOR ITS BRICK — " +
+      "BUT ONLY ON ITS OWN SIDE OF THE CIRCLE. BREAK THE BRICK OUT FROM UNDER IT AND IT FLIES OFF AS PLAIN LIGHT.",
+    tip: "WAIT FOR IT TO SWING TO THE FAR SIDE",
+    hits: "1",
+    ball: "BOUNCES OFF IT",
+    worth: "150",
+  },
+  {
+    id: PARTICLE.NUCLEUS,
+    name: "NUCLEUS",
+    verb: "SPLIT",
+    lore:
+      "A LUMP OF PACKED MATTER THAT DRIFTS THROUGH THE BAND AS SLOW AS A THOUGHT. " +
+      "ONE HIT SPLITS IT IN TWO, AND SOMETHING ELSE GOES ON THROUGH THE BREAK: A NEUTRON, WHICH IS TO SAY A WHOLE NEW BALL. " +
+      "THE TWO HALVES FLY APART AND DIE ON THEIR NEXT HIT. THE ONE THING IN THE CHAMBER THAT PAYS YOU IN BALLS.",
+    tip: "SPLIT IT EARLY · CATCH WHAT COMES OUT",
+    hits: "1 · THEN 1 EACH HALF",
+    ball: "BOUNCES · A NEW BALL GOES ON",
+    worth: "100 · 200 EACH HALF",
+  },
+  {
+    id: PARTICLE.ANTIBALL,
+    name: "ANTIBALL",
+    verb: "ANNIHILATE",
+    lore:
+      "THE BALL'S DARK TWIN, WEARING ITS SHAPE IN THE COLOURS OF NIGHT, WITH A PALE HALO BREATHING ROUND IT " +
+      "SO IT IS NEVER TRULY HIDDEN. IT CANNOT BE HIT. TOUCH IT AND BOTH ARE ERASED IN A FLASH THAT BLOWS A CRATER " +
+      "IN THE WALL. A SPARE BALL IS A FAIR TRADE; YOUR LAST ONE IS A LIFE. A LASER BOLT ERASES IT FOR NOTHING.",
+    tip: "LASER IT · NEVER FEED IT YOUR LAST BALL",
+    hits: "NONE · IT CANNOT BE HIT",
+    ball: "ERASED WITH IT",
+    worth: "500 · AND A CRATER",
+  },
 ];
+
+export const PARTICLE_BY_ID = Object.fromEntries(PARTICLES.map((row) => [row.id, row])) as Record<
+  ParticleKind,
+  ParticleDefinition
+>;
 
 /**
  * The tones each species is drawn in.

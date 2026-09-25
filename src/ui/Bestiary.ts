@@ -1,4 +1,5 @@
 import { gameConfig } from "@core/config/GameConfig";
+import { PARTICLE_BY_ID, PARTICLES } from "@core/config/particles";
 import { BOSS_NAME, BOSS_OF_LEVEL } from "@core/levels/bosses";
 import { LEVELS, VEIL_LEVELS } from "@core/levels/levels";
 import { SPECIES } from "@entities/creatures/species";
@@ -11,6 +12,12 @@ import { renderPageIndicator } from "@ui/pagePips";
 
 import type { ArtMode } from "@interfaces/art";
 import type { BestiaryKind, CreatureKind } from "@interfaces/creatures";
+import type { ParticleKind } from "@interfaces/particles";
+
+/** Whether a page is one of THE CHAMBER's particles rather than a creature. */
+function isParticle(kind: BestiaryKind): kind is ParticleKind {
+  return Object.hasOwn(PARTICLE_BY_ID, kind);
+}
 
 export interface BestiaryElements {
   card: HTMLElement;
@@ -112,6 +119,11 @@ function buildRoster(): BestiaryEntry[] {
   if (VEIL_LEVELS.length > 0) {
     met.set(BESTIARY_BROOD, VEIL_LEVELS[0] + 1);
   }
+  // THE CHAMBER's particles (SHA-185), at the depth each joins the bag: that is
+  // the first level a player can meet one, whatever a level pins.
+  for (const row of PARTICLES) {
+    met.set(row.id, gameConfig.particles[row.id].joins);
+  }
   // Every species there is, whether or not a level has dealt it yet.
   for (const kind of Object.values(CREATURE)) {
     if (!met.has(kind) && !bossKinds.has(kind)) {
@@ -133,16 +145,25 @@ export function creatureName(entry: BestiaryEntry): string {
   if (entry.kind === BESTIARY_BROOD) {
     return BROOD_NAME;
   }
+  if (isParticle(entry.kind)) {
+    return PARTICLE_BY_ID[entry.kind].name;
+  }
   // The constant's own value, capitalised: every ordinary species is named by
   // one word, and it is the word the console already takes.
   return BOSS_NAME[entry.kind] ?? entry.kind.toUpperCase();
 }
 
 export function creatureLore(entry: BestiaryEntry): string {
+  if (isParticle(entry.kind)) {
+    return PARTICLE_BY_ID[entry.kind].lore;
+  }
   return entry.kind === BESTIARY_BROOD ? BROOD_LORE : SPECIES[entry.kind].lore;
 }
 
 export function creatureTip(entry: BestiaryEntry): string {
+  if (isParticle(entry.kind)) {
+    return `TIP · ${PARTICLE_BY_ID[entry.kind].tip}`;
+  }
   return `TIP · ${entry.kind === BESTIARY_BROOD ? BROOD_TIP : SPECIES[entry.kind].tip}`;
 }
 
@@ -162,6 +183,16 @@ export function creatureStats(entry: BestiaryEntry): readonly (readonly [string,
       // A beast is a shelf, like a solid creature.
       ["BALL", "BOUNCES OFF IT"],
       ["WORTH", `${forms.map((form) => form.points).join(" · ")} · ${killPoints} THE KILL`],
+    ];
+  }
+  if (isParticle(entry.kind)) {
+    const row = PARTICLE_BY_ID[entry.kind];
+    return [
+      // Through the side gates, from the depth it joins the bag at.
+      ["MET", `THE GATES · FROM ${where(entry.level)}`],
+      ["HITS", row.hits],
+      ["BALL", row.ball],
+      ["WORTH", row.worth],
     ];
   }
   const species = SPECIES[entry.kind];

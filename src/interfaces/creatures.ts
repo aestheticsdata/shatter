@@ -1,3 +1,5 @@
+import type { ParticleKind } from "@interfaces/particles";
+
 /**
  * THE BESTIARY's names (SHA-207): the species a level may pin, as constants,
  * so level data, the registry, the console and the renderer spell them the
@@ -37,8 +39,12 @@ export type CreatureKind = (typeof CREATURE)[keyof typeof CREATURE];
  */
 export const BESTIARY_BROOD = "brood";
 
-/** Everything the BESTIARY page has an entry for: every species, and the brood. */
-export type BestiaryKind = CreatureKind | typeof BESTIARY_BROOD;
+/**
+ * Everything the BESTIARY page has an entry for: every species, the brood, and
+ * THE CHAMBER's four particles (SHA-185) — not creatures, but things loose in
+ * the field that the player has to learn the rules of all the same.
+ */
+export type BestiaryKind = CreatureKind | typeof BESTIARY_BROOD | ParticleKind;
 
 /** One creature a level puts down: which, and where its sprite's top-left starts. */
 export interface CreaturePin {

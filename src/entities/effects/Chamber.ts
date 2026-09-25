@@ -706,6 +706,15 @@ function shutGate(side: GateSide): Gate {
   return { side, open: 0, phase: GATE_PHASE.SHUT, pending: null, through: null, holdTicks: 0 };
 }
 
+/**
+ * One particle standing still at a point, at its species' own size — for the
+ * BESTIARY's cards (SHA-185), which pose the field's sprites rather than
+ * drawing copies of them.
+ */
+export function quantumOf(kind: ParticleKind, x: number, y: number): Quantum {
+  return fresh(kind, x, y, gameConfig.particles[kind].radius);
+}
+
 function fresh(kind: ParticleKind, x: number, y: number, radius: number): Quantum {
   return {
     kind,
