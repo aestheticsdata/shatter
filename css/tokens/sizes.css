@@ -3,4 +3,9 @@
   --stage-height: 300px;
   --playfield-width: 372px;
   --panel-width: 108px;
+  /* THE HD PASS (SHA-249): one fine pixel — a third of a stage pixel, the grid
+     the playfield has always been backed at. The HD bundle measures its screens
+     in these, so `calc(40 * var(--fine))` is the bundle's 40 px as written, not
+     a number translated out of it. */
+  --fine: calc(1px / 3);
 }

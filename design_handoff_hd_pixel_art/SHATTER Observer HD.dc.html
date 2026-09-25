@@ -1,0 +1,2469 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap"
+          rel="stylesheet"
+        />
+        <style>
+          html,
+          body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+          }
+          a {
+            color: #ffcf1c;
+          }
+          a:hover {
+            color: #fff;
+          }
+          @keyframes shBlink {
+            0%,
+            55% {
+              opacity: 1;
+            }
+            56%,
+            100% {
+              opacity: 0;
+            }
+          }
+          @keyframes shCopper {
+            from {
+              background-position: 0 0;
+            }
+            to {
+              background-position: 0 32px;
+            }
+          }
+          @keyframes shPulse {
+            0%,
+            100% {
+              opacity: 1;
+            }
+            50% {
+              opacity: 0.35;
+            }
+          }
+        </style>
+      </helmet>
+      <div
+        ref="{{ rootRef }}"
+        style="
+          position: fixed;
+          inset: 0;
+          background: #000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          user-select: none;
+          cursor: none;
+          font-family: Silkscreen, ui-monospace, monospace;
+        "
+      >
+        <div
+          data-stage
+          style="
+            position: relative;
+            flex: none;
+            width: 1440px;
+            height: 900px;
+            background: #000;
+            transform-origin: center center;
+          "
+        >
+          <canvas
+            data-canvas
+            width="1116"
+            height="900"
+            style="position: absolute; left: 0; top: 0; width: 1116px; height: 900px"
+          ></canvas>
+
+          <div
+            data-screen-label="Panneau"
+            style="position: absolute; left: 1116px; top: 0; width: 324px; height: 900px; background: #2a1d0c"
+          >
+            <div style="position: absolute; left: 0; top: 0; width: 1px; height: 900px; background: #0b0b26"></div>
+            <div style="position: absolute; left: 1px; top: 0; width: 2px; height: 900px; background: #dfae2c"></div>
+            <div style="position: absolute; left: 3px; top: 0; width: 1px; height: 900px; background: #7a5a08"></div>
+
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 24px;
+                width: 276px;
+                height: 54px;
+                background: #e8384f;
+                box-shadow:
+                  inset -2px -2px 0 #8e1220,
+                  inset 2px 2px 0 #ff8a9c;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              <span
+                style="
+                  font:
+                    400 16px &quot;Press Start 2P&quot;,
+                    monospace;
+                  color: #fff;
+                  letter-spacing: 4px;
+                  text-shadow: 2px 2px 0 #8e1220;
+                "
+                >SHATTER</span
+              >
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 96px;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+                letter-spacing: 2px;
+              "
+            >
+              SCORE
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 126px;
+                width: 276px;
+                height: 57px;
+                background: #0b0b26;
+                box-shadow:
+                  inset -2px -2px 0 #7a5a08,
+                  inset 2px 2px 0 #05050f;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+              "
+            >
+              <span
+                style="
+                  font:
+                    400 24px Silkscreen,
+                    monospace;
+                  color: #ffcf1c;
+                  padding-right: 12px;
+                "
+                >{{ scoreText }}</span
+              >
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 198px;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+                letter-spacing: 2px;
+              "
+            >
+              HI-SCORE
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 228px;
+                width: 276px;
+                height: 57px;
+                background: #0b0b26;
+                box-shadow:
+                  inset -2px -2px 0 #7a5a08,
+                  inset 2px 2px 0 #05050f;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+              "
+            >
+              <span
+                style="
+                  font:
+                    400 24px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                  padding-right: 12px;
+                "
+                >{{ hiText }}</span
+              >
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 300px;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+                letter-spacing: 2px;
+              "
+            >
+              VEIL
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 330px;
+                width: 276px;
+                height: 57px;
+                background: #0b0b26;
+                box-shadow:
+                  inset -2px -2px 0 #7a5a08,
+                  inset 2px 2px 0 #05050f;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 14px;
+                box-sizing: border-box;
+              "
+            >
+              <span
+                style="
+                  font:
+                    400 24px Silkscreen,
+                    monospace;
+                  color: #fff;
+                "
+                >{{ levelText }}</span
+              ><span
+                style="
+                  font:
+                    400 16px Silkscreen,
+                    monospace;
+                  color: #f07d10;
+                  letter-spacing: 1px;
+                "
+                >{{ levelName }}</span
+              >
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 402px;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+                letter-spacing: 2px;
+              "
+            >
+              COMETS
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 432px;
+                width: 276px;
+                height: 15px;
+                display: flex;
+                gap: 15px;
+                overflow: hidden;
+              "
+            >
+              <sc-for list="{{ livesArr }}" as="l" hint-placeholder-count="2"
+                ><div style="display: flex; align-items: center; flex: none">
+                  <div style="width: 24px; height: 9px; background: #8a6a00; box-shadow: inset 0 3px 0 #c98f0a"></div>
+                  <div
+                    style="
+                      width: 15px;
+                      height: 15px;
+                      background: #ffe14a;
+                      box-shadow:
+                        inset 3px 3px 0 #fff9d0,
+                        inset -3px -3px 0 #c98f0a;
+                    "
+                  ></div></div
+              ></sc-for>
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 465px;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+                letter-spacing: 2px;
+              "
+            >
+              CHAIN
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 492px;
+                width: 276px;
+                height: 66px;
+                background: #0b0b26;
+                box-shadow:
+                  inset -2px -2px 0 #7a5a08,
+                  inset 2px 2px 0 #05050f;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 14px;
+                box-sizing: border-box;
+              "
+            >
+              <span
+                style="
+                  font:
+                    400 16px Silkscreen,
+                    monospace;
+                  color: #7a5a08;
+                "
+                >{{ chainText }}</span
+              ><span style="font:400 32px Silkscreen,monospace;color:{{ comboColor }}">{{ comboText }}</span>
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 573px;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+                letter-spacing: 2px;
+              "
+            >
+              OCULI
+            </div>
+            <div style="position: absolute; left: 24px; top: 600px; display: flex; gap: 12px">
+              <sc-for list="{{ sigilPips }}" as="p" hint-placeholder-count="3"
+                ><div
+                  style="width:84px;height:21px;background:{{ p.c }};box-shadow:inset 2px 2px 0 rgba(255,255,255,0.22),inset -2px -2px 0 rgba(0,0,0,0.45)"
+                ></div
+              ></sc-for>
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 636px;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+                letter-spacing: 2px;
+              "
+            >
+              DIADEM {{ starsText }}
+            </div>
+            <div style="position: absolute; left: 24px; top: 663px; display: flex; gap: 12px">
+              <sc-for list="{{ starPips }}" as="p" hint-placeholder-count="6"
+                ><div
+                  style="width:36px;height:18px;background:{{ p.c }};box-shadow:inset 2px 2px 0 rgba(255,255,255,0.22),inset -2px -2px 0 rgba(0,0,0,0.45)"
+                ></div
+              ></sc-for>
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 699px;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+                letter-spacing: 2px;
+              "
+            >
+              RELIC
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 726px;
+                width: 276px;
+                height: 51px;
+                background: #0b0b26;
+                box-shadow:
+                  inset -2px -2px 0 #7a5a08,
+                  inset 2px 2px 0 #05050f;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              <span
+                style="
+                  font:
+                    400 16px Silkscreen,
+                    monospace;
+                  color: #3fbf4f;
+                  letter-spacing: 2px;
+                "
+                >{{ powerText }}</span
+              >
+            </div>
+
+            <div
+              style="position: absolute; left: 24px; top: 795px; width: 276px; height: 1px; background: #7a5a08"
+            ></div>
+            <div
+              style="position: absolute; left: 24px; top: 796px; width: 276px; height: 1px; background: #dfae2c"
+            ></div>
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 813px;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+              "
+            >
+              P PAUSE · M {{ soundShort }}
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 24px;
+                top: 855px;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #7a5a08;
+              "
+            >
+              THE OBSERVER · HD
+            </div>
+          </div>
+
+          <sc-if value="{{ isHint }}" hint-placeholder-val="{{ false }}"
+            ><div
+              style="
+                position: absolute;
+                left: 9px;
+                top: 678px;
+                width: 1098px;
+                text-align: center;
+                font:
+                  400 16px Silkscreen,
+                  monospace;
+                color: #dfae2c;
+                letter-spacing: 2px;
+                text-shadow: 2px 2px 0 #0b0b26;
+              "
+            >
+              {{ levelName }} · {{ levelHint }}
+            </div></sc-if
+          >
+          <sc-if value="{{ isServe }}" hint-placeholder-val="{{ false }}"
+            ><div
+              style="
+                position: absolute;
+                left: 9px;
+                top: 729px;
+                width: 1098px;
+                text-align: center;
+                font:
+                  400 24px Silkscreen,
+                  monospace;
+                color: #8fd0ff;
+                text-shadow: 2px 2px 0 #0b0b26;
+                animation: shBlink 1s steps(1) infinite;
+              "
+            >
+              CLICK TO LAUNCH
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isPortal }}" hint-placeholder-val="{{ false }}"
+            ><div
+              style="
+                position: absolute;
+                left: 9px;
+                top: 354px;
+                width: 1098px;
+                text-align: center;
+                font:
+                  400 20px Silkscreen,
+                  monospace;
+                color: #ffcf1c;
+                letter-spacing: 4px;
+                text-shadow: 2px 2px 0 #0b0b26;
+                animation: shPulse 0.6s ease-in-out infinite;
+              "
+            >
+              THE EYE OPENS · SEND THE COMET UP
+            </div></sc-if
+          >
+          <sc-if value="{{ isAwake }}" hint-placeholder-val="{{ false }}"
+            ><div
+              style="
+                position: absolute;
+                left: 9px;
+                top: 750px;
+                width: 1098px;
+                text-align: center;
+                font:
+                  400 20px Silkscreen,
+                  monospace;
+                color: #e8384f;
+                letter-spacing: 6px;
+                text-shadow: 2px 2px 0 #0b0b26;
+              "
+            >
+              THE PUPIL IS LOOSE · BLIND IT
+            </div></sc-if
+          >
+          <sc-if value="{{ isBonus }}" hint-placeholder-val="{{ false }}"
+            ><div
+              data-screen-label="Dans l oeil"
+              style="
+                position: absolute;
+                left: 9px;
+                top: 750px;
+                width: 1098px;
+                text-align: center;
+                font:
+                  400 20px Silkscreen,
+                  monospace;
+                color: #e8384f;
+                letter-spacing: 6px;
+                text-shadow: 2px 2px 0 #0b0b26;
+              "
+            >
+              INSIDE THE EYE · STRIKE THE PUPIL
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isPause }}" hint-placeholder-val="{{ false }}"
+            ><div
+              data-screen-label="Pause"
+              style="
+                position: absolute;
+                left: 9px;
+                top: 9px;
+                width: 1098px;
+                height: 891px;
+                background: #0b0b26;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 40px;
+              "
+            >
+              <div
+                style="
+                  font:
+                    400 40px &quot;Press Start 2P&quot;,
+                    monospace;
+                  color: #ffcf1c;
+                  text-shadow: 5px 5px 0 #8a3d00;
+                "
+              >
+                PAUSE
+              </div>
+              <div style="width: 420px; height: 3px; background: #f07d10"></div>
+              <div
+                style="
+                  font:
+                    400 24px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                "
+              >
+                PRESS P TO RESUME
+              </div>
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isClear }}" hint-placeholder-val="{{ false }}"
+            ><div
+              data-screen-label="Voile brise"
+              style="
+                position: absolute;
+                left: 9px;
+                top: 9px;
+                width: 1098px;
+                height: 891px;
+                background: #0b0b26;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 28px;
+              "
+            >
+              <div
+                style="
+                  font:
+                    400 24px Silkscreen,
+                    monospace;
+                  color: #3fbf4f;
+                  letter-spacing: 4px;
+                "
+              >
+                VEIL BROKEN
+              </div>
+              <div
+                style="
+                  font:
+                    400 40px &quot;Press Start 2P&quot;,
+                    monospace;
+                  color: #fff;
+                  text-shadow: 5px 5px 0 #155c1f;
+                "
+              >
+                {{ levelName }}
+              </div>
+              <div style="width: 600px; height: 2px; background: #dfae2c"></div>
+              <div
+                style="
+                  font:
+                    400 20px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                "
+              >
+                DIADEM {{ starsText }}
+              </div>
+              <div
+                style="
+                  font:
+                    400 24px Silkscreen,
+                    monospace;
+                  color: #ffcf1c;
+                "
+              >
+                BONUS {{ bonusText }}
+              </div>
+              <div
+                style="
+                  font:
+                    400 20px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                  animation: shBlink 1s steps(1) infinite;
+                "
+              >
+                CLICK TO CONTINUE
+              </div>
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isEnding }}" hint-placeholder-val="{{ false }}"
+            ><div
+              data-screen-label="Fin"
+              style="
+                position: absolute;
+                left: 9px;
+                top: 9px;
+                width: 1098px;
+                height: 891px;
+                background: #0b0b26;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 28px;
+              "
+            >
+              <div
+                style="
+                  font:
+                    400 20px Silkscreen,
+                    monospace;
+                  color: #dfae2c;
+                  letter-spacing: 6px;
+                "
+              >
+                THE FIFTH VEIL FALLS
+              </div>
+              <div
+                style="
+                  font:
+                    400 36px &quot;Press Start 2P&quot;,
+                    monospace;
+                  color: #ffcf1c;
+                  text-shadow: 5px 5px 0 #8a3d00;
+                  text-align: center;
+                  line-height: 1.5;
+                "
+              >
+                THE OBSERVER<br />IS BLIND
+              </div>
+              <div style="width: 600px; height: 2px; background: #dfae2c"></div>
+              <div
+                style="
+                  font:
+                    400 20px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                "
+              >
+                THE SKY IS YOURS · DIADEM {{ starsText }}
+              </div>
+              <div
+                style="
+                  font:
+                    400 24px Silkscreen,
+                    monospace;
+                  color: #fff;
+                "
+              >
+                SCORE {{ scoreText }}
+              </div>
+              <div
+                style="
+                  font:
+                    400 20px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                  animation: shBlink 1s steps(1) infinite;
+                "
+              >
+                CLICK TO CONTINUE
+              </div>
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isOver }}" hint-placeholder-val="{{ false }}"
+            ><div
+              data-screen-label="Game over"
+              style="
+                position: absolute;
+                left: 9px;
+                top: 9px;
+                width: 1098px;
+                height: 891px;
+                background: #0b0b26;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 34px;
+              "
+            >
+              <div
+                style="
+                  font:
+                    400 40px &quot;Press Start 2P&quot;,
+                    monospace;
+                  color: #e8384f;
+                  text-shadow: 5px 5px 0 #55000f;
+                "
+              >
+                GAME OVER
+              </div>
+              <div style="width: 600px; height: 3px; background: #e8384f"></div>
+              <div
+                style="
+                  font:
+                    400 24px Silkscreen,
+                    monospace;
+                  color: #fff;
+                "
+              >
+                SCORE {{ scoreText }}
+              </div>
+              <div
+                style="
+                  font:
+                    400 20px Silkscreen,
+                    monospace;
+                  color: #9a9caf;
+                "
+              >
+                BEST CHAIN {{ bestChainText }} · VEIL {{ levelText }}
+              </div>
+              <div
+                style="
+                  font:
+                    400 20px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                  animation: shBlink 1s steps(1) infinite;
+                "
+              >
+                CLICK TO CONTINUE
+              </div>
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isTitle }}" hint-placeholder-val="{{ true }}"
+            ><div
+              data-screen-label="Titre"
+              style="position: absolute; left: 0; top: 0; width: 1440px; height: 900px; background: #05050f"
+            >
+              <canvas
+                data-title
+                width="1440"
+                height="900"
+                style="position: absolute; left: 0; top: 0; width: 1440px; height: 900px"
+              ></canvas>
+              <div
+                style="
+                  position: absolute;
+                  left: 0;
+                  top: 450px;
+                  width: 1440px;
+                  height: 132px;
+                  background: repeating-linear-gradient(
+                    180deg,
+                    #0b0b26 0 4px,
+                    #12276a 4px 8px,
+                    #1d47a8 8px 12px,
+                    #2d7fe0 12px 16px,
+                    #63b0ff 16px 20px,
+                    #2d7fe0 20px 24px,
+                    #1d47a8 24px 28px,
+                    #12276a 28px 32px
+                  );
+                  animation: shCopper 2.2s linear infinite;
+                "
+              ></div>
+              <div
+                style="
+                  position: absolute;
+                  left: 0;
+                  top: 480px;
+                  width: 1440px;
+                  text-align: center;
+                  font:
+                    400 64px &quot;Press Start 2P&quot;,
+                    monospace;
+                  color: #fff;
+                  letter-spacing: 6px;
+                  text-shadow: 6px 6px 0 #e8384f;
+                "
+              >
+                SHATTER
+              </div>
+              <div
+                style="
+                  position: absolute;
+                  left: 0;
+                  top: 606px;
+                  width: 1440px;
+                  text-align: center;
+                  font:
+                    400 24px Silkscreen,
+                    monospace;
+                  color: #ffcf1c;
+                  letter-spacing: 10px;
+                "
+              >
+                THE OBSERVER
+              </div>
+              <div
+                style="
+                  position: absolute;
+                  left: 0;
+                  top: 654px;
+                  width: 1440px;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  gap: 14px;
+                "
+              >
+                <span
+                  style="
+                    font:
+                      400 16px Silkscreen,
+                      monospace;
+                    color: #8fd0ff;
+                    letter-spacing: 3px;
+                  "
+                  >FIVE VEILS · ONE EYE · BLIND IT</span
+                >
+                <span
+                  style="
+                    font:
+                      400 20px Silkscreen,
+                      monospace;
+                    color: #dfae2c;
+                  "
+                  >TOP SCORE {{ hiText }} · {{ hiName }}</span
+                >
+              </div>
+              <div
+                style="
+                  position: absolute;
+                  left: 0;
+                  top: 756px;
+                  width: 1440px;
+                  text-align: center;
+                  font:
+                    400 28px Silkscreen,
+                    monospace;
+                  color: #3fbf4f;
+                  animation: shBlink 1s steps(1) infinite;
+                "
+              >
+                CLICK TO PLAY
+              </div>
+              <div
+                style="
+                  position: absolute;
+                  left: 0;
+                  top: 846px;
+                  width: 1440px;
+                  text-align: center;
+                  font:
+                    400 16px Silkscreen,
+                    monospace;
+                  color: #4a4c60;
+                  letter-spacing: 3px;
+                "
+              >
+                MOVE THE MOUSE · ORIGINAL 2007 · REBUILT 2026 · HD PIXEL ART
+              </div>
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isScores }}" hint-placeholder-val="{{ false }}"
+            ><div
+              data-screen-label="Scores"
+              style="position: absolute; left: 0; top: 0; width: 1440px; height: 900px; background: #05050f"
+            >
+              <div
+                style="
+                  position: absolute;
+                  left: 0;
+                  top: 90px;
+                  width: 1440px;
+                  text-align: center;
+                  font:
+                    400 40px &quot;Press Start 2P&quot;,
+                    monospace;
+                  color: #ffcf1c;
+                  text-shadow: 5px 5px 0 #8a3d00;
+                "
+              >
+                THE WATCHED
+              </div>
+              <div
+                style="position: absolute; left: 390px; top: 216px; width: 660px; height: 2px; background: #dfae2c"
+              ></div>
+              <div
+                style="
+                  position: absolute;
+                  left: 336px;
+                  top: 282px;
+                  width: 768px;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 30px;
+                "
+              >
+                <sc-for list="{{ scoreRows }}" as="r" hint-placeholder-count="5"
+                  ><div
+                    style="display:flex;justify-content:space-between;font:400 24px Silkscreen,monospace;color:{{ r.color }}"
+                  >
+                    <span>{{ r.rank }}</span><span>{{ r.name }}</span><span>{{ r.score }}</span>
+                  </div></sc-for
+                >
+              </div>
+              <sc-if value="{{ isEntry }}" hint-placeholder-val="{{ false }}"
+                ><div
+                  style="
+                    position: absolute;
+                    left: 0;
+                    top: 720px;
+                    width: 1440px;
+                    text-align: center;
+                    font:
+                      400 24px Silkscreen,
+                      monospace;
+                    color: #3fbf4f;
+                    letter-spacing: 4px;
+                  "
+                >
+                  TYPE YOUR INITIALS · {{ entryText }}
+                </div></sc-if
+              >
+              <sc-if value="{{ notEntry }}" hint-placeholder-val="{{ true }}"
+                ><div
+                  style="
+                    position: absolute;
+                    left: 0;
+                    top: 720px;
+                    width: 1440px;
+                    text-align: center;
+                    font:
+                      400 24px Silkscreen,
+                      monospace;
+                    color: #8fd0ff;
+                    animation: shBlink 1s steps(1) infinite;
+                  "
+                >
+                  CLICK TO RETURN
+                </div></sc-if
+              >
+            </div></sc-if
+          >
+        </div>
+      </div>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{"startVeil":{"editor":"int","default":1,"min":1,"max":5,"tsType":"number","section":"Test"},"startLives":{"editor":"int","default":3,"min":1,"max":9,"tsType":"number","section":"Règles"},"ballSpeed":{"editor":"range","default":1,"min":0.6,"max":1.6,"step":0.05,"tsType":"number","section":"Règles"},"dropRate":{"editor":"range","default":0.13,"min":0,"max":0.4,"step":0.01,"tsType":"number","section":"Règles"},"beastCount":{"editor":"int","default":3,"min":0,"max":3,"tsType":"number","section":"Univers"},"gateSeconds":{"editor":"range","default":10,"min":4,"max":20,"step":1,"unit":"s","tsType":"number","section":"Univers"},"crt":{"editor":"boolean","default":false,"tsType":"boolean","section":"Rendu"}}'
+    >
+      // The Observer, five veils — same rules and layout as SHATTER Observer v2, drawn on a
+      // 3x finer grid (the SCALE = 3 backing store the shipped renderer already has).
+      const S = 3;
+      const LEVELS = [
+        { name: 'THE VEIL', mode: 'veil', tint: 'blue', hint: 'IT PEERS THROUGH THE STONE', form: 0,
+          eye: { x: 186, y: 72, hw: 42, hh: 15 },
+          diadem: [[286, 142], [247, 178], [207, 192], [165, 192], [125, 178], [86, 142]],
+          rows: ['5555GGGG5555', '4444SSSS4444', '33.3S..S3.33', '22.2S..S2.22', '1111SSSS1111', '.GG......GG.'],
+          beasts: [[60, 166], [200, 198], [300, 226]] },
+        { name: 'THE IRIS', mode: 'iris', tint: 'blue', hint: 'BARE AND HUGE · ITS GAZE PETRIFIES', form: 0,
+          eye: { x: 186, y: 100, hw: 116, hh: 38 },
+          diadem: [[300, 176], [250, 198], [207, 208], [165, 208], [122, 198], [72, 176]],
+          rows: ['GG.GGG.GGG.G', '5S.S5S.S5S.S', '............', '............', '3..........3', '2S........S2'],
+          beasts: [[90, 176], [250, 206], [150, 232]] },
+        { name: 'THE TEAR', mode: 'tear', tint: 'blue', hint: 'IT WEEPS FROM THE CORNER · BURST THE TEARS', form: 0,
+          eye: { x: 46, y: 62, hw: 62, hh: 23 },
+          diadem: [[150, 126], [192, 152], [232, 172], [272, 182], [312, 172], [346, 142]],
+          rows: ['.....GGGGGGG', '.....4444444', '.....33S3S33', '.....22S2S22', '.....1111111', '......SS..SS'],
+          beasts: [[180, 196], [300, 224]] },
+        { name: 'THE WRATH', mode: 'wrath', tint: 'red', hint: 'IT RISES BELOW · EACH BLINK REBUILDS', form: 1,
+          eye: { x: 186, y: 292, hw: 84, hh: 30 },
+          diadem: [[92, 250], [115, 221], [160, 196], [212, 196], [257, 221], [280, 250]],
+          rows: ['SS.SSS.SSS.S', '5G.G5G.G5G.G', '444444444444', '3.3.3.3.3.3.', '222222222222', '.1.1.1.1.1.1'],
+          beasts: [[60, 170], [200, 200], [300, 228]] },
+        { name: 'THE LID', mode: 'lid', tint: 'red', hint: 'SEALED SHUT · BREAK THE SEAL, BLIND THE EYE', form: 2, sigils: false,
+          eye: { x: 186, y: 74, hw: 120, hh: 27 },
+          diadem: [[286, 160], [247, 196], [207, 210], [165, 210], [125, 196], [86, 160]],
+          rows: ['..LLLLLLLL..', '.LLLLLLLLLL.', 'SLLLLLLLLLLS', 'SLLLLLLLLLLS', '.SLLLLLLLLS.', '..SSLLLLSS..'],
+          beasts: [[100, 196], [260, 224]] }
+      ];
+      const DIADEM = [[286, 142], [247, 178], [207, 192], [165, 192], [125, 178], [86, 142]];
+      // [flat, light, dark, points]
+      const COLORS = {
+        '1': ['#e8384f', '#ff8a9c', '#8e1220', 60],
+        '2': ['#f07d10', '#ffc27a', '#8a3d00', 70],
+        '3': ['#ffcf1c', '#fff59a', '#8a6a00', 80],
+        '4': ['#3fbf4f', '#a6f0a6', '#155c1f', 90],
+        '5': ['#2d7fe0', '#a8d8ff', '#0b3a78', 100],
+        'S': ['#8f9ac8', '#dbe4ff', '#3c50a0', 150],
+        'G': ['#dfae2c', '#ffe9a0', '#7a5a08', 200],
+        'L': ['#c9a24a', '#ffe9a0', '#7a5a08', 250]
+      };
+      const HP = { S: 2, G: 3, L: 2 };
+      const W = 372, H = 300, FW = W * S, FH = H * S;
+      const FX0 = 3, FX1 = 369, FY0 = 3, PY = 276, PH = 9;
+      const GX = 6, GY = 38, BW = 30, BH = 12, COLS = 12;
+      const BALL = 8;
+      const BALL_ROWS = [[2, 4], [1, 6], [0, 8], [0, 8], [0, 8], [0, 8], [1, 6], [2, 4]];
+      const SIGILS = [[52, 16], [176, 16], [300, 16]];
+      const SGW = 20, SGH = 14;
+      const GATE_W = 52;
+      const PUPIL = { r: 15, hp: 14, cx: 186, cy: 100 };
+      const FINAL_HP = 24;
+      const SEAL = { r0: 1, r1: 4, c0: 4, c1: 7, need: 10 };
+      const DEFAULT_SCORES = [
+        { n: 'AMI', s: 4820000 }, { n: 'CBM', s: 3115000 }, { n: 'PAL', s: 1960000 },
+        { n: 'FDD', s: 840000 }, { n: 'KIK', s: 225000 }
+      ];
+      const POWER_NAMES = { E: 'WIDE', M: 'MULTI', L: 'LASER', P: 'PIERCE' };
+      const DROP_COL = { E: '#2d7fe0', M: '#3fbf4f', L: '#e8384f', P: '#ffcf1c' };
+      const COMBO_COL = ['#7a5a08', '#8fd0ff', '#3fbf4f', '#ffcf1c', '#f07d10', '#e8384f'];
+      const TINTS = {
+        blue: ['#2d7fe0', '#1d47a8', '#63b0ff'],
+        red: ['#e8384f', '#8e1220', '#ff8a9c'],
+        gold: ['#ffcf1c', '#f07d10', '#ffe9a0']
+      };
+      const BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
+
+      // ---- beast bitmaps: the same ASCII as v2, upscaled with Scale3x so the curves resolve ----
+      const PAL = {
+        egg: { a: '#12276a', b: '#1d47a8', c: '#63b0ff', w: '#a8d8ff', k: '#0b0b26' },
+        hatch: { g: '#155c1f', G: '#3fbf4f', l: '#a6f0a6', e: '#ffffff', p: '#0b0b26', r: '#e8384f' },
+        wing: { k: '#55000f', R: '#e8384f', o: '#f07d10', y: '#ffcf1c', e: '#ffffff', p: '#0b0b26' },
+        tear: { b: '#63b0ff', w: '#a8d8ff', d: '#1d47a8' }
+      };
+      const BM = {
+        egg: ['.....aaaaaa.....', '...aabbbbbbaa...', '..abbbccbbbbba..', '.abbbcwwcbbbbba.', '.abbbcwwcbkbbba.', 'abbbbccbbkbbbbba',
+              'abbbbbbbkbbbbbba', 'abbbbbbkbbbbbbba', '.abbbbbkbbbbbba.', '.abbbbbbbbbbbba.', '..aabbbbbbbbaa..', '....aaaaaaaa....'],
+        hatchA: ['....g..........g....', '.....g........g.....', '....gGGGGGGGGGGg....', '...gGGllGGGGllGGg...', '..gGGleeGGGGeelGGg..',
+                 '..gGGlepGGGGpelGGg..', '.gGGGGGGGGGGGGGGGGg.', '.gGGGGGrrrrrrGGGGGg.', '.gGGGGGGGGGGGGGGGGg.', '..gGGGGGGGGGGGGGGg..',
+                 '...ggGGgggggGGgg....', '..g..g..g..g..g..g..', '.g...g..g..g..g...g.', '....................'],
+        hatchB: ['....g..........g....', '.....g........g.....', '....gGGGGGGGGGGg....', '...gGGllGGGGllGGg...', '..gGGleeGGGGeelGGg..',
+                 '..gGGlepGGGGpelGGg..', '.gGGGGGGGGGGGGGGGGg.', '.gGGGGGrrrrrrGGGGGg.', '.gGGGGGGGGGGGGGGGGg.', '..gGGGGGGGGGGGGGGg..',
+                 '...ggGGgggggGGgg....', '.g...g..g..g..g...g.', '..g..g..g..g..g..g..', '....................'],
+        wingA: ['k..........................k', 'kk........................kk', 'kRk......................kRk', 'kRRk........kkkk........kRRk',
+                '.kRRk......kRRRRk......kRRk.', '.kRRRk....kRRRRRRk....kRRRk.', '..kRRRk..kRRoyyoRRk..kRRRk..', '..kRRRRkkRRRoeeoRRRkkRRRRk..',
+                '...kRRRRRRRRopepoRRRRRRRk...', '....kRRRRRRRRooooRRRRRRk....', '......kkRRRRRRRRRRRRkk......', '........kkRRRRRRRRkk........',
+                '..........kkRkkRkk..........', '...........k....k...........'],
+        wingB: ['............................', '............................', '............kkkk............', '...........kRRRRk...........',
+                '..........kRRRRRRk..........', 'kk.......kRRoyyoRRk.......kk', 'kRRkk...kRRRoeeoRRRk...kkRRk', '.kRRRRkkRRRRopepoRRRRkkRRRRk',
+                '..kRRRRRRRRRRooooRRRRRRRRRk.', '...kkRRRRRRRRRRRRRRRRRRkk...', '.....kkkRRRRRRRRRRRRkkk.....', '........kkRRRRRRRRkk........',
+                '..........kkRkkRkk..........', '...........k....k...........'],
+        tear: ['..w..', '.wbw.', '.bbb.', 'wbbbd', 'bbbbd', 'wbbbd', '.bbd.', '..d..']
+      };
+      const FORMS = [
+        { w: 16, h: 12, sp: 0.32, pts: 400, frames: ['egg'] },
+        { w: 20, h: 14, sp: 0.8, pts: 800, frames: ['hatchA', 'hatchB'] },
+        { w: 28, h: 14, sp: 1.45, pts: 1500, frames: ['wingA', 'wingB'] }
+      ];
+
+      function hexRgb(h) { const v = parseInt(h.slice(1), 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; }
+      function mix(a, b, t) {
+        const A = hexRgb(a), B = hexRgb(b);
+        return '#' + [0, 1, 2].map(i => Math.round(A[i] + (B[i] - A[i]) * t).toString(16).padStart(2, '0')).join('');
+      }
+      function pillRows(h) { const r = h / 2, out = []; for (let y = 0; y < h; y++) { const dy = y + 0.5 - r; out.push(Math.round(r - Math.sqrt(Math.max(0, r * r - dy * dy)))); } return out; }
+
+      // A small software raster; sprites are painted pixel by pixel and baked to canvases once.
+      class Pix {
+        constructor(w, h) { this.w = w; this.h = h; this.d = new Uint8ClampedArray(w * h * 4); this.c = {}; }
+        set(x, y, hex) {
+          x = Math.round(x); y = Math.round(y);
+          if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
+          const c = this.c[hex] || (this.c[hex] = hexRgb(hex)), i = (y * this.w + x) * 4;
+          this.d[i] = c[0]; this.d[i + 1] = c[1]; this.d[i + 2] = c[2]; this.d[i + 3] = 255;
+        }
+        rect(x, y, w, h, hex) { x = Math.round(x); y = Math.round(y); for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.set(x + i, y + j, hex); }
+        dither(x, y, w, h, hex, t) { x = Math.round(x); y = Math.round(y); for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (BAYER[(y + j) & 3][(x + i) & 3] < t * 16) this.set(x + i, y + j, hex); }
+        disc(cx, cy, r, hex, t) {
+          for (let y = Math.ceil(cy - r); y <= Math.floor(cy + r); y++) {
+            const dy = y + 0.5 - cy, half = Math.round(Math.sqrt(Math.max(0, r * r - dy * dy)));
+            if (half <= 0) continue;
+            const x0 = Math.round(cx) - half;
+            if (t === undefined) this.rect(x0, y, half * 2, 1, hex); else this.dither(x0, y, half * 2, 1, hex, t);
+          }
+        }
+        ring(cx, cy, r, hex, dash) {
+          let x = r, y = 0, err = 1 - r, i = 0;
+          while (x >= y) {
+            if (!dash || (i++ % dash) < dash - Math.max(2, Math.round(dash / 3))) {
+              [[x, y], [y, x], [-y, x], [-x, y], [-x, -y], [-y, -x], [y, -x], [x, -y]].forEach(p => this.set(cx + p[0], cy + p[1], hex));
+            }
+            y++;
+            if (err < 0) err += 2 * y + 1; else { x--; err += 2 * (y - x) + 1; }
+          }
+        }
+        toCanvas() { const c = document.createElement('canvas'); c.width = this.w; c.height = this.h; c.getContext('2d').putImageData(new ImageData(this.d, this.w, this.h), 0, 0); return c; }
+      }
+
+      // Scale3x (AdvMAME3x): the v2 bitmaps at 3x with their diagonals resolved, edited in ASCII as before.
+      function scale3x(rows, pal) {
+        const h = rows.length, w = rows[0].length;
+        const at = (x, y) => (x < 0 || y < 0 || x >= w || y >= h) ? '.' : rows[y][x];
+        const p = new Pix(w * 3, h * 3);
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+          const A = at(x - 1, y - 1), B = at(x, y - 1), C = at(x + 1, y - 1), D = at(x - 1, y), E = at(x, y), F = at(x + 1, y), G = at(x - 1, y + 1), Hh = at(x, y + 1), I = at(x + 1, y + 1);
+          const o = [
+            (D === B && B !== F && D !== Hh) ? D : E,
+            ((D === B && B !== F && D !== Hh && E !== C) || (B === F && B !== D && F !== Hh && E !== A)) ? B : E,
+            (B === F && B !== D && F !== Hh) ? F : E,
+            ((D === B && B !== F && D !== Hh && E !== G) || (D === Hh && D !== B && Hh !== F && E !== A)) ? D : E,
+            E,
+            ((B === F && B !== D && F !== Hh && E !== I) || (Hh === F && D !== Hh && B !== F && E !== C)) ? F : E,
+            (D === Hh && D !== B && Hh !== F) ? D : E,
+            ((D === Hh && D !== B && Hh !== F && E !== I) || (Hh === F && D !== Hh && B !== F && E !== G)) ? Hh : E,
+            (Hh === F && D !== Hh && B !== F) ? F : E
+          ];
+          o.forEach((ch, i) => { const col = pal[ch]; if (col) p.set(x * 3 + (i % 3), y * 3 + Math.floor(i / 3), col); });
+        }
+        return p.toCanvas();
+      }
+
+      class Component extends DCLogic {
+        state = { screen: 'title', score: 0, lives: 3, level: 0, power: '', entry: '', bonus: 0,
+                  muted: false, scores: DEFAULT_SCORES, mult: 1, chain: 0, bestChain: 0,
+                  sigil: 0, stars: 0, portal: false, hint: false, awake: false };
+
+        componentDidMount() {
+          this.stage = this.root.querySelector('[data-stage]');
+          this.cv = this.root.querySelector('[data-canvas]');
+          this.ctx = this.cv.getContext('2d');
+          this.ctx.imageSmoothingEnabled = false;
+
+          this.px = 163; this.pw = 46; this.mx = 240; this.my = 150;
+          this.eye = LEVELS[0].eye; this.diadem = LEVELS[0].diadem; this.gate = [160, 212];
+          this.grid = []; this.layout = []; this.remaining = 0;
+          this.timers = { E: 0, L: 0, P: 0, M: 0 };
+          this.fireT = 0; this.shake = 0; this.gateT = 0; this.pops = []; this.frame = 0;
+          this.chain = 0; this.mult = 1; this.best = 0;
+          this.sigils = [false, false, false]; this.sigilNext = 0; this.sigilsOn = true;
+          this.beasts = []; this.lit = this.diadem.map(() => false);
+          this.boss = null; this.bossT = 0; this.final = null; this.awake = false;
+          this.tears = []; this.tearT = 0; this.gaze = { phase: 'idle', t: 300, x: this.eye.x }; this.petrify = 0;
+          this.blink = 0; this.blinkNext = 200; this.eyePupil = [this.eye.x, this.eye.y];
+          this.balls = [0, 1, 2].map(() => ({ x: 0, y: 0, vx: 0, vy: 0, on: false, trail: [] }));
+          this.drops = [0, 1, 2].map(() => ({ x: 0, y: 0, k: '', on: false }));
+          this.shots = [0, 1, 2, 3, 4, 5].map(() => ({ x: 0, y: 0, on: false }));
+          this.spr = {};
+          this.sprites = {};
+          Object.keys(BM).forEach(k => {
+            const pal = k.startsWith('egg') ? PAL.egg : (k.startsWith('hatch') ? PAL.hatch : (k === 'tear' ? PAL.tear : PAL.wing));
+            this.sprites[k] = scale3x(BM[k], pal);
+          });
+          this.bg = null;
+          this.irisBlue = this.bakeIris(['#12276a', '#1d47a8', '#2d7fe0', '#1d47a8', '#2d7fe0', '#63b0ff', '#2d7fe0', '#1d47a8'], ['#0b3a78', '#63b0ff']);
+          this.irisRed = this.bakeIris(['#55000f', '#8e1220', '#e8384f', '#8e1220', '#e8384f', '#ff8a9c', '#e8384f', '#8e1220'], ['#55000f', '#ff8a9c']);
+          this.tstars = Array.from({ length: 160 }, (_, i) => ({
+            x: Math.floor(Math.random() * 1440), y: Math.floor(Math.random() * 900), c: ['#1b2244', '#333f78', '#6c7cb4'][i % 3], big: i % 9 === 0
+          }));
+          this.loadScores();
+          this.buildLevel(0);
+
+          this.onResize = () => {
+            const s = Math.min(window.innerWidth * 0.99 / 1440, window.innerHeight * 0.99 / 900);
+            this.scale = s;
+            this.stage.style.transform = 'scale(' + s + ')';
+            this.cv.style.imageRendering = s >= 1 ? 'pixelated' : 'auto';
+          };
+          this.onMove = (e) => {
+            const r = this.stage.getBoundingClientRect();
+            const x = (e.clientX - r.left) / this.scale / S;
+            this.mx = x; this.my = (e.clientY - r.top) / this.scale / S;
+            if (this.petrify > 0) return;
+            this.px = Math.max(FX0, Math.min(FX1 - this.pw, x - this.pw / 2));
+          };
+          this.onDown = () => this.advance();
+          this.onKey = (e) => this.key(e);
+          window.addEventListener('resize', this.onResize);
+          window.addEventListener('mousemove', this.onMove);
+          window.addEventListener('mousedown', this.onDown);
+          window.addEventListener('keydown', this.onKey);
+          this.onResize();
+          this.raf = requestAnimationFrame(this.tick);
+        }
+
+        componentWillUnmount() {
+          cancelAnimationFrame(this.raf);
+          window.removeEventListener('resize', this.onResize);
+          window.removeEventListener('mousemove', this.onMove);
+          window.removeEventListener('mousedown', this.onDown);
+          window.removeEventListener('keydown', this.onKey);
+        }
+
+        lv() { return LEVELS[this.state.level % LEVELS.length]; }
+        sprite(key, make) { return this.spr[key] || (this.spr[key] = make()); }
+
+        // ---------- offscreen bakes (fine grid) ----------
+        bakeBackground(e) {
+          const p = new Pix(FW, FH);
+          p.rect(0, 0, FW, FH, '#0b0b26');
+          for (let i = 0; i < 90; i++) {
+            const tone = ['#1b2244', '#333f78', '#6c7cb4'][i % 3];
+            const x = 12 + Math.floor(Math.random() * (FW - 24)), y = 12 + Math.floor(Math.random() * (FH - 24));
+            p.set(x, y, tone);
+            if (i % 3 === 2 && i % 2 === 0) { p.set(x - 1, y, '#1b2244'); p.set(x + 1, y, '#1b2244'); p.set(x, y - 1, '#1b2244'); p.set(x, y + 1, '#1b2244'); }
+          }
+          // The zodiac wheel around the socket: two rings, twelve houses, thirty-six minor ticks.
+          const cx = e.x * S, cy = e.y * S;
+          p.ring(cx, cy, 96 * S, '#151a38');
+          p.ring(cx, cy, 86 * S, '#1f2650'); p.ring(cx, cy, 86 * S + 1, '#1f2650');
+          p.ring(cx, cy, 82 * S, '#2b3a72', 24);
+          p.ring(cx, cy, 60 * S, '#1b2244', 8);
+          for (let i = 0; i < 36; i++) {
+            const a = i * Math.PI / 18, major = i % 3 === 0;
+            const r0 = major ? 82 * S : 84 * S, r1 = 86 * S;
+            for (let r = r0; r <= r1; r += 0.5) { const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r; p.set(x, y, major ? '#3c50a0' : '#2b3a72'); if (major) p.set(x + (Math.abs(Math.cos(a)) < 0.7 ? 1 : 0), y + (Math.abs(Math.cos(a)) < 0.7 ? 0 : 1), '#3c50a0'); }
+            if (major) {
+              const gx = Math.round(cx + Math.cos(a) * 91 * S), gy = Math.round(cy + Math.sin(a) * 91 * S);
+              p.set(gx, gy, '#4a5fb0'); p.set(gx - 1, gy, '#3c50a0'); p.set(gx + 1, gy, '#3c50a0'); p.set(gx, gy - 1, '#3c50a0'); p.set(gx, gy + 1, '#3c50a0');
+              p.set(gx - 2, gy, '#2b3a72'); p.set(gx + 2, gy, '#2b3a72'); p.set(gx, gy - 2, '#2b3a72'); p.set(gx, gy + 2, '#2b3a72');
+            }
+          }
+          for (let x = 8; x < W - 8; x += 16) { p.rect(x * S, (PY + PH + 6) * S, 8 * S, 1, '#151a38'); p.rect(x * S + 3, (PY + PH + 6) * S + 1, 8 * S - 6, 1, '#10142e'); }
+          return p.toCanvas();
+        }
+
+        bakeIris(bands, fibers) {
+          const p = new Pix(FW, FH);
+          p.rect(0, 0, FW, FH, '#dbe4ff');
+          for (let i = 0; i < 60; i++) p.rect(Math.floor(Math.random() * FW), 60 + Math.floor(Math.random() * 660), Math.floor(Math.random() * 30) + 12, 1, '#c7d2f5');
+          const cx = PUPIL.cx * S, cy = PUPIL.cy * S;
+          [104, 98, 88, 76, 66, 56, 46, 38].forEach((r, i) => { p.disc(cx, cy, r * S + 4, bands[i], 0.5); p.disc(cx, cy, r * S, bands[i]); });
+          for (let i = 0; i < 28; i++) {
+            const a = i * Math.PI * 2 / 28 + 0.1, tone = fibers[i % 2];
+            for (let r = 40 * S; r < 100 * S; r += 0.5) { p.set(cx + Math.cos(a) * r, cy + Math.sin(a) * r, tone); if (i % 2) p.set(cx + Math.cos(a) * r + 1, cy + Math.sin(a) * r, tone); }
+          }
+          for (let r = 100 * S; r < 104 * S; r++) p.ring(cx, cy, r, '#0b0b26');
+          p.rect(0, 0, FW, 18 * S, '#3b2a0e');
+          p.rect(0, 18 * S, FW, 2 * S, '#7a5a08');
+          p.rect(0, 20 * S, FW, 2, '#dfae2c'); p.rect(0, 20 * S + 2, FW, 1, '#ffe9a0');
+          for (let x = 6; x < W; x += 22) { p.rect(x * S, 21 * S, 6, 18, '#7a5a08'); p.rect(x * S, 21 * S, 2, 18, '#a8841c'); }
+          return p.toCanvas();
+        }
+
+        beep(f, d, type, vol) {
+          if (this.state.muted) return;
+          try {
+            if (!this.ac) this.ac = new (window.AudioContext || window.webkitAudioContext)();
+            const t = this.ac.currentTime, o = this.ac.createOscillator(), g = this.ac.createGain();
+            o.type = type || 'square'; o.frequency.setValueAtTime(f, t);
+            g.gain.setValueAtTime(vol || 0.05, t);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+            o.connect(g); g.connect(this.ac.destination); o.start(t); o.stop(t + d);
+          } catch (err) { /* audio unavailable */ }
+        }
+        arp(list, step) { list.forEach((f, i) => setTimeout(() => this.beep(f, 0.09, 'square', 0.05), i * (step || 60))); }
+
+        // ---------- rules (as v2) ----------
+        buildLevel(n) {
+          const lv = LEVELS[n % LEVELS.length];
+          this.layout = lv.rows;
+          this.eye = lv.eye; this.diadem = lv.diadem; this.bg = this.bakeBackground(lv.eye);
+          const gx = Math.max(FX0 + 4, Math.min(FX1 - 4 - GATE_W, Math.round(lv.eye.x - GATE_W / 2)));
+          this.gate = [gx, gx + GATE_W];
+          this.grid = []; this.remaining = 0;
+          lv.rows.forEach((row) => {
+            const line = [];
+            for (let c = 0; c < COLS; c++) {
+              const ch = row[c] || '.';
+              if (ch === '.' || !COLORS[ch]) { line.push(null); continue; }
+              line.push({ hp: HP[ch] || 1, ch, pts: COLORS[ch][3], born: 0 });
+              this.remaining++;
+            }
+            this.grid.push(line);
+          });
+          const count = Math.max(0, Math.min(3, this.props.beastCount ?? 3));
+          this.beasts = lv.beasts.slice(0, count).map((b, i) => {
+            const f = FORMS[lv.form || 0];
+            return { x: b[0], y: b[1], form: lv.form || 0, on: true, dir: i % 2 ? -1 : 1, bob: Math.random() * 6.28, flash: 0, w: f.w };
+          });
+          this.lit = this.diadem.map(() => false);
+          this.sigilsOn = lv.sigils !== false;
+          this.sigils = [false, false, false]; this.sigilNext = 0;
+          this.gateT = 0; this.boss = null; this.pops = [];
+          this.final = null; this.awake = false; this.sealBroken = 0;
+          this.tears = []; this.tearT = 200;
+          this.gaze = { phase: 'idle', t: 240, x: this.eye.x }; this.petrify = 0;
+          this.setState({ hint: true, awake: false });
+          this.resetBall();
+          this.syncHud();
+        }
+
+        resetBall() {
+          this.balls.forEach((b, i) => { b.on = i === 0; b.trail = []; });
+          this.setPaddle(46);
+          this.timers = { E: 0, L: 0, P: 0, M: 0 };
+          this.drops.forEach(d => { d.on = false; });
+          this.shots.forEach(s => { s.on = false; });
+          this.petrify = 0;
+          this.gaze.phase = 'idle'; this.gaze.t = 240;
+          this.breakChain();
+          this.setState({ screen: this.booted ? 'serve' : 'title', power: '' });
+        }
+
+        setPaddle(w) { this.pw = w; this.px = Math.max(FX0, Math.min(FX1 - w, this.px)); }
+
+        speed() { return Math.min(4.8, 3.2 + this.state.level * 0.25) * (this.props.ballSpeed ?? 1); }
+
+        launch() {
+          const b = this.balls[0];
+          b.on = true;
+          const sp = this.speed();
+          b.x = this.px + this.pw / 2 - BALL / 2; b.y = PY - BALL - 1;
+          b.vx = (Math.random() < 0.5 ? -1 : 1) * sp * 0.55; b.vy = -sp * 0.83;
+          this.setState({ screen: this.boss ? 'bonus' : 'play', hint: false });
+          this.beep(520, 0.07);
+        }
+
+        // ---------- chain ----------
+        gain(pts, x, y) {
+          const total = pts * this.mult;
+          this.setState(st => ({ score: st.score + total }));
+          if (x != null) this.pops.push({ x, y, t: 34, s: (this.mult > 1 ? 'x' + this.mult + ' ' : '') + total });
+        }
+        bumpChain() {
+          this.chain++;
+          if (this.chain > this.best) this.best = this.chain;
+          const m = Math.min(8, 1 + Math.floor(this.chain / 3));
+          if (m !== this.mult) { this.mult = m; this.beep(600 + m * 70, 0.05, 'square', 0.04); }
+          this.syncHud();
+        }
+        breakChain() { this.chain = 0; this.mult = 1; this.syncHud(); }
+        syncHud() {
+          this.setState({ chain: this.chain, mult: this.mult, bestChain: this.best,
+                          sigil: this.sigilNext, stars: this.lit.filter(Boolean).length,
+                          portal: this.gateT > 0 });
+        }
+
+        key(e) {
+          const s = this.state.screen;
+          if (s === 'entry') {
+            if (/^[a-zA-Z0-9]$/.test(e.key) && this.state.entry.length < 3) {
+              const v = this.state.entry + e.key.toUpperCase();
+              this.setState({ entry: v });
+              this.beep(700, 0.04);
+              if (v.length === 3) setTimeout(() => this.commitScore(v), 260);
+            } else if (e.key === 'Backspace') this.setState({ entry: this.state.entry.slice(0, -1) });
+            else if (e.key === 'Enter' && this.state.entry.length) this.commitScore(this.state.entry);
+            return;
+          }
+          const k = e.key.toLowerCase();
+          if (k === 'p' && (s === 'play' || s === 'bonus' || s === 'pause')) {
+            if (s === 'pause') this.setState({ screen: this.pausedFrom || 'play' });
+            else { this.pausedFrom = s; this.setState({ screen: 'pause' }); }
+            this.beep(300, 0.06);
+          }
+          if (k === 'm') this.setState({ muted: !this.state.muted });
+          if (k === ' ') { e.preventDefault(); this.advance(); }
+          // test shortcuts: N = next veil, B = open the eye (bonus gate) now
+          if (k === 'n' && (s === 'play' || s === 'serve' || s === 'pause')) {
+            const n = (this.state.level + 1) % LEVELS.length;
+            this.boss = null;
+            this.setState({ level: n }, () => this.buildLevel(n));
+            this.arp([523, 784], 50);
+          }
+          if (k === 'b' && s === 'play' && !this.boss && this.gateT <= 0 && this.sigilsOn) this.openGate();
+          if (e.key === 'Escape' && (s === 'play' || s === 'bonus' || s === 'pause' || s === 'serve')) this.gameOver();
+        }
+
+        advance() {
+          const s = this.state.screen;
+          if (s === 'title') { this.booted = true; this.best = 0; this.setState({ score: 0, lives: this.props.startLives ?? 3, level: (this.props.startVeil ?? 1) - 1 }, () => this.buildLevel(this.state.level)); this.arp([392, 523, 659]); }
+          else if (s === 'serve') this.launch();
+          else if (s === 'clear') { const n = this.state.level + 1; this.setState({ level: n }, () => this.buildLevel(n)); }
+          else if (s === 'over' || s === 'ending') this.afterOver();
+          else if (s === 'scores') this.setState({ screen: 'title' });
+        }
+
+        gameOver() { this.boss = null; this.final = null; this.setState({ screen: 'over' }); this.arp([392, 330, 262, 196], 130); }
+
+        afterOver() {
+          const low = this.state.scores.length < 5 ? 0 : this.state.scores[this.state.scores.length - 1].s;
+          if (this.state.score > low) this.setState({ screen: 'entry', entry: '' });
+          else this.setState({ screen: 'scores' });
+        }
+
+        loadScores() {
+          try {
+            const raw = localStorage.getItem('shatter.observer.hi.v1');
+            if (raw) { const p = JSON.parse(raw); if (Array.isArray(p) && p.length) this.setState({ scores: p }); }
+          } catch (err) { /* ignore */ }
+        }
+
+        commitScore(name) {
+          const list = this.state.scores.concat([{ n: name, s: this.state.score }]).sort((a, b) => b.s - a.s).slice(0, 5);
+          try { localStorage.setItem('shatter.observer.hi.v1', JSON.stringify(list)); } catch (err) { /* ignore */ }
+          this.setState({ scores: list, screen: 'scores', entry: '' });
+        }
+
+        tick = (t) => {
+          this.raf = requestAnimationFrame(this.tick);
+          const dt = Math.min(50, t - (this.last || t)); this.last = t;
+          this.acc = (this.acc || 0) + dt;
+          let guard = 0;
+          while (this.acc >= 16.667 && guard++ < 4) { this.step(); this.acc -= 16.667; }
+          this.draw();
+        };
+
+        step() {
+          const s = this.state.screen;
+          const mode = this.lv().mode;
+          this.frame++;
+          if (this.shake > 0) this.shake--;
+          if (this.blink > 0) this.blink--;
+          else if (--this.blinkNext <= 0) {
+            this.blink = 14; this.blinkNext = 180 + Math.floor(Math.random() * 260);
+            if (mode === 'wrath' && s === 'play') this.regen();
+          }
+          this.pops.forEach(p => { p.t--; p.y -= 0.35; });
+          if (this.pops.length) this.pops = this.pops.filter(p => p.t > 0);
+          if (s !== 'play' && s !== 'serve' && s !== 'bonus') return;
+          if (s === 'serve') { const b = this.balls[0]; b.x = this.px + this.pw / 2 - BALL / 2; b.y = PY - BALL - 1; return; }
+
+          if (this.petrify > 0) this.petrify--;
+          let changed = false;
+          ['E', 'L', 'P', 'M'].forEach(k => {
+            if (this.timers[k] > 0 && --this.timers[k] === 0) { changed = true; if (k === 'E') this.setPaddle(46); }
+          });
+          if (changed) this.syncPower();
+
+          if (this.gateT > 0 && --this.gateT === 0) { this.sigils = [false, false, false]; this.sigilNext = 0; this.syncHud(); }
+
+          if (this.timers.L > 0 && --this.fireT <= 0) {
+            this.fireT = 26;
+            this.shots.filter(x => !x.on).slice(0, 2).forEach((sh, i) => {
+              sh.on = true; sh.x = this.px + (i === 0 ? 5 : this.pw - 8); sh.y = PY - 9;
+            });
+            this.beep(880, 0.04, 'square', 0.035);
+          }
+          this.shots.forEach(sh => {
+            if (!sh.on) return;
+            sh.y -= 5.5;
+            if (sh.y < FY0) { sh.on = false; return; }
+            if (s === 'bonus') { if (this.boss && this.hitBox(sh.x, sh.y, 2, 9, this.circleBox(this.boss))) { this.hurtBoss(); sh.on = false; } return; }
+            if (this.final && this.hitBox(sh.x, sh.y, 2, 9, this.circleBox(this.final))) { this.hurtFinal(); sh.on = false; return; }
+            const tear = this.tearAt(sh.x, sh.y, 2, 9);
+            if (tear) { this.burstTear(tear); sh.on = false; return; }
+            const beast = this.beastAt(sh.x, sh.y, 2, 9);
+            if (beast) { this.hurtBeast(beast); sh.on = false; return; }
+            const cell = this.cellAt(sh.x + 1, sh.y);
+            if (cell) { this.damage(cell); sh.on = false; }
+          });
+
+          if (s === 'bonus') this.stepBoss();
+          else {
+            this.stepBeasts();
+            if (mode === 'tear') this.stepTears();
+            if (mode === 'iris') this.stepGaze(this.eyePupil[0], this.eyePupil[1] + 6);
+            if (mode === 'lid' && this.final) { this.stepFinal(); this.stepGaze(this.final.x, this.final.y + PUPIL.r); }
+            for (let r = 0; r < this.grid.length; r++) for (let c = 0; c < COLS; c++) { const cell = this.grid[r][c]; if (cell && cell.born > 0) cell.born--; }
+          }
+
+          this.balls.forEach(b => { if (b.on) this.moveBall(b); });
+          if (!this.balls.some(b => b.on)) { if (s === 'bonus') this.exitBonus(false); else this.die(); }
+
+          this.drops.forEach(d => {
+            if (!d.on) return;
+            d.y += 1.3;
+            if (d.y > H) { d.on = false; return; }
+            if (d.y + 8 >= PY && d.y <= PY + PH && d.x + 20 > this.px && d.x < this.px + this.pw) {
+              d.on = false; this.apply(d.k);
+            }
+          });
+        }
+
+        stepBeasts() {
+          this.beasts.forEach(b => {
+            if (!b.on) return;
+            const f = FORMS[b.form];
+            b.x += b.dir * f.sp;
+            b.bob += b.form === 2 ? 0.11 : 0.05;
+            if (b.flash > 0) b.flash--;
+            if (b.x <= FX0 + 1) { b.x = FX0 + 1; b.dir = 1; }
+            if (b.x + f.w >= FX1 - 1) { b.x = FX1 - 1 - f.w; b.dir = -1; }
+          });
+        }
+
+        stepGaze(srcX, srcY) {
+          const gz = this.gaze;
+          gz.sx = srcX; gz.sy = srcY;
+          if (gz.phase === 'idle') { if (--gz.t <= 0) { gz.phase = 'charge'; gz.t = 45; gz.x = srcX; this.beep(1200, 0.08, 'sine', 0.03); } }
+          else if (gz.phase === 'charge') { gz.x = srcX; if (--gz.t <= 0) { gz.phase = 'fire'; gz.t = 50; this.beep(90, 0.35, 'sawtooth', 0.05); } }
+          else {
+            gz.x += (this.px + this.pw / 2 - gz.x) * 0.03;
+            if (gz.t % 5 === 0 && this.petrify <= 0 && gz.x + 3 > this.px && gz.x - 3 < this.px + this.pw) {
+              this.petrify = 70; this.shake = 5;
+              this.pops.push({ x: this.px + this.pw / 2, y: PY - 14, t: 44, s: 'PETRIFIED' });
+              this.beep(70, 0.4, 'sawtooth', 0.06);
+            }
+            if (--gz.t <= 0) { gz.phase = 'idle'; gz.t = this.final ? 220 : 330; }
+          }
+        }
+
+        stepTears() {
+          if (--this.tearT <= 0) {
+            this.tearT = 270;
+            this.tears.push({ x: Math.max(FX0 + 1, this.eyePupil[0] - 2), y: this.eye.y + this.eye.hh - 4, vy: 0.6, on: true });
+            this.beep(900, 0.1, 'sine', 0.03);
+          }
+          this.tears.forEach(t => {
+            if (!t.on) return;
+            t.y += t.vy; t.vy = Math.min(1.7, t.vy + 0.012);
+            if (t.y > 236) { t.on = false; this.hatch(t.x); }
+          });
+          if (this.tears.length) this.tears = this.tears.filter(t => t.on);
+        }
+        tearAt(x, y, w, h) { return this.tears.find(t => t.on && this.hitBox(x, y, w, h, { x: t.x, y: t.y, w: 5, h: 8 })) || null; }
+        burstTear(t) {
+          t.on = false;
+          this.bumpChain();
+          this.gain(600, t.x + 2, t.y - 4);
+          this.beep(1000, 0.06, 'square', 0.04);
+        }
+        hatch(x) {
+          if (this.beasts.filter(b => b.on).length >= 5) return;
+          this.beasts.push({ x: Math.max(FX0 + 1, Math.min(FX1 - 17, x - 8)), y: 222, form: 0, on: true, dir: Math.random() < 0.5 ? -1 : 1, bob: 0, flash: 10 });
+          this.shake = 3;
+          this.pops.push({ x: x, y: 214, t: 36, s: 'HATCHED' });
+          this.beep(200, 0.2, 'square', 0.05);
+        }
+
+        regen() {
+          const holes = [];
+          this.layout.forEach((row, r) => { for (let c = 0; c < COLS; c++) { const ch = row[c]; if (ch && ch !== '.' && COLORS[ch] && !this.grid[r][c]) holes.push([r, c, ch]); } });
+          if (!holes.length) return;
+          const h = holes[Math.floor(Math.random() * holes.length)];
+          this.grid[h[0]][h[1]] = { hp: 1, ch: h[2], pts: COLORS[h[2]][3], born: 16 };
+          this.remaining++;
+          this.beep(160, 0.14, 'square', 0.04);
+        }
+
+        wake() {
+          this.awake = true;
+          this.final = { x: this.eye.x, y: 126, vx: 1.2, vy: 0.9, hp: FINAL_HP, flash: 12, t: 0 };
+          this.blink = 0; this.shake = 12;
+          this.gaze = { phase: 'idle', t: 120, x: this.eye.x };
+          this.pops.push({ x: this.eye.x, y: 118, t: 50, s: 'IT WAKES' });
+          this.arp([110, 147, 196, 262, 349], 90);
+          this.setState({ awake: true });
+        }
+        stepFinal() {
+          const f = this.final;
+          f.t += 0.03;
+          if (f.flash > 0) f.flash--;
+          const sp = 1.1 + (FINAL_HP - f.hp) * 0.045;
+          const m = Math.hypot(f.vx, f.vy) || 1;
+          f.vx = f.vx / m * sp; f.vy = f.vy / m * sp;
+          f.x += f.vx; f.y += f.vy;
+          if (f.x < FX0 + PUPIL.r + 2) { f.x = FX0 + PUPIL.r + 2; f.vx = Math.abs(f.vx); }
+          if (f.x > FX1 - PUPIL.r - 2) { f.x = FX1 - PUPIL.r - 2; f.vx = -Math.abs(f.vx); }
+          if (f.y < 122) { f.y = 122; f.vy = Math.abs(f.vy); }
+          if (f.y > 232) { f.y = 232; f.vy = -Math.abs(f.vy); }
+        }
+        hurtFinal() {
+          const f = this.final;
+          f.hp--; f.flash = 8; this.shake = 5;
+          this.bumpChain();
+          this.gain(4000, f.x, f.y - 24);
+          this.beep(180 + (FINAL_HP - f.hp) * 20, 0.07, 'square', 0.055);
+          if (f.hp <= 0) {
+            this.final = null; this.gaze.phase = 'idle';
+            const litCount = this.lit.filter(Boolean).length;
+            this.setState(st => ({ screen: 'ending', score: st.score + 250000 + litCount * 25000 }));
+            this.arp([523, 659, 784, 1046, 1318, 1568], 110);
+          }
+        }
+
+        circleBox(o) { return { x: o.x - PUPIL.r, y: o.y - PUPIL.r, w: PUPIL.r * 2, h: PUPIL.r * 2 }; }
+
+        stepBoss() {
+          const bs = this.boss;
+          if (!bs) return;
+          bs.t += 0.018 + (bs.max - bs.hp) * 0.0035 + this.state.level * 0.002;
+          bs.x = PUPIL.cx + Math.cos(bs.t) * 66;
+          bs.y = PUPIL.cy + Math.sin(bs.t * 1.7) * 40;
+          if (bs.flash > 0) bs.flash--;
+          if (--this.bossT <= 0) this.exitBonus(false);
+        }
+
+        openGate() {
+          this.gateT = Math.round((this.props.gateSeconds ?? 10) * 60);
+          this.gateMax = this.gateT;
+          this.syncHud();
+          this.arp([523, 659, 784, 988, 1175], 70);
+        }
+
+        enterBonus() {
+          this.gateT = 0;
+          const max = PUPIL.hp + this.state.level * 3;
+          this.boss = { x: PUPIL.cx, y: PUPIL.cy, t: 0, hp: max, max, flash: 0 };
+          this.bossT = 1300;
+          this.balls.forEach((b, i) => { b.on = i === 0; b.trail = []; });
+          this.sigils = [false, false, false]; this.sigilNext = 0;
+          this.shots.forEach(sh => { sh.on = false; });
+          this.drops.forEach(d => { d.on = false; });
+          this.tears = [];
+          this.setState({ screen: 'serve' });
+          this.arp([392, 523, 784, 1046], 80);
+          this.syncHud();
+        }
+
+        hurtBoss() {
+          const bs = this.boss;
+          bs.hp--; bs.flash = 8;
+          this.shake = 4;
+          this.bumpChain();
+          this.gain(3000, bs.x, bs.y - 22);
+          this.beep(220 + (bs.max - bs.hp) * 30, 0.06, 'square', 0.055);
+          if (bs.hp <= 0) {
+            this.gain(60000, PUPIL.cx, PUPIL.cy - 40);
+            let n = 2;
+            this.lit.forEach((v, i) => { if (!v && n > 0) { this.lit[i] = true; n--; } });
+            this.arp([784, 988, 1175, 1568], 90);
+            this.exitBonus(true);
+          }
+        }
+
+        exitBonus(won) {
+          this.boss = null;
+          if (!won) this.beep(160, 0.25, 'sawtooth', 0.05);
+          this.balls.forEach((b, i) => { b.on = i === 0; b.trail = []; });
+          this.breakChain();
+          this.setState({ screen: 'serve' });
+        }
+
+        bounceCircle(b, o) {
+          const box = this.circleBox(o);
+          const rx = b.x + BALL / 2 - o.x, ry = b.y + BALL / 2 - o.y;
+          if (Math.abs(rx) > Math.abs(ry)) { b.vx = Math.sign(rx || 1) * Math.abs(b.vx); b.x = rx > 0 ? box.x + box.w : box.x - BALL; }
+          else { b.vy = Math.sign(ry || 1) * Math.abs(b.vy); b.y = ry > 0 ? box.y + box.h : box.y - BALL; }
+        }
+
+        moveBall(b) {
+          const inBonus = this.state.screen === 'bonus';
+          const steps = Math.max(1, Math.ceil(Math.max(Math.abs(b.vx), Math.abs(b.vy)) / 2));
+          const dx = b.vx / steps, dy = b.vy / steps;
+          b.trail.unshift([b.x, b.y]); if (b.trail.length > 5) b.trail.pop();
+          for (let i = 0; i < steps; i++) {
+            b.x += dx;
+            if (!inBonus) {
+              const cell = this.overlap(b);
+              if (cell) { if (this.timers.P <= 0) { b.x -= dx; b.vx = -b.vx; } this.damage(cell); }
+            }
+            b.y += dy;
+            if (!inBonus) {
+              const cell = this.overlap(b);
+              if (cell) { if (this.timers.P <= 0) { b.y -= dy; b.vy = -b.vy; } this.damage(cell); }
+            }
+
+            if (inBonus && this.boss) {
+              if (this.hitBox(b.x, b.y, BALL, BALL, this.circleBox(this.boss))) { this.bounceCircle(b, this.boss); this.hurtBoss(); }
+            } else {
+              if (this.final && this.hitBox(b.x, b.y, BALL, BALL, this.circleBox(this.final))) { this.bounceCircle(b, this.final); this.hurtFinal(); }
+              const beast = this.beastAt(b.x, b.y, BALL, BALL);
+              if (beast) {
+                const f = FORMS[beast.form];
+                const fromTop = b.y + BALL / 2 < beast.y + f.h / 2;
+                b.y = fromTop ? beast.y - BALL : beast.y + f.h;
+                b.vy = fromTop ? -Math.abs(b.vy) : Math.abs(b.vy);
+                this.hurtBeast(beast);
+              }
+              const tear = this.tearAt(b.x, b.y, BALL, BALL);
+              if (tear) this.burstTear(tear);
+              const sg = this.sigilAt(b.x, b.y);
+              if (sg >= 0) { b.vy = Math.abs(b.vy); b.y = SIGILS[sg][1] + SGH; this.hitSigil(sg); }
+            }
+
+            if (b.x <= FX0) { b.x = FX0; b.vx = Math.abs(b.vx); this.beep(240, 0.03, 'square', 0.03); }
+            if (b.x >= FX1 - BALL) { b.x = FX1 - BALL; b.vx = -Math.abs(b.vx); this.beep(240, 0.03, 'square', 0.03); }
+            if (b.y <= FY0) {
+              const cx = b.x + BALL / 2;
+              if (!inBonus && this.gateT > 0 && cx > this.gate[0] && cx < this.gate[1]) { b.on = false; this.enterBonus(); return; }
+              b.y = FY0; b.vy = Math.abs(b.vy); this.beep(240, 0.03, 'square', 0.03);
+            }
+
+            if (b.vy > 0 && b.y + BALL >= PY && b.y + BALL <= PY + PH + 3 && b.x + BALL > this.px && b.x < this.px + this.pw) {
+              const rel = Math.max(-1, Math.min(1, (b.x + BALL / 2 - (this.px + this.pw / 2)) / (this.pw / 2)));
+              const a = rel * 1.05, sp = this.speed();
+              b.vx = Math.sin(a) * sp; b.vy = -Math.abs(Math.cos(a) * sp);
+              b.y = PY - BALL;
+              this.breakChain();
+              this.beep(this.petrify > 0 ? 200 : 420 + rel * 90, 0.05);
+            }
+            if (b.y > H) { b.on = false; return; }
+          }
+        }
+
+        hitBox(x, y, w, h, box) { return x + w > box.x && x < box.x + box.w && y + h > box.y && y < box.y + box.h; }
+
+        beastAt(x, y, w, h) {
+          for (const b of this.beasts) {
+            if (!b.on) continue;
+            const f = FORMS[b.form];
+            if (this.hitBox(x, y, w, h, { x: b.x, y: b.y, w: f.w, h: f.h })) return b;
+          }
+          return null;
+        }
+
+        hurtBeast(b) {
+          const f = FORMS[b.form];
+          this.bumpChain();
+          this.gain(f.pts, b.x + f.w / 2, b.y);
+          this.shake = 3;
+          this.beep(300 + b.form * 120, 0.06, 'square', 0.05);
+          if (b.form < FORMS.length - 1) {
+            const nf = FORMS[b.form + 1];
+            b.x += (f.w - nf.w) / 2; b.y += (f.h - nf.h) / 2;
+            b.x = Math.max(FX0 + 1, Math.min(FX1 - 1 - nf.w, b.x));
+            b.form++; b.flash = 8;
+            this.arp([440 + b.form * 120, 660 + b.form * 120], 45);
+          } else {
+            b.on = false;
+            this.gain(5000, b.x + f.w / 2, b.y - 6);
+            this.shake = 6;
+            const free = this.lit.findIndex(v => !v);
+            if (free >= 0) { this.lit[free] = true; this.arp([880, 1175, 1568], 70); }
+            this.syncHud();
+          }
+        }
+
+        sigilAt(x, y) {
+          if (!this.sigilsOn) return -1;
+          for (let i = 0; i < SIGILS.length; i++) {
+            if (this.sigils[i]) continue;
+            if (this.hitBox(x, y, BALL, BALL, { x: SIGILS[i][0], y: SIGILS[i][1], w: SGW, h: SGH })) return i;
+          }
+          return -1;
+        }
+
+        hitSigil(i) {
+          if (i !== this.sigilNext) {
+            this.sigils = [false, false, false]; this.sigilNext = 0;
+            this.beep(120, 0.14, 'sawtooth', 0.05);
+            this.syncHud();
+            return;
+          }
+          this.sigils[i] = true;
+          this.sigilNext = i + 1;
+          this.bumpChain();
+          this.gain(1500, SIGILS[i][0] + SGW / 2, SIGILS[i][1] + SGH + 6);
+          this.beep(700 + i * 160, 0.07);
+          if (this.sigilNext >= SIGILS.length) {
+            const free = this.lit.findIndex(v => !v);
+            if (free >= 0) this.lit[free] = true;
+            this.openGate();
+          }
+          this.syncHud();
+        }
+
+        cellAt(x, y) {
+          const c = Math.floor((x - GX) / BW), r = Math.floor((y - GY) / BH);
+          if (r < 0 || c < 0 || c >= COLS || r >= this.grid.length) return null;
+          const cell = this.grid[r][c];
+          return cell ? { cell, r, c } : null;
+        }
+        overlap(b) {
+          const pts = [[b.x + 1, b.y + 1], [b.x + BALL - 1, b.y + 1], [b.x + 1, b.y + BALL - 1], [b.x + BALL - 1, b.y + BALL - 1]];
+          for (const p of pts) { const hit = this.cellAt(p[0], p[1]); if (hit) return hit; }
+          return null;
+        }
+
+        damage(hit) {
+          const { cell, r, c } = hit;
+          cell.hp--;
+          if (cell.hp > 0) { cell.hurt = true; this.beep(180, 0.04, 'square', 0.045); return; }
+          this.grid[r][c] = null;
+          this.remaining--;
+          this.bumpChain();
+          this.gain(cell.pts, GX + c * BW + BW / 2, GY + r * BH);
+          this.beep(560 + (5 - r) * 45, 0.05);
+          if (Math.random() < (this.props.dropRate ?? 0.13)) this.spawnDrop(GX + c * BW, GY + r * BH);
+          const mode = this.lv().mode;
+          if (mode === 'lid') {
+            if (!this.awake && r >= SEAL.r0 && r <= SEAL.r1 && c >= SEAL.c0 && c <= SEAL.c1) {
+              this.sealBroken++;
+              if (this.sealBroken >= SEAL.need) this.wake();
+              else if (this.sealBroken % 3 === 0) this.pops.push({ x: this.eye.x, y: 118, t: 30, s: 'SEAL ' + this.sealBroken + '/' + SEAL.need });
+            }
+            return;
+          }
+          if (this.remaining <= 0) {
+            const litCount = this.lit.filter(Boolean).length;
+            const bonus = (this.state.level + 1) * 20000 + litCount * 25000;
+            this.boss = null;
+            this.setState(st => ({ screen: 'clear', bonus, score: st.score + bonus }));
+            this.arp([523, 659, 784, 1046]);
+          }
+        }
+
+        spawnDrop(x, y) {
+          const d = this.drops.find(k => !k.on); if (!d) return;
+          const kinds = ['E', 'M', 'L', 'P'];
+          d.k = kinds[Math.floor(Math.random() * kinds.length)];
+          d.x = x + 5; d.y = y; d.on = true;
+        }
+
+        apply(k) {
+          if (k === 'E') { this.setPaddle(72); this.timers.E = 720; }
+          if (k === 'L') { this.timers.L = 720; this.fireT = 10; }
+          if (k === 'P') { this.timers.P = 480; }
+          if (k === 'M') {
+            this.timers.M = 180;
+            const src = this.balls.find(b => b.on); if (!src) return;
+            const sp = this.speed();
+            this.balls.filter(b => !b.on).slice(0, 2).forEach((b, i) => {
+              b.on = true; b.x = src.x; b.y = src.y; b.trail = [];
+              const a = (i === 0 ? -0.6 : 0.6);
+              b.vx = Math.sin(a) * sp; b.vy = -Math.abs(Math.cos(a) * sp);
+            });
+          }
+          this.syncPower();
+          this.arp([659, 880], 50);
+        }
+
+        syncPower() {
+          const on = ['E', 'M', 'L', 'P'].filter(k => this.timers[k] > 0).map(k => POWER_NAMES[k]);
+          this.setState({ power: on.join(' ') });
+        }
+
+        die() {
+          this.beep(140, 0.3, 'sawtooth', 0.06);
+          const lives = this.state.lives - 1;
+          this.setState({ lives });
+          if (lives <= 0) this.gameOver(); else this.resetBall();
+        }
+
+        // ---------- drawing: fx_ is the fine brush, px_ the classic game-pixel brush ----------
+        fx_(x, y, w, h, c) { const g = this.ctx; g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); }
+        px_(x, y, w, h, c) { this.fx_(Math.round(x) * S, Math.round(y) * S, w * S, h * S, c); }
+
+        lineF(x0, y0, x1, y1, c, dash) {
+          let x = Math.round(x0), y = Math.round(y0);
+          const ex = Math.round(x1), ey = Math.round(y1);
+          const sx = x < ex ? 1 : -1, sy = y < ey ? 1 : -1;
+          let dx = Math.abs(ex - x), dy = Math.abs(ey - y), err = dx - dy, guard = 0, i = 0;
+          const g = this.ctx; g.fillStyle = c;
+          while (guard++ < 2000) {
+            if (!dash || (i++ % dash) < dash - 3) g.fillRect(x, y, 1, 1);
+            if (x === ex && y === ey) break;
+            const e2 = err * 2;
+            if (e2 > -dy) { err -= dy; x += sx; }
+            if (e2 < dx) { err += dx; y += sy; }
+          }
+        }
+
+        ringF(cx, cy, r, col, dash) {
+          let x = Math.round(r), y = 0, err = 1 - x, i = 0;
+          const g = this.ctx; g.fillStyle = col;
+          cx = Math.round(cx); cy = Math.round(cy);
+          while (x >= y) {
+            if (!dash || (i++ % dash) < dash - Math.max(2, Math.round(dash / 3))) {
+              [[x, y], [y, x], [-y, x], [-x, y], [-x, -y], [-y, -x], [y, -x], [x, -y]].forEach(p => g.fillRect(cx + p[0], cy + p[1], 1, 1));
+            }
+            y++;
+            if (err < 0) err += 2 * y + 1; else { x--; err += 2 * (y - x) + 1; }
+          }
+        }
+
+        discF(cx, cy, r, col) {
+          const g = this.ctx; g.fillStyle = col;
+          cx = Math.round(cx); cy = Math.round(cy);
+          for (let dy = -r; dy <= r; dy++) { const w = Math.round(Math.sqrt(Math.max(0, r * r - dy * dy))); g.fillRect(cx - w, cy + dy, w * 2 + 1, 1); }
+        }
+
+        // ---- the Observer ----
+        scleraSprite(hw, hhO) {
+          return this.sprite('sc' + hw + '_' + hhO, () => {
+            const HW = hw * S, HO = hhO * S, p = new Pix(2 * HW + 24, 2 * HO + 24), ox = HW + 12, oy = HO + 16;
+            const almond = (W_, H_, fn) => { for (let dy = -H_; dy <= H_; dy++) { const t = dy / H_; const w = Math.round(W_ * (1 - t * t)); if (w <= 0) continue; fn(oy + dy, ox - w, 2 * w, dy, t); } };
+            almond(HW + 4, HO + 3, (y, x0, w) => p.rect(x0, y, w, 1, '#3b2a0e'));
+            almond(HW + 2, HO + 2, (y, x0, w) => p.rect(x0, y, w, 1, '#7a5a08'));
+            almond(HW + 1, HO + 1, (y, x0, w, dy) => { if (dy <= -(HO - 1)) p.rect(x0, y, w, 1, '#ffe9a0'); });
+            almond(HW, HO, (y, x0, w, dy, t) => {
+              p.rect(x0, y, w, 1, '#dbe4ff');
+              if (t < -0.62) p.rect(x0, y, w, 1, '#c7d2f5');
+              else if (t < -0.4) p.dither(x0, y, w, 1, '#c7d2f5', (-0.4 - t) / 0.22);
+              if (t > 0.84) p.dither(x0, y, w, 1, '#c7d2f5', (t - 0.84) / 0.16);
+              if (dy <= -HO + 2) p.rect(x0, y, w, 1, '#dfae2c');
+              if (dy >= HO - 1) p.rect(x0, y, w, 1, '#7a5a08');
+            });
+            // Lashes sit on the almond's own edge and lean outward.
+            [[HW - 3 * S, 1], [HW - 9 * S, 1], [-(HW - 3 * S), -1], [-(HW - 9 * S), -1]].forEach(([dx, sgn]) => {
+              const t = Math.sqrt(Math.max(0, 1 - Math.abs(dx) / HW)), edge = oy - Math.round(HO * t) - 2;
+              for (let k = 0; k < 9; k++) p.rect(ox + dx + sgn * Math.floor(k / 3), edge - k, 2, 1, k > 6 ? '#ffe9a0' : '#dfae2c');
+            });
+            p.rect(ox - HW - 9, oy - 1, 9, 3, '#7a5a08'); p.rect(ox + HW, oy - 1, 9, 3, '#7a5a08');
+            p.rect(ox - HW - 9, oy - 1, 9, 1, '#dfae2c'); p.rect(ox + HW, oy - 1, 9, 1, '#dfae2c');
+            return { c: p.toCanvas(), ox, oy };
+          });
+        }
+
+        irisSprite(tint, IR) {
+          return this.sprite('ir' + tint + IR, () => {
+            const T = TINTS[tint] || TINTS.blue, col = T[0], edge = T[1], inner = T[2];
+            const p = new Pix(2 * IR + 2, 2 * IR + 2), c = IR + 1;
+            p.disc(c, c, IR, edge);
+            p.disc(c, c, IR - 3, col);
+            p.disc(c, c, IR - 1, col, 0.5);
+            for (let i = 0; i < 28; i++) {
+              const a = i * Math.PI * 2 / 28 + 0.1, tone = i % 2 ? inner : edge;
+              for (let r = IR * 0.42; r < IR - 3; r += 0.5) p.set(c + Math.cos(a) * r, c + Math.sin(a) * r, tone);
+            }
+            p.disc(c, c, IR * 0.5, inner, 0.35);
+            p.disc(c, c, IR * 0.42, edge, 0.5);
+            return p.toCanvas();
+          });
+        }
+
+        pupilSprite(PR, pupil) {
+          return this.sprite('pu' + PR + (pupil ? 'p' : 's'), () => {
+            const p = new Pix(2 * PR + 2, 2 * PR + 2), c = PR + 1;
+            if (pupil) {
+              p.disc(c, c, PR, '#05050f');
+              const gr = Math.max(1.5, PR * 0.18);
+              p.disc(c - PR * 0.42, c - PR * 0.44, gr, '#ffffff');
+              p.disc(c + PR * 0.1, c - PR * 0.06, Math.max(1, gr * 0.45), '#dbe4ff');
+            } else {
+              p.disc(c, c, PR, '#55000f');
+              p.disc(c, c, PR - 2, '#8e1220');
+              p.disc(c, c, PR - 1, '#8e1220', 0.5);
+            }
+            return p.toCanvas();
+          });
+        }
+
+        // Almond eye: sclera sprite per opening, iris + pupil clipped inside, tracking (tx,ty) in game units.
+        drawEye(cx, cy, hw, hh, open, tx, ty, tint, pupil, store) {
+          const hhO = Math.max(2, Math.round(hh * open));
+          const ir = Math.round(hh * 0.8), pr = Math.round(hh * 0.34);
+          const mx = hw - ir - 4, my = Math.max(0, hhO - pr - 1);
+          const ox = Math.max(-mx, Math.min(mx, (tx - cx) * 0.4));
+          const oy = Math.max(-my, Math.min(my, (ty - cy) * 0.22));
+          const ix = Math.round(cx + ox), iy = Math.round(cy + oy);
+          if (store) this.eyePupil = [ix, iy];
+          const g = this.ctx, CX = cx * S, CY = cy * S, HW = hw * S, HO = hhO * S;
+          const IX = Math.round((cx + ox) * S), IY = Math.round((cy + oy) * S), IR = ir * S, PR = pr * S;
+          const sc = this.scleraSprite(hw, hhO);
+          g.drawImage(sc.c, CX - sc.ox, CY - sc.oy);
+          g.save(); g.beginPath();
+          for (let dy = -HO + 3; dy <= HO - 2; dy++) { const t = dy / HO; const w = Math.round((HW - 2) * (1 - t * t)); if (w > 0) g.rect(CX - w, CY + dy, 2 * w, 1); }
+          g.clip();
+          g.drawImage(this.irisSprite(tint, IR), IX - IR - 1, IY - IR - 1);
+          g.drawImage(this.pupilSprite(PR, pupil), IX - PR - 1, IY - PR - 1);
+          g.restore();
+          if (tint === 'red' && open > 0.5) {
+            [[cx - hw + 5, cy - 2, ix - ir - 3, iy - 5], [cx - hw + 5, cy + 3, ix - ir - 2, iy + 5], [cx + hw - 6, cy - 3, ix + ir + 3, iy - 4], [cx + hw - 6, cy + 2, ix + ir + 2, iy + 6]]
+              .forEach(v => { this.lineF(v[0] * S, v[1] * S, v[2] * S, v[3] * S, '#e8384f'); this.lineF(v[0] * S, v[1] * S + 1, v[2] * S, v[3] * S + 1, '#e8384f'); });
+          }
+          if (store && this.lv().mode === 'tear') {
+            this.fx_((ix - 7) * S, (cy + hhO + 1) * S, 2, 27, '#3c50a0'); this.fx_((ix + 6) * S, (cy + hhO + 1) * S, 2, 18, '#3c50a0');
+            this.fx_((ix - 7) * S, (cy + hhO + 10) * S, 2, 3, '#63b0ff');
+          }
+        }
+
+        eyeTarget() {
+          const b = this.balls.find(k => k.on);
+          if (b && this.state.screen === 'play') return [b.x + BALL / 2, b.y];
+          return [this.px + this.pw / 2, PY];
+        }
+
+        // ---- bricks: beveled, dithered, engraved kind marks; the hurt face darkens and cracks ----
+        brickSprite(ch, hurt) {
+          return this.sprite('b' + ch + (hurt ? 'x' : 'o'), () => {
+            const col = COLORS[ch];
+            let flat = col[0], light = col[1], dark = col[2];
+            if (hurt) { light = mix(flat, light, 0.35); flat = mix(flat, dark, 0.55); dark = mix(dark, '#000000', 0.35); }
+            const p = new Pix(BW * S, BH * S);
+            const ox = S, oy = S, w = BW * S - 2 * S, h = BH * S - 2 * S;
+            const L2 = mix(light, '#ffffff', 0.5), L1 = light, M1 = mix(flat, light, 0.3), M0 = flat;
+            const D1 = mix(flat, dark, 0.45), D2 = dark, D3 = mix(dark, '#000000', 0.4);
+            p.rect(ox + 2, oy + h, w, 2, '#05050f'); p.rect(ox + w, oy + 2, 2, h, '#05050f');
+            p.rect(ox + 1, oy, w - 2, h, D3); p.rect(ox, oy + 1, w, h - 2, D3);
+            p.rect(ox + 1, oy + 1, w - 2, h - 2, M0);
+            p.rect(ox + 1, oy + 1, w - 2, 5, M1);
+            p.dither(ox + 1, oy + 6, w - 2, 4, M1, 0.5);
+            p.dither(ox + 1, oy + h - 12, w - 2, 4, D1, 0.5);
+            p.rect(ox + 1, oy + h - 8, w - 2, 7, D1);
+            p.rect(ox + 2, oy + 1, w - 4, 1, L1); p.rect(ox + 1, oy + 2, 1, h - 4, L1);
+            p.rect(ox + 2, oy + h - 2, w - 4, 1, D2); p.rect(ox + w - 2, oy + 2, 1, h - 4, D2);
+            p.rect(ox + 4, oy + 3, 14, 1, L2); p.rect(ox + 4, oy + 4, 6, 1, L2); p.rect(ox + w - 14, oy + 3, 5, 1, L2);
+            const M = (x, y, mw, mh, c) => p.rect(x * S, y * S, mw * S, mh * S, c);
+            const E = (x, y, mw, mh) => { M(x, y, mw, mh, D2); p.rect(x * S, (y + mh) * S, mw * S, 1, L1); };
+            if (ch === 'S') { E(13, 4, 4, 1); E(14, 3, 2, 3); E(8, 7, 14, 1); }
+            else if (ch === 'G') { E(14, 3, 2, 6); E(12, 5, 6, 2); M(14, 5, 2, 2, L1); }
+            else if (ch === 'L') { E(4, 6, 22, 1); E(9, 4, 12, 1); E(13, 3, 4, 1); for (let i = 5; i < 26; i += 5) { M(i, 8, 1, 2, D2); p.rect(i * S, 8 * S, 1, 1, L1); } }
+            else { E(5, 8, 20, 1); E(14, 3, 2, 4); }
+            if (hurt) {
+              [[18, 4, 1], [56, 4, -1], [40, 20, 1]].forEach(([sx, sy, dir]) => {
+                let x = sx, y = sy;
+                for (let i = 0; i < 9; i++) { p.set(x, y, D3); p.set(x + 1, y, D3); y += 2; x += (i % 2 ? dir : -dir) * 2; }
+              });
+            }
+            return p.toCanvas();
+          });
+        }
+
+        drawBrick(x, y, ch, hurt, born) {
+          if (born > 0 && (born % 4 < 2)) { this.fx_((x + 1) * S, (y + 1) * S, 28 * S, 10 * S, '#ffffff'); return; }
+          this.ctx.drawImage(this.brickSprite(ch, !!hurt), x * S, y * S);
+        }
+
+        // ---- the Chariot: bronze crescent, red gem tips, blue core; grey stone when petrified ----
+        paddleSprite(w, st, hot) {
+          return this.sprite('pad' + w + (st ? 's' : 'b') + (hot ? 'h' : 'c'), () => {
+            const Wf = w * S, Hf = 24, p = new Pix(Wf, Hf);
+            const body = st ? '#8f9ac8' : '#dfae2c', hi = st ? '#dbe4ff' : '#ffe9a0', dk = st ? '#3c50a0' : '#7a5a08', dk2 = st ? '#1b2244' : '#3b2a0e';
+            const mid = mix(body, hi, 0.4), low = mix(body, dk, 0.45);
+            const gem = st ? '#5a5e80' : '#e8384f', gemHi = st ? '#8f9ac8' : '#ff8a9c', gemDk = st ? '#3c50a0' : '#8e1220';
+            const coreRim = st ? '#1b2244' : '#0b3a78', core = st ? '#5a5e80' : (hot ? '#ffcf1c' : '#2d7fe0'), coreHi = st ? '#8f9ac8' : (hot ? '#fff9d0' : '#a8d8ff');
+            // A bronze bar with rounded ends; the gems are set into bezels at each end rather than laid on top.
+            const ins = pillRows(Hf);
+            for (let y = 0; y < Hf; y++) {
+              const i = ins[y];
+              p.rect(i, y, Wf - 2 * i, 1, dk2);
+              if (y >= 1 && y <= 22) {
+                const c = y <= 2 ? hi : y <= 5 ? mid : y <= 14 ? body : y <= 17 ? null : y <= 20 ? low : dk;
+                if (c) p.rect(i + 1, y, Wf - 2 * i - 2, 1, c); else { p.rect(i + 1, y, Wf - 2 * i - 2, 1, body); p.dither(i + 1, y, Wf - 2 * i - 2, 1, low, 0.5); }
+              }
+            }
+            for (let x = 36; x < Wf - 36; x += 12) { p.rect(x, 8, 2, 9, dk); p.rect(x + 2, 8, 1, 9, hi); }
+            [12, Wf - 13].forEach(gx => {
+              p.disc(gx, 12, 9.5, dk2);
+              p.disc(gx, 12, 8.5, hi);
+              p.disc(gx + 1, 13, 8.5, dk);
+              p.disc(gx, 12, 7, dk2);
+              p.disc(gx, 12, 6, gemDk);
+              p.disc(gx, 12, 5, gem);
+              p.disc(gx - 1.5, 10.5, 2.8, gemHi);
+              p.disc(gx + 1.5, 13.5, 3.5, gemDk, 0.5);
+              p.rect(gx - 3, 9, 2, 2, '#ffffff');
+              [[gx - 8, 4], [gx + 6, 4]].forEach(([px, py]) => p.rect(px, py, 2, 2, hi));
+              [[gx - 8, 18], [gx + 6, 18]].forEach(([px, py]) => p.rect(px, py, 2, 2, dk));
+            });
+            const cx = Math.round(Wf / 2);
+            p.rect(cx - 12, 2, 24, 21, coreRim);
+            p.rect(cx - 10, 4, 20, 17, core);
+            p.rect(cx - 8, 5, 8, 2, coreHi); p.rect(cx - 9, 7, 2, 6, coreHi);
+            p.dither(cx - 10, 15, 20, 6, coreRim, 0.45);
+            p.rect(cx - 1, 7, 2, 11, coreHi); p.rect(cx - 2, 9, 4, 3, coreHi);
+            if (st) {
+              [[42, 5], [Wf - 48, 8]].forEach(([sx, sy]) => { let x = sx, y = sy; for (let i = 0; i < 6; i++) { p.rect(x, y, 2, 2, dk2); y += 2; x += i % 2 ? 2 : -1; } });
+            }
+            return p.toCanvas();
+          });
+        }
+
+        drawPaddle() {
+          const X = Math.round(this.px * S), Y = PY * S, w = this.pw, Wf = w * S;
+          const st = this.petrify > 0, hot = this.mult > 3 && !st;
+          this.ctx.drawImage(this.paddleSprite(w, st, hot), X, Y);
+          if (!st && (this.state.screen === 'play' || this.state.screen === 'bonus')) {
+            const f = this.frame % 4 < 2;
+            [[X + 30, f], [X + Wf - 39, !f]].forEach(([tx, k]) => {
+              this.fx_(tx, Y + 24, 9, k ? 5 : 3, '#e8384f');
+              this.fx_(tx + 1, Y + 24, 7, k ? 4 : 2, '#f07d10');
+              this.fx_(tx + 3, Y + 24, 3, k ? 3 : 2, '#ffcf1c');
+              this.fx_(tx + 4, Y + 24, 1, 1, '#fff9d0');
+            });
+          }
+          if (this.timers.L > 0) {
+            [X + 5 * S, X + Wf - 7 * S].forEach(cx => {
+              this.fx_(cx, Y - 9, 6, 9, '#3b2a0e'); this.fx_(cx + 1, Y - 8, 4, 8, '#ffcf1c'); this.fx_(cx + 1, Y - 9, 4, 2, '#fff9d0');
+            });
+          }
+        }
+
+        ballSprite() {
+          return this.sprite('ball', () => {
+            const p = new Pix(BALL * S, BALL * S);
+            p.disc(12, 12, 12, mix('#c98f0a', '#000000', 0.4));
+            p.disc(12, 12, 11, '#c98f0a');
+            p.disc(11, 11, 10, '#ffe14a');
+            p.disc(11.5, 11.5, 10.5, '#ffe14a', 0.5);
+            p.disc(9, 9, 4.5, '#fff9d0');
+            p.disc(9.5, 9.5, 5.5, '#fff9d0', 0.5);
+            p.rect(7, 7, 2, 2, '#ffffff'); p.set(9, 7, '#ffffff'); p.set(7, 9, '#ffffff');
+            return p.toCanvas();
+          });
+        }
+
+        drawBall(b) {
+          const tr = [['#c98f0a', 14], ['#8a6a00', 9], ['#4a3f0d', 5]];
+          tr.forEach((t, i) => { const p = b.trail[i + 1]; if (p) this.fx_((p[0] + BALL / 2) * S - t[1] / 2, (p[1] + BALL / 2) * S - t[1] / 2, t[1], t[1], t[0]); });
+          this.ctx.drawImage(this.ballSprite(), Math.round(b.x * S), Math.round(b.y * S));
+        }
+
+        dropSprite(k) {
+          return this.sprite('drop' + k, () => {
+            const col = DROP_COL[k], p = new Pix(20 * S, 8 * S);
+            const O = mix(col, '#000000', 0.5), HI = mix(col, '#ffffff', 0.45), LO = mix(col, '#0b0b26', 0.5);
+            const outer = pillRows(24), inner = pillRows(22);
+            for (let y = 0; y < 24; y++) p.rect(outer[y], y, 60 - 2 * outer[y], 1, O);
+            for (let y = 1; y < 23; y++) {
+              const ins = inner[y - 1] + 1;
+              for (let x = ins; x < 60 - ins; x++) {
+                const dith = BAYER[y & 3][x & 3] < 8;
+                p.set(x, y, y <= 1 ? '#ffffff' : y <= 4 ? HI : y <= 15 ? col : y <= 18 ? (dith ? col : LO) : y <= 21 ? LO : '#0b0b26');
+              }
+            }
+            return p.toCanvas();
+          });
+        }
+
+        drawDrop(d) {
+          const x = Math.round(d.x * S), y = Math.round(d.y * S), g = this.ctx;
+          g.drawImage(this.dropSprite(d.k), x, y);
+          g.font = '400 16px Silkscreen, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+          if (d.k !== 'P') { g.fillStyle = '#0b0b26'; g.fillText(d.k, x + 32, y + 15); }
+          g.fillStyle = d.k === 'P' ? '#0b0b26' : '#ffffff';
+          g.fillText(d.k, x + 30, y + 13);
+        }
+
+        drawDiadem() {
+          const D = this.diadem;
+          for (let i = 1; i < D.length; i++) {
+            if (!this.lit[i] || !this.lit[i - 1]) continue;
+            this.lineF(D[i - 1][0] * S, D[i - 1][1] * S, D[i][0] * S, D[i][1] * S, '#7a5a08', 8);
+            this.lineF(D[i - 1][0] * S, D[i - 1][1] * S + 1, D[i][0] * S, D[i][1] * S + 1, '#3b2a0e', 8);
+          }
+          D.forEach((p, i) => {
+            const x = p[0] * S + 1, y = p[1] * S + 1;
+            if (this.lit[i]) {
+              const tw = (this.frame + i * 7) % 30 < 15, arm = tw ? 12 : 8;
+              this.fx_(x - arm, y, arm * 2 + 1, 1, tw ? '#ffe14a' : '#ffcf1c');
+              this.fx_(x, y - arm, 1, arm * 2 + 1, tw ? '#ffe14a' : '#ffcf1c');
+              this.fx_(x - 4, y - 1, 9, 3, '#ffcf1c'); this.fx_(x - 1, y - 4, 3, 9, '#ffcf1c');
+              this.fx_(x - 2, y - 2, 5, 5, '#ffe14a'); this.fx_(x - 1, y - 1, 3, 3, '#fff9d0');
+              [[-3, -3], [3, -3], [-3, 3], [3, 3]].forEach(o => this.fx_(x + o[0], y + o[1], 1, 1, '#ffe9a0'));
+            } else {
+              this.fx_(x - 1, y - 1, 3, 3, '#2b2d40'); this.fx_(x, y, 1, 1, '#4a4c60');
+              this.fx_(x - 3, y, 1, 1, '#2b2d40'); this.fx_(x + 3, y, 1, 1, '#2b2d40'); this.fx_(x, y - 3, 1, 1, '#2b2d40'); this.fx_(x, y + 3, 1, 1, '#2b2d40');
+            }
+          });
+        }
+
+        drawSigils() {
+          if (!this.sigilsOn) return;
+          const g = this.ctx;
+          SIGILS.forEach((s, i) => {
+            const X = s[0] * S, Y = s[1] * S, Wp = SGW * S, Hp = SGH * S;
+            const done = this.sigils[i];
+            const next = !done && i === this.sigilNext;
+            const blink = next && (this.frame % 40 < 22);
+            const edge = done ? '#3fbf4f' : (blink ? '#ffcf1c' : '#7a5a08');
+            const fill = done ? '#155c1f' : '#3b2a0e';
+            this.fx_(X + 2, Y, Wp - 4, Hp, edge); this.fx_(X, Y + 2, Wp, Hp - 4, edge);
+            this.fx_(X + 2, Y + 2, Wp - 4, Hp - 4, fill);
+            const lit = mix(edge, '#ffffff', 0.35);
+            this.fx_(X + 2, Y + 2, Wp - 4, 1, lit); this.fx_(X + 2, Y + 2, 1, Hp - 4, lit);
+            this.fx_(X + 2, Y + Hp - 3, Wp - 4, 1, '#1f1608'); this.fx_(X + Wp - 3, Y + 2, 1, Hp - 4, '#1f1608');
+            [[X + 5, Y + 5], [X + Wp - 7, Y + 5], [X + 5, Y + Hp - 7], [X + Wp - 7, Y + Hp - 7]].forEach(([rx, ry]) => { this.fx_(rx, ry, 2, 2, '#1f1608'); this.fx_(rx, ry, 1, 1, lit); });
+            g.font = '400 16px Silkscreen, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+            const t = ['I', 'II', 'III'][i];
+            g.fillStyle = '#1f1608'; g.fillText(t, X + Wp / 2 + 2, Y + Hp / 2 + 3);
+            g.fillStyle = done ? '#a6f0a6' : (blink ? '#ffcf1c' : '#c9a24a');
+            g.fillText(t, X + Wp / 2, Y + Hp / 2 + 1);
+          });
+        }
+
+        drawGate() {
+          if (this.gateT <= 0) return;
+          const X0 = this.gate[0] * S, X1 = this.gate[1] * S, w = X1 - X0;
+          const t = this.frame % 12;
+          this.fx_(X0, 0, w, 9, '#0b0b26');
+          for (let i = 0; i < w; i += 12) {
+            const k = (i / 12 + t) % 3;
+            const c = k === 0 ? '#ffe14a' : (k === 1 ? '#f07d10' : '#e8384f');
+            this.fx_(X0 + i, 0, 12, 9, c); this.fx_(X0 + i, 0, 12, 2, mix(c, '#ffffff', 0.4)); this.fx_(X0 + i, 7, 12, 2, mix(c, '#000000', 0.4));
+          }
+          this.fx_(X0 - 3, 0, 3, 21, '#ffcf1c'); this.fx_(X1, 0, 3, 21, '#ffcf1c');
+          this.fx_(X0 - 3, 0, 1, 21, '#fff9d0'); this.fx_(X1, 0, 1, 21, '#fff9d0');
+          const bar = Math.round(w * (this.gateT / (this.gateMax || 600)));
+          this.fx_(X0, 12, w, 3, '#0b0b26'); this.fx_(X0, 12, bar, 3, '#8fd0ff'); this.fx_(X0, 12, bar, 1, '#d6ffff');
+        }
+
+        drawBeasts() {
+          this.beasts.forEach(b => {
+            if (!b.on) return;
+            const f = FORMS[b.form];
+            const fr = f.frames[Math.floor(this.frame / (b.form === 2 ? 6 : 12)) % f.frames.length];
+            const y = Math.round((b.y + Math.sin(b.bob) * (b.form === 2 ? 3 : 1.5)) * S);
+            const x = Math.round(b.x * S);
+            this.fx_(x + Math.round(f.w * S / 2) - 9, y + f.h * S + 5, 18, 2, '#151a38');
+            this.ctx.drawImage(this.sprites[fr], x, y);
+            if (b.flash > 0) { this.ctx.fillStyle = 'rgba(255,255,255,0.55)'; this.ctx.fillRect(x, y, f.w * S, f.h * S); }
+          });
+        }
+
+        drawTears() {
+          this.tears.forEach(t => { if (t.on) this.ctx.drawImage(this.sprites.tear, Math.round(t.x * S), Math.round(t.y * S)); });
+        }
+
+        drawGaze() {
+          const gz = this.gaze;
+          if (gz.phase === 'idle' || gz.sx == null) return;
+          if (gz.phase === 'charge') {
+            const k = this.frame % 6 < 3, r = (5 + (gz.t % 9)) * S;
+            this.ringF(gz.sx * S, gz.sy * S, r, k ? '#ffffff' : '#ffcf1c');
+            this.ringF(gz.sx * S, gz.sy * S, r + 1, k ? '#ffffff' : '#ffcf1c');
+            return;
+          }
+          const x = Math.round(gz.x * S), y0 = Math.round(gz.sy * S), h = PY * S - y0;
+          if (h <= 0) return;
+          const k = this.frame % 2;
+          this.fx_(x - 9, y0, 18, h, k ? '#8e1220' : '#e8384f');
+          this.fx_(x - 5, y0, 10, h, k ? '#e8384f' : '#ff8a9c');
+          this.fx_(x - 2, y0, 4, h, '#fff9d0');
+          for (let yy = y0 + k * 9; yy < PY * S; yy += 21) this.fx_(x - 12, yy, 24, 2, '#ff8a9c');
+        }
+
+        drawPupil(o, max, withTimer) {
+          const x = Math.round(o.x * S), y = Math.round(o.y * S), R = PUPIL.r * S;
+          for (let i = 0; i < 6; i++) {
+            const a = i * Math.PI / 3 + o.t * 0.5;
+            this.lineF(x + Math.cos(a) * (R + 6), y + Math.sin(a) * (R + 6), x + Math.cos(a) * (R + 48), y + Math.sin(a) * (R + 48), '#e8384f');
+            this.lineF(x + Math.cos(a) * (R + 6) + 1, y + Math.sin(a) * (R + 6), x + Math.cos(a) * (R + 48) + 1, y + Math.sin(a) * (R + 48), '#8e1220');
+          }
+          this.discF(x, y, R + 3, '#55000f');
+          this.discF(x, y, R, '#05050f');
+          this.discF(x - 17, y - 19, 5, '#ffffff'); this.discF(x - 8, y - 11, 2, '#dbe4ff');
+          if (o.flash > 0) { this.ringF(x, y, R + 9, '#ffffff'); this.ringF(x, y, R + 10, '#ffffff'); this.ringF(x, y, R + 15, '#ffe9a0'); }
+          const bw = Math.round((R * 2) * (o.hp / max));
+          this.fx_(x - R, y + R + 12, R * 2, 6, '#2a1000');
+          this.fx_(x - R, y + R + 12, bw, 6, '#e8384f'); this.fx_(x - R, y + R + 12, bw, 2, '#ff8a9c');
+          if (withTimer) {
+            const tw = Math.round((FW - 60) * Math.max(0, this.bossT) / 1300);
+            this.fx_(30, 18, FW - 60, 6, '#2a1d0c');
+            this.fx_(30, 18, tw, 6, tw < 270 ? '#e8384f' : '#ffcf1c');
+          }
+        }
+
+        drawPops() {
+          const g = this.ctx;
+          g.font = '400 16px Silkscreen, monospace';
+          g.textAlign = 'center'; g.textBaseline = 'middle';
+          this.pops.forEach(p => {
+            const x = Math.round(p.x * S), y = Math.round(p.y * S);
+            g.fillStyle = '#0b0b26';
+            g.fillText(p.s, x + 2, y + 2);
+            g.fillStyle = p.t > 12 ? '#ffe14a' : '#8a6a00';
+            g.fillText(p.s, x, y);
+          });
+        }
+
+        blinkOpen() {
+          if (this.blink <= 0) return 1;
+          const k = Math.abs(this.blink - 7) / 7;
+          return Math.max(0.06, k);
+        }
+
+        drawFrame() {
+          const T = ['#3b2a0e', '#ffe9a0', '#f4dd8a', '#dfae2c', '#dfae2c', '#c9a24a', '#a8841c', '#7a5a08', '#3b2a0e'];
+          const g = this.ctx;
+          T.forEach((c, i) => { g.fillStyle = c; g.fillRect(i, i, 1, FH - i); g.fillRect(FW - 1 - i, i, 1, FH - i); g.fillRect(i, i, FW - 2 * i, 1); });
+          for (let x = 12; x < W - 8; x += 24) { this.fx_(x * S, 2, 5, 5, '#7a5a08'); this.fx_(x * S + 1, 3, 2, 2, '#ffe9a0'); this.fx_(x * S + 3, 5, 1, 1, '#3b2a0e'); }
+          [FH / 3, (FH * 2) / 3].forEach(y => { this.fx_(2, y, 5, 5, '#7a5a08'); this.fx_(3, y + 1, 2, 2, '#ffe9a0'); this.fx_(FW - 7, y, 5, 5, '#7a5a08'); this.fx_(FW - 6, y + 1, 2, 2, '#ffe9a0'); });
+        }
+
+        drawTitle() {
+          const tc = this.root.querySelector('[data-title]');
+          if (!tc) return;
+          if (this.tcv !== tc) { this.tcv = tc; this.tctx = tc.getContext('2d'); this.tctx.imageSmoothingEnabled = false; }
+          const saved = this.ctx; this.ctx = this.tctx;
+          const g = this.ctx;
+          g.fillStyle = '#05050f'; g.fillRect(0, 0, 1440, 900);
+          this.tstars.forEach(s => { g.fillStyle = s.c; g.fillRect(s.x, s.y, 1, 1); if (s.big) { g.fillStyle = '#1b2244'; g.fillRect(s.x - 1, s.y, 3, 1); g.fillRect(s.x, s.y - 1, 1, 3); } });
+          const cx = 240 * S, cy = 92 * S;
+          this.ringF(cx, cy, 104 * S, '#151a38'); this.ringF(cx, cy, 104 * S + 1, '#151a38');
+          this.ringF(cx, cy, 98 * S, '#1b2244', 24);
+          this.ringF(cx, cy, 112 * S, '#10142e');
+          for (let i = 0; i < 24; i++) {
+            const a = i * Math.PI / 12;
+            g.fillStyle = i % 2 ? '#2b3a72' : '#1b2244';
+            for (let r = 98 * S; r <= 104 * S; r += 0.5) g.fillRect(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r), 1, 1);
+            if (i % 2 === 0) { const gx = Math.round(cx + Math.cos(a) * 108 * S), gy = Math.round(cy + Math.sin(a) * 108 * S); g.fillStyle = '#2b3a72'; g.fillRect(gx - 1, gy, 3, 1); g.fillRect(gx, gy - 1, 1, 3); g.fillStyle = '#3c50a0'; g.fillRect(gx, gy, 1, 1); }
+          }
+          this.drawEye(240, 92, 80, 28, this.blinkOpen(), this.mx, this.my, 'blue', true, false);
+          this.ctx = saved;
+        }
+
+        draw() {
+          const g = this.ctx;
+          if (this.state.screen === 'title') { this.drawTitle(); return; }
+          const lv = this.lv();
+          g.setTransform(1, 0, 0, 1, 0, 0);
+          const bonus = this.state.screen === 'bonus' || (this.boss && this.state.screen === 'serve');
+          g.drawImage(bonus ? (lv.tint === 'red' ? this.irisRed : this.irisBlue) : this.bg, 0, 0);
+          if (this.shake > 0) g.setTransform(1, 0, 0, 1, (this.frame % 2 ? 3 : -3), (this.frame % 3 ? 0 : 3));
+
+          if (bonus) {
+            if (this.boss) this.drawPupil(this.boss, this.boss.max, true);
+          } else {
+            const t = this.eyeTarget();
+            const lid = lv.mode === 'lid';
+            const open = lid && !this.awake ? 0.08 : this.blinkOpen();
+            const tint = this.gateT > 0 ? 'gold' : lv.tint;
+            const E = this.eye;
+            this.drawEye(E.x, E.y, E.hw, E.hh, open, t[0], t[1], tint, !(lid && this.awake), true);
+            this.drawDiadem();
+            for (let r = 0; r < this.grid.length; r++) {
+              for (let c = 0; c < COLS; c++) {
+                const cell = this.grid[r][c];
+                if (cell) this.drawBrick(GX + c * BW, GY + r * BH, cell.ch, cell.hurt, cell.born);
+              }
+            }
+            this.drawSigils();
+            this.drawTears();
+            this.drawBeasts();
+            if (this.final) this.drawPupil(this.final, FINAL_HP, false);
+            if (lv.mode === 'iris' || (lid && this.awake)) this.drawGaze();
+          }
+          this.drops.forEach(d => { if (d.on) this.drawDrop(d); });
+          this.shots.forEach(s => { if (s.on) { const x = Math.round(s.x * S), y = Math.round(s.y * S); this.fx_(x + 1, y, 4, 27, '#ffcf1c'); this.fx_(x + 2, y + 2, 2, 22, '#fff9d0'); this.fx_(x + 1, y, 4, 2, '#fff9d0'); } });
+          this.drawPaddle();
+          this.balls.forEach(b => { if (b.on) this.drawBall(b); });
+          this.drawPops();
+
+          g.setTransform(1, 0, 0, 1, 0, 0);
+          this.drawFrame();
+          if (!bonus) this.drawGate();
+          if (this.props.crt) { g.fillStyle = 'rgba(0,0,0,0.2)'; for (let y = 0; y < FH; y += 3) g.fillRect(0, y, FW, 1); }
+        }
+
+        pad(n, w) { let s = String(n); while (s.length < w) s = '0' + s; return s; }
+
+        renderVals() {
+          const st = this.state;
+          const top = st.scores[0] || DEFAULT_SCORES[0];
+          const lvl = LEVELS[st.level % LEVELS.length];
+          const sigilsOn = lvl.sigils !== false;
+          return {
+            rootRef: (el) => { if (el) this.root = el; },
+            isTitle: st.screen === 'title',
+            isServe: st.screen === 'serve',
+            isHint: st.screen === 'serve' && st.hint,
+            isPause: st.screen === 'pause',
+            isClear: st.screen === 'clear',
+            isEnding: st.screen === 'ending',
+            isOver: st.screen === 'over',
+            isScores: st.screen === 'scores' || st.screen === 'entry',
+            isEntry: st.screen === 'entry',
+            notEntry: st.screen === 'scores',
+            isBonus: st.screen === 'bonus',
+            isPortal: st.portal && st.screen === 'play',
+            isAwake: st.awake && st.screen === 'play',
+            scoreText: this.pad(st.score, 8),
+            hiText: this.pad(Math.max(top.s, st.score), 8),
+            hiName: top.n,
+            levelText: this.pad(st.level + 1, 2),
+            levelName: lvl.name,
+            levelHint: lvl.hint,
+            bonusText: this.pad(st.bonus, 6),
+            powerText: st.power || '- - -',
+            soundShort: st.muted ? 'OFF' : 'ON',
+            entryText: (st.entry + '___').slice(0, 3),
+            comboText: 'x' + st.mult,
+            comboColor: COMBO_COL[Math.min(COMBO_COL.length - 1, Math.floor((st.mult - 1) / 1.6))],
+            chainText: this.pad(st.chain, 2) + ' HITS',
+            bestChainText: this.pad(st.bestChain, 2),
+            starsText: st.stars + '/' + DIADEM.length,
+            sigilPips: [0, 1, 2].map(i => ({ c: !sigilsOn ? '#1f1608' : (i < st.sigil ? '#3fbf4f' : (i === st.sigil ? '#ffcf1c' : '#3b2a0e')) })),
+            starPips: DIADEM.map((s, i) => ({ c: i < st.stars ? '#ffe14a' : '#3b2a0e' })),
+            livesArr: Array.from({ length: Math.min(5, Math.max(0, st.lives - 1)) }, (_, i) => i),
+            scoreRows: st.scores.slice(0, 5).map((r, i) => ({
+              rank: this.pad(i + 1, 2), name: r.n, score: this.pad(r.s, 8),
+              color: i === 0 ? '#ffcf1c' : '#9a9caf'
+            }))
+          };
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,2214 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap"
+          rel="stylesheet"
+        />
+        <style>
+          html,
+          body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+          }
+          a {
+            color: #ffcf1c;
+          }
+          a:hover {
+            color: #fff;
+          }
+          @keyframes shBlink {
+            0%,
+            55% {
+              opacity: 1;
+            }
+            56%,
+            100% {
+              opacity: 0;
+            }
+          }
+          @keyframes shCopper {
+            from {
+              background-position: 0 0;
+            }
+            to {
+              background-position: 0 24px;
+            }
+          }
+          @keyframes shPulse {
+            0%,
+            100% {
+              opacity: 1;
+            }
+            50% {
+              opacity: 0.35;
+            }
+          }
+        </style>
+      </helmet>
+      <div
+        ref="{{ rootRef }}"
+        style="
+          position: fixed;
+          inset: 0;
+          background: #000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          user-select: none;
+          cursor: none;
+          font-family: Silkscreen, ui-monospace, monospace;
+        "
+      >
+        <div
+          data-stage
+          style="position: relative; width: 480px; height: 300px; background: #000; transform-origin: center center"
+        >
+          <canvas
+            data-canvas
+            width="372"
+            height="300"
+            style="position: absolute; left: 0; top: 0; width: 372px; height: 300px; image-rendering: pixelated"
+          ></canvas>
+
+          <div
+            data-screen-label="Panneau"
+            style="position: absolute; left: 372px; top: 0; width: 108px; height: 300px; background: #2a1d0c"
+          >
+            <div style="position: absolute; left: 0; top: 0; width: 1px; height: 300px; background: #0b0b26"></div>
+            <div style="position: absolute; left: 1px; top: 0; width: 1px; height: 300px; background: #dfae2c"></div>
+            <div style="position: absolute; left: 2px; top: 0; width: 1px; height: 300px; background: #7a5a08"></div>
+
+            <div
+              style="
+                position: absolute;
+                left: 8px;
+                top: 8px;
+                width: 92px;
+                height: 18px;
+                background: #e8384f;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow:
+                  inset -1px -1px 0 #8e1220,
+                  inset 1px 1px 0 #ff8a9c;
+              "
+            >
+              <span
+                style="
+                  font:
+                    400 8px Silkscreen,
+                    monospace;
+                  color: #fff;
+                  letter-spacing: 2px;
+                "
+                >SHATTER</span
+              >
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 8px;
+                top: 32px;
+                font:
+                  400 7px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+                letter-spacing: 1px;
+              "
+            >
+              SCORE
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 8px;
+                top: 42px;
+                width: 92px;
+                height: 19px;
+                background: #0b0b26;
+                box-shadow: inset -1px -1px 0 #7a5a08;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+              "
+            >
+              <span
+                style="
+                  font:
+                    400 11px Silkscreen,
+                    monospace;
+                  color: #ffcf1c;
+                  padding-right: 4px;
+                "
+                >{{ scoreText }}</span
+              >
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 8px;
+                top: 66px;
+                font:
+                  400 7px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+                letter-spacing: 1px;
+              "
+            >
+              HI-SCORE
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 8px;
+                top: 76px;
+                width: 92px;
+                height: 19px;
+                background: #0b0b26;
+                box-shadow: inset -1px -1px 0 #7a5a08;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+              "
+            >
+              <span
+                style="
+                  font:
+                    400 11px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                  padding-right: 4px;
+                "
+                >{{ hiText }}</span
+              >
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 8px;
+                top: 100px;
+                font:
+                  400 7px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+                letter-spacing: 1px;
+              "
+            >
+              VEIL
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 8px;
+                top: 110px;
+                width: 92px;
+                height: 19px;
+                background: #0b0b26;
+                box-shadow: inset -1px -1px 0 #7a5a08;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 5px;
+                box-sizing: border-box;
+              "
+            >
+              <span
+                style="
+                  font:
+                    400 11px Silkscreen,
+                    monospace;
+                  color: #fff;
+                "
+                >{{ levelText }}</span
+              ><span
+                style="
+                  font:
+                    400 7px Silkscreen,
+                    monospace;
+                  color: #f07d10;
+                "
+                >{{ levelName }}</span
+              >
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 8px;
+                top: 134px;
+                font:
+                  400 7px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+                letter-spacing: 1px;
+              "
+            >
+              COMETS
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 8px;
+                top: 144px;
+                width: 92px;
+                height: 5px;
+                display: flex;
+                gap: 5px;
+                overflow: hidden;
+              "
+            >
+              <sc-for list="{{ livesArr }}" as="l" hint-placeholder-count="2"
+                ><div style="display: flex; align-items: center; flex: none">
+                  <div style="width: 8px; height: 3px; background: #8a6a00"></div>
+                  <div style="width: 5px; height: 5px; background: #ffe14a"></div></div
+              ></sc-for>
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 8px;
+                top: 155px;
+                font:
+                  400 7px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+                letter-spacing: 1px;
+              "
+            >
+              CHAIN
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 8px;
+                top: 164px;
+                width: 92px;
+                height: 22px;
+                background: #0b0b26;
+                box-shadow: inset -1px -1px 0 #7a5a08;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 5px;
+                box-sizing: border-box;
+              "
+            >
+              <span
+                style="
+                  font:
+                    400 7px Silkscreen,
+                    monospace;
+                  color: #7a5a08;
+                "
+                >{{ chainText }}</span
+              ><span style="font:400 15px Silkscreen,monospace;color:{{ comboColor }}">{{ comboText }}</span>
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 8px;
+                top: 191px;
+                font:
+                  400 7px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+                letter-spacing: 1px;
+              "
+            >
+              OCULI
+            </div>
+            <div style="position: absolute; left: 8px; top: 200px; display: flex; gap: 4px">
+              <sc-for list="{{ sigilPips }}" as="p" hint-placeholder-count="3"
+                ><div style="width:28px;height:7px;background:{{ p.c }}"></div
+              ></sc-for>
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 8px;
+                top: 212px;
+                font:
+                  400 7px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+                letter-spacing: 1px;
+              "
+            >
+              DIADEM {{ starsText }}
+            </div>
+            <div style="position: absolute; left: 8px; top: 221px; display: flex; gap: 4px">
+              <sc-for list="{{ starPips }}" as="p" hint-placeholder-count="6"
+                ><div style="width:12px;height:6px;background:{{ p.c }}"></div
+              ></sc-for>
+            </div>
+
+            <div
+              style="
+                position: absolute;
+                left: 8px;
+                top: 233px;
+                font:
+                  400 7px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+                letter-spacing: 1px;
+              "
+            >
+              RELIC
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 8px;
+                top: 242px;
+                width: 92px;
+                height: 17px;
+                background: #0b0b26;
+                box-shadow: inset -1px -1px 0 #7a5a08;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              <span
+                style="
+                  font:
+                    400 7px Silkscreen,
+                    monospace;
+                  color: #3fbf4f;
+                  letter-spacing: 1px;
+                "
+                >{{ powerText }}</span
+              >
+            </div>
+
+            <div style="position: absolute; left: 8px; top: 265px; width: 92px; height: 1px; background: #7a5a08"></div>
+            <div style="position: absolute; left: 8px; top: 266px; width: 92px; height: 1px; background: #dfae2c"></div>
+            <div
+              style="
+                position: absolute;
+                left: 8px;
+                top: 271px;
+                font:
+                  400 7px Silkscreen,
+                  monospace;
+                color: #c9a24a;
+              "
+            >
+              P PAUSE · M {{ soundShort }}
+            </div>
+            <div
+              style="
+                position: absolute;
+                left: 8px;
+                top: 285px;
+                font:
+                  400 6px Silkscreen,
+                  monospace;
+                color: #7a5a08;
+              "
+            >
+              THE OBSERVER · FIVE VEILS
+            </div>
+          </div>
+
+          <sc-if value="{{ isHint }}" hint-placeholder-val="{{ false }}"
+            ><div
+              style="
+                position: absolute;
+                left: 3px;
+                top: 226px;
+                width: 366px;
+                text-align: center;
+                font:
+                  400 8px Silkscreen,
+                  monospace;
+                color: #dfae2c;
+                letter-spacing: 1px;
+              "
+            >
+              {{ levelName }} · {{ levelHint }}
+            </div></sc-if
+          >
+          <sc-if value="{{ isServe }}" hint-placeholder-val="{{ false }}"
+            ><div
+              style="
+                position: absolute;
+                left: 3px;
+                top: 243px;
+                width: 366px;
+                text-align: center;
+                font:
+                  400 11px Silkscreen,
+                  monospace;
+                color: #8fd0ff;
+                animation: shBlink 1s steps(1) infinite;
+              "
+            >
+              CLICK TO LAUNCH
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isPortal }}" hint-placeholder-val="{{ false }}"
+            ><div
+              style="
+                position: absolute;
+                left: 3px;
+                top: 118px;
+                width: 366px;
+                text-align: center;
+                font:
+                  400 9px Silkscreen,
+                  monospace;
+                color: #ffcf1c;
+                letter-spacing: 2px;
+                animation: shPulse 0.6s ease-in-out infinite;
+              "
+            >
+              THE EYE OPENS · SEND THE COMET UP
+            </div></sc-if
+          >
+          <sc-if value="{{ isAwake }}" hint-placeholder-val="{{ false }}"
+            ><div
+              style="
+                position: absolute;
+                left: 3px;
+                top: 250px;
+                width: 366px;
+                text-align: center;
+                font:
+                  400 9px Silkscreen,
+                  monospace;
+                color: #e8384f;
+                letter-spacing: 3px;
+              "
+            >
+              THE PUPIL IS LOOSE · BLIND IT
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isBonus }}" hint-placeholder-val="{{ false }}"
+            ><div
+              data-screen-label="Dans l oeil"
+              style="
+                position: absolute;
+                left: 3px;
+                top: 250px;
+                width: 366px;
+                text-align: center;
+                font:
+                  400 9px Silkscreen,
+                  monospace;
+                color: #e8384f;
+                letter-spacing: 3px;
+              "
+            >
+              INSIDE THE EYE · STRIKE THE PUPIL
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isPause }}" hint-placeholder-val="{{ false }}"
+            ><div
+              data-screen-label="Pause"
+              style="
+                position: absolute;
+                left: 3px;
+                top: 3px;
+                width: 366px;
+                height: 297px;
+                background: #0b0b26;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 17px;
+              "
+            >
+              <div
+                style="
+                  font:
+                    400 23px &quot;Press Start 2P&quot;,
+                    monospace;
+                  color: #ffcf1c;
+                  text-shadow: 3px 3px 0 #8a3d00;
+                "
+              >
+                PAUSE
+              </div>
+              <div style="width: 160px; height: 2px; background: #f07d10"></div>
+              <div
+                style="
+                  font:
+                    400 11px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                "
+              >
+                PRESS P TO RESUME
+              </div>
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isClear }}" hint-placeholder-val="{{ false }}"
+            ><div
+              data-screen-label="Voile brise"
+              style="
+                position: absolute;
+                left: 3px;
+                top: 3px;
+                width: 366px;
+                height: 297px;
+                background: #0b0b26;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 12px;
+              "
+            >
+              <div
+                style="
+                  font:
+                    400 11px Silkscreen,
+                    monospace;
+                  color: #3fbf4f;
+                  letter-spacing: 2px;
+                "
+              >
+                VEIL BROKEN
+              </div>
+              <div
+                style="
+                  font:
+                    400 20px &quot;Press Start 2P&quot;,
+                    monospace;
+                  color: #fff;
+                  text-shadow: 3px 3px 0 #155c1f;
+                "
+              >
+                {{ levelName }}
+              </div>
+              <div style="width: 210px; height: 1px; background: #dfae2c"></div>
+              <div
+                style="
+                  font:
+                    400 10px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                "
+              >
+                DIADEM {{ starsText }}
+              </div>
+              <div
+                style="
+                  font:
+                    400 12px Silkscreen,
+                    monospace;
+                  color: #ffcf1c;
+                "
+              >
+                BONUS {{ bonusText }}
+              </div>
+              <div
+                style="
+                  font:
+                    400 10px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                  animation: shBlink 1s steps(1) infinite;
+                "
+              >
+                CLICK TO CONTINUE
+              </div>
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isEnding }}" hint-placeholder-val="{{ false }}"
+            ><div
+              data-screen-label="Fin"
+              style="
+                position: absolute;
+                left: 3px;
+                top: 3px;
+                width: 366px;
+                height: 297px;
+                background: #0b0b26;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 12px;
+              "
+            >
+              <div
+                style="
+                  font:
+                    400 9px Silkscreen,
+                    monospace;
+                  color: #dfae2c;
+                  letter-spacing: 3px;
+                "
+              >
+                THE FIFTH VEIL FALLS
+              </div>
+              <div
+                style="
+                  font:
+                    400 17px &quot;Press Start 2P&quot;,
+                    monospace;
+                  color: #ffcf1c;
+                  text-shadow: 3px 3px 0 #8a3d00;
+                  text-align: center;
+                  line-height: 1.5;
+                "
+              >
+                THE OBSERVER<br />IS BLIND
+              </div>
+              <div style="width: 210px; height: 1px; background: #dfae2c"></div>
+              <div
+                style="
+                  font:
+                    400 10px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                "
+              >
+                THE SKY IS YOURS · DIADEM {{ starsText }}
+              </div>
+              <div
+                style="
+                  font:
+                    400 12px Silkscreen,
+                    monospace;
+                  color: #fff;
+                "
+              >
+                SCORE {{ scoreText }}
+              </div>
+              <div
+                style="
+                  font:
+                    400 10px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                  animation: shBlink 1s steps(1) infinite;
+                "
+              >
+                CLICK TO CONTINUE
+              </div>
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isOver }}" hint-placeholder-val="{{ false }}"
+            ><div
+              data-screen-label="Game over"
+              style="
+                position: absolute;
+                left: 3px;
+                top: 3px;
+                width: 366px;
+                height: 297px;
+                background: #0b0b26;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 15px;
+              "
+            >
+              <div
+                style="
+                  font:
+                    400 22px &quot;Press Start 2P&quot;,
+                    monospace;
+                  color: #e8384f;
+                  text-shadow: 3px 3px 0 #55000f;
+                "
+              >
+                GAME OVER
+              </div>
+              <div style="width: 210px; height: 2px; background: #e8384f"></div>
+              <div
+                style="
+                  font:
+                    400 12px Silkscreen,
+                    monospace;
+                  color: #fff;
+                "
+              >
+                SCORE {{ scoreText }}
+              </div>
+              <div
+                style="
+                  font:
+                    400 9px Silkscreen,
+                    monospace;
+                  color: #9a9caf;
+                "
+              >
+                BEST CHAIN {{ bestChainText }} · VEIL {{ levelText }}
+              </div>
+              <div
+                style="
+                  font:
+                    400 10px Silkscreen,
+                    monospace;
+                  color: #8fd0ff;
+                  animation: shBlink 1s steps(1) infinite;
+                "
+              >
+                CLICK TO CONTINUE
+              </div>
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isTitle }}" hint-placeholder-val="{{ true }}"
+            ><div
+              data-screen-label="Titre"
+              style="position: absolute; left: 0; top: 0; width: 480px; height: 300px; background: #05050f"
+            >
+              <canvas
+                data-title
+                width="480"
+                height="300"
+                style="position: absolute; left: 0; top: 0; width: 480px; height: 300px; image-rendering: pixelated"
+              ></canvas>
+              <div
+                style="
+                  position: absolute;
+                  left: 0;
+                  top: 150px;
+                  width: 480px;
+                  height: 44px;
+                  background: repeating-linear-gradient(
+                    180deg,
+                    #0b0b26 0 2px,
+                    #12276a 2px 4px,
+                    #1d47a8 4px 6px,
+                    #2d7fe0 6px 8px,
+                    #63b0ff 8px 10px,
+                    #2d7fe0 10px 12px,
+                    #1d47a8 12px 14px,
+                    #12276a 14px 16px
+                  );
+                  animation: shCopper 2.2s linear infinite;
+                "
+              ></div>
+              <div
+                style="
+                  position: absolute;
+                  left: 0;
+                  top: 154px;
+                  width: 480px;
+                  text-align: center;
+                  font:
+                    400 35px &quot;Press Start 2P&quot;,
+                    monospace;
+                  color: #fff;
+                  letter-spacing: 3px;
+                  text-shadow: 4px 4px 0 #e8384f;
+                "
+              >
+                SHATTER
+              </div>
+              <div
+                style="
+                  position: absolute;
+                  left: 0;
+                  top: 202px;
+                  width: 480px;
+                  text-align: center;
+                  font:
+                    400 9px Silkscreen,
+                    monospace;
+                  color: #ffcf1c;
+                  letter-spacing: 5px;
+                "
+              >
+                THE OBSERVER
+              </div>
+              <div
+                style="
+                  position: absolute;
+                  left: 0;
+                  top: 218px;
+                  width: 480px;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  gap: 7px;
+                "
+              >
+                <span
+                  style="
+                    font:
+                      400 8px Silkscreen,
+                      monospace;
+                    color: #8fd0ff;
+                    letter-spacing: 2px;
+                  "
+                  >FIVE VEILS · ONE EYE · BLIND IT</span
+                >
+                <span
+                  style="
+                    font:
+                      400 10px Silkscreen,
+                      monospace;
+                    color: #dfae2c;
+                  "
+                  >TOP SCORE {{ hiText }} · {{ hiName }}</span
+                >
+              </div>
+              <div
+                style="
+                  position: absolute;
+                  left: 0;
+                  top: 252px;
+                  width: 480px;
+                  text-align: center;
+                  font:
+                    400 13px Silkscreen,
+                    monospace;
+                  color: #3fbf4f;
+                  animation: shBlink 1s steps(1) infinite;
+                "
+              >
+                CLICK TO PLAY
+              </div>
+              <div
+                style="
+                  position: absolute;
+                  left: 0;
+                  top: 282px;
+                  width: 480px;
+                  text-align: center;
+                  font:
+                    400 7px Silkscreen,
+                    monospace;
+                  color: #4a4c60;
+                  letter-spacing: 2px;
+                "
+              >
+                MOVE THE MOUSE · ORIGINAL 2007 · REBUILT 2026
+              </div>
+            </div></sc-if
+          >
+
+          <sc-if value="{{ isScores }}" hint-placeholder-val="{{ false }}"
+            ><div
+              data-screen-label="Scores"
+              style="position: absolute; left: 0; top: 0; width: 480px; height: 300px; background: #05050f"
+            >
+              <div
+                style="
+                  position: absolute;
+                  left: 0;
+                  top: 30px;
+                  width: 480px;
+                  text-align: center;
+                  font:
+                    400 18px &quot;Press Start 2P&quot;,
+                    monospace;
+                  color: #ffcf1c;
+                  text-shadow: 3px 3px 0 #8a3d00;
+                "
+              >
+                THE WATCHED
+              </div>
+              <div
+                style="position: absolute; left: 130px; top: 72px; width: 220px; height: 1px; background: #dfae2c"
+              ></div>
+              <div
+                style="
+                  position: absolute;
+                  left: 112px;
+                  top: 94px;
+                  width: 256px;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 13px;
+                "
+              >
+                <sc-for list="{{ scoreRows }}" as="r" hint-placeholder-count="5"
+                  ><div
+                    style="display:flex;justify-content:space-between;font:400 12px Silkscreen,monospace;color:{{ r.color }}"
+                  >
+                    <span>{{ r.rank }}</span><span>{{ r.name }}</span><span>{{ r.score }}</span>
+                  </div></sc-for
+                >
+              </div>
+              <sc-if value="{{ isEntry }}" hint-placeholder-val="{{ false }}"
+                ><div
+                  style="
+                    position: absolute;
+                    left: 0;
+                    top: 240px;
+                    width: 480px;
+                    text-align: center;
+                    font:
+                      400 12px Silkscreen,
+                      monospace;
+                    color: #3fbf4f;
+                    letter-spacing: 2px;
+                  "
+                >
+                  TYPE YOUR INITIALS · {{ entryText }}
+                </div></sc-if
+              >
+              <sc-if value="{{ notEntry }}" hint-placeholder-val="{{ true }}"
+                ><div
+                  style="
+                    position: absolute;
+                    left: 0;
+                    top: 240px;
+                    width: 480px;
+                    text-align: center;
+                    font:
+                      400 11px Silkscreen,
+                      monospace;
+                    color: #8fd0ff;
+                    animation: shBlink 1s steps(1) infinite;
+                  "
+                >
+                  CLICK TO RETURN
+                </div></sc-if
+              >
+            </div></sc-if
+          >
+        </div>
+      </div>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{"startVeil":{"editor":"int","default":1,"min":1,"max":5,"tsType":"number","section":"Test"},"startLives":{"editor":"int","default":3,"min":1,"max":9,"tsType":"number","section":"Règles"},"ballSpeed":{"editor":"range","default":1,"min":0.6,"max":1.6,"step":0.05,"tsType":"number","section":"Règles"},"dropRate":{"editor":"range","default":0.13,"min":0,"max":0.4,"step":0.01,"tsType":"number","section":"Règles"},"beastCount":{"editor":"int","default":3,"min":0,"max":3,"tsType":"number","section":"Univers"},"gateSeconds":{"editor":"range","default":10,"min":4,"max":20,"step":1,"unit":"s","tsType":"number","section":"Univers"}}'
+    >
+      // Five veils: each one changes the Observer's state (mode) rather than the antagonist.
+      const LEVELS = [
+        { name: 'THE VEIL', mode: 'veil', tint: 'blue', hint: 'IT PEERS THROUGH THE STONE', form: 0,
+          eye: { x: 186, y: 72, hw: 42, hh: 15 },
+          diadem: [[286, 142], [247, 178], [207, 192], [165, 192], [125, 178], [86, 142]],
+          rows: ['5555GGGG5555', '4444SSSS4444', '33.3S..S3.33', '22.2S..S2.22', '1111SSSS1111', '.GG......GG.'],
+          beasts: [[60, 166], [200, 198], [300, 226]] },
+        { name: 'THE IRIS', mode: 'iris', tint: 'blue', hint: 'BARE AND HUGE · ITS GAZE PETRIFIES', form: 0,
+          eye: { x: 186, y: 100, hw: 116, hh: 38 },
+          diadem: [[300, 176], [250, 198], [207, 208], [165, 208], [122, 198], [72, 176]],
+          rows: ['GG.GGG.GGG.G', '5S.S5S.S5S.S', '............', '............', '3..........3', '2S........S2'],
+          beasts: [[90, 176], [250, 206], [150, 232]] },
+        { name: 'THE TEAR', mode: 'tear', tint: 'blue', hint: 'IT WEEPS FROM THE CORNER · BURST THE TEARS', form: 0,
+          eye: { x: 46, y: 62, hw: 62, hh: 23 },
+          diadem: [[150, 126], [192, 152], [232, 172], [272, 182], [312, 172], [346, 142]],
+          rows: ['.....GGGGGGG', '.....4444444', '.....33S3S33', '.....22S2S22', '.....1111111', '......SS..SS'],
+          beasts: [[180, 196], [300, 224]] },
+        { name: 'THE WRATH', mode: 'wrath', tint: 'red', hint: 'IT RISES BELOW · EACH BLINK REBUILDS', form: 1,
+          eye: { x: 186, y: 292, hw: 84, hh: 30 },
+          diadem: [[92, 250], [115, 221], [160, 196], [212, 196], [257, 221], [280, 250]],
+          rows: ['SS.SSS.SSS.S', '5G.G5G.G5G.G', '444444444444', '3.3.3.3.3.3.', '222222222222', '.1.1.1.1.1.1'],
+          beasts: [[60, 170], [200, 200], [300, 228]] },
+        { name: 'THE LID', mode: 'lid', tint: 'red', hint: 'SEALED SHUT · BREAK THE SEAL, BLIND THE EYE', form: 2, sigils: false,
+          eye: { x: 186, y: 74, hw: 120, hh: 27 },
+          diadem: [[286, 160], [247, 196], [207, 210], [165, 210], [125, 196], [86, 160]],
+          rows: ['..LLLLLLLL..', '.LLLLLLLLLL.', 'SLLLLLLLLLLS', 'SLLLLLLLLLLS', '.SLLLLLLLLS.', '..SSLLLLSS..'],
+          beasts: [[100, 196], [260, 224]] }
+      ];
+      const DIADEM = [[286, 142], [247, 178], [207, 192], [165, 192], [125, 178], [86, 142]];
+      const COLORS = {
+        '1': ['#e8384f', '#ff8a9c', '#8e1220', 60],
+        '2': ['#f07d10', '#ffc27a', '#8a3d00', 70],
+        '3': ['#ffcf1c', '#fff59a', '#8a6a00', 80],
+        '4': ['#3fbf4f', '#a6f0a6', '#155c1f', 90],
+        '5': ['#2d7fe0', '#a8d8ff', '#0b3a78', 100],
+        'S': ['#8f9ac8', '#dbe4ff', '#3c50a0', 150],
+        'G': ['#dfae2c', '#ffe9a0', '#7a5a08', 200],
+        'L': ['#c9a24a', '#ffe9a0', '#7a5a08', 250]
+      };
+      const HP = { S: 2, G: 3, L: 2 };
+      const W = 372, H = 300;
+      const FX0 = 3, FX1 = 369, FY0 = 3, PY = 276, PH = 9;
+      const GX = 6, GY = 38, BW = 30, BH = 12, COLS = 12;
+      const BALL = 8;
+      const BALL_ROWS = [[2, 4], [1, 6], [0, 8], [0, 8], [0, 8], [0, 8], [1, 6], [2, 4]];
+      const EYE = { x: 186, y: 72, hw: 70, hh: 26 };
+      const SIGILS = [[52, 16], [176, 16], [300, 16]];
+      const SGW = 20, SGH = 14;
+      const GATE_W = 52;
+      const PUPIL = { r: 15, hp: 14, cx: 186, cy: 100 };
+      const FINAL_HP = 24;
+      const SEAL = { r0: 1, r1: 4, c0: 4, c1: 7, need: 10 };
+      const DEFAULT_SCORES = [
+        { n: 'AMI', s: 4820000 }, { n: 'CBM', s: 3115000 }, { n: 'PAL', s: 1960000 },
+        { n: 'FDD', s: 840000 }, { n: 'KIK', s: 225000 }
+      ];
+      const POWER_NAMES = { E: 'WIDE', M: 'MULTI', L: 'LASER', P: 'PIERCE' };
+      const DROP_COL = { E: '#2d7fe0', M: '#3fbf4f', L: '#e8384f', P: '#ffcf1c' };
+      const COMBO_COL = ['#7a5a08', '#8fd0ff', '#3fbf4f', '#ffcf1c', '#f07d10', '#e8384f'];
+      const TINTS = {
+        blue: ['#2d7fe0', '#1d47a8', '#63b0ff'],
+        red: ['#e8384f', '#8e1220', '#ff8a9c'],
+        gold: ['#ffcf1c', '#f07d10', '#ffe9a0']
+      };
+
+      // ---- beast bitmaps (edit the ASCII to reskin) ----
+      const PAL = {
+        egg: { a: '#12276a', b: '#1d47a8', c: '#63b0ff', w: '#a8d8ff', k: '#0b0b26' },
+        hatch: { g: '#155c1f', G: '#3fbf4f', l: '#a6f0a6', e: '#ffffff', p: '#0b0b26', r: '#e8384f' },
+        wing: { k: '#55000f', R: '#e8384f', o: '#f07d10', y: '#ffcf1c', e: '#ffffff', p: '#0b0b26' },
+        tear: { b: '#63b0ff', w: '#a8d8ff', d: '#1d47a8' }
+      };
+      const BM = {
+        egg: ['.....aaaaaa.....', '...aabbbbbbaa...', '..abbbccbbbbba..', '.abbbcwwcbbbbba.', '.abbbcwwcbkbbba.', 'abbbbccbbkbbbbba',
+              'abbbbbbbkbbbbbba', 'abbbbbbkbbbbbbba', '.abbbbbkbbbbbba.', '.abbbbbbbbbbbba.', '..aabbbbbbbbaa..', '....aaaaaaaa....'],
+        hatchA: ['....g..........g....', '.....g........g.....', '....gGGGGGGGGGGg....', '...gGGllGGGGllGGg...', '..gGGleeGGGGeelGGg..',
+                 '..gGGlepGGGGpelGGg..', '.gGGGGGGGGGGGGGGGGg.', '.gGGGGGrrrrrrGGGGGg.', '.gGGGGGGGGGGGGGGGGg.', '..gGGGGGGGGGGGGGGg..',
+                 '...ggGGgggggGGgg....', '..g..g..g..g..g..g..', '.g...g..g..g..g...g.', '....................'],
+        hatchB: ['....g..........g....', '.....g........g.....', '....gGGGGGGGGGGg....', '...gGGllGGGGllGGg...', '..gGGleeGGGGeelGGg..',
+                 '..gGGlepGGGGpelGGg..', '.gGGGGGGGGGGGGGGGGg.', '.gGGGGGrrrrrrGGGGGg.', '.gGGGGGGGGGGGGGGGGg.', '..gGGGGGGGGGGGGGGg..',
+                 '...ggGGgggggGGgg....', '.g...g..g..g..g...g.', '..g..g..g..g..g..g..', '....................'],
+        wingA: ['k..........................k', 'kk........................kk', 'kRk......................kRk', 'kRRk........kkkk........kRRk',
+                '.kRRk......kRRRRk......kRRk.', '.kRRRk....kRRRRRRk....kRRRk.', '..kRRRk..kRRoyyoRRk..kRRRk..', '..kRRRRkkRRRoeeoRRRkkRRRRk..',
+                '...kRRRRRRRRopepoRRRRRRRk...', '....kRRRRRRRRooooRRRRRRk....', '......kkRRRRRRRRRRRRkk......', '........kkRRRRRRRRkk........',
+                '..........kkRkkRkk..........', '...........k....k...........'],
+        wingB: ['............................', '............................', '............kkkk............', '...........kRRRRk...........',
+                '..........kRRRRRRk..........', 'kk.......kRRoyyoRRk.......kk', 'kRRkk...kRRRoeeoRRRk...kkRRk', '.kRRRRkkRRRRopepoRRRRkkRRRRk',
+                '..kRRRRRRRRRRooooRRRRRRRRRk.', '...kkRRRRRRRRRRRRRRRRRRkk...', '.....kkkRRRRRRRRRRRRkkk.....', '........kkRRRRRRRRkk........',
+                '..........kkRkkRkk..........', '...........k....k...........'],
+        tear: ['..w..', '.wbw.', '.bbb.', 'wbbbd', 'bbbbd', 'wbbbd', '.bbd.', '..d..']
+      };
+      const FORMS = [
+        { w: 16, h: 12, sp: 0.32, pts: 400, frames: ['egg'] },
+        { w: 20, h: 14, sp: 0.8, pts: 800, frames: ['hatchA', 'hatchB'] },
+        { w: 28, h: 14, sp: 1.45, pts: 1500, frames: ['wingA', 'wingB'] }
+      ];
+
+      class Component extends DCLogic {
+        state = { screen: 'title', score: 0, lives: 3, level: 0, power: '', entry: '', bonus: 0,
+                  muted: false, scores: DEFAULT_SCORES, mult: 1, chain: 0, bestChain: 0,
+                  sigil: 0, stars: 0, portal: false, hint: false, awake: false };
+
+        componentDidMount() {
+          this.stage = this.root.querySelector('[data-stage]');
+          this.cv = this.root.querySelector('[data-canvas]');
+          this.ctx = this.cv.getContext('2d');
+          this.ctx.imageSmoothingEnabled = false;
+
+          this.px = 163; this.pw = 46; this.mx = 240; this.my = 150;
+          this.eye = LEVELS[0].eye; this.diadem = LEVELS[0].diadem; this.gate = [160, 212];
+          this.grid = []; this.layout = []; this.remaining = 0;
+          this.timers = { E: 0, L: 0, P: 0, M: 0 };
+          this.fireT = 0; this.shake = 0; this.gateT = 0; this.pops = []; this.frame = 0;
+          this.chain = 0; this.mult = 1; this.best = 0;
+          this.sigils = [false, false, false]; this.sigilNext = 0; this.sigilsOn = true;
+          this.beasts = []; this.lit = this.diadem.map(() => false);
+          this.boss = null; this.bossT = 0; this.final = null; this.awake = false;
+          this.tears = []; this.tearT = 0; this.gaze = { phase: 'idle', t: 300, x: this.eye.x }; this.petrify = 0;
+          this.blink = 0; this.blinkNext = 200; this.eyePupil = [this.eye.x, this.eye.y];
+          this.balls = [0, 1, 2].map(() => ({ x: 0, y: 0, vx: 0, vy: 0, on: false, trail: [] }));
+          this.drops = [0, 1, 2].map(() => ({ x: 0, y: 0, k: '', on: false }));
+          this.shots = [0, 1, 2, 3, 4, 5].map(() => ({ x: 0, y: 0, on: false }));
+          this.sprites = {};
+          Object.keys(BM).forEach(k => {
+            const pal = k.startsWith('egg') ? PAL.egg : (k.startsWith('hatch') ? PAL.hatch : (k === 'tear' ? PAL.tear : PAL.wing));
+            this.sprites[k] = this.bake(BM[k], pal);
+          });
+          this.bg = null;
+          this.irisBlue = this.bakeIris(['#12276a', '#1d47a8', '#2d7fe0', '#1d47a8', '#2d7fe0', '#63b0ff', '#2d7fe0', '#1d47a8'], ['#0b3a78', '#63b0ff']);
+          this.irisRed = this.bakeIris(['#55000f', '#8e1220', '#e8384f', '#8e1220', '#e8384f', '#ff8a9c', '#e8384f', '#8e1220'], ['#55000f', '#ff8a9c']);
+          this.tstars = Array.from({ length: 110 }, (_, i) => ({
+            x: Math.floor(Math.random() * 480), y: Math.floor(Math.random() * 300), c: ['#1b2244', '#333f78', '#6c7cb4'][i % 3]
+          }));
+          this.loadScores();
+          this.buildLevel(0);
+
+          this.onResize = () => {
+            const s = Math.min(window.innerWidth * 0.99 / 480, window.innerHeight * 0.99 / 300);
+            this.scale = s;
+            this.stage.style.transform = 'scale(' + s + ')';
+          };
+          this.onMove = (e) => {
+            const r = this.stage.getBoundingClientRect();
+            const x = (e.clientX - r.left) / this.scale;
+            this.mx = x; this.my = (e.clientY - r.top) / this.scale;
+            if (this.petrify > 0) return;
+            this.px = Math.max(FX0, Math.min(FX1 - this.pw, Math.round(x - this.pw / 2)));
+          };
+          this.onDown = () => this.advance();
+          this.onKey = (e) => this.key(e);
+          window.addEventListener('resize', this.onResize);
+          window.addEventListener('mousemove', this.onMove);
+          window.addEventListener('mousedown', this.onDown);
+          window.addEventListener('keydown', this.onKey);
+          this.onResize();
+          this.raf = requestAnimationFrame(this.tick);
+        }
+
+        componentWillUnmount() {
+          cancelAnimationFrame(this.raf);
+          window.removeEventListener('resize', this.onResize);
+          window.removeEventListener('mousemove', this.onMove);
+          window.removeEventListener('mousedown', this.onDown);
+          window.removeEventListener('keydown', this.onKey);
+        }
+
+        lv() { return LEVELS[this.state.level % LEVELS.length]; }
+
+        // ---------- offscreen bakes ----------
+        bake(rows, pal) {
+          const c = document.createElement('canvas');
+          c.width = rows[0].length; c.height = rows.length;
+          const g = c.getContext('2d');
+          rows.forEach((row, y) => { for (let x = 0; x < row.length; x++) { const col = pal[row[x]]; if (col) { g.fillStyle = col; g.fillRect(x, y, 1, 1); } } });
+          return c;
+        }
+
+        ring(g, cx, cy, r, col, dash) {
+          let x = r, y = 0, err = 1 - r, i = 0;
+          g.fillStyle = col;
+          while (x >= y) {
+            if (!dash || (i++ % dash) < dash - 2) {
+              [[x, y], [y, x], [-y, x], [-x, y], [-x, -y], [-y, -x], [y, -x], [x, -y]].forEach(p => g.fillRect(cx + p[0], cy + p[1], 1, 1));
+            }
+            y++;
+            if (err < 0) err += 2 * y + 1; else { x--; err += 2 * (y - x) + 1; }
+          }
+        }
+
+        disc(g, cx, cy, r, col) {
+          g.fillStyle = col;
+          for (let dy = -r; dy <= r; dy++) { const w = Math.round(Math.sqrt(r * r - dy * dy)); g.fillRect(cx - w, cy + dy, w * 2 + 1, 1); }
+        }
+
+        bakeBackground(e) {
+          const c = document.createElement('canvas'); c.width = W; c.height = H;
+          const g = c.getContext('2d');
+          g.fillStyle = '#0b0b26'; g.fillRect(0, 0, W, H);
+          for (let i = 0; i < 70; i++) {
+            g.fillStyle = ['#1b2244', '#333f78', '#6c7cb4'][i % 3];
+            g.fillRect(4 + Math.floor(Math.random() * (W - 8)), 4 + Math.floor(Math.random() * (H - 8)), 1, 1);
+          }
+          this.ring(g, e.x, e.y, 86, '#151a38');
+          this.ring(g, e.x, e.y, 82, '#1b2244', 6);
+          for (let i = 0; i < 12; i++) {
+            const a = i * Math.PI / 6;
+            for (let r = 82; r <= 86; r++) { g.fillStyle = '#2b3a72'; g.fillRect(Math.round(e.x + Math.cos(a) * r), Math.round(e.y + Math.sin(a) * r), 1, 1); }
+          }
+          g.fillStyle = '#151a38';
+          for (let x = 8; x < W - 8; x += 16) g.fillRect(x, PY + PH + 6, 8, 1);
+          return c;
+        }
+
+        bakeIris(bands, fibers) {
+          const c = document.createElement('canvas'); c.width = W; c.height = H;
+          const g = c.getContext('2d');
+          g.fillStyle = '#dbe4ff'; g.fillRect(0, 0, W, H);
+          for (let i = 0; i < 40; i++) { g.fillStyle = '#c7d2f5'; g.fillRect(Math.floor(Math.random() * W), 20 + Math.floor(Math.random() * 220), Math.floor(Math.random() * 10) + 4, 1); }
+          const cx = PUPIL.cx, cy = PUPIL.cy;
+          [104, 98, 88, 76, 66, 56, 46, 38].forEach((r, i) => this.disc(g, cx, cy, r, bands[i]));
+          for (let i = 0; i < 28; i++) {
+            const a = i * Math.PI * 2 / 28 + 0.1;
+            g.fillStyle = fibers[i % 2];
+            for (let r = 40; r < 100; r += 1) g.fillRect(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r), 1, 1);
+          }
+          for (let r = 100; r < 104; r++) this.ring(g, cx, cy, r, '#0b0b26');
+          g.fillStyle = '#3b2a0e'; g.fillRect(0, 0, W, 18);
+          g.fillStyle = '#7a5a08'; g.fillRect(0, 18, W, 2);
+          g.fillStyle = '#dfae2c'; g.fillRect(0, 20, W, 1);
+          for (let x = 6; x < W; x += 22) { g.fillStyle = '#7a5a08'; g.fillRect(x, 21, 2, 6); }
+          return c;
+        }
+
+        beep(f, d, type, vol) {
+          if (this.state.muted) return;
+          try {
+            if (!this.ac) this.ac = new (window.AudioContext || window.webkitAudioContext)();
+            const t = this.ac.currentTime, o = this.ac.createOscillator(), g = this.ac.createGain();
+            o.type = type || 'square'; o.frequency.setValueAtTime(f, t);
+            g.gain.setValueAtTime(vol || 0.05, t);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+            o.connect(g); g.connect(this.ac.destination); o.start(t); o.stop(t + d);
+          } catch (err) { /* audio unavailable */ }
+        }
+        arp(list, step) { list.forEach((f, i) => setTimeout(() => this.beep(f, 0.09, 'square', 0.05), i * (step || 60))); }
+
+        buildLevel(n) {
+          const lv = LEVELS[n % LEVELS.length];
+          this.layout = lv.rows;
+          this.eye = lv.eye; this.diadem = lv.diadem; this.bg = this.bakeBackground(lv.eye);
+          const gx = Math.max(FX0 + 4, Math.min(FX1 - 4 - GATE_W, Math.round(lv.eye.x - GATE_W / 2)));
+          this.gate = [gx, gx + GATE_W];
+          this.grid = []; this.remaining = 0;
+          lv.rows.forEach((row) => {
+            const line = [];
+            for (let c = 0; c < COLS; c++) {
+              const ch = row[c] || '.';
+              if (ch === '.' || !COLORS[ch]) { line.push(null); continue; }
+              line.push({ hp: HP[ch] || 1, ch, pts: COLORS[ch][3], born: 0 });
+              this.remaining++;
+            }
+            this.grid.push(line);
+          });
+          const count = Math.max(0, Math.min(3, this.props.beastCount ?? 3));
+          this.beasts = lv.beasts.slice(0, count).map((b, i) => {
+            const f = FORMS[lv.form || 0];
+            return { x: b[0], y: b[1], form: lv.form || 0, on: true, dir: i % 2 ? -1 : 1, bob: Math.random() * 6.28, flash: 0, w: f.w };
+          });
+          this.lit = this.diadem.map(() => false);
+          this.sigilsOn = lv.sigils !== false;
+          this.sigils = [false, false, false]; this.sigilNext = 0;
+          this.gateT = 0; this.boss = null; this.pops = [];
+          this.final = null; this.awake = false; this.sealBroken = 0;
+          this.tears = []; this.tearT = 200;
+          this.gaze = { phase: 'idle', t: 240, x: this.eye.x }; this.petrify = 0;
+          this.setState({ hint: true, awake: false });
+          this.resetBall();
+          this.syncHud();
+        }
+
+        resetBall() {
+          this.balls.forEach((b, i) => { b.on = i === 0; b.trail = []; });
+          this.setPaddle(46);
+          this.timers = { E: 0, L: 0, P: 0, M: 0 };
+          this.drops.forEach(d => { d.on = false; });
+          this.shots.forEach(s => { s.on = false; });
+          this.petrify = 0;
+          this.gaze.phase = 'idle'; this.gaze.t = 240;
+          this.breakChain();
+          this.setState({ screen: this.booted ? 'serve' : 'title', power: '' });
+        }
+
+        setPaddle(w) { this.pw = w; this.px = Math.max(FX0, Math.min(FX1 - w, this.px)); }
+
+        speed() { return Math.min(4.8, 3.2 + this.state.level * 0.25) * (this.props.ballSpeed ?? 1); }
+
+        launch() {
+          const b = this.balls[0];
+          b.on = true;
+          const sp = this.speed();
+          b.x = this.px + this.pw / 2 - BALL / 2; b.y = PY - BALL - 1;
+          b.vx = (Math.random() < 0.5 ? -1 : 1) * sp * 0.55; b.vy = -sp * 0.83;
+          this.setState({ screen: this.boss ? 'bonus' : 'play', hint: false });
+          this.beep(520, 0.07);
+        }
+
+        // ---------- chain ----------
+        gain(pts, x, y) {
+          const total = pts * this.mult;
+          this.setState(st => ({ score: st.score + total }));
+          if (x != null) this.pops.push({ x, y, t: 34, s: (this.mult > 1 ? 'x' + this.mult + ' ' : '') + total });
+        }
+        bumpChain() {
+          this.chain++;
+          if (this.chain > this.best) this.best = this.chain;
+          const m = Math.min(8, 1 + Math.floor(this.chain / 3));
+          if (m !== this.mult) { this.mult = m; this.beep(600 + m * 70, 0.05, 'square', 0.04); }
+          this.syncHud();
+        }
+        breakChain() { this.chain = 0; this.mult = 1; this.syncHud(); }
+        syncHud() {
+          this.setState({ chain: this.chain, mult: this.mult, bestChain: this.best,
+                          sigil: this.sigilNext, stars: this.lit.filter(Boolean).length,
+                          portal: this.gateT > 0 });
+        }
+
+        key(e) {
+          const s = this.state.screen;
+          if (s === 'entry') {
+            if (/^[a-zA-Z0-9]$/.test(e.key) && this.state.entry.length < 3) {
+              const v = this.state.entry + e.key.toUpperCase();
+              this.setState({ entry: v });
+              this.beep(700, 0.04);
+              if (v.length === 3) setTimeout(() => this.commitScore(v), 260);
+            } else if (e.key === 'Backspace') this.setState({ entry: this.state.entry.slice(0, -1) });
+            else if (e.key === 'Enter' && this.state.entry.length) this.commitScore(this.state.entry);
+            return;
+          }
+          const k = e.key.toLowerCase();
+          if (k === 'p' && (s === 'play' || s === 'bonus' || s === 'pause')) {
+            if (s === 'pause') this.setState({ screen: this.pausedFrom || 'play' });
+            else { this.pausedFrom = s; this.setState({ screen: 'pause' }); }
+            this.beep(300, 0.06);
+          }
+          if (k === 'm') this.setState({ muted: !this.state.muted });
+          // test shortcuts: N = next veil, B = open the eye (bonus gate) now
+          if (k === 'n' && (s === 'play' || s === 'serve' || s === 'pause')) {
+            const n = (this.state.level + 1) % LEVELS.length;
+            this.boss = null;
+            this.setState({ level: n }, () => this.buildLevel(n));
+            this.arp([523, 784], 50);
+          }
+          if (k === 'b' && s === 'play' && !this.boss && this.gateT <= 0 && this.sigilsOn) this.openGate();
+          if (e.key === 'Escape' && (s === 'play' || s === 'bonus' || s === 'pause' || s === 'serve')) this.gameOver();
+        }
+
+        advance() {
+          const s = this.state.screen;
+          if (s === 'title') { this.booted = true; this.best = 0; this.setState({ score: 0, lives: this.props.startLives ?? 3, level: (this.props.startVeil ?? 1) - 1 }, () => this.buildLevel(this.state.level)); this.arp([392, 523, 659]); }
+          else if (s === 'serve') this.launch();
+          else if (s === 'clear') { const n = this.state.level + 1; this.setState({ level: n }, () => this.buildLevel(n)); }
+          else if (s === 'over' || s === 'ending') this.afterOver();
+          else if (s === 'scores') this.setState({ screen: 'title' });
+        }
+
+        gameOver() { this.boss = null; this.final = null; this.setState({ screen: 'over' }); this.arp([392, 330, 262, 196], 130); }
+
+        afterOver() {
+          const low = this.state.scores.length < 5 ? 0 : this.state.scores[this.state.scores.length - 1].s;
+          if (this.state.score > low) this.setState({ screen: 'entry', entry: '' });
+          else this.setState({ screen: 'scores' });
+        }
+
+        loadScores() {
+          try {
+            const raw = localStorage.getItem('shatter.observer.hi.v1');
+            if (raw) { const p = JSON.parse(raw); if (Array.isArray(p) && p.length) this.setState({ scores: p }); }
+          } catch (err) { /* ignore */ }
+        }
+
+        commitScore(name) {
+          const list = this.state.scores.concat([{ n: name, s: this.state.score }]).sort((a, b) => b.s - a.s).slice(0, 5);
+          try { localStorage.setItem('shatter.observer.hi.v1', JSON.stringify(list)); } catch (err) { /* ignore */ }
+          this.setState({ scores: list, screen: 'scores', entry: '' });
+        }
+
+        tick = (t) => {
+          this.raf = requestAnimationFrame(this.tick);
+          const dt = Math.min(50, t - (this.last || t)); this.last = t;
+          this.acc = (this.acc || 0) + dt;
+          let guard = 0;
+          while (this.acc >= 16.667 && guard++ < 4) { this.step(); this.acc -= 16.667; }
+          this.draw();
+        };
+
+        step() {
+          const s = this.state.screen;
+          const mode = this.lv().mode;
+          this.frame++;
+          if (this.shake > 0) this.shake--;
+          if (this.blink > 0) this.blink--;
+          else if (--this.blinkNext <= 0) {
+            this.blink = 14; this.blinkNext = 180 + Math.floor(Math.random() * 260);
+            if (mode === 'wrath' && s === 'play') this.regen();
+          }
+          this.pops.forEach(p => { p.t--; p.y -= 0.35; });
+          if (this.pops.length) this.pops = this.pops.filter(p => p.t > 0);
+          if (s !== 'play' && s !== 'serve' && s !== 'bonus') return;
+          if (s === 'serve') { const b = this.balls[0]; b.x = this.px + this.pw / 2 - BALL / 2; b.y = PY - BALL - 1; return; }
+
+          if (this.petrify > 0) this.petrify--;
+          let changed = false;
+          ['E', 'L', 'P', 'M'].forEach(k => {
+            if (this.timers[k] > 0 && --this.timers[k] === 0) { changed = true; if (k === 'E') this.setPaddle(46); }
+          });
+          if (changed) this.syncPower();
+
+          if (this.gateT > 0 && --this.gateT === 0) { this.sigils = [false, false, false]; this.sigilNext = 0; this.syncHud(); }
+
+          if (this.timers.L > 0 && --this.fireT <= 0) {
+            this.fireT = 26;
+            this.shots.filter(x => !x.on).slice(0, 2).forEach((sh, i) => {
+              sh.on = true; sh.x = this.px + (i === 0 ? 5 : this.pw - 8); sh.y = PY - 9;
+            });
+            this.beep(880, 0.04, 'square', 0.035);
+          }
+          this.shots.forEach(sh => {
+            if (!sh.on) return;
+            sh.y -= 5.5;
+            if (sh.y < FY0) { sh.on = false; return; }
+            if (s === 'bonus') { if (this.boss && this.hitBox(sh.x, sh.y, 2, 9, this.circleBox(this.boss))) { this.hurtBoss(); sh.on = false; } return; }
+            if (this.final && this.hitBox(sh.x, sh.y, 2, 9, this.circleBox(this.final))) { this.hurtFinal(); sh.on = false; return; }
+            const tear = this.tearAt(sh.x, sh.y, 2, 9);
+            if (tear) { this.burstTear(tear); sh.on = false; return; }
+            const beast = this.beastAt(sh.x, sh.y, 2, 9);
+            if (beast) { this.hurtBeast(beast); sh.on = false; return; }
+            const cell = this.cellAt(sh.x + 1, sh.y);
+            if (cell) { this.damage(cell); sh.on = false; }
+          });
+
+          if (s === 'bonus') this.stepBoss();
+          else {
+            this.stepBeasts();
+            if (mode === 'tear') this.stepTears();
+            if (mode === 'iris') this.stepGaze(this.eyePupil[0], this.eyePupil[1] + 6);
+            if (mode === 'lid' && this.final) { this.stepFinal(); this.stepGaze(this.final.x, this.final.y + PUPIL.r); }
+            for (let r = 0; r < this.grid.length; r++) for (let c = 0; c < COLS; c++) { const cell = this.grid[r][c]; if (cell && cell.born > 0) cell.born--; }
+          }
+
+          this.balls.forEach(b => { if (b.on) this.moveBall(b); });
+          if (!this.balls.some(b => b.on)) { if (s === 'bonus') this.exitBonus(false); else this.die(); }
+
+          this.drops.forEach(d => {
+            if (!d.on) return;
+            d.y += 1.3;
+            if (d.y > H) { d.on = false; return; }
+            if (d.y + 8 >= PY && d.y <= PY + PH && d.x + 20 > this.px && d.x < this.px + this.pw) {
+              d.on = false; this.apply(d.k);
+            }
+          });
+        }
+
+        stepBeasts() {
+          this.beasts.forEach(b => {
+            if (!b.on) return;
+            const f = FORMS[b.form];
+            b.x += b.dir * f.sp;
+            b.bob += b.form === 2 ? 0.11 : 0.05;
+            if (b.flash > 0) b.flash--;
+            if (b.x <= FX0 + 1) { b.x = FX0 + 1; b.dir = 1; }
+            if (b.x + f.w >= FX1 - 1) { b.x = FX1 - 1 - f.w; b.dir = -1; }
+          });
+        }
+
+        // ---- THE IRIS / THE LID: the gaze petrifies the chariot ----
+        stepGaze(srcX, srcY) {
+          const gz = this.gaze;
+          gz.sx = srcX; gz.sy = srcY;
+          if (gz.phase === 'idle') { if (--gz.t <= 0) { gz.phase = 'charge'; gz.t = 45; gz.x = srcX; this.beep(1200, 0.08, 'sine', 0.03); } }
+          else if (gz.phase === 'charge') { gz.x = srcX; if (--gz.t <= 0) { gz.phase = 'fire'; gz.t = 50; this.beep(90, 0.35, 'sawtooth', 0.05); } }
+          else {
+            gz.x += (this.px + this.pw / 2 - gz.x) * 0.03;
+            if (gz.t % 5 === 0 && this.petrify <= 0 && gz.x + 3 > this.px && gz.x - 3 < this.px + this.pw) {
+              this.petrify = 70; this.shake = 5;
+              this.pops.push({ x: this.px + this.pw / 2, y: PY - 14, t: 44, s: 'PETRIFIED' });
+              this.beep(70, 0.4, 'sawtooth', 0.06);
+            }
+            if (--gz.t <= 0) { gz.phase = 'idle'; gz.t = this.final ? 220 : 330; }
+          }
+        }
+
+        // ---- THE TEAR: tears fall, hatch on the floor ----
+        stepTears() {
+          if (--this.tearT <= 0) {
+            this.tearT = 270;
+            this.tears.push({ x: Math.max(FX0 + 1, this.eyePupil[0] - 2), y: this.eye.y + this.eye.hh - 4, vy: 0.6, on: true });
+            this.beep(900, 0.1, 'sine', 0.03);
+          }
+          this.tears.forEach(t => {
+            if (!t.on) return;
+            t.y += t.vy; t.vy = Math.min(1.7, t.vy + 0.012);
+            if (t.y > 236) { t.on = false; this.hatch(t.x); }
+          });
+          if (this.tears.length) this.tears = this.tears.filter(t => t.on);
+        }
+        tearAt(x, y, w, h) { return this.tears.find(t => t.on && this.hitBox(x, y, w, h, { x: t.x, y: t.y, w: 5, h: 8 })) || null; }
+        burstTear(t) {
+          t.on = false;
+          this.bumpChain();
+          this.gain(600, t.x + 2, t.y - 4);
+          this.beep(1000, 0.06, 'square', 0.04);
+        }
+        hatch(x) {
+          if (this.beasts.filter(b => b.on).length >= 5) return;
+          this.beasts.push({ x: Math.max(FX0 + 1, Math.min(FX1 - 17, x - 8)), y: 222, form: 0, on: true, dir: Math.random() < 0.5 ? -1 : 1, bob: 0, flash: 10 });
+          this.shake = 3;
+          this.pops.push({ x: x, y: 214, t: 36, s: 'HATCHED' });
+          this.beep(200, 0.2, 'square', 0.05);
+        }
+
+        // ---- THE WRATH: each blink rebuilds one brick ----
+        regen() {
+          const holes = [];
+          this.layout.forEach((row, r) => { for (let c = 0; c < COLS; c++) { const ch = row[c]; if (ch && ch !== '.' && COLORS[ch] && !this.grid[r][c]) holes.push([r, c, ch]); } });
+          if (!holes.length) return;
+          const h = holes[Math.floor(Math.random() * holes.length)];
+          this.grid[h[0]][h[1]] = { hp: 1, ch: h[2], pts: COLORS[h[2]][3], born: 16 };
+          this.remaining++;
+          this.beep(160, 0.14, 'square', 0.04);
+        }
+
+        // ---- THE LID: seal, waking, the loose pupil ----
+        wake() {
+          this.awake = true;
+          this.final = { x: this.eye.x, y: 126, vx: 1.2, vy: 0.9, hp: FINAL_HP, flash: 12, t: 0 };
+          this.blink = 0; this.shake = 12;
+          this.gaze = { phase: 'idle', t: 120, x: this.eye.x };
+          this.pops.push({ x: this.eye.x, y: 118, t: 50, s: 'IT WAKES' });
+          this.arp([110, 147, 196, 262, 349], 90);
+          this.setState({ awake: true });
+        }
+        stepFinal() {
+          const f = this.final;
+          f.t += 0.03;
+          if (f.flash > 0) f.flash--;
+          const sp = 1.1 + (FINAL_HP - f.hp) * 0.045;
+          const m = Math.hypot(f.vx, f.vy) || 1;
+          f.vx = f.vx / m * sp; f.vy = f.vy / m * sp;
+          f.x += f.vx; f.y += f.vy;
+          if (f.x < FX0 + PUPIL.r + 2) { f.x = FX0 + PUPIL.r + 2; f.vx = Math.abs(f.vx); }
+          if (f.x > FX1 - PUPIL.r - 2) { f.x = FX1 - PUPIL.r - 2; f.vx = -Math.abs(f.vx); }
+          if (f.y < 122) { f.y = 122; f.vy = Math.abs(f.vy); }
+          if (f.y > 232) { f.y = 232; f.vy = -Math.abs(f.vy); }
+        }
+        hurtFinal() {
+          const f = this.final;
+          f.hp--; f.flash = 8; this.shake = 5;
+          this.bumpChain();
+          this.gain(4000, f.x, f.y - 24);
+          this.beep(180 + (FINAL_HP - f.hp) * 20, 0.07, 'square', 0.055);
+          if (f.hp <= 0) {
+            this.final = null; this.gaze.phase = 'idle';
+            const litCount = this.lit.filter(Boolean).length;
+            this.setState(st => ({ screen: 'ending', score: st.score + 250000 + litCount * 25000 }));
+            this.arp([523, 659, 784, 1046, 1318, 1568], 110);
+          }
+        }
+
+        circleBox(o) { return { x: o.x - PUPIL.r, y: o.y - PUPIL.r, w: PUPIL.r * 2, h: PUPIL.r * 2 }; }
+
+        stepBoss() {
+          const bs = this.boss;
+          if (!bs) return;
+          bs.t += 0.018 + (bs.max - bs.hp) * 0.0035 + this.state.level * 0.002;
+          bs.x = PUPIL.cx + Math.cos(bs.t) * 66;
+          bs.y = PUPIL.cy + Math.sin(bs.t * 1.7) * 40;
+          if (bs.flash > 0) bs.flash--;
+          if (--this.bossT <= 0) this.exitBonus(false);
+        }
+
+        openGate() {
+          this.gateT = Math.round((this.props.gateSeconds ?? 10) * 60);
+          this.gateMax = this.gateT;
+          this.syncHud();
+          this.arp([523, 659, 784, 988, 1175], 70);
+        }
+
+        enterBonus() {
+          this.gateT = 0;
+          const max = PUPIL.hp + this.state.level * 3;
+          this.boss = { x: PUPIL.cx, y: PUPIL.cy, t: 0, hp: max, max, flash: 0 };
+          this.bossT = 1300;
+          this.balls.forEach((b, i) => { b.on = i === 0; b.trail = []; });
+          this.sigils = [false, false, false]; this.sigilNext = 0;
+          this.shots.forEach(sh => { sh.on = false; });
+          this.drops.forEach(d => { d.on = false; });
+          this.tears = [];
+          this.setState({ screen: 'serve' });
+          this.arp([392, 523, 784, 1046], 80);
+          this.syncHud();
+        }
+
+        hurtBoss() {
+          const bs = this.boss;
+          bs.hp--; bs.flash = 8;
+          this.shake = 4;
+          this.bumpChain();
+          this.gain(3000, bs.x, bs.y - 22);
+          this.beep(220 + (bs.max - bs.hp) * 30, 0.06, 'square', 0.055);
+          if (bs.hp <= 0) {
+            this.gain(60000, PUPIL.cx, PUPIL.cy - 40);
+            let n = 2;
+            this.lit.forEach((v, i) => { if (!v && n > 0) { this.lit[i] = true; n--; } });
+            this.arp([784, 988, 1175, 1568], 90);
+            this.exitBonus(true);
+          }
+        }
+
+        exitBonus(won) {
+          this.boss = null;
+          if (!won) this.beep(160, 0.25, 'sawtooth', 0.05);
+          this.balls.forEach((b, i) => { b.on = i === 0; b.trail = []; });
+          this.breakChain();
+          this.setState({ screen: 'serve' });
+        }
+
+        bounceCircle(b, o) {
+          const box = this.circleBox(o);
+          const rx = b.x + BALL / 2 - o.x, ry = b.y + BALL / 2 - o.y;
+          if (Math.abs(rx) > Math.abs(ry)) { b.vx = Math.sign(rx || 1) * Math.abs(b.vx); b.x = rx > 0 ? box.x + box.w : box.x - BALL; }
+          else { b.vy = Math.sign(ry || 1) * Math.abs(b.vy); b.y = ry > 0 ? box.y + box.h : box.y - BALL; }
+        }
+
+        moveBall(b) {
+          const inBonus = this.state.screen === 'bonus';
+          const steps = Math.max(1, Math.ceil(Math.max(Math.abs(b.vx), Math.abs(b.vy)) / 2));
+          const dx = b.vx / steps, dy = b.vy / steps;
+          b.trail.unshift([b.x, b.y]); if (b.trail.length > 5) b.trail.pop();
+          for (let i = 0; i < steps; i++) {
+            b.x += dx;
+            if (!inBonus) {
+              const cell = this.overlap(b);
+              if (cell) { if (this.timers.P <= 0) { b.x -= dx; b.vx = -b.vx; } this.damage(cell); }
+            }
+            b.y += dy;
+            if (!inBonus) {
+              const cell = this.overlap(b);
+              if (cell) { if (this.timers.P <= 0) { b.y -= dy; b.vy = -b.vy; } this.damage(cell); }
+            }
+
+            if (inBonus && this.boss) {
+              if (this.hitBox(b.x, b.y, BALL, BALL, this.circleBox(this.boss))) { this.bounceCircle(b, this.boss); this.hurtBoss(); }
+            } else {
+              if (this.final && this.hitBox(b.x, b.y, BALL, BALL, this.circleBox(this.final))) { this.bounceCircle(b, this.final); this.hurtFinal(); }
+              const beast = this.beastAt(b.x, b.y, BALL, BALL);
+              if (beast) {
+                const f = FORMS[beast.form];
+                const fromTop = b.y + BALL / 2 < beast.y + f.h / 2;
+                b.y = fromTop ? beast.y - BALL : beast.y + f.h;
+                b.vy = fromTop ? -Math.abs(b.vy) : Math.abs(b.vy);
+                this.hurtBeast(beast);
+              }
+              const tear = this.tearAt(b.x, b.y, BALL, BALL);
+              if (tear) this.burstTear(tear);
+              const sg = this.sigilAt(b.x, b.y);
+              if (sg >= 0) { b.vy = Math.abs(b.vy); b.y = SIGILS[sg][1] + SGH; this.hitSigil(sg); }
+            }
+
+            if (b.x <= FX0) { b.x = FX0; b.vx = Math.abs(b.vx); this.beep(240, 0.03, 'square', 0.03); }
+            if (b.x >= FX1 - BALL) { b.x = FX1 - BALL; b.vx = -Math.abs(b.vx); this.beep(240, 0.03, 'square', 0.03); }
+            if (b.y <= FY0) {
+              const cx = b.x + BALL / 2;
+              if (!inBonus && this.gateT > 0 && cx > this.gate[0] && cx < this.gate[1]) { b.on = false; this.enterBonus(); return; }
+              b.y = FY0; b.vy = Math.abs(b.vy); this.beep(240, 0.03, 'square', 0.03);
+            }
+
+            if (b.vy > 0 && b.y + BALL >= PY && b.y + BALL <= PY + PH + 3 && b.x + BALL > this.px && b.x < this.px + this.pw) {
+              const rel = Math.max(-1, Math.min(1, (b.x + BALL / 2 - (this.px + this.pw / 2)) / (this.pw / 2)));
+              const a = rel * 1.05, sp = this.speed();
+              b.vx = Math.sin(a) * sp; b.vy = -Math.abs(Math.cos(a) * sp);
+              b.y = PY - BALL;
+              this.breakChain();
+              this.beep(this.petrify > 0 ? 200 : 420 + rel * 90, 0.05);
+            }
+            if (b.y > H) { b.on = false; return; }
+          }
+        }
+
+        hitBox(x, y, w, h, box) { return x + w > box.x && x < box.x + box.w && y + h > box.y && y < box.y + box.h; }
+
+        beastAt(x, y, w, h) {
+          for (const b of this.beasts) {
+            if (!b.on) continue;
+            const f = FORMS[b.form];
+            if (this.hitBox(x, y, w, h, { x: b.x, y: b.y, w: f.w, h: f.h })) return b;
+          }
+          return null;
+        }
+
+        hurtBeast(b) {
+          const f = FORMS[b.form];
+          this.bumpChain();
+          this.gain(f.pts, b.x + f.w / 2, b.y);
+          this.shake = 3;
+          this.beep(300 + b.form * 120, 0.06, 'square', 0.05);
+          if (b.form < FORMS.length - 1) {
+            const nf = FORMS[b.form + 1];
+            b.x += (f.w - nf.w) / 2; b.y += (f.h - nf.h) / 2;
+            b.x = Math.max(FX0 + 1, Math.min(FX1 - 1 - nf.w, b.x));
+            b.form++; b.flash = 8;
+            this.arp([440 + b.form * 120, 660 + b.form * 120], 45);
+          } else {
+            b.on = false;
+            this.gain(5000, b.x + f.w / 2, b.y - 6);
+            this.shake = 6;
+            const free = this.lit.findIndex(v => !v);
+            if (free >= 0) { this.lit[free] = true; this.arp([880, 1175, 1568], 70); }
+            this.syncHud();
+          }
+        }
+
+        sigilAt(x, y) {
+          if (!this.sigilsOn) return -1;
+          for (let i = 0; i < SIGILS.length; i++) {
+            if (this.sigils[i]) continue;
+            if (this.hitBox(x, y, BALL, BALL, { x: SIGILS[i][0], y: SIGILS[i][1], w: SGW, h: SGH })) return i;
+          }
+          return -1;
+        }
+
+        hitSigil(i) {
+          if (i !== this.sigilNext) {
+            this.sigils = [false, false, false]; this.sigilNext = 0;
+            this.beep(120, 0.14, 'sawtooth', 0.05);
+            this.syncHud();
+            return;
+          }
+          this.sigils[i] = true;
+          this.sigilNext = i + 1;
+          this.bumpChain();
+          this.gain(1500, SIGILS[i][0] + SGW / 2, SIGILS[i][1] + SGH + 6);
+          this.beep(700 + i * 160, 0.07);
+          if (this.sigilNext >= SIGILS.length) {
+            const free = this.lit.findIndex(v => !v);
+            if (free >= 0) this.lit[free] = true;
+            this.openGate();
+          }
+          this.syncHud();
+        }
+
+        cellAt(x, y) {
+          const c = Math.floor((x - GX) / BW), r = Math.floor((y - GY) / BH);
+          if (r < 0 || c < 0 || c >= COLS || r >= this.grid.length) return null;
+          const cell = this.grid[r][c];
+          return cell ? { cell, r, c } : null;
+        }
+        overlap(b) {
+          const pts = [[b.x + 1, b.y + 1], [b.x + BALL - 1, b.y + 1], [b.x + 1, b.y + BALL - 1], [b.x + BALL - 1, b.y + BALL - 1]];
+          for (const p of pts) { const hit = this.cellAt(p[0], p[1]); if (hit) return hit; }
+          return null;
+        }
+
+        damage(hit) {
+          const { cell, r, c } = hit;
+          cell.hp--;
+          if (cell.hp > 0) { cell.hurt = true; this.beep(180, 0.04, 'square', 0.045); return; }
+          this.grid[r][c] = null;
+          this.remaining--;
+          this.bumpChain();
+          this.gain(cell.pts, GX + c * BW + BW / 2, GY + r * BH);
+          this.beep(560 + (5 - r) * 45, 0.05);
+          if (Math.random() < (this.props.dropRate ?? 0.13)) this.spawnDrop(GX + c * BW, GY + r * BH);
+          const mode = this.lv().mode;
+          if (mode === 'lid') {
+            if (!this.awake && r >= SEAL.r0 && r <= SEAL.r1 && c >= SEAL.c0 && c <= SEAL.c1) {
+              this.sealBroken++;
+              if (this.sealBroken >= SEAL.need) this.wake();
+              else if (this.sealBroken % 3 === 0) this.pops.push({ x: this.eye.x, y: 118, t: 30, s: 'SEAL ' + this.sealBroken + '/' + SEAL.need });
+            }
+            return;
+          }
+          if (this.remaining <= 0) {
+            const litCount = this.lit.filter(Boolean).length;
+            const bonus = (this.state.level + 1) * 20000 + litCount * 25000;
+            this.boss = null;
+            this.setState(st => ({ screen: 'clear', bonus, score: st.score + bonus }));
+            this.arp([523, 659, 784, 1046]);
+          }
+        }
+
+        spawnDrop(x, y) {
+          const d = this.drops.find(k => !k.on); if (!d) return;
+          const kinds = ['E', 'M', 'L', 'P'];
+          d.k = kinds[Math.floor(Math.random() * kinds.length)];
+          d.x = x + 5; d.y = y; d.on = true;
+        }
+
+        apply(k) {
+          if (k === 'E') { this.setPaddle(72); this.timers.E = 720; }
+          if (k === 'L') { this.timers.L = 720; this.fireT = 10; }
+          if (k === 'P') { this.timers.P = 480; }
+          if (k === 'M') {
+            this.timers.M = 180;
+            const src = this.balls.find(b => b.on); if (!src) return;
+            const sp = this.speed();
+            this.balls.filter(b => !b.on).slice(0, 2).forEach((b, i) => {
+              b.on = true; b.x = src.x; b.y = src.y; b.trail = [];
+              const a = (i === 0 ? -0.6 : 0.6);
+              b.vx = Math.sin(a) * sp; b.vy = -Math.abs(Math.cos(a) * sp);
+            });
+          }
+          this.syncPower();
+          this.arp([659, 880], 50);
+        }
+
+        syncPower() {
+          const on = ['E', 'M', 'L', 'P'].filter(k => this.timers[k] > 0).map(k => POWER_NAMES[k]);
+          this.setState({ power: on.join(' ') });
+        }
+
+        die() {
+          this.beep(140, 0.3, 'sawtooth', 0.06);
+          const lives = this.state.lives - 1;
+          this.setState({ lives });
+          if (lives <= 0) this.gameOver(); else this.resetBall();
+        }
+
+        // ---------- pixel drawing ----------
+        px_(x, y, w, h, c) { const g = this.ctx; g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), w, h); }
+
+        line_(x0, y0, x1, y1, c) {
+          let x = Math.round(x0), y = Math.round(y0);
+          const ex = Math.round(x1), ey = Math.round(y1);
+          const sx = x < ex ? 1 : -1, sy = y < ey ? 1 : -1;
+          let dx = Math.abs(ex - x), dy = Math.abs(ey - y), err = dx - dy, guard = 0;
+          while (guard++ < 600) {
+            this.px_(x, y, 1, 1, c);
+            if (x === ex && y === ey) break;
+            const e2 = err * 2;
+            if (e2 > -dy) { err -= dy; x += sx; }
+            if (e2 < dx) { err += dx; y += sy; }
+          }
+        }
+
+        // The Observer: almond eye, iris + pupil track (tx,ty). open 0..1; tint blue|red|gold; pupil=false → empty socket
+        drawEye(cx, cy, hw, hh, open, tx, ty, tint, pupil, store) {
+          const hhO = Math.max(2, Math.round(hh * open));
+          const ir = Math.round(hh * 0.8), pr = Math.round(hh * 0.34);
+          const mx = hw - ir - 4, my = Math.max(0, hhO - pr - 1);
+          const ox = Math.max(-mx, Math.min(mx, (tx - cx) * 0.4));
+          const oy = Math.max(-my, Math.min(my, (ty - cy) * 0.22));
+          const ix = Math.round(cx + ox), iy = Math.round(cy + oy);
+          if (store) this.eyePupil = [ix, iy];
+          const T = TINTS[tint] || TINTS.blue;
+          const irisCol = T[0], irisEdge = T[1], irisIn = T[2];
+          for (let dy = -hhO; dy <= hhO; dy++) {
+            const t = dy / hhO;
+            const w = Math.round(hw * (1 - t * t));
+            if (w <= 0) continue;
+            const y = cy + dy, x0 = cx - w, x1 = cx + w;
+            this.px_(x0, y, x1 - x0, 1, dy < -hhO * 0.55 ? '#c7d2f5' : '#dbe4ff');
+            const ddy = y - iy;
+            if (Math.abs(ddy) <= ir) {
+              const iw = Math.round(Math.sqrt(ir * ir - ddy * ddy));
+              const a = Math.max(x0 + 1, ix - iw), b = Math.min(x1 - 1, ix + iw);
+              if (b > a) {
+                const edge = Math.abs(ddy) > ir - 3;
+                this.px_(a, y, b - a, 1, edge ? irisEdge : irisCol);
+                if (!edge) { this.px_(a, y, 2, 1, irisEdge); this.px_(b - 2, y, 2, 1, irisEdge); }
+                if (!edge && Math.abs(ddy) < ir * 0.55 && ((y + ix) % 5 === 0)) this.px_(a + 3, y, Math.max(1, b - a - 6), 1, irisIn);
+              }
+              if (Math.abs(ddy) <= pr) {
+                const pw = Math.round(Math.sqrt(pr * pr - ddy * ddy));
+                const pa = Math.max(x0 + 1, ix - pw), pb = Math.min(x1 - 1, ix + pw);
+                if (pb > pa) this.px_(pa, y, pb - pa, 1, pupil ? '#05050f' : (Math.abs(ddy) > pr - 2 ? '#55000f' : '#8e1220'));
+              }
+            }
+            this.px_(x0, y, 1, 1, '#7a5a08'); this.px_(x1 - 1, y, 1, 1, '#7a5a08');
+            if (dy <= -hhO + 1) this.px_(x0, y, x1 - x0, 1, '#dfae2c');
+            if (dy === hhO) this.px_(x0, y, x1 - x0, 1, '#7a5a08');
+          }
+          if (tint === 'red' && open > 0.5) {
+            [[cx - hw + 5, cy - 2, ix - ir - 3, iy - 5], [cx - hw + 5, cy + 3, ix - ir - 2, iy + 5], [cx + hw - 6, cy - 3, ix + ir + 3, iy - 4], [cx + hw - 6, cy + 2, ix + ir + 2, iy + 6]]
+              .forEach(v => this.line_(v[0], v[1], v[2], v[3], '#e8384f'));
+          }
+          if (store && this.lv().mode === 'tear') { this.px_(ix - 7, cy + hhO + 1, 1, 9, '#3c50a0'); this.px_(ix + 6, cy + hhO + 1, 1, 6, '#3c50a0'); this.px_(ix - 7, cy + hhO + 10, 1, 1, '#63b0ff'); }
+          if (open > 0.5 && pupil) { this.px_(ix - pr + 1, iy - pr + 1, 2, 2, '#ffffff'); }
+          const lashY = cy - hhO;
+          [[cx - hw + 2, -1], [cx - hw + 8, -2], [cx + hw - 3, -1], [cx + hw - 9, -2]].forEach(l => { this.px_(l[0], lashY + l[1] - 2, 1, 3, '#dfae2c'); });
+          this.px_(cx - hw - 3, cy, 3, 1, '#7a5a08'); this.px_(cx + hw, cy, 3, 1, '#7a5a08');
+        }
+
+        eyeTarget() {
+          const b = this.balls.find(k => k.on);
+          if (b && this.state.screen === 'play') return [b.x + BALL / 2, b.y];
+          return [this.px + this.pw / 2, PY];
+        }
+
+        drawBrick(x, y, ch, hurt, born) {
+          const col = COLORS[ch];
+          if (born > 0 && (born % 4 < 2)) { this.px_(x + 1, y + 1, 28, 10, '#ffffff'); return; }
+          const flat = hurt ? col[2] : col[0];
+          this.px_(x + 1, y + 1, 28, 10, flat);
+          this.px_(x + 2, y + 1, 26, 1, hurt ? col[0] : col[1]);
+          this.px_(x + 1, y + 2, 1, 8, hurt ? col[0] : col[1]);
+          this.px_(x + 2, y + 10, 26, 1, col[2]);
+          this.px_(x + 28, y + 2, 1, 8, col[2]);
+          if (ch === 'S') { this.px_(x + 13, y + 4, 4, 1, col[2]); this.px_(x + 14, y + 3, 2, 3, col[2]); this.px_(x + 8, y + 7, 14, 1, col[2]); }
+          else if (ch === 'G') { this.px_(x + 14, y + 3, 2, 6, col[2]); this.px_(x + 12, y + 5, 6, 2, col[2]); this.px_(x + 14, y + 5, 2, 2, col[1]); }
+          else if (ch === 'L') { this.px_(x + 4, y + 6, 22, 1, col[2]); this.px_(x + 9, y + 4, 12, 1, col[2]); this.px_(x + 13, y + 3, 4, 1, col[2]); for (let i = 5; i < 26; i += 5) this.px_(x + i, y + 8, 1, 2, col[2]); }
+          else { this.px_(x + 5, y + 8, 20, 1, col[2]); this.px_(x + 14, y + 3, 2, 4, col[2]); }
+        }
+
+        // The Chariot: bronze crescent, red gem tips, blue core, thrusters. Grey stone when petrified.
+        drawPaddle() {
+          const x = Math.round(this.px), y = PY, w = this.pw;
+          const st = this.petrify > 0;
+          const body = st ? '#8f9ac8' : '#dfae2c', hi = st ? '#dbe4ff' : '#ffe9a0', dk = st ? '#3c50a0' : '#7a5a08', dk2 = st ? '#1b2244' : '#3b2a0e';
+          const gem = st ? '#5a5e80' : '#e8384f', gemHi = st ? '#8f9ac8' : '#ff8a9c', gemDk = st ? '#3c50a0' : '#8e1220';
+          this.px_(x + 4, y, w - 8, 1, dk);
+          this.px_(x + 2, y + 1, w - 4, 1, hi);
+          this.px_(x + 1, y + 2, w - 2, 5, body);
+          this.px_(x + 2, y + 7, w - 4, 1, dk);
+          this.px_(x + 4, y + 8, w - 8, 1, dk2);
+          for (let i = x + 12; i < x + w - 12; i += 4) this.px_(i, y + 3, 1, 3, dk);
+          [x, x + w - 7].forEach(tx => {
+            this.px_(tx + 1, y + 1, 5, 7, gem); this.px_(tx, y + 2, 7, 5, gem);
+            this.px_(tx + 2, y + 2, 2, 1, gemHi); this.px_(tx + 1, y + 3, 1, 2, gemHi);
+            this.px_(tx + 2, y + 7, 3, 1, gemDk); this.px_(tx + 5, y + 5, 1, 2, gemDk);
+          });
+          const cx = x + Math.round(w / 2);
+          const hot = this.mult > 3 && !st;
+          this.px_(cx - 4, y + 1, 8, 7, st ? '#1b2244' : '#0b3a78');
+          this.px_(cx - 3, y + 2, 6, 5, st ? '#5a5e80' : (hot ? '#ffcf1c' : '#2d7fe0'));
+          this.px_(cx - 2, y + 2, 2, 1, st ? '#8f9ac8' : (hot ? '#fff9d0' : '#a8d8ff')); this.px_(cx - 3, y + 3, 1, 2, st ? '#8f9ac8' : (hot ? '#fff9d0' : '#a8d8ff'));
+          if (st) { this.px_(x + 14, y + 2, 1, 3, '#1b2244'); this.px_(x + 15, y + 4, 2, 1, '#1b2244'); this.px_(x + w - 16, y + 3, 1, 4, '#1b2244'); this.px_(x + w - 18, y + 5, 2, 1, '#1b2244'); }
+          const flick = this.frame % 4 < 2;
+          if (!st && (this.state.screen === 'play' || this.state.screen === 'bonus')) {
+            this.px_(x + 10, y + 9, 3, flick ? 2 : 1, flick ? '#ffcf1c' : '#f07d10');
+            this.px_(x + w - 13, y + 9, 3, flick ? 1 : 2, flick ? '#f07d10' : '#ffcf1c');
+          }
+          if (this.timers.L > 0) { this.px_(x + 5, y - 3, 2, 3, '#ffcf1c'); this.px_(x + w - 7, y - 3, 2, 3, '#ffcf1c'); }
+        }
+
+        drawBall(b) {
+          const tr = [['#c98f0a', 6, 1], ['#8a6a00', 4, 2], ['#4a3f0d', 2, 3]];
+          tr.forEach((t, i) => { const p = b.trail[i + 1]; if (p) this.px_(p[0] + t[2], p[1] + t[2], t[1], t[1], t[0]); });
+          const x = Math.round(b.x), y = Math.round(b.y);
+          BALL_ROWS.forEach((row, i) => this.px_(x + row[0], y + i, row[1], 1, '#ffe14a'));
+          this.px_(x + 2, y + 1, 2, 1, '#fff9d0');
+          this.px_(x + 1, y + 2, 1, 2, '#fff9d0');
+          this.px_(x + 3, y + 6, 3, 1, '#c98f0a');
+          this.px_(x + 6, y + 4, 1, 2, '#c98f0a');
+        }
+
+        drawDrop(d) {
+          const x = Math.round(d.x), y = Math.round(d.y), c = DROP_COL[d.k];
+          this.px_(x + 1, y, 18, 8, c);
+          this.px_(x, y + 1, 20, 6, c);
+          this.px_(x + 2, y + 1, 16, 1, '#ffffff');
+          this.px_(x + 2, y + 7, 16, 1, '#0b0b26');
+          const g = this.ctx;
+          g.fillStyle = d.k === 'P' ? '#0b0b26' : '#ffffff';
+          g.font = '7px Silkscreen, monospace';
+          g.textAlign = 'center'; g.textBaseline = 'middle';
+          g.fillText(d.k, x + 10, y + 4.5);
+        }
+
+        drawDiadem() {
+          const D = this.diadem;
+          for (let i = 1; i < D.length; i++) {
+            if (!this.lit[i] || !this.lit[i - 1]) continue;
+            this.line_(D[i - 1][0], D[i - 1][1], D[i][0], D[i][1], '#7a5a08');
+          }
+          D.forEach((p, i) => {
+            const x = p[0], y = p[1];
+            if (this.lit[i]) {
+              const tw = (this.frame + i * 7) % 30 < 15;
+              this.px_(x - 3, y, 7, 1, tw ? '#ffe14a' : '#ffcf1c');
+              this.px_(x, y - 3, 1, 7, tw ? '#ffe14a' : '#ffcf1c');
+              this.px_(x - 1, y - 1, 3, 3, '#ffcf1c');
+              this.px_(x, y, 1, 1, '#fff9d0');
+            } else {
+              this.px_(x, y, 1, 1, '#4a4c60');
+              this.px_(x - 1, y, 1, 1, '#2b2d40'); this.px_(x + 1, y, 1, 1, '#2b2d40');
+            }
+          });
+        }
+
+        drawSigils() {
+          if (!this.sigilsOn) return;
+          SIGILS.forEach((s, i) => {
+            const x = s[0], y = s[1];
+            const done = this.sigils[i];
+            const next = !done && i === this.sigilNext;
+            const blink = next && (this.frame % 40 < 22);
+            const edge = done ? '#3fbf4f' : (blink ? '#ffcf1c' : '#7a5a08');
+            const fill = done ? '#155c1f' : '#3b2a0e';
+            this.px_(x + 1, y, SGW - 2, SGH, edge); this.px_(x, y + 1, SGW, SGH - 2, edge);
+            this.px_(x + 2, y + 1, SGW - 4, SGH - 2, fill); this.px_(x + 1, y + 2, SGW - 2, SGH - 4, fill);
+            const g = this.ctx;
+            g.font = '400 7px Silkscreen, monospace';
+            g.textAlign = 'center'; g.textBaseline = 'middle';
+            g.fillStyle = done ? '#a6f0a6' : (blink ? '#ffcf1c' : '#c9a24a');
+            g.fillText(['I', 'II', 'III'][i], x + SGW / 2, y + SGH / 2 + 0.5);
+          });
+        }
+
+        drawGate() {
+          if (this.gateT <= 0) return;
+          const X0 = this.gate[0], X1 = this.gate[1], w = X1 - X0;
+          const t = this.frame % 12;
+          this.px_(X0, 0, w, 3, '#0b0b26');
+          for (let i = 0; i < w; i += 4) {
+            const k = (i / 4 + t) % 3;
+            this.px_(X0 + i, 0, 4, 3, k === 0 ? '#ffe14a' : (k === 1 ? '#f07d10' : '#e8384f'));
+          }
+          this.px_(X0 - 1, 0, 1, 7, '#ffcf1c');
+          this.px_(X1, 0, 1, 7, '#ffcf1c');
+          const bar = Math.round(w * (this.gateT / (this.gateMax || 600)));
+          this.px_(X0, 4, bar, 1, '#8fd0ff');
+        }
+
+        drawBeasts() {
+          this.beasts.forEach(b => {
+            if (!b.on) return;
+            const f = FORMS[b.form];
+            const fr = f.frames[Math.floor(this.frame / (b.form === 2 ? 6 : 12)) % f.frames.length];
+            const y = Math.round(b.y + Math.sin(b.bob) * (b.form === 2 ? 3 : 1.5));
+            const x = Math.round(b.x);
+            this.px_(x + Math.round(f.w / 2) - 3, y + f.h + 2, 6, 1, '#151a38');
+            this.ctx.drawImage(this.sprites[fr], x, y);
+            if (b.flash > 0) { this.ctx.fillStyle = 'rgba(255,255,255,0.55)'; this.ctx.fillRect(x, y, f.w, f.h); }
+          });
+        }
+
+        drawTears() {
+          this.tears.forEach(t => { if (t.on) this.ctx.drawImage(this.sprites.tear, Math.round(t.x), Math.round(t.y)); });
+        }
+
+        drawGaze() {
+          const gz = this.gaze;
+          if (gz.phase === 'idle' || gz.sx == null) return;
+          const g = this.ctx;
+          if (gz.phase === 'charge') {
+            const k = this.frame % 6 < 3;
+            this.ring(g, Math.round(gz.sx), Math.round(gz.sy), 5 + (gz.t % 9), k ? '#ffffff' : '#ffcf1c');
+            return;
+          }
+          const x = Math.round(gz.x), y0 = Math.round(gz.sy), h = PY - y0;
+          if (h <= 0) return;
+          const k = this.frame % 2;
+          this.px_(x - 3, y0, 6, h, k ? '#8e1220' : '#e8384f');
+          this.px_(x - 1, y0, 2, h, '#fff9d0');
+          for (let yy = y0 + k * 3; yy < PY; yy += 7) this.px_(x - 4, yy, 8, 1, '#ff8a9c');
+        }
+
+        drawPupil(o, max, withTimer) {
+          const g = this.ctx, x = Math.round(o.x), y = Math.round(o.y);
+          for (let i = 0; i < 6; i++) {
+            const a = i * Math.PI / 3 + o.t * 0.5;
+            this.line_(x + Math.cos(a) * (PUPIL.r + 2), y + Math.sin(a) * (PUPIL.r + 2), x + Math.cos(a) * (PUPIL.r + 16), y + Math.sin(a) * (PUPIL.r + 16), '#e8384f');
+          }
+          this.disc(g, x, y, PUPIL.r + 1, '#55000f');
+          this.disc(g, x, y, PUPIL.r, '#05050f');
+          this.px_(x - 6, y - 7, 3, 3, '#ffffff'); this.px_(x - 3, y - 4, 1, 1, '#ffffff');
+          if (o.flash > 0) { this.ring(g, x, y, PUPIL.r + 3, '#ffffff'); this.ring(g, x, y, PUPIL.r + 5, '#ffe9a0'); }
+          const bw = Math.round((PUPIL.r * 2) * (o.hp / max));
+          this.px_(x - PUPIL.r, y + PUPIL.r + 4, PUPIL.r * 2, 3, '#2a1000');
+          this.px_(x - PUPIL.r, y + PUPIL.r + 4, bw, 3, '#e8384f');
+          if (withTimer) {
+            const tw = Math.round((W - 20) * Math.max(0, this.bossT) / 1300);
+            this.px_(10, 6, W - 20, 3, '#2a1d0c');
+            this.px_(10, 6, tw, 3, tw < 90 ? '#e8384f' : '#ffcf1c');
+          }
+        }
+
+        drawPops() {
+          const g = this.ctx;
+          g.font = '400 7px Silkscreen, monospace';
+          g.textAlign = 'center'; g.textBaseline = 'middle';
+          this.pops.forEach(p => {
+            g.fillStyle = '#0b0b26';
+            g.fillText(p.s, Math.round(p.x) + 1, Math.round(p.y) + 1);
+            g.fillStyle = p.t > 12 ? '#ffe14a' : '#8a6a00';
+            g.fillText(p.s, Math.round(p.x), Math.round(p.y));
+          });
+        }
+
+        blinkOpen() {
+          if (this.blink <= 0) return 1;
+          const k = Math.abs(this.blink - 7) / 7;
+          return Math.max(0.06, k);
+        }
+
+        drawTitle() {
+          const tc = this.root.querySelector('[data-title]');
+          if (!tc) return;
+          if (this.tcv !== tc) { this.tcv = tc; this.tctx = tc.getContext('2d'); this.tctx.imageSmoothingEnabled = false; }
+          const saved = this.ctx; this.ctx = this.tctx;
+          const g = this.ctx;
+          g.fillStyle = '#05050f'; g.fillRect(0, 0, 480, 300);
+          this.tstars.forEach(s => this.px_(s.x, s.y, 1, 1, s.c));
+          this.ring(g, 240, 92, 104, '#151a38');
+          this.ring(g, 240, 92, 98, '#1b2244', 6);
+          for (let i = 0; i < 24; i++) {
+            const a = i * Math.PI / 12;
+            for (let r = 98; r <= 104; r++) { g.fillStyle = i % 2 ? '#2b3a72' : '#1b2244'; g.fillRect(Math.round(240 + Math.cos(a) * r), Math.round(92 + Math.sin(a) * r), 1, 1); }
+          }
+          this.drawEye(240, 92, 80, 28, this.blinkOpen(), this.mx, this.my, 'blue', true, false);
+          this.ctx = saved;
+        }
+
+        draw() {
+          const g = this.ctx;
+          if (this.state.screen === 'title') { this.drawTitle(); return; }
+          const lv = this.lv();
+          g.setTransform(1, 0, 0, 1, 0, 0);
+          const bonus = this.state.screen === 'bonus' || (this.boss && this.state.screen === 'serve');
+          g.drawImage(bonus ? (lv.tint === 'red' ? this.irisRed : this.irisBlue) : this.bg, 0, 0);
+          if (this.shake > 0) g.setTransform(1, 0, 0, 1, (this.frame % 2 ? 1 : -1), (this.frame % 3 ? 0 : 1));
+
+          if (bonus) {
+            if (this.boss) this.drawPupil(this.boss, this.boss.max, true);
+          } else {
+            const t = this.eyeTarget();
+            const lid = lv.mode === 'lid';
+            const open = lid && !this.awake ? 0.08 : this.blinkOpen();
+            const tint = this.gateT > 0 ? 'gold' : lv.tint;
+            const E = this.eye;
+            this.drawEye(E.x, E.y, E.hw, E.hh, open, t[0], t[1], tint, !(lid && this.awake), true);
+            this.drawDiadem();
+            for (let r = 0; r < this.grid.length; r++) {
+              for (let c = 0; c < COLS; c++) {
+                const cell = this.grid[r][c];
+                if (cell) this.drawBrick(GX + c * BW, GY + r * BH, cell.ch, cell.hurt, cell.born);
+              }
+            }
+            this.drawSigils();
+            this.drawTears();
+            this.drawBeasts();
+            if (this.final) this.drawPupil(this.final, FINAL_HP, false);
+            if (lv.mode === 'iris' || (lid && this.awake)) this.drawGaze();
+          }
+          this.drops.forEach(d => { if (d.on) this.drawDrop(d); });
+          this.shots.forEach(s => { if (s.on) this.px_(s.x, s.y, 2, 9, '#ffcf1c'); });
+          this.drawPaddle();
+          this.balls.forEach(b => { if (b.on) this.drawBall(b); });
+          this.drawPops();
+
+          g.setTransform(1, 0, 0, 1, 0, 0);
+          this.px_(0, 0, 3, H, '#dfae2c'); this.px_(2, 0, 1, H, '#7a5a08');
+          this.px_(W - 3, 0, 3, H, '#dfae2c'); this.px_(W - 3, 0, 1, H, '#7a5a08');
+          this.px_(0, 0, W, 3, '#dfae2c'); this.px_(0, 2, W, 1, '#7a5a08');
+          for (let x = 12; x < W - 8; x += 24) { this.px_(x, 0, 2, 2, '#7a5a08'); }
+          if (!bonus) this.drawGate();
+        }
+
+        pad(n, w) { let s = String(n); while (s.length < w) s = '0' + s; return s; }
+
+        renderVals() {
+          const st = this.state;
+          const top = st.scores[0] || DEFAULT_SCORES[0];
+          const lvl = LEVELS[st.level % LEVELS.length];
+          const sigilsOn = lvl.sigils !== false;
+          return {
+            rootRef: (el) => { if (el) this.root = el; },
+            isTitle: st.screen === 'title',
+            isServe: st.screen === 'serve',
+            isHint: st.screen === 'serve' && st.hint,
+            isPause: st.screen === 'pause',
+            isClear: st.screen === 'clear',
+            isEnding: st.screen === 'ending',
+            isOver: st.screen === 'over',
+            isScores: st.screen === 'scores' || st.screen === 'entry',
+            isEntry: st.screen === 'entry',
+            notEntry: st.screen === 'scores',
+            isBonus: st.screen === 'bonus',
+            isPortal: st.portal && st.screen === 'play',
+            isAwake: st.awake && st.screen === 'play',
+            scoreText: this.pad(st.score, 8),
+            hiText: this.pad(Math.max(top.s, st.score), 8),
+            hiName: top.n,
+            levelText: this.pad(st.level + 1, 2),
+            levelName: lvl.name,
+            levelHint: lvl.hint,
+            bonusText: this.pad(st.bonus, 6),
+            powerText: st.power || '- - -',
+            soundShort: st.muted ? 'OFF' : 'ON',
+            entryText: (st.entry + '___').slice(0, 3),
+            comboText: 'x' + st.mult,
+            comboColor: COMBO_COL[Math.min(COMBO_COL.length - 1, Math.floor((st.mult - 1) / 1.6))],
+            chainText: this.pad(st.chain, 2) + ' HITS',
+            bestChainText: this.pad(st.bestChain, 2),
+            starsText: st.stars + '/' + DIADEM.length,
+            sigilPips: [0, 1, 2].map(i => ({ c: !sigilsOn ? '#1f1608' : (i < st.sigil ? '#3fbf4f' : (i === st.sigil ? '#ffcf1c' : '#3b2a0e')) })),
+            starPips: DIADEM.map((s, i) => ({ c: i < st.stars ? '#ffe14a' : '#3b2a0e' })),
+            livesArr: Array.from({ length: Math.min(5, Math.max(0, st.lives - 1)) }, (_, i) => i),
+            scoreRows: st.scores.slice(0, 5).map((r, i) => ({
+              rank: this.pad(i + 1, 2), name: r.n, score: this.pad(r.s, 8),
+              color: i === 0 ? '#ffcf1c' : '#9a9caf'
+            }))
+          };
+        }
+      }
+    </script>
+  </body>
+</html>

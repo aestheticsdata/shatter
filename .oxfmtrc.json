@@ -3,6 +3,7 @@
   "printWidth": 120,
   "ignorePatterns": [
     "docs/superpowers/**",
+    "handoff-eye-shatter/**",
     "e2e/demo/chapters.ts",
     "e2e/demo/cursor.ts",
     "e2e/demo/fixture.ts",

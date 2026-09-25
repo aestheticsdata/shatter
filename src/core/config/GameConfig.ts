@@ -1501,8 +1501,10 @@ export const gameConfig = {
     clearBonusPerLevel: 500,
     paydayMultiplier: 2,
     // TURBO's cut, stacking with PAYDAY to x6 on a brick. Kills only: the
-    // level-clear bonus and a BUMPERS kick take PAYDAY alone, or FINALE would
-    // pay 42 000 and a ball parked between two discs would farm 300 a kick.
+    // level-clear bonus and a BUMPERS kick do not take it, or FINALE would pay
+    // 42 000 and a ball parked between two discs would farm 300 a kick. The kick
+    // does take CHAIN, which the streak limit already caps; the clear bonus
+    // takes PAYDAY and nothing else.
     turboMultiplier: 3,
     // JACKPOT (BLAST+PAYDAY), on splash kills only. It rides *on top of*
     // PAYDAY's own double, which is live by definition here, so a splashed
@@ -1513,6 +1515,691 @@ export const gameConfig = {
     // One BUMPERS kick, between a brick (60-200) and the clear bonus. PAYDAY
     // doubles it like everything else.
     bumperPoints: 100,
+  },
+  /**
+   * THE OBSERVER (SHA-167): the universe's own knobs, in one block.
+   *
+   * Kept together rather than filed under `scoring` and `effects` by what each
+   * number happens to drive, because the eye is one thing arriving and a later
+   * veil should add a key beside these rather than a knob in somebody else's
+   * table.
+   */
+  observer: {
+    /**
+     * THE EYE (SHA-169): the clock it blinks to, and how it follows the ball.
+     *
+     * Every number here is the mockup's except the ease, which it does not have
+     * — it assigns the look outright. See `Observer.step` for why a glide is
+     * right and a cut is not.
+     */
+    eye: {
+      blinkTicks: 14,
+      // The next blink is `blinkMin + random(blinkRand)`, so between three and
+      // just over seven seconds. Random on purpose and by a wide margin: a lid
+      // on a fixed beat is a metronome, and the one thing a watching eye may
+      // not be is predictable.
+      blinkMin: 180,
+      blinkRand: 260,
+      // How much of the offset from the socket to the ball the iris takes, per
+      // axis. Under 1 by a long way because the iris travels inside the sclera
+      // rather than across the field, and the vertical is the smaller of the two
+      // because the almond is much wider than it is tall.
+      trackX: 0.4,
+      trackY: 0.22,
+      // The iris and the pupil, as fractions of the socket's half-height. The
+      // iris is most of the eye by design — it is a creature's eye, not a
+      // person's — and it is what makes the socket's proportions the whole of
+      // how much the look can travel: see `drawEye`.
+      irisRadius: 0.8,
+      pupilRadius: 0.34,
+      // How much of the remaining distance the look closes each tick.
+      trackEase: 0.35,
+    },
+    /**
+     * THE ZODIAC RING (SHA-211): the dial round the eye, from the mockup —
+     * two circles and ticks across the band between them — and how it turns.
+     * The field's is the veils'; the title's is bigger, with twice the ticks.
+     */
+    ring: {
+      field: { inner: 82, outer: 86, ticks: 12, alternate: false },
+      title: { inner: 98, outer: 104, ticks: 24, alternate: true },
+      // Ticks for one full turn: a minute. Slow enough to be a dial, fast
+      // enough that a player waiting on the serve sees it move.
+      turnTicks: 3600,
+      // The inner circle's dash: pixels on, pixels off, along its circumference.
+      dashOn: 4,
+      dashOff: 2,
+    },
+    /**
+     * THE CHART (SHA-212): the run's constellation on the dial. See `Chart`.
+     */
+    chart: {
+      // The figures, as the skip between the two stars a junction joins, in
+      // drawing order: the twelve-pointed star, the four triangles, the three
+      // squares, the two hexagons, then the six bars across the middle.
+      skips: [5, 4, 3, 2, 6],
+      // Strokes one junction takes. Three, so that a kill draws a third of a
+      // line rather than a whole one — a perfect run has about two hundred
+      // strokes in it and the fifty-four junctions should take most of them,
+      // or the cage would close by the middle of the run and the second half
+      // would have nothing left to draw.
+      strokesPerJunction: 3,
+      // What draws them.
+      clearStrokes: 1,
+      killStrokes: 1,
+      bossStrokes: 3,
+      // What a finished junction pays when the run ends — at GAME OVER, or on
+      // THE LID's card. Per junction and not per stroke: the chart is counted
+      // in lines, and a third of a line is not a line.
+      junctionPoints: 500,
+      // The new stroke's arrival: gold for this long, stepping down to the
+      // thread's bronze.
+      revealTicks: 40,
+    },
+    /**
+     * THE BROOD (SHA-170): the eye's creatures, and what they are worth.
+     *
+     * **A beast that is struck does not die, it grows** — which is the whole
+     * Devil's Crush inheritance and the reason the roster has three forms and
+     * one kill rather than three hit points. Every number is the mockup's
+     * except the points, which are the roster's: a brick here pays 60 to 250,
+     * so the mockup's 400/800/1500 and 5000 have been brought down by four and
+     * by five. The kill is worth four bricks and the whole beast is worth
+     * seven, which is what a creature that took three deliberate hits should be
+     * beside a wall you can clear by accident.
+     */
+    brood: {
+      forms: [
+        { width: 16, height: 12, speed: 0.32, points: 100, bob: 1.5, bobRate: 0.05, frameTicks: 12 },
+        { width: 20, height: 14, speed: 0.8, points: 150, bob: 1.5, bobRate: 0.05, frameTicks: 12 },
+        { width: 28, height: 14, speed: 1.45, points: 250, bob: 3, bobRate: 0.11, frameTicks: 6 },
+      ],
+      killPoints: 1000,
+      // Ticks of white a struck beast wears. Short: it is a flinch, not a
+      // state, and the thing that says the hit landed is the sprite changing.
+      flashTicks: 8,
+      // How many of a veil's pins are used. Three is what the band holds beside
+      // the chamber's particles without either becoming noise — if that picture
+      // ever gets crowded this is the number that comes down first.
+      cap: 3,
+      // THE TEAR's, which is higher because the veil *makes* them: its eggs
+      // arrive by hatching rather than by being pinned, so the cap is a ceiling
+      // on a tap rather than a count of what the level was built with.
+      tearCap: 5,
+    },
+    /**
+     * THE TEAR (SHA-174): what the eye weeps, and what it leaves behind.
+     *
+     * **A clock the player can bank against.** A tear every four and a half
+     * seconds, falling slowly at first and reaching its terminal speed most of
+     * the way down — so there is always time to reach one, and always a cost to
+     * deciding not to. Burst it for a hundred and a link; miss it and there is
+     * one more creature on the band for the rest of the level.
+     */
+    tears: {
+      firstTicks: 200,
+      intervalTicks: 270,
+      fall: 0.6,
+      gravity: 0.012,
+      maxFall: 1.7,
+      // Where a tear lands and hatches: the bottom of the band the brood walks,
+      // well clear of the deck. A tear that reached the rail would be a second
+      // thing to catch, and this veil already asks enough of the paddle.
+      floorY: 236,
+      points: 100,
+      width: 5,
+      height: 8,
+    },
+    /**
+     * THE WRATH (SHA-175): what the eye puts back every time it blinks.
+     *
+     * **The blink is the clock, so there is no interval here.** The rebuild
+     * rides the lid the player has been watching since THE VEIL, which is the
+     * whole of its fairness: the tell was taught four levels ago and costs
+     * nothing to read. That also makes the rate irregular by construction —
+     * between three and just over seven seconds, the eye's own `blinkMin` and
+     * `blinkRand` — so the wall is never repaired on a beat a player can plan a
+     * lap around.
+     */
+    wrath: {
+      // One hole a blink. Two would repair the wall about as fast as a good
+      // rally opens it, and a level that cannot be finished is not difficulty.
+      bricksPerBlink: 1,
+      // Scar tissue: a rebuilt brick has one hit point whatever it was, so a
+      // granite hole comes back as something a single touch takes out again. It
+      // also paints itself that way for free — the damage ramp reads the hit
+      // points, so a one-hit granite wears its own deepest tone and *looks*
+      // like a repair rather than like a fresh wall.
+      hitPoints: 1,
+      // Ticks of white the new brick cools through. A little over a quarter of a
+      // second: long enough to catch out of the corner of an eye tracking a
+      // ball, short enough that it is over before the ball could reach it.
+      flickerTicks: 16,
+    },
+    /**
+     * THE LID (SHA-176): the seal, the waking, and the thing that comes out.
+     *
+     * **The loop's last level, and the only one that is not won by clearing a
+     * wall.** Everything here is in service of one turn: a plate of bronze the
+     * player digs at with no idea which brick is the tenth, and then a fight
+     * with no wall in it at all.
+     */
+    lid: {
+      // How far open the slit is before the waking. A closed eye would be a
+      // black line and a sleeping one has to be *seen* to be sleeping, so this
+      // is the smallest opening that still draws an eye rather than a crack.
+      slit: 0.08,
+      // The seal: the sixteen cells at these rows and columns, inclusive, of
+      // which this many have to die. Ten of sixteen rather than all of them,
+      // so the waking lands while the plate is still mostly whole — a seal that
+      // needed every cell would be a level that ends and then starts again.
+      sealTop: 1,
+      sealBottom: 4,
+      sealLeft: 4,
+      sealRight: 7,
+      sealNeeded: 10,
+      // Every third one is called out. Not every one: ten pops over a plate the
+      // player is already hammering is a counter, and what they need is a sense
+      // of how close it is.
+      sealPopEvery: 3,
+      radius: 15,
+      hits: 24,
+      // Pixels a tick, plus this much for every hit it has taken — so the last
+      // hit is on something moving at twice the speed of the first. **This is
+      // the fight's only clock.** There is no timer here, unlike INSIDE THE EYE:
+      // a thing that keeps getting faster is already counting.
+      speed: 1.1,
+      speedPerHit: 0.045,
+      // The box it bounces in, vertically. The sides are the field's own, inset
+      // by the radius, so they follow the frame rather than being written down
+      // twice. The top is below the lid's bricks and the bottom is well clear of
+      // the rail: a pupil that could reach the deck would be a boss that kills
+      // you by standing on you.
+      boxTop: 122,
+      boxBottom: 232,
+      // A hit, and the kill. The hit is five gold bricks and the kill is more
+      // than a whole veil's clear bonus — twenty-four hits is the longest single
+      // engagement in the game, and it has to pay like one. Both are the
+      // roster's scale rather than the mockup's 4000/250 000, by the same fifth
+      // the brood came down.
+      hitPoints: 500,
+      killPoints: 25000,
+      flashTicks: 8,
+      shakeTicks: 5,
+      // The waking's jolt, in ticks. Longer than a hit's, because what has just
+      // happened is the level changing into a different one.
+      wakeShakeTicks: 12,
+      // The loose pupil fires THE IRIS's gaze from wherever it is, on a shorter
+      // idle than the veil that introduced it: the beam is a known quantity by
+      // now, and the fourth-and-a-half seconds is what stops the fight being a
+      // pure chase.
+      gazeIdleTicks: 220,
+    },
+    /**
+     * THE GAZE (SHA-173): what THE IRIS does to the deck, and what THE LID's
+     * loose pupil does with it later.
+     *
+     * **A metronome the player can learn.** Idle, charge, fire, idle: five and a
+     * half seconds of nothing, three quarters of a second of warning, and most
+     * of a second of beam. The charge is the whole fairness of it — the ring on
+     * the pupil is a held cue, so being caught is always a thing the player was
+     * shown coming and did not move for.
+     */
+    gaze: {
+      idleTicks: 330,
+      chargeTicks: 45,
+      fireTicks: 50,
+      beamWidth: 6,
+      // How much of the distance to the deck the beam closes each tick while it
+      // fires. Slow enough to be outrun sideways and fast enough that standing
+      // still is never the answer.
+      tracking: 0.03,
+      // How long the deck is stone. Deliberately longer than the beam: what is
+      // taken is the steering, and taking it for less than a rally would be
+      // taking nothing.
+      petrifyTicks: 70,
+      // The field's jolt on the catch, in ticks.
+      shakeTicks: 5,
+    },
+    /**
+     * THE OCULI (SHA-171): three plaques, and the door the third one opens.
+     *
+     * The points are the roster's rather than the mockup's 1500 — three of them
+     * is 900, a gold brick and a half, which is what solving a three-step
+     * combination should be worth beside the door it opens. The door is the
+     * real payment.
+     */
+    oculi: {
+      points: 300,
+      // Ten seconds of open eye. Long enough to bring a ball back from the deck
+      // and aim it, short enough that a player who was not ready loses it —
+      // which is what makes the third plaque a decision about *when* rather than
+      // a thing you do on the way past.
+      windowTicks: 600,
+      // The gap's width, cut over the socket. Wider than a brick and narrower
+      // than two, so it is a target and not a corridor.
+      gapWidth: 52,
+    },
+    /**
+     * INSIDE THE EYE (SHA-172): the pupil fight, behind the door THE OCULI cut.
+     *
+     * **The clock is the whole design of it.** There is no wall in here and
+     * nothing can be lost — a ball that drains costs no life, it only ends the
+     * visit — so the only thing being spent is the twenty-two seconds, and every
+     * hit makes the pupil harder to catch. A player who arrives with a good
+     * rally can finish it; a player who arrives late cannot.
+     */
+    inside: {
+      radius: 15,
+      // How many hits the pupil takes: this many plus `hitsPerVeil` for each
+      // veil deep the player is, so the fifth eye is a real fight and the first
+      // is a lesson.
+      baseHits: 14,
+      hitsPerVeil: 3,
+      ticks: 1300,
+      // The orbit: a Lissajous figure, wide and shallow, whose vertical runs at
+      // 1.7 times the horizontal — so the path never repeats inside a visit and
+      // the pupil is never where it was last time round.
+      orbitX: 66,
+      orbitY: 40,
+      verticalRatio: 1.7,
+      centerX: 186,
+      centerY: 100,
+      // Radians a tick: a base, plus this much for every hit it has taken, plus
+      // this much for every veil. It speeds up as it is hurt, which is what
+      // stops the last four hits being the same as the first four.
+      speed: 0.018,
+      speedPerHit: 0.0035,
+      speedPerVeil: 0.002,
+      // Scaled to the roster like the rest of the universe: a hit is two gold
+      // bricks and the kill is forty. The two stars it lights are worth 5000
+      // more at the clear, so a pupil killed is a third of a full diadem.
+      hitPoints: 500,
+      killPoints: 10000,
+      killStars: 2,
+      flashTicks: 8,
+    },
+    /**
+     * THE DIADEM (SHA-170): six stars over the socket, one for each of the
+     * Observer's creatures sent back.
+     *
+     * Lit by three different things across three tickets — a beast killed
+     * (this one), the oculi completed (SHA-171), the pupil killed inside
+     * (SHA-172, two stars) — so the array lives on the eye and each lighter
+     * takes the next dark star rather than owning an index.
+     */
+    diadem: {
+      // What a lit star pays when the veil is cleared, on top of the roster's
+      // own clear bonus. Scaled from the mockup's 25 000 by the same fifth the
+      // brood was: a full diadem is 15 000, which is a third of the loop's
+      // clear bonuses and is meant to be the reason to hunt the brood at all.
+      starPoints: 2500,
+      // The twinkle's period and its duty, in ticks. Staggered per star by
+      // `twinkleStagger` so a finished diadem shimmers rather than flashing as
+      // one block.
+      twinkleTicks: 30,
+      twinkleStagger: 7,
+    },
+    /**
+     * CHAIN (SHA-168): what the ball is paid for not coming back.
+     *
+     * Every hit the ball or a cannon lands between two deck touches is a link,
+     * and three links buy a step. The cap is where it stops being a reward for
+     * a good rally and starts being a reason to farm one brick — eight is
+     * twenty-one hits without a catch, which is a rally nobody has by accident.
+     */
+    chain: {
+      hitsPerStep: 3,
+      cap: 8,
+      // The step the deck's sheen goes gold on, and the same step the panel's
+      // xN turns yellow: the field and the readout say the same thing at the
+      // same moment, so a player watching the ball never has to look away to
+      // find out the chain is paying.
+      goldFrom: 4,
+      // Shorter than a catch pop's 48. These land at every brick the ball takes
+      // rather than once a capsule, and a number still climbing off a dead
+      // brick while the next three print over it is a smear, not a readout.
+      popTicks: 26,
+    },
+  },
+  /**
+   * THE BESTIARY (SHA-207): the creatures on ordinary levels — every level's
+   * own, from level 1. The brood on the veils keeps its own block above.
+   */
+  creatures: {
+    // Ticks of white a struck creature wears: the brood's flinch. No hit lands
+    // while it is on, which is what keeps a ball passing through a moth from
+    // striking it every tick of the crossing.
+    flashTicks: 8,
+    moth: {
+      hitPoints: 1,
+      points: 100,
+      // On the hit that kills — with the capsule it was carrying.
+      killPoints: 300,
+      // The loop round the eye: half-axes, and how far round it goes a tick.
+      orbitX: 64,
+      orbitY: 28,
+      turn: 0.028,
+      // The wobble on the loop — a moth never flies a clean circle.
+      wobble: 4,
+      wobbleRate: 0.19,
+    },
+    frog: {
+      hitPoints: 2,
+      points: 120,
+      // The air kill's worth: a frog hit mid-leap dies at once, for this on top.
+      killPoints: 300,
+      // How near the ball has to come, in pixels from the frog's centre, to
+      // make it jump — and the leap: how long, how high, and how long it sits
+      // before it will jump again.
+      range: 70,
+      leapTicks: 30,
+      leapHeight: 26,
+      restTicks: 40,
+    },
+    snail: {
+      hitPoints: 3,
+      points: 80,
+      killPoints: 400,
+      // Pixels a tick along the skyline, and pixels a tick up or down it: the
+      // crawl is slow, the step down onto a lower brick is not, or it would
+      // trail the wall's edge by four columns on its first descent.
+      speed: 0.25,
+      climb: 1,
+    },
+    spider: {
+      hitPoints: 1,
+      points: 150,
+      killPoints: 350,
+      // The drop and the climb, in pixels a tick; how far either side of its
+      // column a ball has to pass to set it off; and how long it hangs before
+      // it will drop again.
+      dropSpeed: 2.2,
+      climbSpeed: 1.1,
+      triggerHalfWidth: 24,
+      restTicks: 60,
+      // How far above the deck a drop stops, whatever the ball's height was:
+      // the spider blocks the ball, it never lands on the paddle.
+      deckClearance: 30,
+    },
+    bat: {
+      // Three, and the first only opens its eyes: the two that kill have to
+      // catch it in the air.
+      hitPoints: 3,
+      points: 90,
+      killPoints: 350,
+      // Ticks of flight a hit buys — five seconds at 60Hz — and every further
+      // hit buys them again, so landing one is never what puts it back to bed.
+      flitTicks: 300,
+      // How fast it travels, and the lift a woken bat climbs out of its roost
+      // with. The wander on top of both is the species' own sines.
+      flitSpeed: 1.1,
+      riseSpeed: 0.35,
+      // Ticks a wing holds each half of the beat. Faster than the moth's
+      // frames: a bat beats, a moth flutters.
+      flapTicks: 5,
+    },
+    beetle: {
+      // What it can take on its back, and nothing else: the two hits that roll
+      // it and upend it hand their hit point back, because they change it
+      // rather than hurt it.
+      hitPoints: 2,
+      points: 110,
+      killPoints: 450,
+      // The patrol, and the charge a first hit sets off. The charge is fast
+      // enough to be a thing that happened rather than a thing that is
+      // happening — six times the walk.
+      walkSpeed: 0.4,
+      chargeSpeed: 2.6,
+      // Three seconds on its back, which is the whole of the window.
+      flipTicks: 180,
+    },
+    woodpecker: {
+      hitPoints: 1,
+      // Nothing, either way, and deliberately: the cleared path is what it
+      // pays, and a bird worth score would be a clock the player waits on.
+      points: 0,
+      killPoints: 0,
+      // The hammer: a blow every sixteen ticks, and one hit point off the
+      // brick every sixth blow. An ordinary brick has one hit point, so
+      // `pecksPerHit` is the pacing and not the brick — six blows is about a
+      // second and a half of visible work for one brick.
+      peckTicks: 16,
+      pecksPerHit: 6,
+      bobTicks: 5,
+      // Sitting on the gap it just made. This is most of the bird's cycle on
+      // purpose: it is what keeps two of them from clearing a level faster
+      // than the player does and taking the score with it.
+      restTicks: 180,
+      // The flight to the next brick, how high its bounds go, and the
+      // wingbeat. It picks among the `spread` nearest bricks, so two birds
+      // work their own ends of the wall instead of crowding one cell.
+      flyTicks: 56,
+      spread: 3,
+      undulation: 7,
+      flapTicks: 4,
+    },
+    /**
+     * VINE (SHA-241): it roots in the band and climbs, and if it reaches the
+     * wall it turns into wall.
+     *
+     * **`hitPoints` here is what it sprouts as, not what it takes to kill.**
+     * The count *is* the length — one more every `growTicks` — and a hit sets
+     * it to however many segments were below the cut, so a vine is killed by
+     * where you hit it rather than by how often.
+     */
+    vine: {
+      hitPoints: 1,
+      points: 60,
+      killPoints: 500,
+      // Two and a half seconds a segment, three quarters of a second a brick.
+      // Growing is the clock the player is racing; laying is the consequence.
+      // `layTicks` is also the rate a vine that has arrived at an unbroken
+      // column *answers* at, so it is slow enough that a brick taken out and
+      // put straight back reads as two events rather than as one that failed.
+      growTicks: 150,
+      layTicks: 45,
+      // What it becomes: the green brick, so the wall it leaves is visibly the
+      // vine and not the wall the level was built with.
+      layKind: "4",
+      // The breeze, as a period. Offset by the segment, so it travels up the
+      // stalk rather than every leaf lifting on the same tick.
+      swayTicks: 26,
+    },
+    /**
+     * WISP (SHA-242): the one creature the ball cannot touch, and therefore
+     * the one worth a thousand points.
+     *
+     * The price is the reach. A level with a wisp on it and no LASER in the
+     * wall is a level where the wisp is scenery, which is why it is the
+     * biggest number in the bestiary and not a balance mistake.
+     */
+    wisp: {
+      hitPoints: 1,
+      points: 250,
+      killPoints: 800,
+      // The drift: one speed, and a heading that is always turning. Half a
+      // pixel a tick crosses the field in twelve seconds, which is slow
+      // enough to be a thing you decide to deal with rather than chase.
+      speed: 0.5,
+      turn: 0.02,
+      // The two rates the turn is made of. No common period, so the path does
+      // not close into a lap the player can learn.
+      wobbleTicks: 47,
+      driftTicks: 17,
+      // What a ball passing through leaves behind: a shove in the direction it
+      // was going, gone again in about half a second. It moves nothing and
+      // takes nothing — it is there so that a ball going clean through does
+      // not read as a collision that failed.
+      shove: 1.2,
+      shoveDecay: 0.88,
+    },
+    /**
+     * FIREFLY (SHA-243): the lamps on a dark level, and the score that asks
+     * the player to put them out.
+     *
+     * Every number here is small on purpose. A firefly is not a fight and not
+     * a race — it is a light with a price on it, and the only decision it
+     * offers is whether the four bricks it is worth are worth the dark that
+     * follows.
+     */
+    firefly: {
+      hitPoints: 1,
+      points: 60,
+      killPoints: 200,
+      // What a hit buys: a second and a half of the dark held off, which the
+      // blackout's own forty-five-tick iris spends opening and closing round
+      // about three quarters of a second of full light.
+      glowTicks: 90,
+      // The blink, as a full period, and how much of it the lantern is lit
+      // for. Just under half: a firefly is dark slightly more than it is lit,
+      // which is what makes a blink a blink rather than a flicker.
+      blinkTicks: 96,
+      litShare: 0.45,
+      // The two steps the lantern's three tones change on, and the second of
+      // them is also where the rays come out. Read off `fireflyLantern`, which
+      // is a sine over the lit share — so `haloAt` at 0.65 is about a quarter
+      // of the whole cycle with the light actually firing.
+      emberAt: 0.15,
+      haloAt: 0.65,
+      // The wander: how far off its pin, and how long a round trip takes. Two
+      // periods with no common multiple, so the path never closes into a lap —
+      // and both short enough that the lamp stays where the level put it.
+      driftX: 22,
+      driftY: 13,
+      driftTicks: 460,
+      bobTicks: 190,
+    },
+    /**
+     * CRAB (SHA-244): the deposit account.
+     *
+     * The numbers are tuned round one question — how often is a crab standing
+     * where a capsule lands? Too seldom and the pips never appear and the
+     * species is a slow beetle; too often and no capsule reaches the deck
+     * unbrokered. `reach` is what settles it, and it is deliberately about a
+     * quarter of the field rather than the whole of it.
+     */
+    crab: {
+      hitPoints: 2,
+      points: 100,
+      killPoints: 250,
+      // The patrol and the scuttle. Idling it crosses the field in about
+      // fourteen seconds; with something in reach it moves at better than
+      // twice that, which is the difference the player reads as "it has seen
+      // it".
+      walk: 0.45,
+      chase: 1.1,
+      // How far out of its way it will go, and how far above itself it
+      // reaches. `grab` is the claws: a capsule falls 1.3 px a tick so nothing
+      // could pass through the body anyway, and this exists so the take
+      // happens visibly above the shell rather than inside it.
+      reach: 96,
+      grab: 6,
+      // How many it can hold, which is also how many slots are cut in its
+      // shell. Four is the most a player can count at a glance on a 15 px
+      // back, and the pool only holds six.
+      carry: 4,
+      // How far apart the spill throws them. Wider than a capsule, so four
+      // coming out of one crab are four capsules and not one stack.
+      spill: 24,
+    },
+    /**
+     * THE SPIDER QUEEN (SHA-209), the boss at the end of level 5. Ten hits;
+     * every one pays a brick's worth twice over, and the kill pays the level.
+     */
+    spiderQueen: {
+      hitPoints: 10,
+      points: 200,
+      killPoints: 2000,
+      // Where she hangs, and how she comes down to it from above the ceiling.
+      hangY: 22,
+      enterSpeed: 1,
+      // The stalk along the top toward the deck, in pixels a tick, and how
+      // close to over it she has to be before she drops.
+      stalkSpeed: 0.6,
+      aimWidth: 10,
+      dropSpeed: 3,
+      climbSpeed: 1.4,
+      // Ticks she hangs between drops: the whole of the player's window.
+      restTicks: 90,
+    },
+    /**
+     * THE MOTH MOTHER (SHA-213), the boss at the end of level 15. Twelve hits,
+     * a capsule out of her on every one; the dust on a clock.
+     */
+    mothMother: {
+      hitPoints: 12,
+      points: 200,
+      killPoints: 2000,
+      enterSpeed: 1.2,
+      // The figure of eight: its middle height, how far it reaches either
+      // side and up and down, and how fast she goes round it.
+      centreY: 120,
+      reachX: 130,
+      reachY: 44,
+      turn: 0.014,
+      wobble: 4,
+      wobbleRate: 0.17,
+      // The dust: how long she flies between shakes, how long a shake is, and
+      // how long the dark it brings lasts.
+      dustEvery: 540,
+      shakeTicks: 36,
+      dustTicks: 240,
+    },
+    /**
+     * THE FROG KING (SHA-213), the boss at the end of level 25. Eight hits,
+     * every one of them in the air.
+     */
+    frogKing: {
+      hitPoints: 8,
+      points: 250,
+      killPoints: 2500,
+      enterSpeed: 3,
+      // Ticks sitting between hops, the hop's length and height, and the
+      // landing's rattle.
+      restTicks: 75,
+      leapTicks: 48,
+      leapHeight: 70,
+      thudTicks: 8,
+      // The tongue: how far it reaches from the mouth, how fast the ball it
+      // catches is sent down, how much of that sideways, how long the tongue
+      // is out, and how long before it can flick again.
+      tongueRange: 56,
+      spitSpeed: 5,
+      spitSideways: 0.4,
+      tongueTicks: 12,
+      tongueRest: 60,
+    },
+    /**
+     * THE SNAIL ELDER (SHA-213), the boss at the end of level 35. Twelve hits
+     * on the head; the wall grows back under him while he lives.
+     */
+    snailElder: {
+      hitPoints: 12,
+      points: 200,
+      killPoints: 2000,
+      enterSpeed: 1,
+      speed: 0.45,
+      // The rows he lays in, from the top, one per pass; what he lays; and
+      // how much of his front is head rather than shell.
+      layRows: 2,
+      layKind: "2",
+      headWidth: 12,
+    },
+  },
+  /**
+   * THE BOSSES (SHA-209): the fight at the end of every fifth level. What a
+   * boss is worth on the clear card, on top of the ordinary bonus.
+   */
+  bosses: {
+    clearBonus: 5000,
+  },
+  /**
+   * THE TITLE (SHA-211): the mockup's home. Where the Observer sits behind the
+   * wordmark, in stage pixels, and how big — it looks at the mouse.
+   */
+  title: {
+    eye: { x: 240, y: 92, hw: 80, hh: 28 },
   },
   effects: {
     // Must hold a full-field NUKE: FINALE's 72 bricks x 10 chunks with 30-45

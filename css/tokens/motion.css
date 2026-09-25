@@ -1,6 +1,8 @@
 :root {
   --blink-duration: 1s;
-  --copper-duration: 1.467s;
+  /* One period of the title's copper band (SHA-249): the HD bundle's 2.2 s for
+     its 32-fine-pixel cycle, so the bars roll at the bundle's pace. */
+  --copper-duration: 2.2s;
   /* 1UP's bar landing in the rack, and the pulse when the rack turns one away.
      Derived rather than chosen: `catchPopLifeTicks` is 48 and the pop starts
      blinking the word 1UP apart at 16 ticks left, so 18 ticks puts the bar down
@@ -9,4 +11,12 @@
   /* DEMAKE's dissolve. Must match `gameConfig.effects.demakeFadeTicks`
      (30 ticks at 60 Hz), or the panel and the field come apart mid-fade. */
   --demake-fade: 0.5s;
+  /* CHAIN's xN moving up the ramp. Short because it is a *step*: the count moves
+     every three hits, and a PIERCE ball down a column can take four inside a
+     third of a second — at the half-second every other colour in the stage
+     eases over, a good rally's tone would still be in transit when the next step
+     replaced it, and the cap's red would never be reached at all. Short rather
+     than instant so it is still a fade at both ends, and so DEMAKE's sag reaches
+     these two glyphs like everything else. */
+  --chain-step-fade: 0.12s;
 }

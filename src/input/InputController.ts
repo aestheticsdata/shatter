@@ -1,7 +1,8 @@
 import type { StageScaler } from "@ui/StageScaler";
 
 export interface InputHandlers {
-  onPointerMoveTo(stageX: number): void;
+  // Both axes: the deck reads only x, the title's eye looks at the whole point.
+  onPointerMoveTo(stageX: number, stageY: number): void;
   onPointerMoveBy(deltaX: number): void;
   onAdvance(): void;
   onKeyDown(event: KeyboardEvent): void;
@@ -112,7 +113,7 @@ export class InputController {
       this.handlers.onPointerMoveBy(event.movementX / this.scaler.scale);
       return;
     }
-    this.handlers.onPointerMoveTo(this.scaler.toStageX(event.clientX));
+    this.handlers.onPointerMoveTo(this.scaler.toStageX(event.clientX), this.scaler.toStageY(event.clientY));
   };
 
   // The game routes play-entering advances back through runGated, which issues

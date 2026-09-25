@@ -1,7 +1,7 @@
 import { BRICK_BY_ID, isBrickKind } from "@core/config/bricks";
 import { gameConfig } from "@core/config/GameConfig";
 
-import type { BrickCell, BrickHit, LevelDefinition, PowerUpKind } from "@interfaces/types";
+import type { BrickCell, BrickHit, BrickKind, LevelDefinition, PowerUpKind } from "@interfaces/types";
 
 /**
  * ERODE's wear, as much of it as the wall needs to know: how far the brick in a
@@ -100,6 +100,12 @@ export class BrickGrid {
   // whether the ball is allowed to notice it. See `WallFog`.
   fog: WallFog | null = null;
   private grid: Array<Array<BrickCell | null>> = [];
+  // What the level *built*, cell for cell, kept beside what is standing — which
+  // is the only way to know a hole is a hole rather than sky (SHA-175). Only THE
+  // WRATH reads it, and it is stored as kinds rather than as the level's rows
+  // because a row is a string of twelve characters that may be short, and this
+  // has to line up with `grid` index for index however QUAKE has moved it.
+  private layout: Array<Array<BrickKind | null>> = [];
   private remainingCount = 0;
 
   get remaining(): number {
@@ -120,19 +126,23 @@ export class BrickGrid {
    */
   load(level: LevelDefinition, rollCapsule: () => PowerUpKind | null): void {
     this.grid = [];
+    this.layout = [];
     this.remainingCount = 0;
     this.topOffset = 0;
 
     const { columns } = gameConfig.grid;
     for (const [rowIndex, row] of level.rows.entries()) {
       const line: Array<BrickCell | null> = [];
+      const plan: Array<BrickKind | null> = [];
       for (let column = 0; column < columns; column++) {
         const char = row[column] ?? ".";
         if (!isBrickKind(char)) {
           line.push(null);
+          plan.push(null);
           continue;
         }
         const definition = BRICK_BY_ID[char];
+        plan.push(char);
         line.push({
           kind: char,
           hitPoints: definition.hitPoints,
@@ -141,12 +151,17 @@ export class BrickGrid {
           // cells by reference, so a granite brick that slides down a row is
           // still cut from the same stone.
           seed: rowIndex * columns + column,
-          capsule: rollCapsule(),
+          // Skipped rather than rolled and thrown away on the one kind that
+          // never holds one: the roll is one call per brick that *can* pay, and
+          // a lid asked about sixty times would be sixty draws nobody could win.
+          capsule: definition.capsules === false ? null : rollCapsule(),
           seeded: false,
+          scarTicks: 0,
         });
         this.remainingCount++;
       }
       this.grid.push(line);
+      this.layout.push(plan);
     }
 
     // The level's own capsules, stamped over whatever those cells rolled. Last
@@ -169,7 +184,7 @@ export class BrickGrid {
   reseedCapsules(rollCapsule: () => PowerUpKind | null): void {
     for (const row of this.grid) {
       for (const cell of row) {
-        if (cell && !cell.seeded) {
+        if (cell && !cell.seeded && BRICK_BY_ID[cell.kind].capsules !== false) {
           cell.capsule = rollCapsule();
         }
       }
@@ -481,8 +496,80 @@ export class BrickGrid {
     }
     for (let row = last; row > 0; row--) {
       this.grid[row] = this.grid[row - 1];
+      this.layout[row] = this.layout[row - 1];
     }
     this.grid[0] = Array.from({ length: gameConfig.grid.columns }, () => null);
+    // The plan slides with the wall, or THE WRATH would spend the rest of the
+    // level repairing holes a row above the ones the player is actually making.
+    // The fresh top row plans nothing, which is right: QUAKE did not put a wall
+    // up there, so there is no hole in it to repair.
+    this.layout[0] = Array.from({ length: gameConfig.grid.columns }, () => null);
+  }
+
+  /**
+   * THE WRATH (SHA-175): every cell the level built that is standing empty now,
+   * with the kind it was built as.
+   *
+   * A list and not a count, because the caller picks one of them at random and
+   * a hole is two numbers and a letter — and because "which holes" is the one
+   * question about this that has an interesting answer: it shrinks as the eye
+   * repairs and grows as the player digs, so the last hole left is the one the
+   * next blink is certain to take.
+   *
+   * The fence is not in here. It is a row of posts the level never planned, and
+   * a post the Observer rebuilt would be a brick nobody put a hole in.
+   */
+  holes(): Array<{ row: number; column: number; kind: BrickKind }> {
+    const found: Array<{ row: number; column: number; kind: BrickKind }> = [];
+    for (const [row, plan] of this.layout.entries()) {
+      for (const [column, kind] of plan.entries()) {
+        if (kind !== null && this.grid[row][column] === null) {
+          found.push({ row, column, kind });
+        }
+      }
+    }
+    return found;
+  }
+
+  /**
+   * One hole repaired: a brick of its own kind back in its own cell, at
+   * whatever hit points the caller says and holding nothing.
+   *
+   * **`capsule` is null and this method offers no way to make it anything
+   * else.** The eye repairs on its own clock rather than on the player's, so a
+   * scar that could pay would be a capsule farm with no upper bound: stand off
+   * the wall, let the blinks refill the same hole, break it, repeat. A brick
+   * handed back to you is not a brick you earned. It is still worth its kind's
+   * points — the rate there is one brick every few seconds, which is noise
+   * beside a single chained rally, and a repair that paid nothing at all would
+   * read as a bug rather than as a rule.
+   */
+  scar(row: number, column: number, kind: BrickKind, hitPoints: number, flickerTicks: number): void {
+    if (this.grid[row]?.[column] !== null) {
+      return;
+    }
+    const definition = BRICK_BY_ID[kind];
+    this.grid[row][column] = {
+      kind,
+      hitPoints: Math.max(1, Math.min(definition.hitPoints, hitPoints)),
+      points: definition.points,
+      seed: row * gameConfig.grid.columns + column,
+      capsule: null,
+      seeded: false,
+      scarTicks: flickerTicks,
+    };
+    this.remainingCount++;
+  }
+
+  /** One tick off every birth flicker on the wall. Costs nothing on the other levels: no cell carries one. */
+  stepScars(): void {
+    for (const row of this.grid) {
+      for (const cell of row) {
+        if (cell !== null && cell.scarTicks > 0) {
+          cell.scarTicks--;
+        }
+      }
+    }
   }
 
   // NUKE kills: remove the cell outright, regardless of remaining hit points.

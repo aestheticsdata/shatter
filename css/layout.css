@@ -13,6 +13,17 @@
   height: var(--stage-height);
   background: var(--color-page);
   transform-origin: center center;
+  /* THE LOAD (SHA-252): unseen until `main.ts` has scaled it and the pixel fonts
+     are in. Before that the browser can only paint the raw 480 × 300 — a stamp
+     in the middle of the window that jumps to full size, and whose type swaps
+     again as the fonts land. Opacity rather than `visibility`, because a child
+     may set its own visibility back, and opacity is the whole subtree. Not in
+     the stage's transition list, so it appears in one frame, finished. */
+  opacity: 0;
+
+  &.ready {
+    opacity: 1;
+  }
 }
 
 #playfield {

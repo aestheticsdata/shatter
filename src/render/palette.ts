@@ -1,5 +1,6 @@
 import { BRICK_BY_ID, byBrickId } from "@core/config/bricks";
 import { byId, POWER_UPS } from "@core/config/powerUps";
+import { parentTone } from "@render/pix";
 
 import type { BrickKind, ChunkMaterial, PowerUpKind } from "@interfaces/types";
 
@@ -7,6 +8,22 @@ export interface BrickColorSet {
   flat: string;
   light: string;
   dark: string;
+}
+
+/**
+ * Which deck is being painted: the player's, MIRROR's ghost, a BOMB's whiteout,
+ * or the stone THE IRIS turns it into.
+ *
+ * Here rather than beside the sets themselves because two modules draw a pill
+ * now — `CanvasRenderer` in whole game pixels and `@render/hdPaddle` on the fine
+ * grid — and a type owned by one of them would have the other importing the
+ * renderer for four strings.
+ */
+export interface PaddleBandColors {
+  body: string;
+  cap: string;
+  sheen: string;
+  shade: string;
 }
 
 // The body and its two bevels, per brick, off the roster in
@@ -40,6 +57,78 @@ export const canvasPalette = {
   paddleCap: "#e8384f",
   paddleTopSheen: "#a8d8ff",
   paddleBottomShade: "#0b3a78",
+  // CHAIN paying at x4 or better: the deck's top sheen, in gold. The same
+  // yellow the panel's xN turns on the same step, and the same one the cannons
+  // and the shots are painted in — the deck is not wearing a new colour, it is
+  // wearing the one this machine already uses for "this is worth something".
+  chainSheen: "#ffcf1c",
+  /**
+   * THE OBSERVER's eye (SHA-169). Four tones, and only four: the sclera is
+   * `wallLight`, the bronze rim and the gold lash are the gold brick's own dark
+   * and flat, and the red iris is the red brick's three — an eye made of the
+   * colours this machine is already built from, rather than a palette of its
+   * own arriving with it.
+   *
+   * `eyePupil` is the deepest tone on the field, darker than the field itself:
+   * a pupil is a hole, and a hole has to be blacker than what it is cut in.
+   */
+  eyeScleraShade: "#c7d2f5",
+  eyePupil: "#05050f",
+  /**
+   * THE HD PASS (SHA-216): the shadow a brick drops into its own mortar seam.
+   *
+   * The same near-black as the pupil, and named separately because it is doing
+   * a different job — this one says the wall is *laid*, courses of it standing
+   * proud of the dark behind, which is most of what separates a 2026 wall from
+   * a 1987 one. It lives in the 3 fine pixels of seam the grid has always left
+   * between cells, so it costs the brick nothing.
+   */
+  brickJoint: "#05050f",
+  eyeIrisEdge: "#1d47a8",
+  eyeIrisInner: "#63b0ff",
+  /**
+   * THE LID's emptied socket (SHA-176): the hole the loose pupil left.
+   *
+   * A red so deep it is nearly the field — darker than the red brick's own
+   * shade, which the iris that used to sit here was drawn from — because what
+   * the picture has to say is that the socket is *empty*. A brighter red would
+   * be an eye with a red iris, and the player has spent the last four veils
+   * learning to read exactly that.
+   */
+  eyeSocket: "#3d0009",
+  /**
+   * THE DIADEM's stars (SHA-170). Gold, because this is the one thing on a veil
+   * that is a *reward* — the house keeps yellow for what pays, and six of these
+   * are worth more at a clear than the wall under them.
+   *
+   * Two tones for a lit star and two for a dark one, and the pair is the whole
+   * tell: a star that is only dimmer would read as a star further away, while a
+   * dark one drawn as three grey pixels reads as a socket waiting to be filled.
+   */
+  /**
+   * THE IRIS's gaze has the deck (SHA-173): the pill in stone.
+   *
+   * The body and the sheen are the wall frame's own two greys, so the deck turns
+   * into the same rock the chamber is built out of. The caps are the deck's red
+   * drained of it rather than a new colour — what happened is that the paddle
+   * *stopped being paint* — and the cracks are the darkest blue on the field, so
+   * they read as depth rather than as dirt.
+   */
+  // THE TEAR's tracks (SHA-174): the wet trail down the cheek. Dark enough to
+  // read as a stain on the sclera rather than as a second sprite laid on it,
+  // and the same blue the drop itself is cut from.
+  tearTrack: "#3c50a0",
+  stoneCap: "#5a6486",
+  stoneCrack: "#1b2244",
+  // THE OCULI's plaques (SHA-171): the recess behind the bronze. Darker than the
+  // sky they hang in, so a plaque reads as something set into the wall of the
+  // chamber rather than as a tile lying on the starfield.
+  oculusRecess: "#3b2a0e",
+  diademStar: "#ffcf1c",
+  diademTwinkle: "#ffe14a",
+  diademCore: "#fff9d0",
+  diademDark: "#4a4c60",
+  diademDarkEdge: "#2b2d40",
   laserCannon: "#ffcf1c",
   // A cannon still coming out of the deck. `laserCannon` and `laserShot` are the
   // same yellow, so a muzzle painted in either while it rises is painted in the
@@ -449,6 +538,12 @@ export const canvasPalette = {
   // rather than as a hole in the screen.
   demakeInk: "#6cf08a",
   demakeGround: "#07160c",
+  // THE TITLE (SHA-211): the mockup's home sky — near-black, and three star
+  // tones from dim to bright.
+  titleBase: "#05050f",
+  titleStarDim: "#1b2244",
+  titleStarMid: "#333f78",
+  titleStarBright: "#6c7cb4",
   // BLACKOUT: the dark the field goes under for 5 seconds. Near-black with just
   // enough blue left in it to read as the lights going out rather than as a
   // hole cut in the canvas — and it is never seen flat, since the pools around
@@ -456,6 +551,49 @@ export const canvasPalette = {
   // the machine the tube's own ground stands in for it: a green screen going
   // dark stays green.
   blackoutVeil: "#05050c",
+} as const;
+
+/**
+ * THE HD PASS (SHA-220): the arena frame, as nine tones from its outer edge
+ * inward — one fine pixel each across the three game pixels the rail has always
+ * been.
+ *
+ * Claude Design's ramp, and **authored rather than derived**: three of the nine
+ * are tones this game already has and two more are exact `mix()` of them, but
+ * `#6f7aa8`, `#b4bee6`, `#a0aad6` and `#5c6690` are none of that — they are an
+ * artist's reading of light falling across a bevelled rail, and approximating
+ * them with a blend would be redrawing the thing the owner picked the bundle
+ * for. The pass's rule is that no hex is written *inside a recipe*; an authored
+ * ramp belongs here, beside the brick ramps, which is what "the palette is the
+ * single source of truth" means.
+ *
+ * Read outward-in: a dark contour, a blown highlight, the wall's own light held
+ * for two pixels, then four steps down to the dark lip the field sits behind.
+ */
+export const FRAME_RAILS: readonly string[] = [
+  "#6f7aa8",
+  "#eef2ff",
+  canvasPalette.wallLight,
+  canvasPalette.wallLight,
+  "#c9d2f2",
+  "#b4bee6",
+  "#a0aad6",
+  canvasPalette.wallShade,
+  "#5c6690",
+];
+
+/**
+ * A rivet in the rail: three fine pixels square, lit from the upper left.
+ *
+ * Its body is the rail's own innermost tone and its shadow is the wall's shade,
+ * so a rivet is made of the thing it is driven into. Only the catch of light on
+ * its head is new, and that is the highlight rail taken the rest of the way to
+ * white.
+ */
+export const FRAME_RIVET = {
+  body: FRAME_RAILS[8],
+  light: "#f4f7ff",
+  dark: canvasPalette.wallShade,
 } as const;
 
 /**
@@ -506,4 +644,69 @@ export const DEMAKE_GROUND_TONES: ReadonlySet<string> = new Set([
   canvasPalette.dropShade,
   canvasPalette.singularityCore,
   canvasPalette.portalDark,
+  // The rail's dark contour and the dark lip the field sits behind (SHA-223).
+  // Authored tones rather than blends, so nothing can infer their role: they
+  // are the two ends of the frame's ramp, and they are the frame's *edges* —
+  // ink there and the arena has no outline against the page and no lip under
+  // the wall, which is a bright bar where a machined rail was. The four steps
+  // between them stay ink, because those are the light falling across it.
+  FRAME_RAILS[0],
+  FRAME_RAILS[8],
+  // The mortar seam's shadow, which the HD wall paints and the classic one
+  // leaves as bare field (SHA-223). Ink there would weld sixty bricks into one
+  // sheet and take the wall's grid with it — the exact cost the rule above is
+  // written to avoid. `titleBase` shares its value and is covered with it.
+  canvasPalette.brickJoint,
+  // Black, which is not a sprite tone and is not drawn anywhere on the classic
+  // path — `umbraCast` is the only `#000000` in the roster and DEMAKE replaces
+  // it with a halftone before it reaches the filter. It is here for the HD
+  // recipes, which reach for it as the end of a blend whenever they want a
+  // contour: the ball's, the deck's, the capsule's and the brick's outermost
+  // pixel are all `mix(<shade>, "#000000", …)`. Pure black is the shadow role
+  // by definition, and saying so once is what lets those four silhouettes
+  // resolve to ground without a word in any of the recipes.
+  "#000000",
 ]);
+
+/**
+ * One colour, on the tube — the whole of DEMAKE's palette, for any tone the art
+ * can produce.
+ *
+ * The rule is `DEMAKE_GROUND_TONES`' rule and has not changed: the tones that
+ * carry a *shape* go to ground and everything else to ink. What is new
+ * (SHA-223) is that it now answers for the tones the HD recipes derive as well
+ * as the ones the roster authored — five per material where three were written
+ * down, none of them in any set.
+ *
+ * **A derived tone takes the role of the tone it came out nearest**, which
+ * `@render/pix` records as the blend is made. So the brick's `d3` — its body's
+ * dark pulled 40% toward black — is ground because the dark it came off is,
+ * while `d1`, the same dark blended 45% of the way *into* the body, is ink
+ * because the body is. One is the brick's outline and the other is the shaded
+ * half of its face, and no recipe had to say so.
+ *
+ * The walk is a loop rather than one step because a derived tone is routinely
+ * derived from a derived tone: the brick's specular is `mix(sheen, white, 0.5)`
+ * on a sheen that THE WRATH may already have mixed toward the death flash.
+ *
+ * The alternative the ticket floated was a luma threshold. It is the right tool
+ * one layer down — `@render/backgrounds` thresholds the *painted field* at 22,
+ * because those tones were authored dark by the `check:backgrounds` rules and
+ * a whole theme is one material. It is the wrong tool here: sprite tones run
+ * the full range, so any single number turns the dark bricks to ground and the
+ * light ones to a slab, which is the flattening this filter exists to avoid.
+ */
+export function demakeTone(color: string): string {
+  let tone: string | undefined = color;
+  // Capped rather than walked to the end. The chain is three deep at the worst
+  // the roster can build, and `mix` never records a tone as its own parent —
+  // but two blends *can* land on each other's inputs, and an unbounded walk
+  // over a map the art writes into is a render loop that can hang on a colour.
+  for (let step = 0; step < 8 && tone !== undefined; step++) {
+    if (DEMAKE_GROUND_TONES.has(tone)) {
+      return canvasPalette.demakeGround;
+    }
+    tone = parentTone(tone);
+  }
+  return canvasPalette.demakeInk;
+}

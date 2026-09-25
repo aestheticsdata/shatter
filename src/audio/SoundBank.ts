@@ -354,6 +354,303 @@ export class SoundBank {
 
   // A pinball bumper kick: a short pop rising an octave over a click of noise,
   // so a rally of them reads as a rhythm rather than as one held tone.
+  /**
+   * THE TEAR: a drop leaving the lid.
+   *
+   * A sine drip, falling a full octave — soft enough to sit under a rally and
+   * distinct enough that a player who has learned it knows a tear has started
+   * without looking at the corner. It is the only sound on a veil that is a
+   * *warning without a threat*: nothing has happened yet.
+   *
+   * It was 900 → 620 and is 1320 → 660 (SHA-177). `superposeCollapse` is a sine
+   * falling 880 → 590 at the same volume — 39 cents off it at the top and 86 at
+   * the bottom, which is the same sound — and an echo is struck several times a
+   * rally while SUPERPOSE is up. The octave is also what takes it off
+   * `brickDestroyed`'s top row, which sweeps 903 → 431. Nothing else in the bank
+   * falls a whole octave in a sine, and that is now the drip's signature.
+   */
+  tearFalls(): void {
+    this.tone({ freq: 1320, freqEnd: 660, dur: 0.12, vol: 0.03, type: "sine" });
+  }
+
+  /** THE TEAR: one burst in the air. A high square pip, and it is over. */
+  tearBursts(): void {
+    this.tone({ freq: 1000, dur: 0.06, vol: 0.04 });
+  }
+
+  /**
+   * THE TEAR: one reached the floor, and there is a new creature on the band.
+   *
+   * A low square knock, long for what it is — the opposite end of the register
+   * from the burst, because these are the two answers to the same question and
+   * the player should be able to tell which one they got with their eyes on the
+   * ball.
+   */
+  tearHatches(): void {
+    this.tone({ freq: 200, dur: 0.2, vol: 0.05 });
+  }
+
+  /**
+   * THE WRATH: a hole in the wall closed up again.
+   *
+   * A dull square knock, lower and shorter than the hatch — the deadest sound
+   * in the bank, and deliberately so. What has happened is that a brick came
+   * back, which is a small, flat, unwelcome fact; a bright sound would make it
+   * read as a reward. It is also the only cue a player who is watching the ball
+   * gets, since the brick it announces is somewhere they are not looking.
+   *
+   * 110 and not the 160 it was written at (SHA-177): `mortarSet` is a flat
+   * square knock at 150 for 0.12 s, a semitone and twenty milliseconds away,
+   * and MORTAR can be in hand on THE WRATH like any other capsule. Going down
+   * rather than up because the one cue for a mechanic the player cannot see has
+   * to be unmistakable, and *deader* is the direction this sound already wanted.
+   */
+  wallScars(): void {
+    this.tone({ freq: 110, dur: 0.09, vol: 0.045 });
+  }
+
+  /**
+   * THE LID: the tenth seal cell dies and the Observer comes awake.
+   *
+   * **Five notes climbing out of the bottom of the bank**, slowly, and it is
+   * the only sound in the game that starts below the bass of anything else. The
+   * whole register of the Observer's cues has been upward and bright — the
+   * plaques, the door, the visit — and this is that phrase inverted and dragged
+   * down, so the one moment the eye acts on its own initiative sounds like
+   * something much larger than the player turning over.
+   */
+  observerWakes(): void {
+    this.arp([110, 147, 196, 262, 349], 90);
+  }
+
+  /**
+   * THE LID: twenty-four hits, and the loop is over.
+   *
+   * Six notes up two octaves, the longest and highest climb in the bank —
+   * longer than the pupil's four inside the eye, because that was a room the
+   * player walked out of and this is the last brick of the last level of the
+   * loop. It answers `observerWakes` note for note in the other direction.
+   *
+   * Its first four notes are `levelClear`, exactly, and then it keeps going.
+   * That is deliberate and it is the reason the notes are these: this card is
+   * played *instead* of the clear, so the phrase the player has heard at the end
+   * of forty-two levels starts, and this time it does not stop where it always
+   * has. Nothing else in the bank is allowed to quote it — see `eyeOpens`.
+   */
+  observerBlinded(): void {
+    this.arp([523, 659, 784, 1046, 1318, 1568], 110, { detunePair: true });
+  }
+
+  /**
+   * THE LID: one cell of the seal, with how far along the ten it is.
+   *
+   * A dull knock rising a little each time, so the player hammering a plate
+   * with no way to see which cell is the tenth can hear that they are getting
+   * somewhere. Nine rungs, 330 up to 570 — 165 cents apart at the bottom, which
+   * is the smallest step in this bank an ear reliably hears as a step.
+   *
+   * **A triangle, and the only one on this level.** It was a square at
+   * 180 + progress × 140 (SHA-177): the first rung landed at 194, and every
+   * first hit on every bronze brick of THE LID's plate plays `brickArmored`, a
+   * square sweeping 210 → 180. A milestone heard ten times in a level cannot
+   * share a voice with the sound of an ordinary hit on the level's own brick.
+   * Low rather than bright because the thing being cut is a bronze plate.
+   */
+  sealBroken(progress: number): void {
+    this.tone({ freq: 300 + progress * 300, dur: 0.13, vol: 0.06, type: "triangle" });
+  }
+
+  /**
+   * THE IRIS: the gaze winding up.
+   *
+   * A single high sine ping — a pure tone in a bank of squares and sawtooths,
+   * which is what makes it carry through a rally without being loud. It is the
+   * sound of being *looked at*, and the three quarters of a second after it are
+   * the whole of the warning the player gets.
+   *
+   * 1568 and not 1200 (SHA-177). `heisenObserve` is also a bare sine, at 1046,
+   * and HEISEN fires it every time the player looks at the ball — a whole tone
+   * away and several times a second is a warning buried under a habit. At 1568
+   * it is the highest sine in the bank by a fifth, which is where a sound that
+   * means *something is about to happen to you* belongs anyway.
+   */
+  gazeCharges(): void {
+    this.tone({ freq: 1568, dur: 0.11, vol: 0.035, type: "sine" });
+  }
+
+  /**
+   * THE IRIS: the beam.
+   *
+   * A low sawtooth drone held for the length of the fire, so the danger is
+   * audible for exactly as long as it is real. Nothing pitched over it: the beam
+   * is a pressure, not an impact, and a note would make it an event that had
+   * already finished.
+   */
+  gazeFires(): void {
+    this.tone({ freq: 90, dur: 0.35, vol: 0.05, type: "sawtooth" });
+  }
+
+  /**
+   * THE IRIS: caught, and the deck is stone.
+   *
+   * The lowest, longest sound in the bank — a sawtooth thud that falls away
+   * under everything else still playing. It is the one sound here that is about
+   * something being taken rather than given, and it wants to be felt rather than
+   * heard.
+   */
+  petrified(): void {
+    this.tone({ freq: 70, freqEnd: 48, dur: 0.4, vol: 0.06, type: "sawtooth" });
+  }
+
+  /**
+   * INSIDE THE EYE: the door taken, and the room on the other side of it.
+   *
+   * A four-note arp climbing an octave and a half, and the only sound in the
+   * bank that is answered by another — `eyeSpitsOut` is the same distance
+   * travelled the other way. Going in and coming out have to be one gesture in
+   * two halves, or the visit is a place the player arrives at rather than one
+   * they go to and come back from.
+   */
+  eyeEnter(): void {
+    this.arp([392, 523, 784, 1046], 80, { detunePair: true });
+  }
+
+  /**
+   * INSIDE THE EYE: spat back out, whichever way it ended badly.
+   *
+   * A low sawtooth falling away — the same voice the oculi's rasp uses, because
+   * it is the same sentence: something that was open is not any more. Not played
+   * on the kill, which has its own arp and does not need to be told off for
+   * winning.
+   */
+  eyeSpitsOut(): void {
+    this.tone({ freq: 160, freqEnd: 90, dur: 0.25, vol: 0.05, type: "sawtooth" });
+  }
+
+  /**
+   * INSIDE THE EYE: the pupil struck.
+   *
+   * `damage` is how far through it is, 0 to 1, and it *rises* with the damage —
+   * so the fight climbs a scale as it goes, and a player who cannot look at the
+   * bar under an orbiting disc can hear how close it is.
+   */
+  pupilStruck(damage: number): void {
+    this.tone({ freq: 220 + damage * 480, dur: 0.06, vol: 0.055 });
+  }
+
+  /**
+   * INSIDE THE EYE: the pupil dead, and two stars in the sky for it.
+   *
+   * Four notes that **start** where `eyeEnter` left off and climb an octave
+   * past it — the visit resolving higher than it began, and the highest arp in
+   * the bank, as the largest thing a player can do on a veil short of blinding
+   * the eye should be.
+   *
+   * It was 784 / 988 / 1175 / 1568 (SHA-177), which is `angelSave` with one
+   * note changed: same first two, same last, four notes, both bright climbs,
+   * both meaning *that went well*. ANGEL is a capsule and can be in hand on any
+   * veil, and the one sound in the game that means a life was not lost may not
+   * have a near-twin. Nothing here is within a semitone of it now.
+   */
+  pupilKilled(): void {
+    this.arp([1046, 1318, 1568, 2093], 90, { detunePair: true });
+  }
+
+  /**
+   * THE OCULI: one plaque in, and the ladder it is a rung of.
+   *
+   * A note per plaque, rising — so the three of them in order are a phrase the
+   * ear can finish, and a player who is one rung along can *hear* which rung.
+   * That is the whole job: the combination's state is on the field in gold, and
+   * this is the same fact for a player watching the ball instead.
+   *
+   * The ladder ran 700 / 860 / 1020 and now runs 1397 / 1687 / 1977 (SHA-177),
+   * **above the chain ladder's ceiling and not through it**. `chainStep` is
+   * `600 + multiplier * 70` in the same flat square, so at the cap of eight it
+   * reaches 1160 and on the way it passes 1020 — which is what the middle
+   * plaque used to be, to the hertz. A plaque is a brick hit, a brick hit can
+   * be the third hit of a chain step, and those two were one note on one tick.
+   * The chain is the layer that sits under everything else; the plaques are the
+   * one that has to cut through, so the plaques are what moved. Raising
+   * `chain.cap` raises that ceiling by 70 Hz a step: it has 322 cents of room.
+   */
+  oculusTaken(index: number): void {
+    this.tone({ freq: 1397 + index * 290, dur: 0.07 });
+  }
+
+  /**
+   * THE OCULI: the wrong one, or a window let go.
+   *
+   * A low sawtooth rasp, the only one in the bank — everything else here is a
+   * square or a filtered noise, so this is the machine making a sound it does
+   * not otherwise make. It says *undone* rather than *wrong*: long, falling, and
+   * over before the ball has crossed the field.
+   */
+  oculiReset(): void {
+    if (!this.allow("oculiReset")) {
+      return;
+    }
+    this.tone({ freq: 120, freqEnd: 70, dur: 0.14, vol: 0.05, type: "sawtooth" });
+  }
+
+  /**
+   * THE OCULI: the eye opens.
+   *
+   * Five notes of fifths and octaves and nothing else — G, D, G, D, G across two
+   * octaves. The longest climb in the bank, because this is the only door in the
+   * game a ball can go through, and the ten seconds it stays open start on the
+   * last note.
+   *
+   * It was 523 / 659 / 784 / 988 / 1175 (SHA-177), whose first three notes are
+   * `levelClear` exactly and whose fourth is a semitone off it. That phrase
+   * means *the board is won* and this one fires mid-rally, which is the worst
+   * possible moment to tell a player something they have finished. The hollow
+   * version has no third in it at all, so it cannot be mistaken for a fanfare —
+   * and it opens on `eyeEnter`'s own root, because the door and going through
+   * the door should be in one key.
+   */
+  eyeOpens(): void {
+    this.arp([392, 587, 784, 1175, 1568], 70, { detunePair: true });
+  }
+
+  /**
+   * THE BROOD: a beast struck and turned into the next thing.
+   *
+   * A two-note rise, pitched off the form it is *becoming*, so the ear hears
+   * the same event escalate: an egg hatching is the lowest of the three and a
+   * hatchling taking wing the highest. Rising rather than falling because
+   * nothing here has been destroyed — the thing the player just hit got worse.
+   */
+  beastStruck(form: number): void {
+    this.arp([440 + form * 120, 660 + form * 120], 45);
+  }
+
+  /**
+   * THE BROOD: a wyvern down, and a star lit.
+   *
+   * A three-note arp up, the only one in the bank that resolves an octave and a
+   * half above where it started — this is the largest thing a player can do on
+   * a veil short of blinding the eye, and it is the sound the diadem is lit to.
+   */
+  beastKilled(): void {
+    this.arp([880, 1175, 1568], 70, { detunePair: true });
+  }
+
+  /**
+   * CHAIN: one step up the ladder.
+   *
+   * A bare square note, 70 Hz a step, so the eighth sits a little over an octave
+   * above the first and the ear learns the ramp without ever being told what it
+   * is counting. Nothing under it: the hit that earned the step is already
+   * playing its own brick sound on this tick, and this is the layer on top.
+   *
+   * No retrigger guard. A step is three hits apart by construction, and the
+   * guard exists for events that can land twice in one frame.
+   */
+  chainStep(multiplier: number): void {
+    this.tone({ freq: 600 + multiplier * 70, dur: 0.05, vol: 0.04 });
+  }
+
   bumperKick(): void {
     if (!this.allow("bumper")) {
       return;

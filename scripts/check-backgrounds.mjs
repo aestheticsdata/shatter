@@ -12,6 +12,14 @@
 //      the sprite palette's brightness and away from brick/capsule hues.
 //   3. No two adjacent levels share a theme — including across the wrap back to
 //      level 1 — and every theme is actually used.
+//   4. Every theme paints, in both arts, and the HD field covers every pixel of
+//      itself (SHA-221). A background is the one layer nothing is drawn under,
+//      so a gradient that stopped a row short or a raster that was never
+//      flushed would show as a hole straight through to the page.
+//
+// It covers the two irises INSIDE THE EYE paints as well (SHA-172). They are
+// not a level's theme, so rules 3 do not apply to them, but they replace the
+// field for twenty-two seconds and rules 1 and 2 are exactly as binding there.
 //
 // Run with: pnpm run check:backgrounds
 import { registerHooks } from "node:module";
@@ -33,7 +41,8 @@ registerHooks({
   },
 });
 
-const { BACKGROUND_COLORS } = await import("../src/render/backgrounds.ts");
+const { BACKGROUND_COLORS, IRIS_COLORS, paintBackground, paintForeground, paintIrisField } =
+  await import("../src/render/backgrounds.ts");
 const { BRICK_COLORS, DROP_COLORS, canvasPalette } = await import("../src/render/palette.ts");
 const { LEVELS } = await import("../src/core/levels/levels.ts");
 
@@ -101,7 +110,13 @@ function nearestSprite(color) {
 const failures = [];
 const rows = [];
 
-for (const [theme, groups] of Object.entries(BACKGROUND_COLORS)) {
+// INSIDE THE EYE (SHA-172) is field art too — it replaces the level's for
+// twenty-two seconds — so it is held to the same two rules. It is checked here
+// rather than trusted because the spec it came from painted it on a white
+// sclera, where the ball measured 1.03:1 and would have been invisible.
+const THEMES = { ...BACKGROUND_COLORS, "iris.blue": IRIS_COLORS.blue, "iris.red": IRIS_COLORS.red };
+
+for (const [theme, groups] of Object.entries(THEMES)) {
   for (const [name, color] of Object.entries(groups.area)) {
     const luminance = relativeLuminance(color);
     const worst = worstContrast(color);
@@ -150,6 +165,9 @@ for (const row of rows) {
 }
 
 const used = new Set(LEVELS.map((level) => level.background));
+// The two irises are not a level's theme and never will be, so they are exempt
+// from the must-be-used rule and from adjacency; they are only ever checked for
+// readability above.
 for (const theme of Object.keys(BACKGROUND_COLORS)) {
   if (!used.has(theme)) {
     failures.push(`theme ${theme} is defined but no level uses it`);
@@ -164,6 +182,116 @@ LEVELS.forEach((level, index) => {
     );
   }
 });
+
+// 4. Both arts paint, and the fine grid leaves no holes.
+//
+// Enough of a canvas for the painters to run against under plain node: the
+// classic path draws with `fillRect`, and the HD path builds a raster and lands
+// it in one `putImageData`, which is the only pixel data this needs to see.
+globalThis.ImageData ??= function StubImageData(data, width, height) {
+  return { data, width, height };
+};
+
+function stubContext() {
+  return {
+    fillStyle: "#000000",
+    fills: 0,
+    image: null,
+    fillRect() {
+      this.fills += 1;
+    },
+    clearRect() {},
+    putImageData(image) {
+      this.image = image;
+    },
+    // A composed layer reads whatever it is landing on before it writes
+    // (SHA-224). Nothing under it here, which is the right answer for a guard
+    // that only asks whether the foreground paints.
+    getImageData(x, y, width, height) {
+      return new ImageData(new Uint8ClampedArray(width * height * 4), width, height);
+    },
+  };
+}
+
+const FIELD = { width: 372, height: 300 };
+for (const theme of Object.keys(BACKGROUND_COLORS)) {
+  for (const hd of [false, true]) {
+    const ctx = stubContext();
+    try {
+      paintBackground(ctx, theme, 0, FIELD.width, FIELD.height, hd);
+    } catch (error) {
+      failures.push(`theme ${theme} threw while painting in ${hd ? "hd" : "classic"}: ${error.message}`);
+      continue;
+    }
+    if (!hd) {
+      if (ctx.fills === 0) {
+        failures.push(`theme ${theme} drew nothing in classic`);
+      }
+      continue;
+    }
+    if (!ctx.image) {
+      failures.push(`theme ${theme} never flushed its raster in hd`);
+      continue;
+    }
+    let holes = 0;
+    for (let index = 3; index < ctx.image.data.length; index += 4) {
+      if (ctx.image.data[index] === 0) {
+        holes += 1;
+      }
+    }
+    if (holes > 0) {
+      failures.push(`theme ${theme} left ${holes} transparent px in hd — a hole through the field`);
+    }
+  }
+  // A foreground is a sheet with holes on purpose, so only that it paints.
+  for (const hd of [false, true]) {
+    const ctx = stubContext();
+    try {
+      paintForeground(ctx, theme, 0, FIELD.width, FIELD.height, hd);
+    } catch (error) {
+      failures.push(`theme ${theme}'s foreground threw in ${hd ? "hd" : "classic"}: ${error.message}`);
+    }
+  }
+}
+
+// The two irises paint in both arts too (SHA-235). They were exempt from this
+// loop while they were the one field surface still pinned to the coarse grid,
+// and the exemption went with the pin: an iris is a field, nothing is drawn
+// under it, and a raster that never flushed would show as a hole straight
+// through the chamber for the twenty-two seconds the player is standing in it.
+for (const tint of ["blue", "red"]) {
+  for (const demade of [false, true]) {
+    for (const hd of [false, true]) {
+      const ctx = stubContext();
+      const name = `iris.${tint}${demade ? " demade" : ""}`;
+      try {
+        paintIrisField(ctx, tint, demade, FIELD.width, FIELD.height, hd);
+      } catch (error) {
+        failures.push(`${name} threw while painting in ${hd ? "hd" : "classic"}: ${error.message}`);
+        continue;
+      }
+      if (!hd) {
+        if (ctx.fills === 0) {
+          failures.push(`${name} drew nothing in classic`);
+        }
+        continue;
+      }
+      if (!ctx.image) {
+        failures.push(`${name} never flushed its raster in hd`);
+        continue;
+      }
+      let holes = 0;
+      for (let index = 3; index < ctx.image.data.length; index += 4) {
+        if (ctx.image.data[index] === 0) {
+          holes += 1;
+        }
+      }
+      if (holes > 0) {
+        failures.push(`${name} left ${holes} transparent px in hd — a hole through the chamber`);
+      }
+    }
+  }
+}
 
 console.log(`\n${LEVELS.length} levels, ${Object.keys(BACKGROUND_COLORS).length} themes, ${used.size} in use`);
 

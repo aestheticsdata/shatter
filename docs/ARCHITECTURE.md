@@ -73,6 +73,15 @@ because at 480 × 300 fixed, there is no geometry to recompute. The stage rect i
 cached and invalidated on resize and scroll; that cache is the entire cost of
 being scalable.
 
+**Two arts on one backing store.** The simulation lives on the 372 × 300 grid and
+never sees the other pixels the canvas has. The renderer does: by default
+(`ART_MODE.HD` in [`art.ts`](../src/interfaces/art.ts), since THE HD PASS) every
+sprite is drawn on the 1116 × 900 fine grid and lands at `Math.round(x * 3)`, so
+it moves a fine pixel at a time. `classic`, the art that shipped before the pass,
+rounds to a game pixel first and draws in 3 × 3 blocks; it is one console word
+away, and `art split` paints both, classic down the left half. Nothing under the
+drawing differs between them — same collision boxes, same level rows, same seeds.
+
 **Why the split is canvas + DOM and not one or the other.** The 2007 original
 rendered the ball, paddle and bricks as absolutely-positioned DOM elements. REV
 2.0 moved everything that moves to the canvas, and deliberately left everything
@@ -102,7 +111,7 @@ Path aliases (`@core`, `@entities`, `@render`, `@ui`, `@input`, `@audio`,
                                      |
                                      v
   +------------------------------------------------------------------------+
-  |  @core/ShatterGame            5 063 lines, the orchestrator             |
+  |  @core/ShatterGame            7 736 lines, the orchestrator             |
   |  Owns: the loop, the screen, score, lives, level, and one field         |
   |  cluster per capsule effect. The only module that knows all the others. |
   +------------------------------------------------------------------------+
@@ -135,6 +144,25 @@ Path aliases (`@core`, `@entities`, `@render`, `@ui`, `@input`, `@audio`,
 
   @state/HiScores -> @state/ScoreApi -> fetch("/api/scores")
   (hangs off ShatterGame, imports only @interfaces — see section 8)
+
+  @entities/effects/ holds one file per thing that is not a ball, a brick or
+  a paddle. THE OBSERVER's seven sit there together and read nothing but
+  @core/config, the same as the capsule effects beside them:
+
+    Observer     the eye itself: socket, blink, tracking, mode, diadem
+    Brood        the three forms walking the band, and what a strike does
+  creatures/     THE BESTIARY (SHA-207): the ordinary levels' creatures
+    Creature     the contracts — Creature, Species, CreatureSight, CreatureEffects
+    Creatures    load / step / at / strike, shaped like Brood, species-blind
+    species/     one module per species (moth, …) and the registry `SPECIES`
+    Oculi        the three plaques, their order, and the door
+    Inside       the room behind the door, and the pupil orbiting in it
+    Gaze         THE IRIS's beam, and the stone it leaves on the deck
+    Tears        THE TEAR's drops, falling and hatching
+    LoosePupil   what comes out of the socket when THE LID's seal breaks
+
+  @render/broodSprite.ts draws the three forms, demake included, and is the
+  only one of the eight that is not an entity — nothing owns a sprite.
 ```
 
 **The rule is: arrows point down.** `@entities` may read `@core/config`; nothing
@@ -589,13 +617,27 @@ Four tables, and the rest of the game is machinery that reads them.
 ```
 
 Twelve columns, one character a brick, `.` for empty, `1`–`5` for the coloured
-tiers, `S` for silver (2 hits), `G` for gold (3) and `R` for granite (4, or two
-laser bolts). Word levels like `PLAY` and `1991` are generated from a 3×5 bitmap
+tiers, `S` for silver (2 hits), `G` for gold (3), `R` for granite (4, or two
+laser bolts) and `L` for THE LID's bronze (2, for 250 — the best points a hit
+buys anywhere in the game, against never holding a capsule). Word levels like `PLAY` and `1991` are generated from a 3×5 bitmap
 font rather than typed out. A level may also pin a capsule to a cell — `drops`,
 which SUPER MAZE uses to hand out the two LASERs that make a wall of granite
-passable — but the rows themselves stay pure layout. Add an entry and the level
-exists, is playable, and appears in the LEVELS gallery — the gallery renders the
-roster, it does not have a list of its own.
+passable — but the rows themselves stay pure layout. A level may also carry an
+`observer` block, which is what makes it a **veil**: a socket, a `mode`, a hint,
+the brood's starting places and the diadem's six points. Five of the forty-three
+have one; the mode is the whole difference between them. The thirty-eight
+without one carry an `eye` block instead (`EyePlacement`, SHA-188): the same
+almond's socket, plus which side of the wall (`EYE_LAYER`, in
+`src/interfaces/eye.ts`), an opacity and a clip window — or `cells`,
+the bricks it lives in, one at a time, masked by the brick's face and blinking
+to the next when its own dies — the Observer at rest on that level, drawn by
+the arena and by the gallery still alike. A
+theme may paint a **foreground** over it (`paintForeground` in
+`backgrounds.ts`; only `horizon`'s ground and dunes so far), which is how
+SUNRISE's sun sets behind the hills. A level with neither block has no eye.
+Add an entry and the level exists, is
+playable, and appears in the LEVELS gallery — the gallery renders the roster, it
+does not have a list of its own.
 
 **A brick is a row too.** [`bricks.ts`](../src/core/config/bricks.ts): the
 character, what it scores, how many hits it takes, what a laser bolt takes off
@@ -608,17 +650,19 @@ finally has the third state it has been dying in since it was added.
 type, the glyph, the duration, the drop tickets, the palette entry, the timer slot
 and the catalogue page all come out.
 
-**A background is a name plus a seed.** Eight themes, each painted once at 1× into
-an offscreen layer and blitted per frame with smoothing off — an exact 3×
-nearest-neighbour upscale, so theme detail costs nothing in the loop and keeps the
-same chunky pixels as the sprites. Layouts come from a seeded generator keyed by
+**A background is a name plus a seed.** Nine themes, each painted once into an
+offscreen layer and blitted per frame, so theme detail costs nothing in the loop —
+on the fine grid in HD, where a sky is one dithered gradient; at 1× and upscaled
+3× nearest-neighbour in classic, the same chunky pixels as that art's sprites.
+Both arts make the same generator calls, so a star sits in the same place in
+either. Layouts come from a seeded generator keyed by
 theme _and_ level, so two levels sharing a theme differ and neither ever changes
 between visits.
 
 That last one is enforced rather than trusted. `pnpm run check:backgrounds` fails
 the build if a theme tone is not darker than the sprite palette, or if two
 adjacent levels share a theme — including across the wrap, since the run loops.
-The guard is why a new capsule colour "re-opens all eight themes": every capsule
+The guard is why a new capsule colour "re-opens all nine themes": every capsule
 body is checked against every background.
 
 ### The fixed-timestep contract
@@ -680,8 +724,12 @@ rattle arriving over a stronger is dropped rather than taken —
 `ParticleField`'s twin and deliberately not a mode of it, because GRAVEL's chips
 are worth points: a pool that refuses instead of recycling its oldest slot, a
 capped fall, and a catch test are all things debris has no use for and a reward
-cannot do without. Those nine left the class cleanly because each is a
-simulation of its own that `ShatterGame` merely steps and reads — and `Erosion`
+cannot do without — and [`Chart`](../src/entities/effects/Chart.ts), THE CHART
+(SHA-212), whose whole state is one stroke count the run adds to and `startRun`
+alone empties; which junctions are whole and which is half-drawn are both read
+off it, so the field and the cards cannot disagree. Those ten left the class
+cleanly because each is a simulation of its own that `ShatterGame` merely steps
+and reads — and `Erosion`
 is the only one the wall itself reads back, through the `WallErosion` interface
 `BrickGrid` declares for it, which is what keeps ERODE's hitbox out of the
 grid's vocabulary the way `topOffset` keeps QUAKE's out of it. `WallSheet` and
@@ -728,15 +776,18 @@ shrinking the field list without pretending the rules are separable.
 
 ## Where to add things
 
-| You want to add    | Edit                                                                                                                  | And that is it                                                                 |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| A level            | one entry in [`levels.ts`](../src/core/levels/levels.ts)                                                              | plays, and appears in the LEVELS gallery                                       |
-| A brick            | one row in [`bricks.ts`](../src/core/config/bricks.ts)                                                                | union type, points, hit points, damage ramp and debris tones all derive        |
-| A capsule          | one row in [`powerUps.ts`](../src/core/config/powerUps.ts) + its rule in `ShatterGame` + its tell in `CanvasRenderer` | union type, glyph, tickets, timer, palette entry and catalogue page all derive |
-| A combo            | one pair in [`combos.ts`](../src/core/config/combos.ts)                                                               | both halves must be timed capsules                                             |
-| A background theme | a generator in [`backgrounds.ts`](../src/render/backgrounds.ts)                                                       | must pass `pnpm run check:backgrounds`                                         |
-| A sound            | one recipe in [`SoundBank.ts`](../src/audio/SoundBank.ts)                                                             | no file, no import                                                             |
-| A tunable          | one field in [`GameConfig.ts`](../src/core/config/GameConfig.ts)                                                      | one plain knob, no debug/shipped split                                         |
+| You want to add    | Edit                                                                                                                                                                             | And that is it                                                                                                    |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| A level            | one entry in [`levels.ts`](../src/core/levels/levels.ts)                                                                                                                         | plays, and appears in the LEVELS gallery                                                                          |
+| A veil             | an `observer` block on that entry + a `mode` branch in `ShatterGame`                                                                                                             | eye, brood, diadem, hint, panel row and clear card all follow the block                                           |
+| A brood form       | one entry in `observer.brood.forms` ([`GameConfig.ts`](../src/core/config/GameConfig.ts)) + a case in `broodSprite`                                                              | the ladder lengthens; the last form is still the one that dies and pays a star                                    |
+| A creature species | a name in `CREATURE` (`src/interfaces/creatures.ts`) + a module under `src/entities/creatures/species/` registered in `SPECIES` + its knobs under `creatures` in `GameConfig.ts` | the ball, the laser, the renderer and the console all know it; a level pins it with `creatures: [{ kind, x, y }]` |
+| A brick            | one row in [`bricks.ts`](../src/core/config/bricks.ts)                                                                                                                           | union type, points, hit points, damage ramp and debris tones all derive                                           |
+| A capsule          | one row in [`powerUps.ts`](../src/core/config/powerUps.ts) + its rule in `ShatterGame` + its tell in `CanvasRenderer`                                                            | union type, glyph, tickets, timer, palette entry and catalogue page all derive                                    |
+| A combo            | one pair in [`combos.ts`](../src/core/config/combos.ts)                                                                                                                          | both halves must be timed capsules                                                                                |
+| A background theme | a generator in [`backgrounds.ts`](../src/render/backgrounds.ts)                                                                                                                  | must pass `pnpm run check:backgrounds`                                                                            |
+| A sound            | one recipe in [`SoundBank.ts`](../src/audio/SoundBank.ts)                                                                                                                        | no file, no import                                                                                                |
+| A tunable          | one field in [`GameConfig.ts`](../src/core/config/GameConfig.ts)                                                                                                                 | one plain knob, no debug/shipped split                                                                            |
 
 ## Keeping this honest
 
@@ -748,6 +799,12 @@ find src -name '*.ts' -exec wc -l {} + | tail -1    # total lines
 grep -c 'name:' src/core/levels/levels.ts           # level count
 grep -c '^  {' src/core/config/bricks.ts            # brick count
 grep -c '^  {' src/core/config/powerUps.ts          # capsule count
+grep -c 'observer: {' src/core/levels/levels.ts     # veil count
+grep -c '^    eye: {' src/core/levels/levels.ts     # placed eyes (the other levels)
+grep -c 'kind: CREATURE' src/core/levels/levels.ts  # creature pins
+ls src/entities/creatures/species | grep -vc index  # species built (bosses included)
+grep -c ': CREATURE' src/core/levels/bosses.ts       # boss fights placed (levels.ts: isBossLevel)
+grep -c 'case "' src/core/DevConsole.ts             # console words
 pnpm run check:backgrounds                          # prints "N levels, N themes"
 ```
 

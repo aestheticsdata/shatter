@@ -1,5 +1,6 @@
 import { BRICK_BY_ID } from "@core/config/bricks";
 import { gameConfig } from "@core/config/GameConfig";
+import { FINE } from "@interfaces/art";
 import { paintBackground } from "@render/backgrounds";
 import {
   BLACKOUT_TORCH,
@@ -9,7 +10,7 @@ import {
   drawBlackoutVeil,
   drawBrick,
   drawCapsule,
-  drawPaddleBands,
+  drawDeckBody,
   MIRROR_BANDS,
   PADDLE_BANDS,
 } from "@render/CanvasRenderer";
@@ -74,33 +75,61 @@ const INSET = 2 * EDGE;
 // as 1: `drawBrick` reads the damage stage out of them, and a silver brick one
 // short would be drawn chipped in a catalogue that never hit it.
 function cell(kind: BrickKind, seed: number): BrickCell {
-  return { kind, hitPoints: BRICK_BY_ID[kind].hitPoints, points: 0, seed, capsule: null, seeded: false };
+  return { kind, hitPoints: BRICK_BY_ID[kind].hitPoints, points: 0, seed, capsule: null, seeded: false, scarTicks: 0 };
 }
 
-/** The field, in field pixels, with the game's sprites placed on it. */
+/**
+ * The field, in field pixels, with the game's sprites placed on it.
+ *
+ * **Every scene below is written in field pixels and none of them knows what
+ * art it is being painted in** (SHA-224). `scale` is the one number that
+ * changes: 1 for the classic field and `FINE` for the same field drawn on the
+ * fine grid, which is the only place in this file the two paths differ. A scene
+ * is staged in the units the game is designed in — a brick is 30x12, the deck
+ * sits at 276 — and the art it comes out in is the reader's business, not the
+ * staging's.
+ *
+ * **Fine placement, not game-pixel placement**, the same distinction the
+ * renderer draws between `spritePixel` and `pixel`: a scene stages marks at
+ * fractional field coordinates (HEISEN's scatter is offset by tenths, UMBRA's
+ * wedge leans by a real ray), and rounding those before multiplying would throw
+ * away exactly the two thirds of the grid this pass exists to reach. At scale 1
+ * the arithmetic is the identity it always was.
+ */
 class Field {
+  // Whether the sprites may take their HD recipe: the fine grid exists at one
+  // scale only, and a miniature painted at any other gets the classic sprite —
+  // which is the picture it should get, since there is no fine grid under it.
+  private readonly hd: boolean;
+
   constructor(
     private readonly ctx: CanvasRenderingContext2D,
     private readonly demade = false,
-  ) {}
+    private readonly scale = 1,
+  ) {
+    this.hd = scale === FINE;
+  }
 
   rect(x: number, y: number, width: number, height: number, color: string): void {
+    const scale = this.scale;
     this.ctx.fillStyle = this.demade ? canvasPalette.demakeInk : color;
-    this.ctx.fillRect(Math.round(x), Math.round(y), width, height);
+    this.ctx.fillRect(Math.round(x * scale), Math.round(y * scale), width * scale, height * scale);
   }
 
   disc(x: number, y: number, radius: number, color: string): void {
+    const scale = this.scale;
     this.ctx.fillStyle = this.demade ? canvasPalette.demakeInk : color;
     this.ctx.beginPath();
-    this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+    this.ctx.arc(x * scale, y * scale, radius * scale, 0, Math.PI * 2);
     this.ctx.fill();
   }
 
   ring(x: number, y: number, radius: number, color: string, width = 1): void {
+    const scale = this.scale;
     this.ctx.strokeStyle = this.demade ? canvasPalette.demakeInk : color;
-    this.ctx.lineWidth = width;
+    this.ctx.lineWidth = width * scale;
     this.ctx.beginPath();
-    this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+    this.ctx.arc(x * scale, y * scale, radius * scale, 0, Math.PI * 2);
     this.ctx.stroke();
   }
 
@@ -108,10 +137,11 @@ class Field {
   // bricks, so its shockwave is an ellipse — the field draws one and so does
   // this, or the picture would be of a blast that never happened.
   oval(x: number, y: number, radiusX: number, radiusY: number, color: string, width = 1): void {
+    const scale = this.scale;
     this.ctx.strokeStyle = this.demade ? canvasPalette.demakeInk : color;
-    this.ctx.lineWidth = width;
+    this.ctx.lineWidth = width * scale;
     this.ctx.beginPath();
-    this.ctx.ellipse(x, y, radiusX, radiusY, 0, 0, Math.PI * 2);
+    this.ctx.ellipse(x * scale, y * scale, radiusX * scale, radiusY * scale, 0, 0, Math.PI * 2);
     this.ctx.stroke();
   }
 
@@ -125,9 +155,10 @@ class Field {
   brick(column: number, row: number, kind: BrickKind, fade = 0, worn = 0): void {
     const { x, y } = this.brickAt(column, row);
     const { insetX, insetY } = gameConfig.powerUps.erode;
-    drawBrick(this.ctx, x, y, cell(kind, row * COLUMNS + column), 1, {
+    drawBrick(this.ctx, x, y, cell(kind, row * COLUMNS + column), this.scale, {
       fade,
       demade: this.demade,
+      hd: this.hd,
       erodeX: Math.round(worn * insetX),
       erodeY: Math.round(worn * insetY),
     });
@@ -163,8 +194,9 @@ class Field {
           continue;
         }
         const { x, y } = this.brickAt(column, row);
-        drawBrick(this.ctx, x, y + hang[column], cell(kind, row * COLUMNS + column), 1, {
+        drawBrick(this.ctx, x, y + hang[column], cell(kind, row * COLUMNS + column), this.scale, {
           demade: this.demade,
+          hd: this.hd,
           strain: strain[column],
         });
       }
@@ -318,15 +350,15 @@ class Field {
 
   clear(column: number, row: number): void {
     const { x, y } = this.brickAt(column, row);
-    this.ctx.clearRect(x, y, BRICK_WIDTH, BRICK_HEIGHT);
-    paintBackgroundPatch(this.ctx, x, y, BRICK_WIDTH, BRICK_HEIGHT);
+    this.ctx.clearRect(x * this.scale, y * this.scale, BRICK_WIDTH * this.scale, BRICK_HEIGHT * this.scale);
+    paintBackgroundPatch(this.ctx, x, y, BRICK_WIDTH, BRICK_HEIGHT, this.scale);
   }
 
   // `y` is annotated rather than inferred from its default: `gameConfig` is
   // `as const`, so `DECK_Y` is the literal 276 and an inferred parameter would
   // accept nothing else — which was fine while the deck only ever sat there.
   deck(width: number = gameConfig.paddle.baseWidth, x = (FIELD_WIDTH - width) / 2, y: number = DECK_Y): void {
-    drawPaddleBands(this.ctx, x, y, width, PADDLE_BANDS, 1, this.demade);
+    drawDeckBody(this.ctx, x, y, width, PADDLE_BANDS, this.scale, this.demade, this.hd);
   }
 
   /**
@@ -353,7 +385,7 @@ class Field {
 
   // GAMBLE's window over the deck, showing one face.
   gambleReel(face: PowerUpKind, x = FIELD_WIDTH / 2): void {
-    drawGambleReel(this.ctx, x, DECK_Y, face, 1, 0, this.demade);
+    drawGambleReel(this.ctx, x, DECK_Y, face, this.scale, 0, this.demade, this.hd);
   }
 
   /**
@@ -430,15 +462,15 @@ class Field {
   // for as long as they hold it.
   wingedDeck(width: number = gameConfig.paddle.baseWidth, x = (FIELD_WIDTH - width) / 2): void {
     this.deck(width, x);
-    drawAngelWings(this.ctx, x, width, DECK_Y, 1, 0, this.demade);
+    drawAngelWings(this.ctx, x, width, DECK_Y, this.scale, 0, this.demade);
   }
 
   mirrorDeck(width: number = gameConfig.paddle.baseWidth, x = DECK_HOME): void {
-    drawPaddleBands(this.ctx, x, gameConfig.powerUps.mirrorY, width, MIRROR_BANDS, 1, this.demade);
+    drawDeckBody(this.ctx, x, gameConfig.powerUps.mirrorY, width, MIRROR_BANDS, this.scale, this.demade, this.hd);
   }
 
   ball(x = BALL_HOME.x, y = BALL_HOME.y, size: number = gameConfig.ball.size): void {
-    drawBall(this.ctx, x, y, 1, this.demade, { size });
+    drawBall(this.ctx, x, y, this.scale, this.demade, { size, hd: this.hd });
   }
 
   /**
@@ -452,21 +484,22 @@ class Field {
   post(column: number, row: number, depth: number = BRICK_HEIGHT): void {
     const { x, y } = this.brickAt(column, row);
     const post = cell("F", row * COLUMNS + column);
+    const paint = { demade: this.demade, hd: this.hd };
     if (depth >= BRICK_HEIGHT) {
-      drawBrick(this.ctx, x, y, post, 1, { demade: this.demade });
+      drawBrick(this.ctx, x, y, post, this.scale, paint);
       return;
     }
     this.ctx.save();
     this.ctx.beginPath();
-    this.ctx.rect(x, y, BRICK_WIDTH, depth);
+    this.ctx.rect(x * this.scale, y * this.scale, BRICK_WIDTH * this.scale, depth * this.scale);
     this.ctx.clip();
-    drawBrick(this.ctx, x, y, post, 1, { demade: this.demade });
+    drawBrick(this.ctx, x, y, post, this.scale, paint);
     this.ctx.restore();
     this.rect(x + 1, y + depth - 1, BRICK_WIDTH - 2, 1, BRICK_COLORS.F.dark);
   }
 
   capsule(x: number, y: number, kind: PowerUpKind): void {
-    drawCapsule(this.ctx, x, y, kind, 1, 0, this.demade);
+    drawCapsule(this.ctx, x, y, kind, this.scale, 0, this.demade, this.hd);
   }
 
   // The lights out, with a pool of light wherever there is something to see by.
@@ -474,7 +507,7 @@ class Field {
   // rather than a drawing of it.
   blackout(torches: readonly Torch[]): void {
     const tone = this.demade ? canvasPalette.demakeGround : canvasPalette.blackoutVeil;
-    drawBlackoutVeil(this.ctx, torches, tone, 1);
+    drawBlackoutVeil(this.ctx, torches, tone, this.scale);
   }
 
   // The field turned over, which is FLIP's whole picture. The backdrop is not
@@ -483,9 +516,9 @@ class Field {
   // three things — here, everything the painter draws after this call.
   turned(paint: () => void): void {
     this.ctx.save();
-    this.ctx.translate(FIELD_WIDTH / 2, FIELD_HEIGHT / 2);
+    this.ctx.translate((FIELD_WIDTH / 2) * this.scale, (FIELD_HEIGHT / 2) * this.scale);
     this.ctx.rotate(Math.PI);
-    this.ctx.translate(-FIELD_WIDTH / 2, -FIELD_HEIGHT / 2);
+    this.ctx.translate((-FIELD_WIDTH / 2) * this.scale, (-FIELD_HEIGHT / 2) * this.scale);
     paint();
     this.ctx.restore();
   }
@@ -592,25 +625,31 @@ class Field {
 }
 
 // The backdrop again, for the holes an effect punches in the wall: a cleared
-// brick has to show the field behind it rather than a transparent square.
-let patchCanvas: HTMLCanvasElement | null = null;
+// brick has to show the field behind it rather than a transparent square. One
+// per art, kept by scale — a hole cut in an HD wall has to show the HD sky
+// through it, and the two canvases are different sizes.
+const patchCanvases = new Map<number, HTMLCanvasElement>();
 function paintBackgroundPatch(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   width: number,
   height: number,
+  scale = 1,
 ): void {
+  let patchCanvas = patchCanvases.get(scale);
   if (!patchCanvas) {
     patchCanvas = document.createElement("canvas");
-    patchCanvas.width = FIELD_WIDTH;
-    patchCanvas.height = FIELD_HEIGHT;
+    patchCanvas.width = FIELD_WIDTH * scale;
+    patchCanvas.height = FIELD_HEIGHT * scale;
     const patchCtx = patchCanvas.getContext("2d");
     if (patchCtx) {
-      paintBackground(patchCtx, SCENE_BACKGROUND, SCENE_VARIANT, FIELD_WIDTH, FIELD_HEIGHT);
+      paintBackground(patchCtx, SCENE_BACKGROUND, SCENE_VARIANT, FIELD_WIDTH, FIELD_HEIGHT, scale === FINE);
     }
+    patchCanvases.set(scale, patchCanvas);
   }
-  ctx.drawImage(patchCanvas, x, y, width, height, x, y, width, height);
+  const box = [x * scale, y * scale, width * scale, height * scale] as const;
+  ctx.drawImage(patchCanvas, ...box, ...box);
 }
 
 type Painter = (field: Field) => void;
@@ -1817,13 +1856,24 @@ const SCENES: Record<PowerUpKind, Painter> = {
   },
 };
 
-/** Paint one capsule's field, at field size, ready to be blitted down. */
-export function paintCapsuleScene(ctx: CanvasRenderingContext2D, kind: PowerUpKind): void {
+/**
+ * Paint one capsule's field, at field size, ready to be blitted down.
+ *
+ * `hd` paints the same scene on the fine grid (SHA-224), into a canvas `FINE`
+ * times the field. The blit down to the miniature is smoothed — the one
+ * downscale in this codebase that is — so a finer field is a *better*
+ * photograph of itself rather than a noisier one: an authored mark is the same
+ * number of field pixels either way and keeps exactly its weight, while the
+ * detail the recipes add below a field pixel arrives as tone. Which is what a
+ * miniature of a screen is.
+ */
+export function paintCapsuleScene(ctx: CanvasRenderingContext2D, kind: PowerUpKind, hd = false): void {
   const demade = kind === "D";
-  paintBackground(ctx, SCENE_BACKGROUND, SCENE_VARIANT, FIELD_WIDTH, FIELD_HEIGHT);
+  const scale = hd ? FINE : 1;
+  paintBackground(ctx, SCENE_BACKGROUND, SCENE_VARIANT, FIELD_WIDTH, FIELD_HEIGHT, hd);
   if (demade) {
     ctx.fillStyle = canvasPalette.demakeGround;
-    ctx.fillRect(0, 0, FIELD_WIDTH, FIELD_HEIGHT);
+    ctx.fillRect(0, 0, FIELD_WIDTH * scale, FIELD_HEIGHT * scale);
   }
-  SCENES[kind](new Field(ctx, demade));
+  SCENES[kind](new Field(ctx, demade, scale));
 }
