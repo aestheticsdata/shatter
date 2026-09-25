@@ -503,6 +503,21 @@ export class SoundBank {
   }
 
   /**
+   * THE STAIRS: the lightning reaches the bottom of the bolt (SHA-204).
+   *
+   * A crack and then the roll: a short bright noise burst for the strike and a
+   * low one under it closing its filter, which is thunder rather than an
+   * explosion because nothing is thrown — the field only lights up.
+   */
+  eyeStrike(): void {
+    if (!this.allow("eyeStrike")) {
+      return;
+    }
+    this.noise({ dur: 0.08, vol: 0.12, filter: { type: "highpass", freq: 2000 } });
+    this.noise({ dur: 0.6, vol: 0.14, filter: { type: "lowpass", freq: 700, freqEnd: 60 }, delayS: 0.04 });
+  }
+
+  /**
    * JELLYFISH: stung, and the deck is numb (SHA-245).
    *
    * `petrified`'s little cousin: a zap that falls away fast, over a short

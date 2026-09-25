@@ -1568,6 +1568,16 @@ export const gameConfig = {
       pulseRise: 0.2,
     },
     /**
+     * THE STAIRS' strike (SHA-204): the lightning reaching the ground. A white
+     * frame that decays over `fadeTicks`, at `peak` rather than full white so
+     * the ball is never lost in it, and a rattle.
+     */
+    strike: {
+      fadeTicks: 18,
+      peak: 0.55,
+      shakeTicks: 10,
+    },
+    /**
      * THE ZODIAC RING (SHA-211): the dial round the eye, from the mockup —
      * two circles and ticks across the band between them — and how it turns.
      * The field's is the veils'; the title's is bigger, with twice the ticks.

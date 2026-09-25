@@ -929,6 +929,8 @@ export interface RenderView {
   // backwards when the capsule expires. Like DEMAKE, purely presentational —
   // the simulation under it is not told and plays exactly as it would lit.
   blackoutBlend: number;
+  // THE STAIRS' strike (SHA-204): 1 on the tick the lightning lands, fading.
+  eyeFlash: number;
   // FLIP's turn, 0 upright to 1 fully over. A number rather than a flag for the
   // same reason the three above it are: the field does not switch round, it
   // rotates — and it is only ever 0 or 1 for the frames it is not turning.
@@ -4764,6 +4766,18 @@ export class CanvasRenderer {
 
     for (const ring of view.stasisRings) {
       this.drawStasisRing(ring);
+    }
+
+    // THE STAIRS' strike (SHA-204): light over the field, the wall and the
+    // balls, under the blackout — lightning in the dark is still dark. On the
+    // tube there is no white to fade: it is ink for the first frames, then gone.
+    if (view.eyeFlash > 0 && (!this.demade || view.eyeFlash > 0.6)) {
+      const { width, height } = gameConfig.field;
+      this.ctx.save();
+      this.ctx.globalAlpha = this.demade ? 0.5 : view.eyeFlash * gameConfig.observer.strike.peak;
+      this.ctx.fillStyle = this.ink(canvasPalette.deathFlash);
+      this.ctx.fillRect(0, 0, width * SCALE, height * SCALE);
+      this.ctx.restore();
     }
 
     // The lights go out here: over the field, the wall, the deck and the balls,

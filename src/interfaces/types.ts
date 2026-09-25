@@ -351,7 +351,11 @@ export type EyeAct =
     }
   // THE PULSE: the socket swells to `scale` of itself and lets go, every
   // `period` ticks — a thump, a fifth of the beat up and the rest down.
-  | { kind: typeof EYE_ACT.PULSE; scale: number; period: number };
+  | { kind: typeof EYE_ACT.PULSE; scale: number; period: number }
+  // THE STAIRS: `steps` are socket centres, in order; every blink the eye hops
+  // to the next, the lid shut over the move, and landing on the last one with
+  // `strike` flashes the field. The next blink takes it back to the first.
+  | { kind: typeof EYE_ACT.STAIRS; steps: readonly (readonly [number, number])[]; strike?: boolean };
 
 export interface EyePlacement {
   // The socket: centre, half-width, half-height, in field pixels.

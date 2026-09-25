@@ -657,6 +657,8 @@ export class ShatterGame {
   // How many bricks the level's wall was built with: what THE RISE (SHA-200)
   // measures the share broken against.
   private wallSize = 0;
+  // THE STAIRS' strike (SHA-204): 1 on the tick the lightning lands, decaying.
+  private eyeFlash = 0;
   // THE TEAR's drops (SHA-174).
   private readonly tears = new Tears();
   // THE LID's loose pupil (SHA-176), and how much of its seal has been cut.
@@ -1216,6 +1218,7 @@ export class ShatterGame {
       // and the iris, frozen at whatever it had reached, closes the rest of the
       // way once the field is the player's again.
       blackoutBlend: this.detonation.active || this.clearCountdown > 0 ? 0 : this.blackoutBlend,
+      eyeFlash: this.eyeFlash,
       // Not gated on the two freezes the way the dark is: a shockwave sweeping
       // an upside-down field is the joke landing twice, and neither freeze runs
       // the timers, so the turn cannot come undone behind one either.
@@ -1317,6 +1320,14 @@ export class ShatterGame {
     // that tick and not the tick it opens again.
     if (this.observer.step(this.eyeTarget(), this.eyeSight()) && this.observer.level?.mode === "wrath") {
       this.rebuildScar();
+    }
+    // THE STAIRS' strike (SHA-204): the eye has reached the bottom of the bolt.
+    if (this.observer.struck) {
+      this.eyeFlash = 1;
+      this.quake.rattle(gameConfig.observer.strike.shakeTicks, gameConfig.effects.quake.amplitude);
+      this.deps.sfx.eyeStrike();
+    } else if (this.eyeFlash > 0) {
+      this.eyeFlash = Math.max(0, this.eyeFlash - 1 / gameConfig.observer.strike.fadeTicks);
     }
     this.grid.stepScars();
     // THE LID's seal and its loose pupil (SHA-176). Above the serve's early
@@ -7687,6 +7698,7 @@ export class ShatterGame {
     const definition = levelAt(level);
     this.grid.load(wallFor(level), () => this.rollBrickCapsule());
     this.wallSize = this.grid.remaining;
+    this.eyeFlash = 0;
     // The eye, and the line that names it over the serve prompt. Both are the
     // level's, so both are set where the level is: a death re-serves without
     // coming through here, and neither may be re-read then.

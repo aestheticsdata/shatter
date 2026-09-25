@@ -172,9 +172,32 @@ export const LEVELS: readonly LevelDefinition[] = [
       "...55.......",
       "..5.........",
     ],
-    // The charge at the tip of the bolt: small, out in front, just past the
-    // last brick. Later it runs the bolt's edge, a stair a blink.
-    eye: { x: 56, y: 131, hw: 16, hh: 6, layer: EYE_LAYER.FRONT },
+    // THE STAIRS (SHA-204): the charge running down the lightning. It starts
+    // at the top of the bolt and hops down the stroke's left edge a stair a
+    // blink — out in front, beside the bricks rather than inside them, and
+    // zigging right where the bolt does — and when it lands at the tip, just
+    // past the last brick, the field flashes. The next blink takes it back up.
+    eye: {
+      x: 56,
+      y: 131,
+      hw: 16,
+      hh: 6,
+      layer: EYE_LAYER.FRONT,
+      act: {
+        kind: EYE_ACT.STAIRS,
+        steps: [
+          [170, 44],
+          [140, 56],
+          [110, 68],
+          [80, 80],
+          [110, 92],
+          [80, 104],
+          [50, 116],
+          [56, 131],
+        ],
+        strike: true,
+      },
+    },
     // BOLT is the bat level (SHA-238). Three of them asleep under the bolt's
     // own underside — cells (8,0), (3,3) and (2,6), each a brick with nothing
     // below it — so they hang in the open along the length of the stroke.

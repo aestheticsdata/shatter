@@ -161,6 +161,14 @@ export class Observer {
   private travelSpeed = 0;
   /** THE PULSE (SHA-203): ticks since the level loaded, which is the beat's clock. */
   private clock = 0;
+  /**
+   * THE STAIRS (SHA-204): the stair it is on, the one it will land on at the
+   * bottom of the blink under way (null when none is), and the strike's edge —
+   * true for the one tick it lands on the last stair.
+   */
+  private stair = 0;
+  private pendingStair: number | null = null;
+  private strikeEdge = false;
 
   get live(): boolean {
     return this.definition !== null || this.placement !== null;
@@ -185,6 +193,11 @@ export class Observer {
     }
     const cell = this.hostCell;
     return cell ? cellSocket(cell, placed.hw, placed.hh) : this.posture(placed);
+  }
+
+  /** THE STAIRS reached the bottom this tick: an edge, true for one tick (SHA-204). */
+  get struck(): boolean {
+    return this.strikeEdge;
   }
 
   /** The placement's act, or null when it only sits and watches. */
@@ -219,6 +232,10 @@ export class Observer {
   private posture(placed: EyePlacement): EyeSocket {
     const rest = { x: placed.x, y: placed.y, hw: placed.hw, hh: placed.hh };
     const act = placed.act;
+    if (act?.kind === EYE_ACT.STAIRS) {
+      const [x, y] = act.steps[this.stair] ?? [rest.x, rest.y];
+      return { x, y, hw: rest.hw, hh: rest.hh };
+    }
     if (act?.kind === EYE_ACT.PULSE) {
       const swell = 1 + (act.scale - 1) * this.beat(act.period);
       return { x: rest.x, y: rest.y, hw: Math.round(rest.hw * swell), hh: Math.round(rest.hh * swell) };
@@ -369,6 +386,9 @@ export class Observer {
     this.travelDir = 1;
     this.travelSpeed = 0;
     this.clock = 0;
+    this.stair = 0;
+    this.pendingStair = null;
+    this.strikeEdge = false;
     this.blinkLeft = 0;
     this.nextBlink = this.drawNextBlink();
     this.stars.length = 0;
@@ -406,6 +426,7 @@ export class Observer {
     const { blinkTicks } = gameConfig.observer.eye;
     let blinked = false;
     this.clock += 1;
+    this.strikeEdge = false;
     // THE LID does not blink, shut or woken: the clock is skipped rather than
     // having its result thrown away by `open`, so an eye that is later opened
     // by something else cannot come up mid-blink from a lid nobody watched.
@@ -427,10 +448,19 @@ export class Observer {
         }
         this.pendingCell = null;
       }
+      // THE STAIRS land the same way: the lid is down over the move.
+      if (this.pendingStair !== null && this.blinkLeft === Math.floor(blinkTicks / 2)) {
+        this.landStair(this.pendingStair);
+        this.pendingStair = null;
+      }
     } else if (--this.nextBlink <= 0) {
       this.blinkLeft = blinkTicks;
       this.nextBlink = this.drawNextBlink();
       blinked = true;
+      const act = this.placement?.act;
+      if (act?.kind === EYE_ACT.STAIRS && act.steps.length > 0) {
+        this.pendingStair = (this.stair + 1) % act.steps.length;
+      }
     }
     // Asleep, the look is on the socket's own centre — straight out.
     this.lookAt(this.awake ? at : null);
@@ -509,6 +539,24 @@ export class Observer {
       this.travel = Math.max(0, Math.min(1, this.travel));
       this.travelDir = this.travelDir === 1 ? -1 : 1;
     }
+  }
+
+  /**
+   * THE STAIRS (SHA-204): on the stair, and — on the last one — the strike.
+   * The look is carried with the socket, so the pupil opens on the new stair
+   * looking the way it was looking rather than swinging in from the old one.
+   */
+  private landStair(index: number): void {
+    const act = this.placement?.act;
+    if (act?.kind !== EYE_ACT.STAIRS) {
+      return;
+    }
+    const [fromX, fromY] = act.steps[this.stair] ?? [0, 0];
+    const [toX, toY] = act.steps[index] ?? [0, 0];
+    this.lookX += toX - fromX;
+    this.lookY += toY - fromY;
+    this.stair = index;
+    this.strikeEdge = act.strike === true && index === act.steps.length - 1;
   }
 
   private lookAt(at: { x: number; y: number } | null): void {
