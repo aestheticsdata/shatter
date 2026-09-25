@@ -55,6 +55,7 @@ import { PowerUpTimers } from "@entities/powerups/PowerUpTimers";
 import { InputController } from "@input/InputController";
 import { CREATURE } from "@interfaces/creatures";
 import { EYE_ACT, EYE_WATCH } from "@interfaces/eye";
+import { SCREEN } from "@interfaces/screens";
 import { SCORE_DIGITS, zeroPad } from "@shared/format";
 import { type HiScores, TABLE_SIZE } from "@state/HiScores";
 
@@ -70,6 +71,7 @@ import type { Tear } from "@entities/effects/Tears";
 import type { LeapField } from "@entities/effects/Tunnelling";
 import type { WidthCurve } from "@entities/paddle/Paddle";
 import type { CreatureKind } from "@interfaces/creatures";
+import type { ScreenName } from "@interfaces/screens";
 import type {
   BrickFlash,
   BrickHit,
@@ -83,12 +85,12 @@ import type {
   PyreBlast,
   RailMark,
   RectangleBounds,
-  ScreenName,
   SnapMark,
   StasisRing,
   TracerThread,
 } from "@interfaces/types";
 import type { CanvasRenderer } from "@render/CanvasRenderer";
+import type { Bestiary } from "@ui/Bestiary";
 import type { CapsuleCatalogue } from "@ui/CapsuleCatalogue";
 import type { LevelGallery } from "@ui/LevelGallery";
 import type { Panel } from "@ui/Panel";
@@ -102,6 +104,7 @@ export interface ShatterGameDeps {
   screens: Screens;
   levels: LevelGallery;
   capsules: CapsuleCatalogue;
+  bestiary: Bestiary;
   sfx: SoundBank;
   hiScores: HiScores;
   scaler: StageScaler;
@@ -261,7 +264,7 @@ function isDirectHit(source: BrickDamageSource): boolean {
 }
 
 export class ShatterGame {
-  private screen: ScreenName = "title";
+  private screen: ScreenName = SCREEN.TITLE;
   private score = 0;
   /**
    * CHAIN (SHA-168): links standing since the last deck touch, and the longest
@@ -1055,11 +1058,11 @@ export class ShatterGame {
 
   // A remote score sync can land on any screen; refresh whichever one shows the table.
   private onScoresChanged(): void {
-    if (this.screen === "title") {
+    if (this.screen === SCREEN.TITLE) {
       const top = this.deps.hiScores.top;
       this.deps.screens.updateTitle(zeroPad(Math.max(top.score, this.score), SCORE_DIGITS), top.name);
     }
-    if (this.screen === "scores" || this.screen === "entry") {
+    if (this.screen === SCREEN.SCORES || this.screen === SCREEN.ENTRY) {
       this.refreshScoreRows();
     }
   }
@@ -1304,13 +1307,13 @@ export class ShatterGame {
       tideDrip: this.tideDrip,
     });
     this.deps.panel.update(this.panelView());
-    if (this.screen === "title") {
+    if (this.screen === SCREEN.TITLE) {
       this.deps.titleScene.draw(this.pointer);
     }
   };
 
   private stepSimulation(): void {
-    if (this.screen !== "play" && this.screen !== "serve") {
+    if (this.screen !== SCREEN.PLAY && this.screen !== SCREEN.SERVE) {
       return;
     }
     // Above the serve's early return: the eye is awake from the moment the level
@@ -1365,7 +1368,7 @@ export class ShatterGame {
       this.deps.screens.updateFieldNotice(null);
       this.deps.sfx.oculiReset();
     }
-    if (this.screen === "serve") {
+    if (this.screen === SCREEN.SERVE) {
       this.balls[0].followPaddle(this.paddle);
       return;
     }
@@ -1390,7 +1393,7 @@ export class ShatterGame {
     // keep running unlocked while this setup is expected to lock. Any leak
     // lands on the pause screen instead of playing with a free, hidden cursor.
     if (!this.input.isLocked && this.input.lockExpected) {
-      this.setScreen("pause");
+      this.setScreen(SCREEN.PAUSE);
       return;
     }
 
@@ -3217,7 +3220,7 @@ export class ShatterGame {
    *   fair rule can still feel like cheating.
    */
   private rebuildScar(): void {
-    if (this.screen !== "play" || this.inside.active || this.grid.remaining <= 0) {
+    if (this.screen !== SCREEN.PLAY || this.inside.active || this.grid.remaining <= 0) {
       return;
     }
     const { bricksPerBlink, hitPoints, flickerTicks } = gameConfig.observer.wrath;
@@ -3275,7 +3278,7 @@ export class ShatterGame {
    * gaze's rule too — and the longer of the two if it is already numb.
    */
   private stingDeck(ticks: number): void {
-    if (this.screen === "serve") {
+    if (this.screen === SCREEN.SERVE) {
       return;
     }
     if (this.numbTicks <= 0) {
@@ -3525,7 +3528,7 @@ export class ShatterGame {
     const carried = this.chain;
     this.resetServe();
     this.chain = carried;
-    this.setScreen("serve");
+    this.setScreen(SCREEN.SERVE);
     this.deps.sfx.eyeEnter();
   }
 
@@ -3549,7 +3552,7 @@ export class ShatterGame {
       this.deps.sfx.eyeSpitsOut();
     }
     this.resetServe();
-    this.setScreen("serve");
+    this.setScreen(SCREEN.SERVE);
   }
 
   /** Which of the Observer's levels this is, 1-based, or 0 off a veil. */
@@ -5930,7 +5933,7 @@ export class ShatterGame {
   // of fame is shared across all players, so a warp must never be worth points.
   // Allowed from pause too: pausing to reach for a three-modifier chord is normal.
   private warpLevel(): void {
-    if (this.screen !== "play" && this.screen !== "serve" && this.screen !== "pause") {
+    if (this.screen !== SCREEN.PLAY && this.screen !== SCREEN.SERVE && this.screen !== SCREEN.PAUSE) {
       return;
     }
     this.grid.wipe();
@@ -6074,7 +6077,7 @@ export class ShatterGame {
       // or a notice having to carry it (SHA-177).
       blinding ? "THE FIFTH VEIL FALLS" : onVeil ? "VEIL BROKEN" : this.bossDone ? "BOSS DOWN" : null,
     );
-    this.setScreen("clear");
+    this.setScreen(SCREEN.CLEAR);
     if (!blinding) {
       this.deps.sfx.levelClear();
     }
@@ -7642,8 +7645,8 @@ export class ShatterGame {
   // still parked on the paddle. Resuming goes through advance(), whose click also
   // re-arms pointer lock.
   private onInputLost(): void {
-    if (this.screen === "play") {
-      this.setScreen("pause");
+    if (this.screen === SCREEN.PLAY) {
+      this.setScreen(SCREEN.PAUSE);
     }
   }
 
@@ -7658,7 +7661,7 @@ export class ShatterGame {
       this.devConsole.close();
       return;
     }
-    if (this.screen === "pause" || this.screen === "serve") {
+    if (this.screen === SCREEN.PAUSE || this.screen === SCREEN.SERVE) {
       this.input.runGated(() => this.advance());
     } else {
       this.advance();
@@ -7667,13 +7670,13 @@ export class ShatterGame {
 
   private advance(): void {
     switch (this.screen) {
-      case "title":
+      case SCREEN.TITLE:
         this.startRun();
         break;
-      case "serve":
+      case SCREEN.SERVE:
         this.launch();
         break;
-      case "play":
+      case SCREEN.PLAY:
         // A click during play means one of two things, and never both on the
         // same click. **The release wins.** A player under GLUE has been
         // clicking to serve since they caught it, and a click that burned the
@@ -7707,19 +7710,20 @@ export class ShatterGame {
           this.deps.sfx.heisenObserve();
         }
         break;
-      case "pause":
-        this.setScreen("play");
+      case SCREEN.PAUSE:
+        this.setScreen(SCREEN.PLAY);
         break;
-      case "clear":
+      case SCREEN.CLEAR:
         this.level++;
         this.buildLevel(this.level);
         break;
-      case "over":
+      case SCREEN.OVER:
         this.afterOver();
         break;
-      case "scores":
-      case "levels":
-      case "capsules":
+      case SCREEN.SCORES:
+      case SCREEN.LEVELS:
+      case SCREEN.CAPSULES:
+      case SCREEN.BESTIARY:
         this.showTitle();
         break;
       default:
@@ -7917,7 +7921,7 @@ export class ShatterGame {
     this.guaranteedDrop = false;
 
     if (this.booted) {
-      this.setScreen("serve");
+      this.setScreen(SCREEN.SERVE);
     } else {
       this.showTitle();
     }
@@ -7928,7 +7932,7 @@ export class ShatterGame {
     ball.active = true;
     ball.followPaddle(this.paddle);
     ball.launch(this.speed());
-    this.setScreen("play");
+    this.setScreen(SCREEN.PLAY);
     this.deps.sfx.launch();
   }
 
@@ -8057,7 +8061,7 @@ export class ShatterGame {
       reached,
       `CHART ${zeroPad(this.chart.complete, 2)}/${Chart.junctions.length} · +${zeroPad(chartCash, 5)}`,
     );
-    this.setScreen("over");
+    this.setScreen(SCREEN.OVER);
     this.deps.sfx.gameOver();
   }
 
@@ -8068,20 +8072,20 @@ export class ShatterGame {
     if (this.score > 0) {
       this.entry = "";
       this.updateEntryText();
-      this.setScreen("entry");
+      this.setScreen(SCREEN.ENTRY);
     } else {
-      this.setScreen("scores");
+      this.setScreen(SCREEN.SCORES);
     }
   }
 
   private showTitle(): void {
     const top = this.deps.hiScores.top;
     this.deps.screens.updateTitle(zeroPad(Math.max(top.score, this.score), SCORE_DIGITS), top.name);
-    this.setScreen("title");
+    this.setScreen(SCREEN.TITLE);
   }
 
   private onKeyDown(event: KeyboardEvent): void {
-    if (this.screen === "entry") {
+    if (this.screen === SCREEN.ENTRY) {
       this.handleEntryKey(event);
       return;
     }
@@ -8100,7 +8104,7 @@ export class ShatterGame {
       // take a command, so it has no meaning on a menu, and pausing to reach for
       // a three-modifier chord is normal. Never over the two effects that
       // already own the simulation, whose freeze it would have to unwind.
-      const live = this.screen === "play" || this.screen === "serve" || this.screen === "pause";
+      const live = this.screen === SCREEN.PLAY || this.screen === SCREEN.SERVE || this.screen === SCREEN.PAUSE;
       if (live && !this.detonation.active && this.clearCountdown === 0) {
         // Frees the cursor and hands Escape back to the page. Losing the lock
         // pauses a live run through onInputLost, which is the freeze we want.
@@ -8137,14 +8141,14 @@ export class ShatterGame {
     }
 
     const key = event.key.toLowerCase();
-    if (key === "p" && this.screen === "play") {
-      this.setScreen("pause");
+    if (key === "p" && this.screen === SCREEN.PLAY) {
+      this.setScreen(SCREEN.PAUSE);
       this.deps.sfx.pauseToggle();
-    } else if (key === "p" && this.screen === "pause") {
+    } else if (key === "p" && this.screen === SCREEN.PAUSE) {
       // Resuming by key must re-arm the lock exactly like the resume click: an
       // ungated P would silently rebuild the free-cursor run the gate prevents.
       this.input.runGated(() => {
-        this.setScreen("play");
+        this.setScreen(SCREEN.PLAY);
         this.deps.sfx.pauseToggle();
       });
     }
@@ -8153,15 +8157,22 @@ export class ShatterGame {
     }
     // The level gallery, from the title only — it is a menu, and there is no
     // point in a still of a level while one is being played.
-    if (key === "l" && this.screen === "title") {
+    if (key === "l" && this.screen === SCREEN.TITLE) {
       this.deps.levels.open();
-      this.setScreen("levels");
+      this.setScreen(SCREEN.LEVELS);
       return;
     }
     // The capsule catalogue, from the title too, and for the same reason.
-    if (key === "b" && this.screen === "title") {
+    if (key === "b" && this.screen === SCREEN.TITLE) {
       this.deps.capsules.open();
-      this.setScreen("capsules");
+      this.setScreen(SCREEN.CAPSULES);
+      return;
+    }
+    // And the bestiary (SHA-253). C for creatures: B is the capsules' already,
+    // and P is kept for THE CHAMBER's particles (SHA-185).
+    if (key === "c" && this.screen === SCREEN.TITLE) {
+      this.deps.bestiary.open();
+      this.setScreen(SCREEN.BESTIARY);
       return;
     }
     if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
@@ -8169,19 +8180,26 @@ export class ShatterGame {
       // Only a page that moved clicks: on a roster small enough to fit one page
       // the arrows land back where they were, and a click would say otherwise.
       const turned =
-        (this.screen === "levels" && this.deps.levels.turn(step)) ||
-        (this.screen === "capsules" && this.deps.capsules.turn(step));
+        (this.screen === SCREEN.LEVELS && this.deps.levels.turn(step)) ||
+        (this.screen === SCREEN.CAPSULES && this.deps.capsules.turn(step)) ||
+        (this.screen === SCREEN.BESTIARY && this.deps.bestiary.turn(step));
       if (turned) {
         this.deps.sfx.uiKeyClick();
       }
       return;
     }
-    if (event.key === "Escape" && (this.screen === "play" || this.screen === "pause" || this.screen === "serve")) {
+    if (
+      event.key === "Escape" &&
+      (this.screen === SCREEN.PLAY || this.screen === SCREEN.PAUSE || this.screen === SCREEN.SERVE)
+    ) {
       this.gameOver();
     }
     // Escape backs out of a menu screen, the way its click and its Space do. A
     // separate branch from the quit above: a menu has no run to end.
-    if (event.key === "Escape" && (this.screen === "levels" || this.screen === "capsules")) {
+    if (
+      event.key === "Escape" &&
+      (this.screen === SCREEN.LEVELS || this.screen === SCREEN.CAPSULES || this.screen === SCREEN.BESTIARY)
+    ) {
       this.showTitle();
     }
   }
@@ -8213,14 +8231,14 @@ export class ShatterGame {
 
   private commitScore(name: string): void {
     this.clearEntryCommitTimeout();
-    if (this.screen !== "entry" || name.length !== ENTRY_LENGTH) {
+    if (this.screen !== SCREEN.ENTRY || name.length !== ENTRY_LENGTH) {
       return;
     }
 
     this.deps.hiScores.commit(name, this.score);
     this.entry = "";
     this.refreshScoreRows();
-    this.setScreen("scores");
+    this.setScreen(SCREEN.SCORES);
   }
 
   private clearEntryCommitTimeout(): void {

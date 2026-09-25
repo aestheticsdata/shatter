@@ -61,13 +61,14 @@ OVER, so no score is ever committed.
 
 ## The take
 
-Four chapters, one per screen, at the default `DEMO_SPEED=1`.
+Five chapters, one per screen, at the default `DEMO_SPEED=1`.
 
 |          |                                                                                                                                                                                                                                                                                                                                                        |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Title    | the copper bars, the wordmark, a beat                                                                                                                                                                                                                                                                                                                  |
 | Levels   | `L`; every page of the gallery at a reading pace — `→` seven times for 37 layouts on seven pages, the seventh turn landing back on page 1 because the roster is a loop; `CLICK TO RETURN` clicked                                                                                                                                                      |
 | Capsules | `B`; the same walk through the eight pages of 47 capsules, commons first and the ten traps last; clicked back to the title                                                                                                                                                                                                                             |
+| Bestiary | `C`; the three pages of the eighteen creatures, the species in the order a player meets them and the four bosses last; clicked back to the title                                                                                                                                                                                                       |
 | Play     | the title clicked, the serve screen, the click that launches; then SUNRISE on the autopilot with the drawn cursor riding the deck: at least twenty-five seconds of rally and three capsules caught — each label rising off the deck, each effect arriving — sixty seconds at most. A ball lost is served again by key. The film stops there, mid-rally |
 
 Every element the storyboard touches carries a `data-testid` in `index.html` — the screens, the
@@ -112,9 +113,9 @@ seventh column). Nearest-neighbour is what the canvas asks for (`image-rendering
 `css/layout.css`) and what the stills show — a smoothed edge on a brick would be a regression in the
 scaler, not in the harness.
 
-The landing page's importer (`pnpm import-shots` in `landing-page/`) files them by name, so the four
+The landing page's importer (`pnpm import-shots` in `landing-page/`) files them by name, so the five
 are named for it: `gameplay`, `level-select` and `capsules` replace the shots the Shatter block
-already declares, in place; `title` is new and appends. `gameplay` stays first — it is the card's
+already declares, in place; `title` and `bestiary` are new and append. `gameplay` stays first — it is the card's
 thumbnail.
 
 ## Shatter-specific traps

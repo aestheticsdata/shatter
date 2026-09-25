@@ -54,6 +54,7 @@ export const SNAIL_ELDER: Species = {
   get killPoints() {
     return gameConfig.creatures.snailElder.killPoints;
   },
+  blurb: "HE LAYS NEW BRICKS OVERHEAD",
   solid: true,
   // The snail's own two frames, a size up and the right way up for a ceiling.
   frames: SNAIL_FRAMES.map((rows) => flipped(doubled(rows))),

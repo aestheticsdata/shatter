@@ -15,18 +15,6 @@ export interface RectangleBounds {
   bottom: number;
 }
 
-export type ScreenName =
-  | "title"
-  | "serve"
-  | "play"
-  | "pause"
-  | "clear"
-  | "over"
-  | "scores"
-  | "entry"
-  | "levels"
-  | "capsules";
-
 // Inferred from the brick roster in `@core/config/bricks`, exactly as
 // `PowerUpKind` is from the capsule one, so a new brick widens this union by
 // itself. Re-exported here because every consumer already reaches for its

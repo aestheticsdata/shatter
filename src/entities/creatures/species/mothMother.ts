@@ -55,6 +55,7 @@ export const MOTH_MOTHER: Species = {
   get killPoints() {
     return gameConfig.creatures.mothMother.killPoints;
   },
+  blurb: "EVERY HIT SHAKES OUT A CAPSULE",
   solid: false,
   frames: MOTH_FRAMES.map(doubled),
   frameTicks: 8,

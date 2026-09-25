@@ -29,6 +29,17 @@ export const CREATURE = {
 
 export type CreatureKind = (typeof CREATURE)[keyof typeof CREATURE];
 
+/**
+ * THE BROOD's entry on the BESTIARY page (SHA-253). Not a species — the veils'
+ * beasts are their own system (`Brood`), three forms and one walk — but they
+ * are creatures on the field all the same, and the page that shows the others
+ * would be short of the ones that hatch.
+ */
+export const BESTIARY_BROOD = "brood";
+
+/** Everything the BESTIARY page has an entry for: every species, and the brood. */
+export type BestiaryKind = CreatureKind | typeof BESTIARY_BROOD;
+
 /** One creature a level puts down: which, and where its sprite's top-left starts. */
 export interface CreaturePin {
   kind: CreatureKind;

@@ -95,6 +95,7 @@ export const WOODPECKER: Species = {
   get killPoints() {
     return gameConfig.creatures.woodpecker.killPoints;
   },
+  blurb: "IT PECKS THE WALL FOR YOU",
   solid: false,
   frames: [WOODPECKER_BODY],
   frameTicks: 12,

@@ -130,6 +130,18 @@ export interface Species {
   /** On top, on the hit that kills. */
   killPoints: number;
   /**
+   * Its one line on the BESTIARY page (SHA-253): what it does, set in 7 px
+   * Silkscreen and held to `ENTRY_TEXT_ROOM`. Checked in pixels by
+   * `checkBestiaryBlurbs`, never counted in characters.
+   */
+  blurb: string;
+  /**
+   * How many hits it takes, where that is not `hitPoints` — the BESTIARY
+   * label's one escape hatch, as `lasts` is the CAPSULES page's. BEETLE is the
+   * reason: two of its hits turn it over rather than hurt it.
+   */
+  hits?: number;
+  /**
    * Solid creatures are shelves the ball bounces off, vertically, like a
    * beast; the rest the ball passes through and still strikes.
    */

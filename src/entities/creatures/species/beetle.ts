@@ -83,6 +83,10 @@ export const BEETLE: Species = {
   get killPoints() {
     return gameConfig.creatures.beetle.killPoints;
   },
+  blurb: "ARMOUR ON TOP · HIT FROM BELOW",
+  // Two belly hits to roll it and turn it over, then the two its hit points
+  // are: `struck` hands the first two back.
+  hits: 4,
   // A shelf, walking or rolling. It is the one creature whose whole premise is
   // that the ball comes off it rather than through it.
   solid: true,

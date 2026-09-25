@@ -112,6 +112,7 @@ export const FIREFLY: Species = {
   get killPoints() {
     return gameConfig.creatures.firefly.killPoints;
   },
+  blurb: "A HIT LIGHTS UP THE DARK FIELD",
   // A ball goes through it, as it does through everything in the bestiary that
   // flies. Nothing this small is a shelf.
   solid: false,

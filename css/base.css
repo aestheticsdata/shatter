@@ -1,3 +1,12 @@
+/* No elastic bounce anywhere, on any scroller: the vertical rubber band is the
+   part being refused, and `contain` would only stop it chaining to the parent
+   while keeping it locally. On `*` so a scroller added later is covered without
+   anyone remembering. The horizontal axis is the browser's back gesture and is
+   left alone. */
+* {
+  overscroll-behavior-y: none;
+}
+
 html,
 body {
   margin: 0;

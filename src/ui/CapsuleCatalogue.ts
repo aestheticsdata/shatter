@@ -45,14 +45,28 @@ const TILE_HEIGHT = gameConfig.field.height / TILE_SCALE;
 const PILL_WIDTH = 20;
 const PILL_HEIGHT = 8;
 
-// The column an entry's two text lines have to fit, in stage pixels, the type
+// The column an entry's two text lines are set in, in stage pixels, the type
 // they are set in, and how many lines the blurb may take. All three live here
 // because this is where they are spent, and all three are read by the DEV width
-// pass in `@render/checkCapsules` — the CSS rules for `.capsule-label` and
-// `.capsule-blurb` must agree with them.
+// passes in `@render/checkCapsules` and `@render/checkBestiary` — the CSS rules
+// for the two pages' labels and blurbs must agree with them.
 export const ENTRY_COLUMN_WIDTH = 148;
 export const ENTRY_FONT = "7px Silkscreen, monospace";
 export const ENTRY_BLURB_LINES = 1;
+
+/**
+ * The room an entry's text really has, in stage pixels — six short of the
+ * column it is set in, and what both width passes measure against (SHA-254).
+ *
+ * The grid this page shares with the BESTIARY (`#capsuleEntries` in
+ * `components.css`: left 18, three 148 px tracks, 12 px gaps) is centred on its
+ * *tiles*, so its third track starts at 338 on the 480 px stage and the stage
+ * cuts it at 480. A line that fits the 148 px column and lands in that column
+ * loses its last letters, and which column an entry lands in is the roster's
+ * order — a capsule added to an earlier tier moves every one after it — so
+ * every line is held to the third column's room.
+ */
+export const ENTRY_TEXT_ROOM = 480 - 18 - 2 * (ENTRY_COLUMN_WIDTH + 12);
 
 // Commons first and traps last. Rarity is what a player wants grouped, it puts
 // the traps together at the end where they read as a warning, and it is the

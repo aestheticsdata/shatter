@@ -170,7 +170,9 @@ in `@core/config` may read an entity. `@render` may read an entity's shape in
 order to draw it; no entity knows a renderer exists. The one back-edge in the
 whole tree is [`checkCapsules.ts`](../src/render/checkCapsules.ts) importing
 metrics from `@ui/CapsuleCatalogue` — a dev-only legibility assertion that runs
-behind `import.meta.env.DEV` and ships in no bundle.
+behind `import.meta.env.DEV` and ships in no bundle. Its twin
+[`checkBestiary.ts`](../src/render/checkBestiary.ts) takes the same edge to
+`@ui/Bestiary`, for the same reason and under the same guard.
 
 **`powerUps.ts` importing nothing is deliberate**, and the file says so at the
 top: `@interfaces/types` re-exports `PowerUpKind` _from_ `powerUps`, so a cycle
@@ -406,13 +408,16 @@ Every transition, exhaustively:
 | `entry`               | `Return` with 3 letters                    | `scores` (commits the score)     |
 | `scores`              | advance                                    | `title`                          |
 
-Two of these states are menus reachable only from the title (`L` for the level
-gallery, `B` for the capsule catalogue) because a still of a level is pointless
-while one is being played. Both render live miniatures of the _real_ field
-through [`levelStill.ts`](../src/render/levelStill.ts) and
-[`capsuleScenes.ts`](../src/render/capsuleScenes.ts) — the same sprites, the same
-renderer — so adding a level or a capsule makes it appear in its gallery with no
-second edit anywhere.
+Three of these states are menus reachable only from the title (`L` for the
+level gallery, `B` for the capsule catalogue, `C` for the bestiary) because a
+still of a level is pointless while one is being played. All three render live
+miniatures of the _real_ field through
+[`levelStill.ts`](../src/render/levelStill.ts),
+[`capsuleScenes.ts`](../src/render/capsuleScenes.ts) and
+[`creatureScenes.ts`](../src/render/creatureScenes.ts) — the same sprites, the
+same renderer — so adding a level, a capsule or a species makes it appear in its
+gallery with no second edit anywhere. The screens' names are the `SCREEN`
+constants in [`screens.ts`](../src/interfaces/screens.ts).
 
 **PAUSE is also a safety state.** The paddle is mouse-only, and the mouse can go
 quiet without warning — cursor leaves the window, another window takes focus,

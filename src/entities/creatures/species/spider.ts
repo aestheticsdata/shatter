@@ -71,6 +71,7 @@ export const SPIDER: Species = {
   get killPoints() {
     return gameConfig.creatures.spider.killPoints;
   },
+  blurb: "IT DROPS ON A THREAD TO BLOCK",
   solid: true,
   frames: [SPREAD, SWUNG],
   frameTicks: 10,

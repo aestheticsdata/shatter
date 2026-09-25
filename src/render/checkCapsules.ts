@@ -2,7 +2,7 @@ import { COMBO_GLYPHS } from "@core/config/combos";
 import { POWER_UP_GLYPHS, POWER_UPS } from "@core/config/powerUps";
 import { dropGlyphFont, DROP_GLYPH_SPAN, SCALE } from "@render/CanvasRenderer";
 import { canvasPalette } from "@render/palette";
-import { capsuleLabel, ENTRY_BLURB_LINES, ENTRY_COLUMN_WIDTH, ENTRY_FONT } from "@ui/CapsuleCatalogue";
+import { capsuleLabel, ENTRY_BLURB_LINES, ENTRY_FONT, ENTRY_TEXT_ROOM } from "@ui/CapsuleCatalogue";
 
 // The luminance at or above which a capsule body needs a dark letter. Today's
 // roster splits cleanly either side of it; see the `darkLetter` note in the
@@ -90,11 +90,15 @@ export function checkCapsuleLegibility(): void {
 /**
  * DEV-only width guard for the CAPSULES screen's two text lines.
  *
- * A blurb is authored prose in a fixed 210 px column, which is the one thing on
- * that screen nothing else can catch: the glyphs are derived and measured
+ * A blurb is authored prose in a fixed column, which is the one thing on that
+ * screen nothing else can catch: the glyphs are derived and measured
  * above, the tier and the duration come off the registry, and only the blurb is
  * typed by hand — a long one runs into the next column and nobody sees it until
  * a screenshot, by which time it has shipped.
+ *
+ * **Measured against `ENTRY_TEXT_ROOM`, not the 148 px track** (SHA-254). The
+ * grid is centred on its tiles, so the third column is cut by the stage edge at
+ * 142 px, and any entry can land there the day a capsule joins an earlier tier.
  *
  * Same conditions as the pass above: after `document.fonts.ready`, because an
  * unloaded Silkscreen falls back to a wider `monospace` and would fail a line
@@ -114,18 +118,18 @@ export function checkCapsuleBlurbs(): void {
     // and a wrapped one would push the blurb out of the entry.
     const label = capsuleLabel(definition);
     const labelWidth = context.measureText(label).width;
-    if (labelWidth > ENTRY_COLUMN_WIDTH) {
+    if (labelWidth > ENTRY_TEXT_ROOM) {
       console.error(
         `[capsules] ${definition.id}: label "${label}" is ${labelWidth.toFixed(1)} px, ` +
-          `over the ${ENTRY_COLUMN_WIDTH} px column — it will wrap and shove the blurb down`,
+          `past the ${ENTRY_TEXT_ROOM} px the third column shows — the stage edge will cut it`,
       );
     }
 
-    const lines = wrappedLines(context, definition.blurb, ENTRY_COLUMN_WIDTH);
+    const lines = wrappedLines(context, definition.blurb, ENTRY_TEXT_ROOM);
     if (lines > ENTRY_BLURB_LINES) {
       console.error(
         `[capsules] ${definition.id}: blurb "${definition.blurb}" needs ${lines} lines ` +
-          `in the ${ENTRY_COLUMN_WIDTH} px column, and the entry has room for ${ENTRY_BLURB_LINES}`,
+          `in the ${ENTRY_TEXT_ROOM} px the third column shows, and the entry has room for ${ENTRY_BLURB_LINES}`,
       );
     }
   }
@@ -134,8 +138,9 @@ export function checkCapsuleBlurbs(): void {
 // Greedy line breaking, which is what the browser does with a run of words: a
 // word that will not fit the room left starts the next line. A word too wide for
 // the column on its own is counted as its own line and named, since no break
-// can rescue it.
-function wrappedLines(context: CanvasRenderingContext2D, text: string, room: number): number {
+// can rescue it. Shared with the BESTIARY's pass (SHA-253), which sets its
+// lines in the same column.
+export function wrappedLines(context: CanvasRenderingContext2D, text: string, room: number): number {
   const space = context.measureText(" ").width;
   let lines = 1;
   let used = 0;

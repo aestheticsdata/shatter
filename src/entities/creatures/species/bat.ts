@@ -109,6 +109,7 @@ export const BAT: Species = {
   get killPoints() {
     return gameConfig.creatures.bat.killPoints;
   },
+  blurb: "WAKE IT · THEN HIT IT IN FLIGHT",
   // Passed through like the moth. A shelf asleep under the wall would re-route
   // every rally on the level whether or not the player ever touched it.
   solid: false,

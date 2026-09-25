@@ -106,6 +106,7 @@ export const JELLYFISH: Species = {
   get killPoints() {
     return gameConfig.creatures.jellyfish.killPoints;
   },
+  blurb: "ITS STING NUMBS THE DECK",
   // Water. The ball goes through it and pops it on the way, which is the whole
   // answer this species asks for.
   solid: false,

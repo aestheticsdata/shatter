@@ -6,6 +6,8 @@ import {
   BLACKOUT_TORCH,
   drawAngelWings,
   drawBall,
+  drawBeast,
+  drawCreature,
   drawGambleReel,
   drawBlackoutVeil,
   drawBrick,
@@ -16,8 +18,11 @@ import {
 } from "@render/CanvasRenderer";
 import { BRICK_COLORS, canvasPalette } from "@render/palette";
 
+import type { Creature } from "@entities/creatures/Creature";
+import type { Beast } from "@entities/effects/Brood";
 import type { BrickCell, BrickKind, PowerUpKind } from "@interfaces/types";
 import type { Torch } from "@render/CanvasRenderer";
+import type { PaddleBandColors } from "@render/palette";
 
 /**
  * One picture per capsule: the real field, with that capsule's effect on it.
@@ -74,8 +79,8 @@ const INSET = 2 * EDGE;
 // A brick at full health. Hit points come off the roster rather than being typed
 // as 1: `drawBrick` reads the damage stage out of them, and a silver brick one
 // short would be drawn chipped in a catalogue that never hit it.
-function cell(kind: BrickKind, seed: number): BrickCell {
-  return { kind, hitPoints: BRICK_BY_ID[kind].hitPoints, points: 0, seed, capsule: null, seeded: false, scarTicks: 0 };
+function cell(kind: BrickKind, seed: number, hitPoints: number = BRICK_BY_ID[kind].hitPoints): BrickCell {
+  return { kind, hitPoints, points: 0, seed, capsule: null, seeded: false, scarTicks: 0 };
 }
 
 /**
@@ -96,7 +101,7 @@ function cell(kind: BrickKind, seed: number): BrickCell {
  * away exactly the two thirds of the grid this pass exists to reach. At scale 1
  * the arithmetic is the identity it always was.
  */
-class Field {
+export class Field {
   // Whether the sprites may take their HD recipe: the fine grid exists at one
   // scale only, and a miniature painted at any other gets the classic sprite —
   // which is the picture it should get, since there is no fine grid under it.
@@ -471,6 +476,53 @@ class Field {
 
   ball(x = BALL_HOME.x, y = BALL_HOME.y, size: number = gameConfig.ball.size): void {
     drawBall(this.ctx, x, y, this.scale, this.demade, { size, hd: this.hd });
+  }
+
+  /**
+   * A brick short of its full hit points, which `drawBrick` paints with the
+   * wear the field gives it — the BESTIARY's snail mending a row (SHA-253).
+   */
+  chipped(column: number, row: number, kind: BrickKind, hitPoints: number): void {
+    const { x, y } = this.brickAt(column, row);
+    drawBrick(this.ctx, x, y, cell(kind, row * COLUMNS + column, hitPoints), this.scale, {
+      demade: this.demade,
+      hd: this.hd,
+    });
+  }
+
+  /** The deck in another tint: stung, or turned to stone (SHA-253). */
+  tintedDeck(
+    colors: PaddleBandColors,
+    width: number = gameConfig.paddle.baseWidth,
+    x = (FIELD_WIDTH - width) / 2,
+  ): void {
+    drawDeckBody(this.ctx, x, DECK_Y, width, colors, this.scale, this.demade, this.hd);
+  }
+
+  /**
+   * One of THE BESTIARY's creatures (SHA-253), by the renderer's own
+   * `drawCreature` — its baked body and its species' own `decorate` — so a leg
+   * retouched on the field is retouched on the BESTIARY page with no second
+   * edit. `frame` is the field's clock, frozen wherever the still wants it.
+   */
+  creature(creature: Creature, frame = 0): void {
+    drawCreature(this.ctx, creature, frame, this.scale, this.demade, this.hd);
+  }
+
+  /** One of THE OBSERVER's beasts, by the renderer's own `drawBeast`. */
+  beast(beast: Beast, frame = 0): void {
+    drawBeast(this.ctx, beast, frame, this.scale, this.demade, this.hd);
+  }
+
+  /**
+   * Whatever `paint` draws, at partial alpha: a pose the creature was in a
+   * moment ago. `trace` is the same idea for the ball; this is it for anything
+   * that is not a brick — `drawBrick` restores full opacity on its way out.
+   */
+  ghost(alpha: number, paint: () => void): void {
+    this.ctx.globalAlpha = alpha;
+    paint();
+    this.ctx.globalAlpha = 1;
   }
 
   /**
@@ -1869,11 +1921,20 @@ const SCENES: Record<PowerUpKind, Painter> = {
  */
 export function paintCapsuleScene(ctx: CanvasRenderingContext2D, kind: PowerUpKind, hd = false): void {
   const demade = kind === "D";
+  SCENES[kind](stageField(ctx, hd, demade));
+}
+
+/**
+ * The backdrop every miniature is staged on, and a `Field` over it to stage
+ * with. Shared with the BESTIARY's scenes (SHA-253), so the two catalogues are
+ * photographs of one field rather than two that drift apart.
+ */
+export function stageField(ctx: CanvasRenderingContext2D, hd = false, demade = false): Field {
   const scale = hd ? FINE : 1;
   paintBackground(ctx, SCENE_BACKGROUND, SCENE_VARIANT, FIELD_WIDTH, FIELD_HEIGHT, hd);
   if (demade) {
     ctx.fillStyle = canvasPalette.demakeGround;
     ctx.fillRect(0, 0, FIELD_WIDTH * scale, FIELD_HEIGHT * scale);
   }
-  SCENES[kind](new Field(ctx, demade, scale));
+  return new Field(ctx, demade, scale);
 }

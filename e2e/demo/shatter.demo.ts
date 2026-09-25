@@ -1,11 +1,12 @@
 import { expect, test } from "@e2e/demo/fixture";
+import { SCREEN } from "@interfaces/screens";
 
 import type { DemoSnapshot } from "@core/DemoHook";
 import type { Demo } from "@e2e/demo/fixture";
 import type { Page } from "@playwright/test";
 
 /**
- * Shatter, end to end — one continuous take, four chapters, four screens.
+ * Shatter, end to end — one continuous take, five chapters, five screens.
  *
  * This file is the storyboard and nothing else: no pointer paths, no video, no
  * timing arithmetic. Those live in `cursor.ts`, `fixture.ts` and `pacing.ts`,
@@ -14,9 +15,9 @@ import type { Page } from "@playwright/test";
  *
  * Three things it never breaks.
  *
- * KEYS WHERE THE GAME TAKES KEYS. There is no button for the LEVELS gallery or
- * the CAPSULES catalogue: the take presses `L`, `B` and `→`, and the screen
- * change is what the camera sees. Where the game takes a click — start, launch,
+ * KEYS WHERE THE GAME TAKES KEYS. There is no button for the LEVELS gallery,
+ * the CAPSULES catalogue or the BESTIARY: the take presses `L`, `B`, `C` and
+ * `→`, and the screen change is what the camera sees. Where the game takes a click — start, launch,
  * `CLICK TO RETURN` — the drawn cursor clicks.
  *
  * THE REAL MOUSE NEVER MOVES DURING PLAY. The click that launches the ball also
@@ -125,10 +126,10 @@ async function waitForScreen(page: Page, screen: DemoSnapshot["screen"], timeout
  */
 async function launch(page: Page, press: (key: string) => Promise<void>): Promise<void> {
   try {
-    await waitForScreen(page, "play", LAUNCH_MS_MAX);
+    await waitForScreen(page, SCREEN.PLAY, LAUNCH_MS_MAX);
   } catch {
     await press(" ");
-    await waitForScreen(page, "play", LAUNCH_MS_MAX);
+    await waitForScreen(page, SCREEN.PLAY, LAUNCH_MS_MAX);
   }
 }
 
@@ -163,9 +164,9 @@ async function play(demo: Demo): Promise<DemoSnapshot> {
   let snapshot = await readSnapshot(demo.page);
   const elapsed = () => Date.now() - startedAt;
   while (elapsed() < PLAY_MS_MAX && (snapshot.capsulesCaught < CATCHES_WANTED || elapsed() < PLAY_MS_MIN)) {
-    if (snapshot.screen === "serve") {
+    if (snapshot.screen === SCREEN.SERVE) {
       await demo.press(" ");
-    } else if (snapshot.screen !== "play") {
+    } else if (snapshot.screen !== SCREEN.PLAY) {
       break;
     } else if (snapshot.ballsStuck > 0) {
       await demo.page.waitForTimeout(STUCK_BEAT_MS);
@@ -186,7 +187,7 @@ async function play(demo: Demo): Promise<DemoSnapshot> {
  */
 async function prepareGameplay(page: Page): Promise<void> {
   await page.getByTestId("title-play-hint").click();
-  await waitForScreen(page, "serve", LAUNCH_MS_MAX);
+  await waitForScreen(page, SCREEN.SERVE, LAUNCH_MS_MAX);
   await setAutopilot(page, true);
   await page.getByTestId("screen-serve").click();
   await launch(page, (key) => page.keyboard.press(key));
@@ -230,6 +231,16 @@ test("shatter, one take", async ({ demo }) => {
   demo.shot("capsules", (still) => still.keyboard.press("b"));
   await walkPages(demo, "capsules-count");
   await demo.click(page.getByTestId("capsules-facts"));
+  await expect(page.getByTestId("screen-title")).toBeVisible();
+  await demo.dwell(700);
+
+  // ── Bestiary ─────────────────────────────────────────────────────────────
+  await demo.press("c");
+  await expect(page.getByTestId("screen-bestiary")).toBeVisible();
+  await demo.chapter("Bestiary");
+  demo.shot("bestiary", (still) => still.keyboard.press("c"));
+  await walkPages(demo, "bestiary-count");
+  await demo.click(page.getByTestId("bestiary-facts"));
   await expect(page.getByTestId("screen-title")).toBeVisible();
   await demo.dwell(700);
 

@@ -127,8 +127,9 @@ const BALL_SMEAR_SPREAD: readonly number[] = [0.85, 0.95];
 // trail being the one mark on this field that is meant to look like metal in
 // the light, and then the stone's grey rather than the silver's dark — a
 // saturated blue reads as a line somebody drew, not as slime going dull. Five fine pixels in HD against the rail marks' two — a film, not a
-// scratch.
-const SLIME_TONES: readonly string[] = [BRICK_COLORS.S.light, BRICK_COLORS.S.flat, canvasPalette.stoneCap];
+// scratch. Exported for the BESTIARY's slug (SHA-253), which lays the same
+// film.
+export const SLIME_TONES: readonly string[] = [BRICK_COLORS.S.light, BRICK_COLORS.S.flat, canvasPalette.stoneCap];
 const SLIME_FINE_HEIGHT = 5;
 // Where the film starts under the rail line: the slug's belly ends at 4.
 const SLIME_BELOW = 4;
@@ -648,8 +649,12 @@ const mixTone = mix;
  *
  * The sheen and not the body, because the sheen is the one band a player is
  * already watching — it is the pixel row the ball leaves from.
+ *
+ * Exported because the BESTIARY stages a stung deck and a petrified one
+ * (SHA-253), and a miniature wearing a tint of its own would drift off the
+ * field's the first time either was retuned.
  */
-function deckBands(capsJammed: boolean, chainGold: boolean, petrified: number, numb = 0): PaddleBandColors {
+export function deckBands(capsJammed: boolean, chainGold: boolean, petrified: number, numb = 0): PaddleBandColors {
   let bands = PADDLE_BANDS;
   if (capsJammed) {
     bands = { ...bands, cap: DROP_COLORS.J };

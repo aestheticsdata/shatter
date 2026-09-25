@@ -1,10 +1,12 @@
 import { SoundBank } from "@audio/SoundBank";
 import { ShatterGame } from "@core/ShatterGame";
 import { CanvasRenderer } from "@render/CanvasRenderer";
+import { checkBestiaryBlurbs } from "@render/checkBestiary";
 import { checkCapsuleBlurbs, checkCapsuleLegibility } from "@render/checkCapsules";
 import { getElementByIdOrThrow } from "@shared/dom";
 import { HiScores } from "@state/HiScores";
 import { ScoreApi } from "@state/ScoreApi";
+import { Bestiary } from "@ui/Bestiary";
 import { CapsuleCatalogue } from "@ui/CapsuleCatalogue";
 import { LevelGallery } from "@ui/LevelGallery";
 import { Panel } from "@ui/Panel";
@@ -41,10 +43,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const sfx = new SoundBank();
   panel.bindVolume(sfx.volume, (volume) => sfx.setVolume(volume));
 
-  // Named rather than inlined: the LEVELS gallery, the CAPSULES catalogue and
-  // the title paint pictures of the arena's art, so they have to be able to ask
-  // it which art it is in (SHA-224, SHA-249). A thunk and not the mode itself —
-  // the dev console can change it long after this line has run.
+  // Named rather than inlined: the LEVELS gallery, the CAPSULES and BESTIARY
+  // pages and the title paint pictures of the arena's art, so they have to be
+  // able to ask it which art it is in (SHA-224, SHA-249, SHA-253). A thunk and
+  // not the mode itself — the dev console can change it long after this line
+  // has run.
   const renderer = new CanvasRenderer(playfield);
   const game = new ShatterGame({
     renderer,
@@ -73,6 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
       returnHint: getElementByIdOrThrow("returnHint"),
       levels: getElementByIdOrThrow("screenLevels"),
       capsules: getElementByIdOrThrow("screenCapsules"),
+      bestiary: getElementByIdOrThrow("screenBestiary"),
     }),
     levels: new LevelGallery(
       {
@@ -91,6 +95,16 @@ document.addEventListener("DOMContentLoaded", () => {
         arrows: getElementByIdOrThrow("capsulesArrows"),
         count: getElementByIdOrThrow("capsulesCount"),
         facts: getElementByIdOrThrow("capsulesFacts"),
+      },
+      () => renderer.art,
+    ),
+    bestiary: new Bestiary(
+      {
+        entries: getElementByIdOrThrow("bestiaryEntries"),
+        pages: getElementByIdOrThrow("bestiaryPages"),
+        arrows: getElementByIdOrThrow("bestiaryArrows"),
+        count: getElementByIdOrThrow("bestiaryCount"),
+        facts: getElementByIdOrThrow("bestiaryFacts"),
       },
       () => renderer.art,
     ),
@@ -126,6 +140,7 @@ document.addEventListener("DOMContentLoaded", () => {
     void document.fonts.ready.then(() => {
       checkCapsuleLegibility();
       checkCapsuleBlurbs();
+      checkBestiaryBlurbs();
     });
   }
 });

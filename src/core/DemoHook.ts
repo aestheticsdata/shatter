@@ -7,7 +7,7 @@ import type { Arrival } from "@core/ballTrace";
 import type { Ball } from "@entities/ball/Ball";
 import type { Paddle } from "@entities/paddle/Paddle";
 import type { Drop } from "@entities/powerups/DropPool";
-import type { ScreenName } from "@interfaces/types";
+import type { ScreenName } from "@interfaces/screens";
 
 /**
  * The run as numbers, for the film (SHA-133).

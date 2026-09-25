@@ -121,6 +121,7 @@ export const FROG: Species = {
   get killPoints() {
     return gameConfig.creatures.frog.killPoints;
   },
+  blurb: "IT LEAPS AWAY · HIT IT MID-AIR",
   solid: true,
   // One frame: the renderer's frame clock is the field's, not the frog's, so
   // the pose chosen by state goes through `decorate`, under the body.

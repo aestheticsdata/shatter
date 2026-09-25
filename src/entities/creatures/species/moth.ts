@@ -68,6 +68,7 @@ export const MOTH: Species = {
   get killPoints() {
     return gameConfig.creatures.moth.killPoints;
   },
+  blurb: "IT DROPS THE CAPSULE IT CARRIES",
   solid: false,
   frames: MOTH_FRAMES,
   frameTicks: 6,

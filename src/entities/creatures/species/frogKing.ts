@@ -86,6 +86,7 @@ export const FROG_KING: Species = {
   get killPoints() {
     return gameConfig.creatures.frogKing.killPoints;
   },
+  blurb: "ARMOUR SITTING · SOFT IN THE AIR",
   solid: true,
   frames: [doubled(FROG_BODY)],
   frameTicks: 12,

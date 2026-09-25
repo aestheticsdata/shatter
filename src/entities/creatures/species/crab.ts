@@ -110,6 +110,7 @@ export const CRAB: Species = {
   get killPoints() {
     return gameConfig.creatures.crab.killPoints;
   },
+  blurb: "IT STEALS CAPSULES · HIT IT",
   // **Not solid, and this one is a balance call rather than an anatomical
   // one.** A crab is plainly a hard thing and the ball ought to come off it —
   // but it is fifteen pixels wide, it loiters in the middle of the band, and it

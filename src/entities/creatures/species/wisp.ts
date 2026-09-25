@@ -87,6 +87,7 @@ export const WISP: Species = {
   get killPoints() {
     return gameConfig.creatures.wisp.killPoints;
   },
+  blurb: "ONLY A BOLT CAN TOUCH IT",
   solid: false,
   // The whole species, in one word (SHA-242).
   shotOnly: true,

@@ -112,6 +112,7 @@ export const VINE: Species = {
   get killPoints() {
     return gameConfig.creatures.vine.killPoints;
   },
+  blurb: "CUT IT LOW BEFORE IT ROOTS",
   // **Not solid**, and not because a plant is soft: the framework's shelf
   // bounce is vertical only, which is the right physics for a beetle's back
   // and the wrong physics for a column. A ball that passed through a vine and

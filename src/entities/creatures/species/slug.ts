@@ -81,6 +81,7 @@ export const SLUG: Species = {
   get killPoints() {
     return gameConfig.creatures.slug.killPoints;
   },
+  blurb: "ITS SLIME MAKES THE DECK SKID",
   // A shelf on the rail would be a second deck, and one the player did not
   // choose where to put. The ball goes through it and squashes it.
   solid: false,

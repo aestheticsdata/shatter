@@ -134,16 +134,16 @@ export interface PowerUpDefinition {
   //
   // **The limit is rendered width, not a character count.** `checkCapsuleBlurbs`
   // in `@render/checkCapsules` measures the line at `ENTRY_FONT` and wraps it
-  // against `ENTRY_COLUMN_WIDTH`, and the entry has room for `ENTRY_BLURB_LINES`
-  // — one. Silkscreen is proportional, so no character count is safe in either
-  // direction: the three widest blurbs in the roster are ENGLISH at 146.1 px,
-  // ERODE at 145.3 and SNAP at 144.4, which is 32, 31 and 30 characters landing
-  // within 1.7 px of each other.
+  // against `ENTRY_TEXT_ROOM` — the 142 px the screen's third column shows
+  // before the stage edge, not its 148 px track (SHA-254) — and the entry has
+  // room for `ENTRY_BLURB_LINES`, one. Silkscreen is proportional, so no
+  // character count is safe in either direction: the widest blurbs in the roster
+  // are COLLAPSE at 141.8 px, SPLIT at 139.1 and LEAP at 138.2, which is 32, 29
+  // and 30 characters in an order the count does not predict.
   //
   // This comment said "in about 40 characters" for a long time and that number
   // was never reachable — 40 characters of ordinary text measures about 184 px,
-  // some 36 px past the 148 px column, and a 33-character blurb already wraps at
-  // 152.3. It cost two sessions a wave of rewritten capsule specs before anyone
+  // some 42 px past the room, and a 33-character blurb already wraps at 152.3. It cost two sessions a wave of rewritten capsule specs before anyone
   // measured it. Run the check against a new row instead of counting: a blurb
   // that wraps shoves the whole entry down, and the DEV pass is the only thing
   // here that knows what a glyph actually costs.
@@ -254,7 +254,7 @@ export const POWER_UPS = [
   // not a reservation, and a capsule about putting english on a ball is the
   // colour of the cloth you do it on or it is nothing. The glyph is what tells
   // them apart, as it is for the other seven.
-  { id: "EN", name: "ENGLISH", color: "#009436", dark: false, ticks: 2400, tier: "rare", timed: true, blurb: "WHIP THE PADDLE · CURVE THE BALL" },
+  { id: "EN", name: "ENGLISH", color: "#009436", dark: false, ticks: 2400, tier: "rare", timed: true, blurb: "WHIP THE DECK · CURVE THE BALL" },
   // The brightest body on the board and the one with the most room under it:
   // 11.6:1 against the darkest field theme, which is three times the bar, and
   // 76 from XRAY, MULTI and CRITTER alike. The green quarter is crowded and
@@ -267,7 +267,7 @@ export const POWER_UPS = [
   // player might read as a trap while it falls is worse than one they cannot
   // tell from another bonus. The grid it lays over the field is drawn in this
   // green taken right down, so the effect and the pill are one colour.
-  { id: "SN", name: "SNAP", color: "#60ff36", dark: true, ticks: 1440, tier: "common", timed: true, blurb: "EVERY BOUNCE SNAPS TO THE GRID" },
+  { id: "SN", name: "SNAP", color: "#60ff36", dark: true, ticks: 1440, tier: "common", timed: true, blurb: "BOUNCES SNAP TO THE GRID" },
   // Mortar, which is the one thing on the field this capsule is about and the
   // one colour nothing on the board had taken. 77 from QUAKE, MIRROR and GHOST
   // alike — the widest gap left on a 44-capsule board — and 0.469 luminance
@@ -284,7 +284,7 @@ export const POWER_UPS = [
   // two capsules do the same thing to the wall from opposite ends, and one that
   // could be mistaken for the other while it falls would be the worst pill on
   // the board.
-  { id: "ER", name: "ERODE", color: "#bcb88e", dark: true, ticks: 1440, tier: "rare", timed: true, blurb: "MORTAR ERODES · THREAD THE WALL" },
+  { id: "ER", name: "ERODE", color: "#bcb88e", dark: true, ticks: 1440, tier: "rare", timed: true, blurb: "MORTAR ERODES · THREAD LANES" },
   // Coral, and the roster's own answer to a fire capsule arriving on a board
   // where fire is the one thing everybody already took. Swept properly, the
   // warm quarter has exactly one opening left: 60.5 from SPLIT and 60.6 from

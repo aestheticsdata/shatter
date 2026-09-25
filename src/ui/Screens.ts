@@ -1,4 +1,7 @@
-import type { ScoreRowView, ScreenName } from "@interfaces/types";
+import { SCREEN } from "@interfaces/screens";
+
+import type { ScreenName } from "@interfaces/screens";
+import type { ScoreRowView } from "@interfaces/types";
 
 export interface ScreensElements {
   title: HTMLElement;
@@ -29,6 +32,7 @@ export interface ScreensElements {
   returnHint: HTMLElement;
   levels: HTMLElement;
   capsules: HTMLElement;
+  bestiary: HTMLElement;
 }
 
 // How many characters of the clear card's name line fit at its full size. The
@@ -80,23 +84,24 @@ export class Screens {
 
   show(screen: ScreenName): void {
     const { elements } = this;
-    const scoresVisible = screen === "scores" || screen === "entry";
+    const scoresVisible = screen === SCREEN.SCORES || screen === SCREEN.ENTRY;
 
-    elements.title.hidden = screen !== "title";
-    elements.serve.hidden = screen !== "serve";
-    elements.serveVeil.hidden = screen !== "serve" || this.veilLine === null;
+    elements.title.hidden = screen !== SCREEN.TITLE;
+    elements.serve.hidden = screen !== SCREEN.SERVE;
+    elements.serveVeil.hidden = screen !== SCREEN.SERVE || this.veilLine === null;
     // Belt on the notice: every caller takes its own line down, and this is what
     // makes a leak impossible anyway — a card over the field may never have a
     // line from the run printed through it.
-    elements.fieldNotice.hidden = (screen !== "play" && screen !== "serve") || this.noticeLine === null;
-    elements.pause.hidden = screen !== "pause";
-    elements.clear.hidden = screen !== "clear";
-    elements.over.hidden = screen !== "over";
+    elements.fieldNotice.hidden = (screen !== SCREEN.PLAY && screen !== SCREEN.SERVE) || this.noticeLine === null;
+    elements.pause.hidden = screen !== SCREEN.PAUSE;
+    elements.clear.hidden = screen !== SCREEN.CLEAR;
+    elements.over.hidden = screen !== SCREEN.OVER;
     elements.scores.hidden = !scoresVisible;
-    elements.entryLine.hidden = screen !== "entry";
-    elements.returnHint.hidden = screen !== "scores";
-    elements.levels.hidden = screen !== "levels";
-    elements.capsules.hidden = screen !== "capsules";
+    elements.entryLine.hidden = screen !== SCREEN.ENTRY;
+    elements.returnHint.hidden = screen !== SCREEN.SCORES;
+    elements.levels.hidden = screen !== SCREEN.LEVELS;
+    elements.capsules.hidden = screen !== SCREEN.CAPSULES;
+    elements.bestiary.hidden = screen !== SCREEN.BESTIARY;
   }
 
   updateTitle(topScoreText: string, topScoreName: string): void {

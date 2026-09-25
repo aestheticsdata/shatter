@@ -103,6 +103,7 @@ export const SNAIL: Species = {
   get killPoints() {
     return gameConfig.creatures.snail.killPoints;
   },
+  blurb: "IT MENDS EVERY BRICK IT CRAWLS",
   solid: true,
   frames: SNAIL_FRAMES,
   frameTicks: 12,

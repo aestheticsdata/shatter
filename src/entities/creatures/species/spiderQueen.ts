@@ -102,6 +102,7 @@ export const SPIDER_QUEEN: Species = {
   get killPoints() {
     return gameConfig.creatures.spiderQueen.killPoints;
   },
+  blurb: "SHE DROPS · THE DECK IS STONE",
   solid: true,
   frames: [LEGS_OUT, LEGS_IN],
   frameTicks: 10,
