@@ -9144,6 +9144,29 @@ export class ShatterGame {
   private setScreen(screen: ScreenName): void {
     this.screen = screen;
     this.deps.screens.show(screen);
+    this.syncMusic(screen);
+  }
+
+  // The theme plays through the run and holds its place through PAUSE; game
+  // over crossfades to the game-over track, which carries on through the name
+  // entry and the board it lands on. Both go back to the top at the title and
+  // the menus off it, which are quiet — as the title is on a first visit, when
+  // the browser allows no sound before a click anyway.
+  private syncMusic(screen: ScreenName): void {
+    if (screen === SCREEN.PAUSE) {
+      this.deps.sfx.musicPause();
+    } else if (screen === SCREEN.OVER || screen === SCREEN.ENTRY || screen === SCREEN.SCORES) {
+      this.deps.sfx.musicGameOver();
+    } else if (
+      screen === SCREEN.TITLE ||
+      screen === SCREEN.LEVELS ||
+      screen === SCREEN.CAPSULES ||
+      screen === SCREEN.BESTIARY
+    ) {
+      this.deps.sfx.musicStop();
+    } else {
+      this.deps.sfx.musicPlay();
+    }
   }
 
   private speed(): number {

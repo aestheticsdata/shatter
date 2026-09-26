@@ -6,6 +6,8 @@ const MASTER_GAIN = 0.9;
 // A +15-cent layer at ~70% level is the "detuned pair" voicing used across the bank.
 const DETUNE_PAIR_CENTS = 15;
 const DETUNE_PAIR_LEVEL = 0.7;
+// The music never cuts: it swells in and dies away over this long.
+const MUSIC_FADE_S = 0.6;
 
 export interface ToneSpec {
   freq: number;
@@ -44,11 +46,18 @@ export interface ArpVoice {
   noteDurS?: number;
 }
 
+interface MusicTrack {
+  element: HTMLAudioElement;
+  gain: GainNode;
+  halt?: ReturnType<typeof setTimeout>;
+}
+
 export class Sound {
   private context: AudioContext | null = null;
   private masterInput: GainNode | null = null;
   private isMuted = false;
   private userVolume = 1;
+  private readonly tracks = new Map<string, MusicTrack>();
 
   get muted(): boolean {
     return this.isMuted;
@@ -132,6 +141,90 @@ export class Sound {
       this.masterInput = gain;
     }
     return this.masterInput;
+  }
+
+  // A track is an <audio> element routed into the master chain rather than
+  // straight to the speakers, so M and the fader govern it with the effects. It is
+  // not skipped while muted, unlike a voice: a loop has to keep its place for the
+  // moment the sound comes back. The first call must come from a user gesture —
+  // the click that serves — or the browser refuses to play it.
+  //
+  // One track plays at a time: starting one crossfades out whichever other is
+  // on, and rewinds it for the next time it is called.
+  startMusic(url: string, level: number): void {
+    this.unlock();
+    const context = this.context;
+    if (!context) {
+      return;
+    }
+
+    try {
+      for (const [other, track] of this.tracks) {
+        if (other !== url) {
+          this.fadeOut(context, track, true);
+        }
+      }
+      const track = this.tracks.get(url) ?? this.createTrack(context, url);
+      clearTimeout(track.halt);
+      this.rampMusic(context, track.gain, level);
+      track.element.play().catch(() => {
+        // Refused without a gesture; the next serve retries.
+      });
+    } catch {
+      // Audio is unavailable; stay silent.
+    }
+  }
+
+  // Fades every track out, then stops it: paused holds the place for a resume,
+  // stopped rewinds it for the next run.
+  stopMusic(rewind: boolean): void {
+    const context = this.context;
+    if (!context) {
+      return;
+    }
+    for (const track of this.tracks.values()) {
+      this.fadeOut(context, track, rewind);
+    }
+  }
+
+  private createTrack(context: AudioContext, url: string): MusicTrack {
+    const element = new Audio(url);
+    element.loop = true;
+    const gain = context.createGain();
+    gain.gain.value = 0;
+    context.createMediaElementSource(element).connect(gain);
+    gain.connect(this.output(context));
+    const track: MusicTrack = { element, gain };
+    this.tracks.set(url, track);
+    return track;
+  }
+
+  private fadeOut(context: AudioContext, track: MusicTrack, rewind: boolean): void {
+    // Already silent — held by PAUSE, or never started. Nothing to fade, but a
+    // held track still owes the rewind it is asked for.
+    if (track.element.paused) {
+      if (rewind) {
+        track.element.currentTime = 0;
+      }
+      return;
+    }
+    clearTimeout(track.halt);
+    this.rampMusic(context, track.gain, 0);
+    track.halt = setTimeout(() => {
+      track.element.pause();
+      if (rewind) {
+        track.element.currentTime = 0;
+      }
+    }, MUSIC_FADE_S * 1000);
+  }
+
+  // From wherever the level is now: a fade reversed mid-way turns around smoothly
+  // instead of jumping back to its start.
+  private rampMusic(context: AudioContext, gain: GainNode, level: number): void {
+    const now = context.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(gain.gain.value, now);
+    gain.gain.linearRampToValueAtTime(level, now + MUSIC_FADE_S);
   }
 
   tone(spec: ToneSpec): void {

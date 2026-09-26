@@ -1,4 +1,6 @@
+import gameOverUrl from "@audio/game-over-2.mp3";
 import { Sound } from "@audio/Sound";
+import themeUrl from "@audio/shatter-electro-funk-2.mp3";
 
 import type { ArpVoice, NoiseSpec, ToneSpec } from "@audio/Sound";
 
@@ -12,6 +14,10 @@ const RETRIGGER_WINDOW_MS = 30;
 const VOLUME_TICK_WINDOW_MS = 90;
 
 const VOLUME_STORAGE_KEY = "shatter.volume.v1";
+
+// The theme sits under the effects, never over them: the track is mastered loud
+// and the voices here peak around 0.05–0.12, so it plays at roughly -18 dB.
+const MUSIC_LEVEL = 0.12;
 
 // CHAIN's sputter, as [delay seconds, band centre Hz, gain]. The spacing is
 // uneven on purpose: evenly spaced ticks read as a machine and a single burst
@@ -86,6 +92,26 @@ export class SoundBank {
     if (this.allow("volumeTick", VOLUME_TICK_WINDOW_MS)) {
       this.tone({ freq: 520, dur: 0.05, vol: 0.06 });
     }
+  }
+
+  // The theme, looped for as long as a run is on.
+  musicPlay(): void {
+    this.sound.startMusic(themeUrl, MUSIC_LEVEL);
+  }
+
+  // The run's end — game over and the board after it — crossfaded in over the theme.
+  musicGameOver(): void {
+    this.sound.startMusic(gameOverUrl, MUSIC_LEVEL);
+  }
+
+  // Held where it stands, for PAUSE.
+  musicPause(): void {
+    this.sound.stopMusic(false);
+  }
+
+  // Back to the top, for the title.
+  musicStop(): void {
+    this.sound.stopMusic(true);
   }
 
   /**
