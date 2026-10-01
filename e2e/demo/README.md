@@ -16,6 +16,7 @@ Output lands in `e2e/demo/out/` (gitignored):
 - `chapters.vtt` — WebVTT, for `<track kind="chapters">` on the portfolio's own `<video>`
 - `chapters.ffmeta` — ffmpeg metadata; already applied to the mp4, kept so a re-encode can reapply it
 - `chapters.json` — the same marks with millisecond precision
+- `events.json` — everything the hand did, and the marks the film frames, on the film's clock: see **For the landing page's films**
 - `shots/01-title.png` … `04-gameplay.png` — stills at 3840×2160, named for the landing page's inbox
 
 This is a port of PFA's harness, which is a port of Trekker's, of Zeus's, of Spira's. `pacing.ts`, `recorder.ts`, `chapters.ts` and `cursor.ts` are byte-identical to PFA's; `fixture.ts` is PFA's with exactly two strings changed, the output file names (`shatter-demo.mp4`, `shatter-demo.webm`) — the one place the shared fixture knows which project it is in. It also carries PFA's `Demo.glide`, unused here, and PFA's `hideDevChrome()`, whose Next selectors match nothing on Vite — which floats nothing over the page, so the no-op is the right behaviour;
@@ -69,7 +70,7 @@ Five chapters, one per screen, at the default `DEMO_SPEED=1`.
 | Levels   | `L`; every page of the gallery at a reading pace — `→` seven times for 37 layouts on seven pages, the seventh turn landing back on page 1 because the roster is a loop; `CLICK TO RETURN` clicked                                                                                                                                                      |
 | Capsules | `B`; the same walk through the eight pages of 47 capsules, commons first and the ten traps last; clicked back to the title                                                                                                                                                                                                                             |
 | Bestiary | `C`; the eighteen cards, one creature a page, alive at three times its size — the species in the order a player meets them and the four bosses last; clicked back to the title                                                                                                                                                                         |
-| Play     | the title clicked, the serve screen, the click that launches; then SUNRISE on the autopilot with the drawn cursor riding the deck: at least twenty-five seconds of rally and three capsules caught — each label rising off the deck, each effect arriving — sixty seconds at most. A ball lost is served again by key. The film stops there, mid-rally |
+| Play     | the title clicked, the serve screen, the click that launches; then four levels on the autopilot — SUNRISE, then INVADER, PACHINKO and SKULL reached through the hook — each handed one capsule down the middle of the field (MULTI, DEMAKE, GIANT, LASER), dropped again until the deck takes it, and its effect played out. A ball lost is served again by key, a level cleared advanced past by key. The film stops there, mid-rally |
 
 Every element the storyboard touches carries a `data-testid` in `index.html` — the screens, the
 title's play hint, the two menu footers' counters and `CLICK TO RETURN` lines, the stage, the panel,
@@ -95,6 +96,13 @@ It writes one thing, the deck's position, through the same path a mouse move tak
 and the RNG stay the game's. It keeps the deck under the ball that will reach it first, walls folded
 in; when no ball is on its way down it drifts under the nearest capsule it can reach in time and
 still be back for the ball — never a trap, which it steps around instead when the ball leaves it the time (a trap landing while the ball is due inside twenty ticks is taken: a life costs more); it moves at 6 px a tick rather than teleporting; and it takes the ball at a slowly sweeping spot on the deck, because a fixed spot locks a rally into the same three bounces forever. The snapshot counts the catches and, of those, the traps, so a take says what it caught.
+
+The film's cut (LAN-93) added two commands that do write: `level(n)` rebuilds the grid at that
+level and serves, and `drop(kinds)` drops those capsules down the field — the test console's `level`
+and `power`, handed over by the game with the same implementations, so a take can reach a level and
+show a capsule without the console on camera. A capsule asked for this way is chased like a common
+whatever its tier, and without the rule that the deck be back for the ball in time: inside
+`THREAT_TICKS` the ball still wins. `lastCaught` in the snapshot names the last capsule taken.
 
 ## The stills
 
@@ -170,6 +178,30 @@ On an 8-core M1, at 1920×1080 with the default 2× supersampling, `pnpm dev` an
 | Repeatability | the three menu stills came out byte-identical across three runs; the rally never repeats (the drops are the game's RNG), and the play chapter's length varies with it inside its 25–60 s window                                                                                                      |
 | 1× against 2× | `DEMO_SCALE=1` delivered 50.5 fps against 46 at 2× on the same storyboard — four frames a second is not worth losing the supersampling, so 2× stays the default                                                                                                                                      |
 | The wrong app | the first dry run found another project's login form on 5173 and filmed nothing: Vite had put Shatter on the next port up. Hence the pinned port, and a preflight that reads the page                                                                                                                |
+
+## For the landing page's films: `events.json`
+
+The landing page cuts a film of about a minute from this take with Remotion (`landing-page/films/`):
+it pushes in on what happens, speeds through the reading pauses, and draws its own pointer. Every
+take also writes `events.json` (`events.ts`, ported from Trekker's harness with the log in
+`cursor.ts`, `fixture.ts` and `recorder.ts`): every pointer step, press and key, every storyboard
+verb with its start and end on the film's clock, and the box of what it was aimed at.
+`demo.mark(locator)` notes where an element is with no pointer and no time: the first card of
+every menu page (`level-card`, `capsule-card`, `creature-portrait`) and the panel.
+
+The field is a canvas, so nothing on it is an element. `markOnField` in the storyboard lays a
+transparent element over a box in stage pixels for the length of one mark: `capsule-lane`, the
+lower middle of the field a dropped capsule falls down, and `capsule-catch`, the deck as it takes
+it. The capsules come through two dev-only commands on the hook — `level(n)` and `drop(kinds)`,
+the test console's `level` and `power` without the console on camera — and the autopilot chases
+what the film dropped, traps included, where it would otherwise step around them. The snapshot's
+`lastCaught` is how the storyboard knows the deck took that capsule and not one a brick let go.
+
+A take for a film is filmed without the drawn arrow:
+
+```bash
+DEMO_CURSOR=off DEMO_FPS=30 pnpm video:generate
+```
 
 ## Knobs
 

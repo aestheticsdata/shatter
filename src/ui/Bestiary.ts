@@ -391,6 +391,8 @@ export class Bestiary {
 
     const stage = document.createElement("div");
     stage.className = "creature-stage";
+    // The film frames the creature by this (e2e/demo).
+    stage.dataset.testid = "creature-portrait";
     stage.style.width = `${frame.width}px`;
     stage.style.height = `${frame.height}px`;
     stage.appendChild(canvas);

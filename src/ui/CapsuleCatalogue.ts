@@ -225,6 +225,9 @@ export class CapsuleCatalogue {
   private entry(definition: Capsule): HTMLElement {
     const entry = document.createElement("div");
     entry.className = "capsule-entry";
+    // The film frames a card by this (e2e/demo).
+    entry.dataset.testid = "capsule-card";
+    entry.dataset.capsule = definition.id;
 
     const frame = document.createElement("div");
     frame.className = "capsule-frame";

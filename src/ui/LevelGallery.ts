@@ -130,6 +130,9 @@ export class LevelGallery {
   private entry(index: number): HTMLElement {
     const entry = document.createElement("div");
     entry.className = "level-entry";
+    // The film frames a card by this (e2e/demo); 1-based, as the caption numbers it.
+    entry.dataset.testid = "level-card";
+    entry.dataset.level = String(index + 1);
     entry.appendChild(this.tile(index));
 
     const caption = document.createElement("div");

@@ -357,6 +357,8 @@ export class ShatterGame {
   // these count the pops.
   private capsulesCaught = 0;
   private trapsCaught = 0;
+  // The last capsule the deck took, for the film's hook: which one, not just how many.
+  private lastCaught: PowerUpKind | null = null;
   private stasisRings: StasisRing[] = [];
   private bolts: ChainBolt[] = [];
   private readonly singularity = new Fx.Singularity();
@@ -612,24 +614,41 @@ export class ShatterGame {
   // The whole branch folds away in production, like the console's above —
   // nothing here ships.
   readonly demo: DemoHook | null = import.meta.env.DEV
-    ? new DemoHook(() => ({
-        screen: this.screen,
-        levelNumber: this.level + 1,
-        levelName: levelAt(this.level).name,
-        score: this.score,
-        lives: this.lives,
-        ballsInPlay: this.balls.filter((ball) => ball.active).length,
-        ballsStuck: this.balls.filter((ball) => ball.active && ball.stuckOffsetX !== null).length,
-        capsulesFalling: this.dropPool.drops.filter((drop) => drop.active).length,
-        capsulesCaught: this.capsulesCaught,
-        trapsCaught: this.trapsCaught,
-        paddle: {
-          centerX: this.paddle.centerX,
-          width: this.paddle.width,
-          y: this.paddle.y,
-          pointerX: this.flipped ? gameConfig.field.width - this.paddle.centerX : this.paddle.centerX,
+    ? new DemoHook(
+        () => ({
+          screen: this.screen,
+          levelNumber: this.level + 1,
+          levelName: levelAt(this.level).name,
+          score: this.score,
+          lives: this.lives,
+          ballsInPlay: this.balls.filter((ball) => ball.active).length,
+          ballsStuck: this.balls.filter((ball) => ball.active && ball.stuckOffsetX !== null).length,
+          capsulesFalling: this.dropPool.drops.filter((drop) => drop.active).length,
+          capsulesCaught: this.capsulesCaught,
+          trapsCaught: this.trapsCaught,
+          lastCaught: this.lastCaught,
+          paddle: {
+            centerX: this.paddle.centerX,
+            width: this.paddle.width,
+            y: this.paddle.y,
+            pointerX: this.flipped ? gameConfig.field.width - this.paddle.centerX : this.paddle.centerX,
+          },
+          field: { left: gameConfig.field.left, right: gameConfig.field.right, top: gameConfig.field.top },
+        }),
+        {
+          jumpToLevel: (levelNumber) => {
+            this.level = levelNumber - 1;
+            this.buildLevel(this.level);
+          },
+          dropCapsules: (kinds) => {
+            if (this.dropPool.freeSlots() < kinds.length) {
+              return false;
+            }
+            this.dropPool.spawnAcrossTop(kinds);
+            return true;
+          },
         },
-      }))
+      )
     : null;
 
   private readonly paddle = new Paddle();
@@ -2200,6 +2219,7 @@ export class ShatterGame {
         }
         this.applyPowerUp(kind);
         this.capsulesCaught++;
+        this.lastCaught = kind;
         if (MALUS_KINDS.has(kind)) {
           this.trapsCaught++;
         }

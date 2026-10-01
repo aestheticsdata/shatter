@@ -8,6 +8,7 @@ import type { Ball } from "@entities/ball/Ball";
 import type { Paddle } from "@entities/paddle/Paddle";
 import type { Drop } from "@entities/powerups/DropPool";
 import type { ScreenName } from "@interfaces/screens";
+import type { PowerUpKind } from "@interfaces/types";
 
 /**
  * The run as numbers, for the film (SHA-133).
@@ -30,6 +31,8 @@ export interface DemoSnapshot {
   capsulesCaught: number;
   /** Of those, the traps — what the autopilot steps around and a rally sometimes takes anyway. */
   trapsCaught: number;
+  /** The kind of the last capsule caught, or null before the first. */
+  lastCaught: PowerUpKind | null;
   autopilot: boolean;
   paddle: {
     centerX: number;
@@ -43,10 +46,24 @@ export interface DemoSnapshot {
      */
     pointerX: number;
   };
+  /** The playfield's walls, in stage pixels: what the film frames a falling capsule against. */
+  field: { left: number; right: number; top: number };
 }
 
 /** What the game hands over; the hook adds its own switch. */
 export type DemoReading = Omit<DemoSnapshot, "autopilot">;
+
+/**
+ * What the film may ask of the run (the landing page's cut, LAN-93): the test
+ * console's `level` and `power`, without the console on camera. Both are the
+ * console's own implementations, handed over by the game.
+ */
+export interface DemoCommands {
+  /** 1-based; the grid is rebuilt and the run serves at that level. */
+  jumpToLevel(levelNumber: number): void;
+  /** These capsules fall from the top of the field, like `power`. `false` when the pool had no room. */
+  dropCapsules(kinds: readonly PowerUpKind[]): boolean;
+}
 
 // The deck's top speed under the autopilot, in px a tick. A hand, not a servo:
 // six a tick crosses the field in about a second, keeps up with a level-one
@@ -95,8 +112,14 @@ const TRAP_DODGE_MIN_TICKS = 20;
 export class DemoHook {
   private enabled = false;
   private clock = 0;
+  // The capsules the film dropped and wants caught, traps included: the
+  // autopilot chases these like a common and never steps around them.
+  private readonly wanted = new Set<PowerUpKind>();
 
-  constructor(private readonly read: () => DemoReading) {}
+  constructor(
+    private readonly read: () => DemoReading,
+    private readonly commands: DemoCommands,
+  ) {}
 
   snapshot(): DemoSnapshot {
     return { ...this.read(), autopilot: this.enabled };
@@ -104,6 +127,17 @@ export class DemoHook {
 
   autopilot(on: boolean): void {
     this.enabled = on;
+  }
+
+  /** The run moved to this level, 1-based, as the panel numbers it. */
+  level(levelNumber: number): void {
+    this.commands.jumpToLevel(levelNumber);
+  }
+
+  /** These capsules dropped, and caught by the autopilot whatever their tier. */
+  drop(kinds: readonly PowerUpKind[]): boolean {
+    for (const kind of kinds) this.wanted.add(kind);
+    return this.commands.dropCapsules(kinds);
   }
 
   /** The field x the deck's centre moves to this tick, or null while the autopilot is off. */
@@ -118,14 +152,14 @@ export class DemoHook {
 
   private target(balls: readonly Ball[], drops: readonly Drop[], paddle: Paddle): number {
     const threat = firstArrival(balls, paddle.y);
-    return dodgeTraps(this.wanted(balls, drops, paddle, threat), drops, paddle, threat);
+    return dodgeTraps(this.chase(balls, drops, paddle, threat), drops, paddle, threat, this.wanted);
   }
 
-  private wanted(balls: readonly Ball[], drops: readonly Drop[], paddle: Paddle, threat: Arrival | null): number {
+  private chase(balls: readonly Ball[], drops: readonly Drop[], paddle: Paddle, threat: Arrival | null): number {
     if (threat !== null && threat.ticks <= THREAT_TICKS) {
       return threat.x + this.aim(paddle);
     }
-    const capsule = catchableCapsule(drops, paddle, threat);
+    const capsule = catchableCapsule(drops, paddle, threat, this.wanted);
     if (capsule !== null) {
       return capsule;
     }
@@ -145,12 +179,18 @@ export class DemoHook {
 }
 
 // The centre of the lowest capsule the deck can get under before it lands and
-// still be back for the ball — never a trap. Null when there is none.
-function catchableCapsule(drops: readonly Drop[], paddle: Paddle, threat: Arrival | null): number | null {
+// still be back for the ball — never a trap the film did not ask for. Null when there is none.
+function catchableCapsule(
+  drops: readonly Drop[],
+  paddle: Paddle,
+  threat: Arrival | null,
+  wanted: ReadonlySet<PowerUpKind>,
+): number | null {
   let best: number | null = null;
   let bestY = -Infinity;
   for (const drop of drops) {
-    if (!drop.active || POWER_UP_BY_ID[drop.kind].tier === "trap" || drop.y <= bestY) {
+    const trap = POWER_UP_BY_ID[drop.kind].tier === "trap" && !wanted.has(drop.kind);
+    if (!drop.active || trap || drop.y <= bestY) {
       continue;
     }
     const ticks = (paddle.y - DROP_HEIGHT - drop.y) / gameConfig.powerUps.dropFallSpeed;
@@ -163,8 +203,9 @@ function catchableCapsule(drops: readonly Drop[], paddle: Paddle, threat: Arriva
     if (travel > MAX_STEP * ticks) {
       continue;
     }
-    // ...and back under the ball before the ball needs the deck.
-    if (threat !== null && ticks + Math.abs(threat.x - centerX) / MAX_STEP > threat.ticks) {
+    // ...and back under the ball before the ball needs the deck — except for a capsule the
+    // film asked for, which is worth the risk: the ball still wins inside THREAT_TICKS.
+    if (!wanted.has(drop.kind) && threat !== null && ticks + Math.abs(threat.x - centerX) / MAX_STEP > threat.ticks) {
       continue;
     }
     best = centerX;
@@ -175,8 +216,14 @@ function catchableCapsule(drops: readonly Drop[], paddle: Paddle, threat: Arriva
 
 // The target moved off any trap about to land on it, to whichever side is
 // nearer (or away from the wall), unless the ball is due first — then the trap
-// is taken, and the ball is not lost.
-function dodgeTraps(target: number, drops: readonly Drop[], paddle: Paddle, threat: Arrival | null): number {
+// is taken, and the ball is not lost. A trap the film asked for is not dodged.
+function dodgeTraps(
+  target: number,
+  drops: readonly Drop[],
+  paddle: Paddle,
+  threat: Arrival | null,
+  wanted: ReadonlySet<PowerUpKind>,
+): number {
   if (threat !== null && threat.ticks < TRAP_DODGE_MIN_TICKS) {
     return target;
   }
@@ -186,7 +233,7 @@ function dodgeTraps(target: number, drops: readonly Drop[], paddle: Paddle, thre
   const max = gameConfig.field.right - halfDeck;
   let dodged = target;
   for (const drop of drops) {
-    if (!drop.active || POWER_UP_BY_ID[drop.kind].tier !== "trap") {
+    if (!drop.active || POWER_UP_BY_ID[drop.kind].tier !== "trap" || wanted.has(drop.kind)) {
       continue;
     }
     const ticks = (paddle.y - DROP_HEIGHT - drop.y) / gameConfig.powerUps.dropFallSpeed;
