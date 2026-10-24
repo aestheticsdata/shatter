@@ -66,7 +66,7 @@ enum {
 
 // --- the run (main.c) -------------------------------------------------------------
 extern u8 state;
-extern u8 loop;
+extern u8 level;  // index into LEVELS
 extern u32 score;
 extern u8 score_dirty;  // redrawn once a frame, however many kills
 extern u16 frame;
@@ -109,6 +109,7 @@ void step_capsules(void);
 
 // --- the Observer (eye.c) ---------------------------------------------------------
 void setup_eye(void);
+void reset_eye(void);
 void step_eye(void);
 void render_eye(void);
 

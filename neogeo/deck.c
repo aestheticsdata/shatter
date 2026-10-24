@@ -60,9 +60,12 @@ void setup_deck(void) {
   }
 }
 
-// One aim of the fan, at the current loop's speed, heading up and to `dir`.
+// One aim of the fan, at the level's speed, heading up and to `dir`. The web
+// game speeds up 0.25 a level from 3.1 to 4.6; whole-pixel steps give two
+// rungs of that, and the faster one starts at its middle, the fourth level.
+#define FAST_FROM_LEVEL 3
 static void aim(ball_t *ball, u8 index, s8 dir) {
-  u8 speed = loop < SPEEDS ? loop : SPEEDS - 1;
+  u8 speed = level >= FAST_FROM_LEVEL ? SPEEDS - 1 : 0;
   ball->vx = dir * VELOCITY[speed][index][0];
   ball->vy = -VELOCITY[speed][index][1];
 }

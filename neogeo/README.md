@@ -1,14 +1,14 @@
 # SHATTER — Neo-Geo port (SHA-264)
 
-One level of Shatter as a real Neo-Geo cartridge, built with
+Shatter as a real Neo-Geo cartridge, built with
 [ngdevkit](https://github.com/dciabrin/ngdevkit) and run in GnGeo on ngdevkit's
 open-source BIOS — no copyrighted ROM needed.
 
 - `main.c`: the run — frame, HUD, states, the shake, the loop. Beside it
   `wall.c` (bricks as sprites: damage stages, hit flash, the burst, the
   diagonal shine, debris), `deck.c` (the paddle's flash, squash, trail and
-  telescope; the balls), `eye.c` (the Observer, its iris clipped to the almond by
-  pre-drawn pictures), `sky.c` (the dial turning, the stars twinkling),
+  telescope; the balls), `eye.c` (each level's Observer, its iris clipped
+  to the almond by pre-drawn pictures), `sky.c` (the dial turning, the stars twinkling),
   `capsule.c` (WIDE and MULTI, dropped from a bag as on the web), `hud.c`
   (the lettering), `video.c` (sprite and palette verbs), `sound.c`.
   `gmake -B … CFLAGS+=-DPERF` counts frames that overrun vblank, on the HUD's
@@ -17,8 +17,9 @@ open-source BIOS — no copyrighted ROM needed.
   redrawn at Neo-Geo size; `tools/neo_sky.py` SUNRISE's sky and its zodiac
   dial; `tools/neo_font.py` the panel's Silkscreen and the cards' Press Start
   2P as fix tiles. `tools/gen_assets.py` draws every other tile and writes the
-  palettes, reading the level rows from `src/core/levels/levels.ts` and the
-  brick roster from `src/core/config/bricks.ts`.
+  palettes, reading the levels (through `tools/dump_levels.ts`, which runs
+  the web game's own `levels.ts`) and the brick roster from
+  `src/core/config/bricks.ts`.
 - `sound.s`: the Z80 sound commands (nullsound). `tools/gen_sounds.py` renders
   the web game's synthesised effects (`src/audio/SoundBank.ts`) to ADPCM-A
   samples; the theme and game-over tracks are its MP3s, looped on ADPCM-B.
@@ -50,7 +51,8 @@ The ball's speeds are whole-pixel pairs per axis (`fans` in
 `tools/gen_assets.py`): drawn in whole pixels, any fractional speed steps
 unevenly and reads as judder.
 
-`gmake LEVEL=PYRAMID` builds another level from `levels.ts`.
+All 49 levels of `levels.ts` are on the cartridge, in order;
+`gmake LEVEL=PYRAMID` starts the run on another one.
 `gmake -B build/main.o CFLAGS="-Ibuild -std=c99 -O2 -DAUTOPLAY" && gmake`
 builds a version that plays itself.
 

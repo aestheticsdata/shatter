@@ -10,7 +10,7 @@
 #define LAUNCH (CNT_UP | CNT_A | CNT_B | CNT_C | CNT_D)
 
 u8 state;
-u8 loop;
+u8 level;
 u32 score;
 u8 score_dirty;
 u16 frame;
@@ -92,9 +92,11 @@ static void number(char *out, u32 value, u8 digits) {
 // The web panel's three readouts across the top: a label, its value under it.
 void draw_hud(void) {
   hud_text((cell_t){HUD_SCORE_COL, HUD_LABEL_ROW}, PAL_HUD_LABEL, "SCORE");
-  hud_score(score);
   hud_center(HUD_LABEL_ROW, PAL_HUD_LABEL, "LEVEL");
-  hud_center(HUD_VALUE_ROW, PAL_HUD_LEVEL, LEVEL_NAME);
+  // The value row whole, since the last level's name may have been longer.
+  hud_clear(HUD_VALUE_ROW, 1);
+  hud_score(score);
+  hud_center(HUD_VALUE_ROW, PAL_HUD_LEVEL, LEVEL_NAMES[level]);
   hud_text((cell_t){HUD_LIVES_RIGHT - 5, HUD_LABEL_ROW}, PAL_HUD_LABEL, "LIVES");
   hud_lives(lives ? lives - 1 : 0);
 }
@@ -115,10 +117,16 @@ static void show_over(void) {
   hud_center(CARD_ROW + 6, PAL_HUD_WHITE, text);
 }
 
-static void show_clear(void) {
+// The web's clear bonus: 500 for each level up to this one.
+#define CLEAR_BONUS_PER_LEVEL 500
+
+static void show_clear(u32 bonus) {
+  char text[16] = "BONUS ";
+  number(text + 6, bonus, 5);
   hud_center(CARD_ROW, PAL_HUD_HEAD, "GRID CLEARED");
-  hud_big_center(CARD_ROW + 2, PAL_HUD_CLEAR, LEVEL_NAME);
+  hud_big_center(CARD_ROW + 2, PAL_HUD_CLEAR, LEVEL_NAMES[level]);
   hud_rule(CARD_ROW + 5, PAL_HUD_RULE, 24);
+  hud_center(CARD_ROW + 7, PAL_HUD_SCORE, text);
 }
 
 // A prompt on, then off, every BLINK frames, as the web game's `.blink`.
@@ -137,11 +145,12 @@ static void blink(u8 row, const char *text) {
 static void reset_game(void) {
   score = 0;
   lives = 3;
-  loop = 0;
+  level = START_LEVEL;
   reset_deck();
   reset_capsules();
   hud_clear(CARD_ROW, CARD_ROWS);
   build_wall();
+  reset_eye();
   draw_hud();
   serve();
   sound(SND_THEME);
@@ -182,15 +191,20 @@ static void step(void) {
         state = STATE_CLEAR;
         timer = 120;
         sound(SND_CLEAR);
-        show_clear();
+        u32 bonus = (u32)(level + 1) * CLEAR_BONUS_PER_LEVEL;
+        score += bonus;
+        score_dirty = 1;
+        show_clear(bonus);
       }
       break;
     case STATE_CLEAR:
       if (--timer == 0) {
         hud_clear(CARD_ROW, CARD_ROWS);
-        loop++;
+        level = (level + 1) % LEVELS;
         reset_capsules();
         build_wall();
+        reset_eye();
+        draw_hud();
         serve();
       }
       break;

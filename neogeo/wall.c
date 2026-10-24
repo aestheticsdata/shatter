@@ -124,7 +124,7 @@ void build_wall(void) {
   shine = -1;
   for (u8 r = 0; r < LEVEL_ROWS; r++) {
     for (u8 c = 0; c < LEVEL_COLS; c++) {
-      u8 kind = LEVEL_GRID[r][c];
+      u8 kind = LEVEL_GRID[level][r][c];
       bricks[r][c] = kind;
       flash[r][c] = 0;
       dying[r][c] = 0;
