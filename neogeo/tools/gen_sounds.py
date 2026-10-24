@@ -160,6 +160,20 @@ def game_over():
     return buf
 
 
+def spawn():
+    # Subtle by design: the web fires it for every capsule that drops.
+    buf = blank(0.04)
+    tone(buf, 220, 0.03, 0.03)
+    return buf
+
+
+def pickup():
+    buf = blank(0.16)
+    for index, freq in enumerate((523, 659, 784)):
+        tone(buf, freq, 0.07, 0.06, delay=index * 0.04)
+    return buf
+
+
 BANK = {
     "wall": wall,
     "paddle": paddle,
@@ -167,6 +181,8 @@ BANK = {
     "lost": lost,
     "clear": clear,
     "gameover": game_over,
+    "spawn": spawn,
+    "pickup": pickup,
     **{f"brick{row}": (lambda r=row: brick(r)) for row in range(5)},
 }
 

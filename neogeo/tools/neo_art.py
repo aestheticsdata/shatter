@@ -185,6 +185,8 @@ def paint_brick(kind, stage):
 # --- the paddle ----------------------------------------------------------------------
 
 PADDLE_W, PADDLE_H = 40, 8
+# WIDE (gameConfig.paddle.wideWidth): the web's 46 to 72, at the same ratio.
+PADDLE_WIDE_W = 62
 PADDLE_CAP = 6  # the web's 8 px cap
 PADDLE_COLORS = {"body": "#2d7fe0", "cap": "#e8384f", "sheen": "#a8d8ff", "shade": "#0b3a78"}
 PADDLE_SLOTS = ["outline", "sheen", "bodyLight", "body", "bodyBar", "bodyDark", "shade", "capLight", "cap", "capDark"]
@@ -211,13 +213,14 @@ def paddle_tones(colors=PADDLE_COLORS):
     }
 
 
-def paint_paddle():
-    """`hdPillPix` at 40x8: an outlined pill, the caps welded on with a column
-    of outline, the body's sheen and lit band over it, the dashed light bar
-    across the middle and the waterline dithering into the shade."""
-    img = Image.new("P", (48, 16), 0)
+def paint_paddle(width=PADDLE_W):
+    """`hdPillPix` at `width`x8: an outlined pill, the caps welded on with a
+    column of outline, the body's sheen and lit band over it, the dashed light
+    bar across the middle and the waterline dithering into the shade. Drawn on
+    four tiles, the widest deck WIDE telescopes to."""
+    img = Image.new("P", (64, 16), 0)
     slot = {name: i + 1 for i, name in enumerate(PADDLE_SLOTS)}
-    W, H, CAP = PADDLE_W, PADDLE_H, PADDLE_CAP
+    W, H, CAP = width, PADDLE_H, PADDLE_CAP
     outer, inner = pill_rows(H), pill_rows(H - 2)
     for y in range(H):
         for x in range(outer[y], W - outer[y]):
@@ -348,3 +351,58 @@ def paint_burst():
     ring(4, 15.5, 7.5, 1, s["d1"], keep=6)
     ring(5, 15.5, 7.5, 1, s["d2"], keep=2)
     return img
+
+
+# A capsule (`hdCapsulePix`): the web's 20x8 pill at Neo-Geo size, 16x8 — one
+# sprite — in its own colour, its opening letters in Silkscreen across it.
+CAPSULE_W, CAPSULE_H = 16, 8
+CAPSULE_SLOTS = ["outline", "sheen", "glare", "body", "low", "shade", "letter", "letterShade"]
+NARROW = {"I": ["###", ".#.", ".#.", ".#.", "###"]}
+DROP_SHEEN, DROP_SHADE = "#ffffff", "#0b0b26"
+
+
+def paint_capsule(color, glyph, dark, small_font):
+    """One pill and its tones. `small_font` is the HUD's 5x5 Silkscreen."""
+    hexc = hex_rgb(color)
+    sheen, shade = hex_rgb(DROP_SHEEN), hex_rgb(DROP_SHADE)
+    tones = {
+        "outline": mix(hexc, BLACK, 0.5), "sheen": sheen, "glare": mix(hexc, sheen, 0.45),
+        "body": hexc, "low": mix(hexc, shade, 0.5), "shade": shade,
+        "letter": shade if dark else sheen, "letterShade": shade,
+    }
+    slot = {name: i + 1 for i, name in enumerate(CAPSULE_SLOTS)}
+    img = Image.new("P", (16, 16), 0)
+    W, H = CAPSULE_W, CAPSULE_H
+    outer, inner = pill_rows(H), pill_rows(H - 2)
+    for y in range(H):
+        for x in range(outer[y], W - outer[y]):
+            img.putpixel((x, y), slot["outline"])
+    # The HD's 24 rows a third each: sheen, glare, body, the dithered
+    # waterline, low and shade.
+    rows = {1: "glare", 2: "body", 3: "body", 4: "body", 5: "dither", 6: "low"}
+    for y in range(1, H - 1):
+        inset = inner[y - 1] + 1
+        for x in range(inset, W - inset):
+            name = rows[y]
+            if name == "dither":
+                name = "body" if BAYER[y & 3][x & 3] < 8 else "low"
+            if y == 1 and inset + 1 <= x < W - inset - 1:
+                name = "sheen"
+            img.putpixel((x, y), slot[name])
+    # The letters, centred on the body's rows under the sheen. Set tight: each
+    # glyph trimmed to its own ink and I narrowed to three, so two Silkscreen
+    # capitals fit a 16 px pill — the web's letter shadow has no room here.
+    glyphs = []
+    for ch in glyph:
+        rows5 = NARROW.get(ch) or small_font[ch]
+        used = [x for x in range(len(rows5[0])) if any(r[x] == "#" for r in rows5)]
+        glyphs.append([r[used[0] : used[-1] + 1] for r in rows5])
+    width = sum(len(g[0]) for g in glyphs) + len(glyphs) - 1
+    x0 = (W - width + 1) // 2
+    for g in glyphs:
+        for gy, line in enumerate(g):
+            for gx, bit in enumerate(line):
+                if bit == "#":
+                    img.putpixel((x0 + gx, 2 + gy), slot["letter"])
+        x0 += len(g[0]) + 1
+    return img, [tones[name] for name in CAPSULE_SLOTS]

@@ -12,6 +12,7 @@
 u8 state;
 u8 loop;
 u32 score;
+u8 score_dirty;
 u16 frame;
 u8 pad_now;
 
@@ -138,6 +139,7 @@ static void reset_game(void) {
   lives = 3;
   loop = 0;
   reset_deck();
+  reset_capsules();
   hud_clear(CARD_ROW, CARD_ROWS);
   build_wall();
   draw_hud();
@@ -160,10 +162,12 @@ static void step(void) {
       break;
     case STATE_PLAY:
       move_paddle();
-      step_ball();
-      step_ball();
-      if (PX(ball_y) > SCREEN_H) {
+      step_balls();
+      step_balls();
+      // A life goes with the last ball in play, and what it was holding with it.
+      if (ball_count == 0) {
         lives--;
+        reset_capsules();
         draw_hud();
         if (lives == 0) {
           state = STATE_OVER;
@@ -185,6 +189,7 @@ static void step(void) {
       if (--timer == 0) {
         hud_clear(CARD_ROW, CARD_ROWS);
         loop++;
+        reset_capsules();
         build_wall();
         serve();
       }
@@ -197,6 +202,7 @@ static void step(void) {
       break;
   }
   step_wall();
+  step_capsules();
   step_eye();
 }
 
@@ -207,7 +213,14 @@ static u8 autopilot(void) {
   if (state == STATE_SERVE || state == STATE_OVER) {
     return (frame & 32) ? CNT_A : 0;
   }
-  s16 aim = PX(ball_x) + BALL / 2 - PADDLE_W / 2 + ((frame >> 7) % 5) * 6 - 12;
+  // The ball most worth saving: the lowest one coming down.
+  ball_t *mark = &balls[0];
+  for (u8 i = 1; i < ball_count; i++) {
+    if (balls[i].vy > 0 && (mark->vy < 0 || balls[i].y > mark->y)) {
+      mark = &balls[i];
+    }
+  }
+  s16 aim = PX(mark->x) + BALL / 2 - paddle_w / 2 + ((frame >> 7) % 5) * 6 - 12;
   if (aim < paddle_x - 2) {
     return CNT_LEFT;
   }
@@ -228,6 +241,7 @@ int main(void) {
   setup_band(SPR_FG, TILE_FG, FG_ROWS, PAL_FG0, FG_TOP);
   setup_wall();
   setup_deck();
+  setup_capsules();
   draw_frame();
   reset_game();
 #ifdef PERF
@@ -247,16 +261,21 @@ int main(void) {
 #endif
     step_shake();
     step();
+    if (score_dirty) {
+      score_dirty = 0;
+      hud_score(score);
+    }
     render_eye();
     render_deck();
     flush_sound();
 #ifdef PERF
     // `-DPERF`: a frame whose work ran past the next vblank is a frame the
-    // player saw twice. The count stays on the HUD's spare row.
+    // player saw twice. The count sits on the HUD's top row, between SCORE
+    // and LEVEL, where nothing flies over it.
     if (vblank) {
       char text[6];
       number(text, ++late, 5);
-      ng_text(2, 5, PAL_TEXT, text);
+      ng_text(9, 2, PAL_TEXT, text);
     }
 #endif
   }

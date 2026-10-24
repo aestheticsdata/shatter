@@ -77,8 +77,8 @@ void step_eye(void) {
   // Asleep it stares dead out; awake it looks at the ball.
   s16 tx = eye_x, ty = eye_y;
   if (eye_awake && state != STATE_OVER) {
-    tx = PX(ball_x) + BALL / 2;
-    ty = PX(ball_y) + BALL / 2;
+    tx = PX(balls[0].x) + BALL / 2;
+    ty = PX(balls[0].y) + BALL / 2;
   }
   s16 lid = EYE_HH * eye_open / 256;
   if (lid < 2) {

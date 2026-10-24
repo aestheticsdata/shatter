@@ -6,12 +6,13 @@ open-source BIOS — no copyrighted ROM needed.
 
 - `main.c`: the run — frame, HUD, states, the shake, the loop. Beside it
   `wall.c` (bricks as sprites: damage stages, hit flash, the burst, the
-  diagonal shine, debris), `deck.c` (the paddle's flash, squash and trail;
-  the ball), `eye.c` (the Observer, its iris clipped to the almond by
+  diagonal shine, debris), `deck.c` (the paddle's flash, squash, trail and
+  telescope; the balls), `eye.c` (the Observer, its iris clipped to the almond by
   pre-drawn pictures), `sky.c` (the dial turning, the stars twinkling),
-  `hud.c` (the lettering), `video.c` (sprite and palette verbs), `sound.c`.
-  `gmake -B … CFLAGS+=-DPERF` counts frames that overrun vblank, top left of
-  the field.
+  `capsule.c` (WIDE and MULTI, dropped from a bag as on the web), `hud.c`
+  (the lettering), `video.c` (sprite and palette verbs), `sound.c`.
+  `gmake -B … CFLAGS+=-DPERF` counts frames that overrun vblank, on the HUD's
+  top row.
 - `tools/neo_art.py`: the web game's HD brick, paddle and ball recipes
   redrawn at Neo-Geo size; `tools/neo_sky.py` SUNRISE's sky and its zodiac
   dial; `tools/neo_font.py` the panel's Silkscreen and the cards' Press Start

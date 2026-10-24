@@ -62,6 +62,8 @@ PAL_PADDLE = 40
 PAL_BALL = 41
 PAL_EYE = 42
 PAL_PADDLE_GHOST = 43  # and 44: the deck's trail
+PAL_CAPSULE0 = 45  # one a capsule kind
+CAPSULE_TILE = 8   # in the misc row, after the shards
 # Bricks are sprites since the look pass: per kind, its damage stages, then a
 # white flash, then the wall's sweeping shine for the first three stages.
 PAL_BRICKS = 64
@@ -109,6 +111,24 @@ def read_bricks():
             "rivets": "rivets: true" in line,
         })
     return kinds
+
+
+def read_capsules(ids):
+    """The capsules this port drops, off their rows in powerUps.ts: name,
+    colour, a dark or light letter, how long they last, and their pill's
+    opening letters (the web's `glyphFor`, which for these two is the first
+    two letters of the name)."""
+    text = (SHATTER / "src/core/config/powerUps.ts").read_text()
+    capsules = []
+    for capsule_id in ids:
+        row = re.search(r'\{ id: "%s", name: "(\w+)", color: "(#\w+)", dark: (\w+), ticks: (\d+)' % capsule_id, text)
+        name = row.group(1)
+        capsules.append({"name": name, "color": row.group(2), "dark": row.group(3) == "true",
+                         "ticks": int(row.group(4)), "glyph": name[:2]})
+    return capsules
+
+
+CAPSULES = read_capsules(["E", "M"])
 
 
 def read_level(name):
@@ -299,7 +319,12 @@ def paint_sheet(kinds):
             unique.setdefault(picture.tobytes(), picture)
     # A row for the bursts, then the bricks' two, then the dial's steps.
     burst_row = eye_row + EYE_H // 16
-    dial_row = burst_row + 3
+    # Then the deck at every width WIDE telescopes through, four tiles each.
+    deck_row = burst_row + 1
+    deck_widths = range(neo_art.PADDLE_W, neo_art.PADDLE_WIDE_W + 1)
+    per_row = TILES_PER_ROW // 4
+    brick_row0 = deck_row + -(-len(deck_widths) // per_row)
+    dial_row = brick_row0 + 2
     iris_offsets, iris_pictures = iris_variants()
     iris_unique = {}
     for picture in iris_pictures:
@@ -328,9 +353,15 @@ def paint_sheet(kinds):
     sheet.paste(paint_almond(), (0, eye_row * 16))
     sheet.paste(paint_iris(), (EYE_W, eye_row * 16))
     y0 = misc_row * 16
-    paddle, paddle_tones = neo_art.paint_paddle()
-    sheet.paste(paddle, (0, y0))
+    for i, width in enumerate(deck_widths):
+        paddle, paddle_tones = neo_art.paint_paddle(width)
+        sheet.paste(paddle, ((i % per_row) * 64, (deck_row + i // per_row) * 16))
     palettes.append((PAL_PADDLE, [None] + paddle_tones))
+    # The capsules this port drops, in their own palettes.
+    for k, capsule in enumerate(CAPSULES):
+        pill, pill_tones = neo_art.paint_capsule(capsule["color"], capsule["glyph"], capsule["dark"], neo_font.SMALL)
+        sheet.paste(pill, ((CAPSULE_TILE + k) * 16, y0))
+        palettes.append((PAL_CAPSULE0 + k, [None] + pill_tones))
     ball, ball_tones = neo_art.paint_ball()
     sheet.paste(ball, (48, y0))
     palettes.append((PAL_BALL, [None] + ball_tones))
@@ -343,7 +374,7 @@ def paint_sheet(kinds):
     # Every brick kind at every damage stage: a tile pair each, and a palette.
     brick_tiles = []
     variant = 0
-    brick_row = dial_row - 2
+    brick_row = brick_row0
     for k, kind in enumerate(kinds):
         stages = []
         for stage in range(kind["hits"]):
@@ -365,7 +396,9 @@ def paint_sheet(kinds):
         "FG": SPRITE_TILE_BASE + bg_rows * TILES_PER_ROW,
         "EYE": SPRITE_TILE_BASE + eye_row * TILES_PER_ROW,
         "IRIS": SPRITE_TILE_BASE + eye_row * TILES_PER_ROW + EYE_W // 16,
-        "PADDLE": SPRITE_TILE_BASE + (y0 // 16) * TILES_PER_ROW,
+        "MISC": SPRITE_TILE_BASE + (y0 // 16) * TILES_PER_ROW,
+        "PADDLE": SPRITE_TILE_BASE + deck_row * TILES_PER_ROW,
+        "CAPSULE": SPRITE_TILE_BASE + (y0 // 16) * TILES_PER_ROW + CAPSULE_TILE,
         "BALL": SPRITE_TILE_BASE + (y0 // 16) * TILES_PER_ROW + 3,
         "SHARD": SPRITE_TILE_BASE + (y0 // 16) * TILES_PER_ROW + 4,
         "BURST": SPRITE_TILE_BASE + burst_row * TILES_PER_ROW,
@@ -571,6 +604,14 @@ def write_header(path, art):
     lines.append("#define CHIP_HEADINGS 16")
     headings = [(round(math.cos(a) * 128), round(math.sin(a) * 128)) for a in (i / 16 * 2 * math.pi for i in range(16))]
     lines.append("static const s16 CHIP_HEADING[CHIP_HEADINGS][2] = {%s};" % ", ".join("{%d, %d}" % h for h in headings))
+    lines.append("// The capsules: WIDE and MULTI, in this order.")
+    lines.append(f"#define CAPSULE_KINDS {len(CAPSULES)}")
+    lines.append(f"#define PAL_CAPSULE0 {PAL_CAPSULE0}")
+    lines.append(f"#define CAPSULE_W {neo_art.CAPSULE_W}")
+    lines.append(f"#define CAPSULE_H {neo_art.CAPSULE_H}")
+    lines.append("static const u16 CAPSULE_TICKS[CAPSULE_KINDS] = {%s};" % ", ".join(str(c["ticks"]) for c in CAPSULES))
+    lines.append(f"#define PADDLE_WIDE_W {neo_art.PADDLE_WIDE_W}")
+    lines.append(f"#define PADDLE_WIDTHS_PER_ROW {TILES_PER_ROW // 4}")
     lines.append(f"#define BURST_FRAMES {neo_art.BURST_FRAMES}")
     lines.append(f"#define BURST_HOLD {neo_art.BURST_HOLD}")
     lines.append(f"#define BURST_FLASH_FRAMES {neo_art.BURST_FLASH_FRAMES}")

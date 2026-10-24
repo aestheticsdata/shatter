@@ -36,9 +36,13 @@
 #define SPR_BRICKS (SPR_FG + 20)
 #define SPR_PADDLE_GHOST (SPR_BRICKS + LEVEL_ROWS * LEVEL_COLS * 2)
 #define PADDLE_GHOSTS 2
-#define SPR_PADDLE (SPR_PADDLE_GHOST + PADDLE_GHOSTS * 3)
-#define SPR_BALL (SPR_PADDLE + 3)
-#define SPR_SHARD (SPR_BALL + 1)
+#define SPR_PADDLE (SPR_PADDLE_GHOST + PADDLE_GHOSTS * 4)
+#define SPR_CAPSULE (SPR_PADDLE + 4)
+#define SPR_BALL (SPR_CAPSULE + 6)
+#define BALLS 9
+// Debris last: past 96 sprites on a line the hardware drops the last ones in
+// this order, and a chip missing for a frame is the one thing nobody misses.
+#define SPR_SHARD (SPR_BALL + BALLS)
 #define SHARDS 20
 
 enum { STATE_SERVE, STATE_PLAY, STATE_CLEAR, STATE_OVER };
@@ -56,12 +60,15 @@ enum {
   SND_GAMEOVER = 12,
   SND_BRICK0 = 13,
   SND_BRICK_ROWS = 5,
+  SND_SPAWN = 18,
+  SND_PICKUP = 19,
 };
 
 // --- the run (main.c) -------------------------------------------------------------
 extern u8 state;
 extern u8 loop;
 extern u32 score;
+extern u8 score_dirty;  // redrawn once a frame, however many kills
 extern u16 frame;
 extern u8 pad_now;
 extern s8 shake_x, shake_y;
@@ -76,16 +83,29 @@ void build_wall(void);
 u8 strike_bricks(s16 x, s16 y);
 void step_wall(void);
 
-// --- the deck and the ball (deck.c) -----------------------------------------------
-extern s16 paddle_x;
-extern s32 ball_x, ball_y, ball_vx, ball_vy;
+// --- the deck and the balls (deck.c) ----------------------------------------------
+typedef struct {
+  s32 x, y, vx, vy;
+  u8 birth;  // frames still growing to full size
+} ball_t;
+extern s16 paddle_x, paddle_w;
+extern ball_t balls[BALLS];
+extern u8 ball_count;
 void setup_deck(void);
 void serve(void);
 void reset_deck(void);
+void widen_deck(u8 wide);
 void move_paddle(void);
-void step_ball(void);
+void step_balls(void);
 void hold_ball(void);
+void add_balls(u8 count);
 void render_deck(void);
+
+// --- the capsules (capsule.c) -----------------------------------------------------
+void setup_capsules(void);
+void reset_capsules(void);
+void drop_capsule(s16 cx, s16 cy);
+void step_capsules(void);
 
 // --- the Observer (eye.c) ---------------------------------------------------------
 void setup_eye(void);
@@ -121,7 +141,7 @@ void hud_rule(u8 row, u8 palette, u8 cols);
 void hud_clear(u8 row, u8 rows);
 
 // --- video (video.c) --------------------------------------------------------------
-#define TILE_BLANK (TILE_PADDLE + SHEET_STRIDE - 1)
+#define TILE_BLANK (TILE_MISC + SHEET_STRIDE - 1)
 u16 rnd(void);
 void load_palettes(void);
 void load_palette(u8 slot, const u16 *colors);

@@ -36,6 +36,7 @@ static u8 flash[LEVEL_ROWS][LEVEL_COLS];     // ticks of white left
 static u8 dying[LEVEL_ROWS][LEVEL_COLS];     // ticks of burst left
 static u8 dead_kind[LEVEL_ROWS][LEVEL_COLS]; // whose colours the burst is in
 static s8 placed_x, placed_y;                // the shake the wall stands at
+static u8 animating;                         // cells flashing or bursting
 static s16 shine = -1;                       // the diagonal lit, -1 for none
 static u16 shine_clock = SHINE_EVERY;
 
@@ -47,6 +48,14 @@ typedef struct {
 } shard_t;
 
 static shard_t shards[SHARDS];
+
+// Cell of a pixel across and down the wall, looked up rather than divided:
+// the 68000 spends some 140 cycles on a division, and nine balls ask this
+// sixteen times a frame each.
+#define WALL_W (LEVEL_COLS * CELL_W)
+#define WALL_H (LEVEL_ROWS * CELL_H)
+static u8 col_at[WALL_W];
+static u8 row_at[WALL_H];
 
 static u16 brick_sprite(u8 r, u8 c) {
   return SPR_BRICKS + (r * LEVEL_COLS + c) * 2;
@@ -91,6 +100,12 @@ static void dress_brick(u8 r, u8 c) {
 }
 
 void setup_wall(void) {
+  for (u16 x = 0; x < WALL_W; x++) {
+    col_at[x] = x / CELL_W;
+  }
+  for (u8 y = 0; y < WALL_H; y++) {
+    row_at[y] = y / CELL_H;
+  }
   for (u8 r = 0; r < LEVEL_ROWS; r++) {
     for (u8 c = 0; c < LEVEL_COLS; c++) {
       u16 sprite = brick_sprite(r, c);
@@ -105,6 +120,7 @@ void setup_wall(void) {
 
 void build_wall(void) {
   remaining = 0;
+  animating = 0;
   shine = -1;
   for (u8 r = 0; r < LEVEL_ROWS; r++) {
     for (u8 c = 0; c < LEVEL_COLS; c++) {
@@ -139,13 +155,15 @@ static void spawn_shards(u8 r, u8 c, u8 kind, u8 count) {
     if (s->life) {
       continue;
     }
-    u8 heading = rnd() % CHIP_HEADINGS;
-    s16 speed = 154 + rnd() % 256;  // 0.6..1.6 px, 8.8
-    s->x = FP(cx - 10 + (rnd() % 20));
-    s->y = FP(cy - 3 + (rnd() % 6));
+    // Masks, not remainders: a 68000 division is some 140 cycles, and a
+    // tough kill throws ten chips.
+    u8 heading = rnd() & (CHIP_HEADINGS - 1);
+    s16 speed = 154 + (rnd() & 255);  // 0.6..1.6 px, 8.8
+    s->x = FP(cx - 8 + (rnd() & 15));
+    s->y = FP(cy - 3 + (rnd() & 7));
     s->vx = (s32)CHIP_HEADING[heading][0] * speed / 128;
     s->vy = (s32)CHIP_HEADING[heading][1] * speed / 128;
-    s->life = 18 + rnd() % 10;
+    s->life = 18 + (rnd() & 7);
     s->kind = kind;
     s->spin = rnd() & 3;
     sprite_tile(SPR_SHARD + i, 0, TILE_SHARD + s->spin, brick_palette(kind, 0));
@@ -155,18 +173,22 @@ static void spawn_shards(u8 r, u8 c, u8 kind, u8 count) {
 
 // The first live brick under any corner of the ball, damaged; 1 if it was hit.
 u8 strike_bricks(s16 x, s16 y) {
+  // Most of the time a ball is nowhere near the wall's rows.
+  if (y + BALL <= GRID_Y || y >= GRID_Y + WALL_H) {
+    return 0;
+  }
   const s16 xs[2] = {x, x + BALL - 1};
   const s16 ys[2] = {y, y + BALL - 1};
   for (u8 j = 0; j < 2; j++) {
     for (u8 i = 0; i < 2; i++) {
       s16 gx = xs[i] - GRID_X;
       s16 gy = ys[j] - GRID_Y;
-      if (gx < 0 || gy < 0) {
+      if (gx < 0 || gy < 0 || gx >= WALL_W || gy >= WALL_H) {
         continue;
       }
-      u8 c = gx / CELL_W;
-      u8 r = gy / CELL_H;
-      if (r >= LEVEL_ROWS || c >= LEVEL_COLS || !bricks[r][c]) {
+      u8 c = col_at[gx];
+      u8 r = row_at[gy];
+      if (!bricks[r][c]) {
         continue;
       }
       u8 kind = bricks[r][c];
@@ -175,12 +197,17 @@ u8 strike_bricks(s16 x, s16 y) {
         // that is only still on screen — and bursts a few frames later.
         bricks[r][c] = 0;
         dead_kind[r][c] = kind;
+        if (flash[r][c]) {
+          flash[r][c] = 0;
+          animating--;
+        }
         dying[r][c] = BURST_TICKS;
-        flash[r][c] = 0;
+        animating++;
         dress_burst(r, c, 0);
         place_brick(r, c);
         u8 tough = KIND_HITS[kind - 1] > 1;
         spawn_shards(r, c, kind, tough ? TOUGH_CHIPS : CHIPS);
+        drop_capsule(GRID_X + c * CELL_W + CELL_W / 2, GRID_Y + r * CELL_H + CELL_H / 2);
         // Higher rows ring higher, as on the web; rows past the fifth share its note.
         sound(SND_BRICK0 + (r < SND_BRICK_ROWS ? r : SND_BRICK_ROWS - 1));
         score += KIND_POINTS[kind - 1];
@@ -190,10 +217,13 @@ u8 strike_bricks(s16 x, s16 y) {
         } else if (tough) {
           rattle(TOUGH_SHAKE_TICKS, TOUGH_SHAKE);
         }
-        hud_score(score);
+        score_dirty = 1;
       } else {
         stage_of[r][c]++;
         dress_brick(r, c);
+        if (!flash[r][c]) {
+          animating++;
+        }
         flash[r][c] = BRICK_FLASH_TICKS;
         paint_brick(r, c, brick_palette(kind, 0) + BRICK_FLASH);
         sound(SND_WALL);
@@ -254,10 +284,18 @@ void step_wall(void) {
   u8 moved = shake_x != placed_x || shake_y != placed_y;
   placed_x = shake_x;
   placed_y = shake_y;
+  // Most frames nothing on the wall moves: no flash, no burst, no shake and
+  // no shine stepping. Then sixty cells need no look at all.
+  u8 shining = shine >= 0 && frame % SHINE_STEP == 0;
+  if (!animating && !moved && !shining) {
+    step_shards();
+    return;
+  }
   for (u8 r = 0; r < LEVEL_ROWS; r++) {
     for (u8 c = 0; c < LEVEL_COLS; c++) {
       if (dying[r][c]) {
         if (--dying[r][c] == 0) {
+          animating--;
           sprite_hide(brick_sprite(r, c));
           continue;
         }
@@ -277,12 +315,13 @@ void step_wall(void) {
       }
       if (flash[r][c]) {
         if (--flash[r][c] == 0) {
+          animating--;
           settle(r, c);
         }
         continue;
       }
       // Only the two diagonals the shine just left and just reached repaint.
-      if (shine >= 0 && frame % SHINE_STEP == 0 && (r + c == shine || r + c == shine - 1)) {
+      if (shining && (r + c == shine || r + c == shine - 1)) {
         settle(r, c);
       }
     }

@@ -36,6 +36,12 @@
 - adpcm_a:
     name: brick4
     uri: file://assets/sfx/brick4.wav
+- adpcm_a:
+    name: spawn
+    uri: file://assets/sfx/spawn.wav
+- adpcm_a:
+    name: pickup
+    uri: file://assets/sfx/pickup.wav
 - adpcm_b:
     name: theme
     uri: file://assets/music/theme.wav

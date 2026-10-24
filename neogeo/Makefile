@@ -71,7 +71,7 @@ play: cart bios
 # 
 # Note: build rules (%.c -> %.o -> %.elf) are defined in Makefile.build
 ELF=$(BUILDDIR)/rom.elf
-$(ELF):	$(BUILDDIR)/main.o $(BUILDDIR)/video.o $(BUILDDIR)/sound.o $(BUILDDIR)/wall.o $(BUILDDIR)/deck.o $(BUILDDIR)/eye.o $(BUILDDIR)/hud.o $(BUILDDIR)/sky.o
+$(ELF):	$(BUILDDIR)/main.o $(BUILDDIR)/video.o $(BUILDDIR)/sound.o $(BUILDDIR)/wall.o $(BUILDDIR)/deck.o $(BUILDDIR)/eye.o $(BUILDDIR)/hud.o $(BUILDDIR)/sky.o $(BUILDDIR)/capsule.o
 $(PROM1): $(ELF)
 
 
@@ -158,7 +158,7 @@ GFX=assets/sprites.png assets/fix.png $(BUILDDIR)/gfx.h
 $(GFX) &: tools/gen_assets.py tools/neo_art.py ../src/core/levels/levels.ts ../src/core/config/bricks.ts $(if $(LEVEL),FORCE)
 	$(PYTHON) tools/gen_assets.py $(LEVEL)
 
-$(BUILDDIR)/main.o $(BUILDDIR)/video.o $(BUILDDIR)/sound.o $(BUILDDIR)/wall.o $(BUILDDIR)/deck.o $(BUILDDIR)/eye.o $(BUILDDIR)/hud.o $(BUILDDIR)/sky.o: $(BUILDDIR)/gfx.h game.h
+$(BUILDDIR)/main.o $(BUILDDIR)/video.o $(BUILDDIR)/sound.o $(BUILDDIR)/wall.o $(BUILDDIR)/deck.o $(BUILDDIR)/eye.o $(BUILDDIR)/hud.o $(BUILDDIR)/sky.o $(BUILDDIR)/capsule.o: $(BUILDDIR)/gfx.h game.h
 
 $(BUILDDIR)/assets/sprites.c1 $(BUILDDIR)/assets/sprites.c2 &: assets/sprites.png | $(BUILDDIR)/assets
 	$(TILETOOL) --sprite -c $< -o $(BUILDDIR)/assets/sprites.c1 $(BUILDDIR)/assets/sprites.c2
@@ -175,7 +175,7 @@ FORCE:
 # packs them all into the V-ROM and writes the offsets sound.s plays them from.
 # 2 x 3:20 of ADPCM-B is 8.8 MB: one 16 MB V-ROM holds it.
 VROMSIZE=16777216
-SFX=wall paddle launch lost clear gameover brick0 brick1 brick2 brick3 brick4
+SFX=wall paddle launch lost clear gameover brick0 brick1 brick2 brick3 brick4 spawn pickup
 SFX_WAVS=$(SFX:%=assets/sfx/%.wav)
 MUSIC_WAVS=assets/music/theme.wav assets/music/over.wav
 

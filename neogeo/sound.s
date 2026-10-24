@@ -2,11 +2,11 @@
 ;;;
 ;;; The 68k writes a command number to REG_SOUND; nullsound jumps through this
 ;;; table. Commands 0-3 are nullsound's own. The numbers must match SND_* in
-;;; main.c.
+;;; game.h.
 ;;;
 ;;; Effects are ADPCM-A samples, one channel per kind so a brick never cuts
-;;; off a paddle bounce: 0 wall, 1 paddle, 2 brick, 3 launch, 4 lost ball,
-;;; 5 jingles. The two tracks are ADPCM-B, looping, at 44.1 kHz: at 22.05
+;;; off a paddle bounce: 0 wall, 1 paddle, 2 brick, 3 launch and a capsule
+;;; dropping, 4 lost ball and a capsule caught, 5 jingles. The two tracks are ADPCM-B, looping, at 44.1 kHz: at 22.05
 ;;; the codec's grain crackled through the soft game-over track.
 
         .include "helpers.inc"
@@ -31,6 +31,8 @@ cmd_jmptable::
         jp      play_brick2             ; 15
         jp      play_brick3             ; 16
         jp      play_brick4             ; 17
+        jp      play_spawn              ; 18
+        jp      play_pickup             ; 19
         init_unused_cmd_jmptable
 
 
@@ -68,6 +70,8 @@ play_'name:
         effect  brick2
         effect  brick3
         effect  brick4
+        effect  spawn
+        effect  pickup
 
 
         ;; offsets of the samples in V-ROM, from vromtool
@@ -93,7 +97,9 @@ adpcm_a_'name:
         sample  brick3, BRICK3, 2
         sample  brick4, BRICK4, 2
         sample  launch, LAUNCH, 3
+        sample  spawn, SPAWN, 3
         sample  lost, LOST, 4
+        sample  pickup, PICKUP, 4
         sample  clear, CLEAR, 5
         sample  gameover, GAMEOVER, 5
 
