@@ -36,9 +36,12 @@
 
 // Sprite slots, drawn in index order: the sky first, shards last.
 #define SPR_BG 1
-#define SPR_PADDLE 21
-#define SPR_BALL 24
-#define SPR_SHARD 30
+#define SPR_EYE 21
+#define SPR_IRIS (SPR_EYE + EYE_COLS)
+#define SPR_FG (SPR_IRIS + IRIS_TILES)
+#define SPR_PADDLE (SPR_FG + 20)
+#define SPR_BALL (SPR_PADDLE + 3)
+#define SPR_SHARD (SPR_BALL + 1)
 #define SHARDS 16
 
 #define EMPTY_TILE SROM_EMPTY_TILE
@@ -147,21 +150,53 @@ static void sprite_hide(u16 sprite) {
   *REG_VRAMRW = 0;
 }
 
-static void setup_sprites(void) {
+// A full-width band of the sheet, one sprite a column, each row of tiles on its
+// own palette, chained so the first sprite places all twenty.
+static void setup_band(u16 first, u16 tile, u8 rows, u8 palette, s16 y) {
   for (u8 col = 0; col < 20; col++) {
-    u16 sprite = SPR_BG + col;
-    for (u8 row = 0; row < BG_ROWS; row++) {
+    u16 sprite = first + col;
+    for (u8 row = 0; row < rows; row++) {
       *REG_VRAMMOD = 1;
       *REG_VRAMADDR = ADDR_SCB1 + sprite * 64 + row * 2;
-      *REG_VRAMRW = TILE_BG + row * 20 + col;
-      *REG_VRAMRW = (u16)(PAL_BG0 + row) << 8;
+      *REG_VRAMRW = tile + row * SHEET_STRIDE + col;
+      *REG_VRAMRW = (u16)(palette + row) << 8;
     }
     if (col == 0) {
-      sprite_place(sprite, 0, 0, BG_ROWS);
+      sprite_place(sprite, 0, y, rows);
     } else {
-      sprite_stick(sprite, BG_ROWS);
+      sprite_stick(sprite, rows);
     }
   }
+}
+
+// A block of `cols` sprites over consecutive sheet columns, on one palette,
+// the first one leading and the rest stuck to it.
+//
+// A shrunk sprite reads all 32 of its tile slots, not just its rows: the slots
+// past them are filled with a blank tile, or a blink drags stale tiles up
+// under the eye.
+#define TILE_BLANK (TILE_PADDLE + SHEET_STRIDE - 1)
+
+static void setup_block(u16 first, u16 tile, u8 cols, u8 rows, u8 palette) {
+  for (u8 col = 0; col < cols; col++) {
+    *REG_VRAMMOD = 1;
+    *REG_VRAMADDR = ADDR_SCB1 + (first + col) * 64;
+    for (u8 row = 0; row < 32; row++) {
+      *REG_VRAMRW = TILE_BLANK;
+      *REG_VRAMRW = 0;
+    }
+    sprite_tiles(first + col, tile + col, SHEET_STRIDE, rows, palette);
+    if (col > 0) {
+      sprite_stick(first + col, rows);
+    }
+  }
+}
+
+static void setup_sprites(void) {
+  setup_band(SPR_BG, TILE_BG, BG_ROWS, PAL_BG0, 0);
+  setup_block(SPR_EYE, TILE_EYE, EYE_COLS, EYE_ROWS, PAL_EYE);
+  setup_block(SPR_IRIS, TILE_IRIS, IRIS_TILES, IRIS_TILES, PAL_EYE);
+  setup_band(SPR_FG, TILE_FG, FG_ROWS, PAL_FG0, FG_TOP);
   for (u8 i = 0; i < 3; i++) {
     sprite_tiles(SPR_PADDLE + i, TILE_PADDLE + i, 0, 1, PAL_PADDLE);
   }
@@ -200,6 +235,8 @@ static void draw_brick(u8 r, u8 c) {
 
 static u8 hits_left[LEVEL_ROWS][LEVEL_COLS];
 
+static u16 wall_size;
+
 static void build_wall(void) {
   remaining = 0;
   for (u8 r = 0; r < LEVEL_ROWS; r++) {
@@ -212,6 +249,7 @@ static void build_wall(void) {
       draw_brick(r, c);
     }
   }
+  wall_size = remaining;
 }
 
 static void spawn_shards(u8 r, u8 c, u8 kind) {
@@ -436,6 +474,128 @@ static void step_shards(void) {
   }
 }
 
+// --- THE OBSERVER ------------------------------------------------------------------
+//
+// SUNRISE's eye (SHA-267), THE RISE as the web game plays it: sunk to its waist
+// behind the dunes and a fifth lit, it climbs as the wall comes down, easing a
+// little of the way each frame, and brightens as it goes; at nine tenths it
+// blinks and wakes, and from then on its iris follows the ball. A blink is the
+// hardware's vertical shrink on the almond and the iris together; the fade is
+// palette steps, the Neo-Geo having no transparency.
+
+#define EYE_REST_X 160
+#define EYE_REST_Y (HORIZON + 2)
+#define EYE_RISE 48            // the web game's 66 px, scaled like the socket
+#define EYE_ONE 4096           // the rise's fixed point
+#define EYE_WAKE (EYE_ONE * 9 / 10)
+#define EYE_EASE 20            // 0.08 of the way a frame, out of 256
+#define LOOK_EASE 90           // 0.35
+#define BLINK_TICKS 14
+#define BLINK_MIN 180
+#define BLINK_RAND 260
+#define IRIS_REACH_X 32
+#define IRIS_REACH_Y 8
+
+static s32 eye_frac;
+static u8 eye_awake;
+static u8 blink_left;
+static u16 next_blink = BLINK_MIN;
+static s32 look_x = FP(EYE_REST_X), look_y = FP(EYE_REST_Y);
+static s8 eye_fade = -1;
+static s16 eye_x, eye_y;
+static u16 eye_open = 256;     // 256 wide open, 15 at the bottom of a blink
+
+static void eye_palette(u8 step) {
+  for (u8 i = 0; i < 16; i++) {
+    MMAP_PALBANK1[PAL_EYE * 16 + i] = EYE_FADE[step][i];
+  }
+}
+
+static s16 clamp(s16 v, s16 reach) {
+  return v < -reach ? -reach : (v > reach ? reach : v);
+}
+
+static void step_eye(void) {
+  s32 wall = wall_size ? ((s32)(wall_size - remaining) * EYE_ONE) / wall_size : EYE_ONE;
+  eye_frac += ((wall - eye_frac) * EYE_EASE) >> 8;
+  eye_x = EYE_REST_X;
+  eye_y = EYE_REST_Y - (s16)((EYE_RISE * eye_frac) / EYE_ONE);
+
+  // 0.2 to 1, as the web game's opacity rides the same fraction.
+  s8 fade = (EYE_FADE_STEPS - 1) * (EYE_ONE / 5 + eye_frac * 4 / 5) / EYE_ONE;
+  if (fade != eye_fade) {
+    eye_fade = fade;
+    eye_palette(fade);
+  }
+
+  u8 awake = eye_frac >= EYE_WAKE;
+  if (awake && !eye_awake && !blink_left) {
+    blink_left = BLINK_TICKS;
+    next_blink = BLINK_MIN + rnd() % BLINK_RAND;
+  }
+  eye_awake = awake;
+  if (blink_left) {
+    blink_left--;
+  } else if (--next_blink == 0) {
+    blink_left = BLINK_TICKS;
+    next_blink = BLINK_MIN + rnd() % BLINK_RAND;
+  }
+  if (blink_left) {
+    s16 from_middle = blink_left - BLINK_TICKS / 2;
+    u16 open = (from_middle < 0 ? -from_middle : from_middle) * 256 / (BLINK_TICKS / 2);
+    eye_open = open < 15 ? 15 : open;
+  } else {
+    eye_open = 256;
+  }
+
+  // Asleep it stares dead out; awake it looks at the ball, its iris kept
+  // inside the almond the way eyePupilPoint keeps it.
+  s16 tx = eye_x, ty = eye_y;
+  if (eye_awake && state != STATE_OVER) {
+    tx = PX(ball_x) + BALL / 2;
+    ty = PX(ball_y) + BALL / 2;
+  }
+  s16 lid = EYE_HH * eye_open / 256;
+  if (lid < 2) {
+    lid = 2;
+  }
+  // The web game lets the iris travel 71 px and clips it to the lid; a sprite
+  // cannot be clipped, so the reach is what keeps the whole disc inside the
+  // almond: 32 px sideways at the centre line, and less height the further out
+  // it looks (worked out against the parabola: 0 px off-centre → 8 px up or
+  // down, 15 → 4, 32 → 0). The field maps onto it a quarter to one.
+  s16 dx = clamp((tx - eye_x) / 4, IRIS_REACH_X);
+  s16 reach_y = IRIS_REACH_Y - (dx < 0 ? -dx : dx) / 4;
+  if (reach_y > lid - IRIS_RADIUS - 1) {
+    reach_y = lid - IRIS_RADIUS - 1;
+  }
+  s16 px = eye_x + dx;
+  s16 py = eye_y + clamp((ty - eye_y) * 11 / 50, reach_y > 0 ? reach_y : 0);
+  look_x += ((FP(px) - look_x) * LOOK_EASE) >> 8;
+  look_y += ((FP(py) - look_y) * LOOK_EASE) >> 8;
+}
+
+// A shrunk block: every sprite takes the shrink, the leader the position.
+static void place_block(u16 first, u8 cols, s16 x, s16 y, u8 rows, u16 shrink) {
+  *REG_VRAMMOD = 1;
+  *REG_VRAMADDR = ADDR_SCB2 + first;
+  for (u8 i = 0; i < cols; i++) {
+    *REG_VRAMRW = shrink;
+  }
+  *REG_VRAMMOD = 0x200;
+  *REG_VRAMADDR = ADDR_SCB3 + first;
+  *REG_VRAMRW = (((496 - y) & 0x1ff) << 7) | rows;
+  *REG_VRAMRW = (x & 0x1ff) << 7;
+}
+
+static void render_eye(void) {
+  u16 lines = eye_open;  // the shrink keeps (v + 1) of every 256 lines
+  u16 shrink = 0x0f00 | (lines - 1);
+  place_block(SPR_EYE, EYE_COLS, eye_x - EYE_CX, eye_y - EYE_CY * lines / 256, EYE_ROWS, shrink);
+  s16 iy = eye_y + (PX(look_y) - eye_y) * (s16)lines / 256;
+  place_block(SPR_IRIS, IRIS_TILES, PX(look_x) - IRIS_HALF, iy - IRIS_HALF * lines / 256, IRIS_TILES, shrink);
+}
+
 static void step(void) {
   u8 pressed = pad_now & ~pad_prev;
   switch (state) {
@@ -487,9 +647,11 @@ static void step(void) {
       break;
   }
   step_shards();
+  step_eye();
 }
 
 static void render(void) {
+  render_eye();
   sprite_place(SPR_PADDLE, paddle_x, PADDLE_Y, 1);
   if (state == STATE_OVER || state == STATE_CLEAR) {
     sprite_hide(SPR_BALL);
