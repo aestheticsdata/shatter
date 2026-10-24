@@ -71,7 +71,7 @@ play: cart bios
 # 
 # Note: build rules (%.c -> %.o -> %.elf) are defined in Makefile.build
 ELF=$(BUILDDIR)/rom.elf
-$(ELF):	$(BUILDDIR)/main.o $(BUILDDIR)/video.o $(BUILDDIR)/sound.o $(BUILDDIR)/wall.o $(BUILDDIR)/deck.o $(BUILDDIR)/eye.o $(BUILDDIR)/hud.o $(BUILDDIR)/sky.o $(BUILDDIR)/capsule.o
+$(ELF):	$(BUILDDIR)/main.o $(BUILDDIR)/video.o $(BUILDDIR)/sound.o $(BUILDDIR)/wall.o $(BUILDDIR)/deck.o $(BUILDDIR)/eye.o $(BUILDDIR)/hud.o $(BUILDDIR)/sky.o $(BUILDDIR)/capsule.o $(BUILDDIR)/creature.o
 $(PROM1): $(ELF)
 
 
@@ -155,18 +155,22 @@ CUSTOM_GENERATE_TARGETS=
 
 # Shatter's art and level, generated from the web game's TypeScript sources.
 GFX=assets/sprites.png assets/fix.png $(BUILDDIR)/gfx.h
-$(GFX) &: tools/gen_assets.py tools/neo_art.py tools/neo_sky.py tools/neo_font.py $(BUILDDIR)/levels.json $(BUILDDIR)/bg/.stamp ../src/core/config/bricks.ts ../src/core/config/powerUps.ts $(if $(LEVEL),FORCE)
+$(GFX) &: tools/gen_assets.py tools/neo_art.py tools/neo_sky.py tools/neo_font.py $(BUILDDIR)/levels.json $(BUILDDIR)/bg/.stamp $(BUILDDIR)/creatures.json ../src/core/config/bricks.ts ../src/core/config/powerUps.ts $(if $(LEVEL),FORCE)
 	$(PYTHON) tools/gen_assets.py $(LEVEL)
 
 # Every level's field art, painted by the web game's own backgrounds.ts.
 $(BUILDDIR)/bg/.stamp: tools/render_backgrounds.ts ../src/render/backgrounds.ts ../src/render/pix.ts ../src/core/levels/levels.ts | $(BUILDDIR)
 	cd .. && npx --no-install tsx neogeo/tools/render_backgrounds.ts && touch neogeo/$@
 
+# The bestiary, drawn by the web game's own drawCreature (tools/dump_creatures.ts).
+$(BUILDDIR)/creatures.json: tools/dump_creatures.ts $(wildcard ../src/entities/creatures/species/*.ts) ../src/core/config/GameConfig.ts | $(BUILDDIR)
+	cd .. && npx --no-install tsx neogeo/tools/dump_creatures.ts > neogeo/$@.tmp && mv neogeo/$@.tmp neogeo/$@
+
 # The levels, read by the web game's own module (tools/dump_levels.ts).
 $(BUILDDIR)/levels.json: tools/dump_levels.ts ../src/core/levels/levels.ts | $(BUILDDIR)
 	cd .. && npx --no-install tsx neogeo/tools/dump_levels.ts > neogeo/$@.tmp && mv neogeo/$@.tmp neogeo/$@
 
-$(BUILDDIR)/main.o $(BUILDDIR)/video.o $(BUILDDIR)/sound.o $(BUILDDIR)/wall.o $(BUILDDIR)/deck.o $(BUILDDIR)/eye.o $(BUILDDIR)/hud.o $(BUILDDIR)/sky.o $(BUILDDIR)/capsule.o: $(BUILDDIR)/gfx.h game.h
+$(BUILDDIR)/main.o $(BUILDDIR)/video.o $(BUILDDIR)/sound.o $(BUILDDIR)/wall.o $(BUILDDIR)/deck.o $(BUILDDIR)/eye.o $(BUILDDIR)/hud.o $(BUILDDIR)/sky.o $(BUILDDIR)/capsule.o $(BUILDDIR)/creature.o: $(BUILDDIR)/gfx.h game.h
 
 $(BUILDDIR)/assets/sprites.c1 $(BUILDDIR)/assets/sprites.c2 &: assets/sprites.png | $(BUILDDIR)/assets
 	$(TILETOOL) --sprite -c $< -o $(BUILDDIR)/assets/sprites.c1 $(BUILDDIR)/assets/sprites.c2
@@ -183,7 +187,7 @@ FORCE:
 # packs them all into the V-ROM and writes the offsets sound.s plays them from.
 # 2 x 3:20 of ADPCM-B is 8.8 MB: one 16 MB V-ROM holds it.
 VROMSIZE=16777216
-SFX=wall paddle launch lost clear gameover brick0 brick1 brick2 brick3 brick4 spawn pickup
+SFX=wall paddle launch lost clear gameover brick0 brick1 brick2 brick3 brick4 spawn pickup struck armour killed
 SFX_WAVS=$(SFX:%=assets/sfx/%.wav)
 MUSIC_WAVS=assets/music/theme.wav assets/music/over.wav
 

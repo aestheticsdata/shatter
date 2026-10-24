@@ -62,12 +62,20 @@ PAL_HUD0 = 2
 PAL_BG0 = 16
 PAL_FG0 = 30
 PAL_DIAL = 37
+# The bestiary: per species its own colours, its outline flashed white, and
+# all of it white — the web's two steps of a creature's flash.
+PAL_CREATURE0 = 144
+CREATURE_PALETTES = 3
 PAL_PADDLE = 40
 PAL_BALL = 41
 PAL_EYE = 42
 PAL_PADDLE_GHOST = 43  # and 44: the deck's trail
 PAL_CAPSULE0 = 45  # one a capsule kind
 CAPSULE_TILE = 8   # in the misc row, after the shards
+# A spider's thread: a pixel-wide line down a tile, in canvasPalette's
+# paddleTopSheen, stretched on the hardware shrink to the spider's drop.
+THREAD_TILE = 10
+PAL_THREAD = 47
 # Bricks are sprites since the look pass: per kind, its damage stages, then a
 # white flash, then the wall's sweeping shine for the first three stages.
 PAL_BRICKS = 64
@@ -147,6 +155,28 @@ def read_levels():
 FIELD_X, FIELD_Y = SCREEN_W / 372, SCREEN_H / 300
 EYE_BASE_HW, EYE_BASE_HH = 150, 60
 EYE_KINDS = {"none": 0, "static": 1, "rise": 2}
+
+
+# Where a creature pinned in the web field stands on this one: piecewise, so
+# the ceiling, the wall's rows and the deck's line land where this field has
+# them — a frog pinned on a brick sits on its brick here too.
+WEB_Y = [3, 38, 38 + 9 * 12, 276]
+NEO_Y = [24, 48, 48 + 9 * 10, 204]
+
+
+def pin_y(y):
+    for (a, b), (c, d) in zip(zip(WEB_Y, WEB_Y[1:]), zip(NEO_Y, NEO_Y[1:])):
+        if y <= b:
+            return round(c + (y - a) * (d - c) / (b - a))
+    return round(NEO_Y[-1] + (y - WEB_Y[-1]) * (NEO_Y[-1] - NEO_Y[-2]) / (WEB_Y[-1] - WEB_Y[-2]))
+
+
+def pin_x(x):
+    return round(16 + (x - 6) * 0.8)
+
+
+def read_creatures():
+    return json.loads((HERE / "build/creatures.json").read_text())
 
 
 def eye_spec(eye):
@@ -305,7 +335,30 @@ def eye_fades(base):
     return steps
 
 
-def paint_sheet(kinds, levels, themes):
+def creature_pictures(bestiary):
+    """Every species' looks as sprite blocks: for each, its block's size in
+    tiles, and every pose's picture — tiles column by column — deduplicated."""
+    pictures, species = [], []
+    for sp in bestiary["species"]:
+        box = sp["box"]
+        cols, rows = -(-box["w"] // 16), -(-box["h"] // 16)
+        seen, poses = {}, []
+        for pose in sp["poses"]:
+            key = tuple(pose["rows"])
+            if key not in seen:
+                img = Image.new("P", (cols * 16, rows * 16), 0)
+                for y, line in enumerate(pose["rows"]):
+                    for x, ch in enumerate(line):
+                        if ch != ".":
+                            img.putpixel((x, y), ord(ch) - 96)
+                seen[key] = len(pictures)
+                pictures.append([img.crop((tx * 16, ty * 16, tx * 16 + 16, ty * 16 + 16)) for ty in range(rows) for tx in range(cols)])
+            poses.append(seen[key])
+        species.append({"cols": cols, "rows": rows, "poses": poses})
+    return pictures, species
+
+
+def paint_sheet(kinds, levels, themes, bestiary):
     misc_row = 0
     eye_row = misc_row + 1
     # A row for the bursts, then the deck at every width WIDE telescopes
@@ -334,7 +387,13 @@ def paint_sheet(kinds, levels, themes):
     sky_row = iris_row + -(-len(iris_unique) // TILES_PER_ROW)
     fronts = [i for i in range(len(levels)) if (HERE / f"build/bg/{i}-front.rgba").exists()]
     front_row = sky_row + len(levels) * neo_sky.BANDS
-    rows = front_row + len(fronts) * neo_sky.FG_BANDS
+    creature_row = front_row + len(fronts) * neo_sky.FG_BANDS
+    beast_pictures, beast_species = creature_pictures(bestiary)
+    beast_unique = {}
+    for picture in beast_pictures:
+        for tile in picture:
+            beast_unique.setdefault(tile.tobytes(), tile)
+    rows = creature_row + -(-len(beast_unique) // TILES_PER_ROW)
     assert SPRITE_TILE_BASE + rows * TILES_PER_ROW < 65536, "the sheet outgrew 16-bit tile numbers"
     sheet = Image.new("P", (TILES_PER_ROW * 16, rows * 16), 0)
     palettes = []
@@ -358,6 +417,18 @@ def paint_sheet(kinds, levels, themes):
         sheet.paste(tile, at)
         iris_tile[key] = number
     iris = (iris_offsets, [[iris_tile[t.tobytes()] for t in picture] for picture in iris_pictures])
+    beast_tile = {}
+    for i, (key, tile) in enumerate(beast_unique.items()):
+        at, number = place(creature_row, i)
+        sheet.paste(tile, at)
+        beast_tile[key] = number
+    beasts = {"pictures": [[beast_tile[t.tobytes()] for t in picture] for picture in beast_pictures], "species": beast_species}
+    for k, sp in enumerate(bestiary["species"]):
+        tones = [hex_rgb(c) for c in sp["palette"]]
+        white = (255, 255, 255)
+        palettes.append((PAL_CREATURE0 + k * CREATURE_PALETTES, [None] + tones))
+        palettes.append((PAL_CREATURE0 + k * CREATURE_PALETTES + 1, [None, white] + tones[1:]))
+        palettes.append((PAL_CREATURE0 + k * CREATURE_PALETTES + 2, [None] + [white] * len(tones)))
 
     # Every level's sky: fourteen rows of twenty tiles, banded palettes, and
     # its star slots' tones; and the dunes where its theme has a foreground.
@@ -397,6 +468,9 @@ def paint_sheet(kinds, levels, themes):
     sheet.paste(ball, (48, y0))
     palettes.append((PAL_BALL, [None] + ball_tones))
     sheet.paste(neo_art.paint_shards(), (64, y0))
+    for y in range(16):
+        sheet.putpixel((THREAD_TILE * 16 + 7, y0 + y), 1)
+    palettes.append((PAL_THREAD, [None, hex_rgb("#a8d8ff")]))
     sheet.paste(neo_art.paint_burst(), (0, burst_row * 16))
     # The deck's trail: itself again, sinking into the dark behind it.
     dusk = hex_rgb("#061019")
@@ -431,8 +505,9 @@ def paint_sheet(kinds, levels, themes):
         "BALL": SPRITE_TILE_BASE + (y0 // 16) * TILES_PER_ROW + 3,
         "SHARD": SPRITE_TILE_BASE + (y0 // 16) * TILES_PER_ROW + 4,
         "BURST": SPRITE_TILE_BASE + burst_row * TILES_PER_ROW,
+        "THREAD": SPRITE_TILE_BASE + (y0 // 16) * TILES_PER_ROW + THREAD_TILE,
     }
-    return sheet, palettes, tiles, brick_tiles, paddle_tones, (dial, iris, sky)
+    return sheet, palettes, tiles, brick_tiles, paddle_tones, (dial, iris, sky, beasts)
 
 
 # --- fix tiles -------------------------------------------------------------------
@@ -530,7 +605,76 @@ class Art:
     dial: list  # each step's 81 tiles
     iris: tuple  # {offset: picture}, and each picture's 25 tiles
     sky: dict  # every level's sky and foreground tiles, palettes and stars
+    beasts: dict  # the bestiary's pictures and per-species blocks
+    bestiary: dict  # tools/dump_creatures.ts's species and numbers
     themes: dict  # backgrounds.ts's tones per theme
+
+
+def snake(name):
+    return re.sub(r"([a-z])([A-Z])", r"\1_\2", name).upper()
+
+
+def creature_header(art, levels):
+    """The bestiary for creature.c: each species' block, numbers and poses,
+    the pictures' tiles, and every level's pins."""
+    bestiary, beasts = art.bestiary, art.beasts
+    names = [sp["kind"] for sp in bestiary["species"]]
+    lines = ["// The bestiary (tools/dump_creatures.ts): species in this order.", "enum {"]
+    lines += ["  KIND_%s," % snake(n) for n in names]
+    lines += ["  SPECIES", "};", f"#define PAL_CREATURE0 {PAL_CREATURE0}", f"#define CREATURE_PALETTES {CREATURE_PALETTES}"]
+    lines.append(f"#define CREATURE_FLASH_TICKS {bestiary['flashTicks']}")
+    lines.append(f"#define POSE_STEP 6")
+    lines.append("// Every species' numbers from gameConfig.creatures as the web has them,")
+    lines.append("// x4096: a moth turns 0.028 rad a tick, which 8.8 would round away.")
+    for sp in bestiary["species"]:
+        for key, value in sp["config"].items():
+            if isinstance(value, (int, float)):
+                lines.append(f"#define CFG_{snake(sp['kind'])}_{snake(key)} {round(value * 4096)}")
+    lines.append("typedef struct {")
+    lines.append("  u8 width, height;      // the body's box, as the web's")
+    lines.append("  s8 draw_x, draw_y;     // where the drawing's block starts from the box")
+    lines.append("  u8 cols, rows;         // the block, in sprites and tiles")
+    lines.append("  u8 hit_points;")
+    lines.append("  u16 points, kill_points;")
+    lines.append("  u8 solid, shot_only;")
+    lines.append("  u8 facings, loads, heights, steps;")
+    lines.append("  u16 first_pose;")
+    lines.append("} species_t;")
+    lines.append("static const species_t SPECIES_INFO[SPECIES] = {")
+    first, poses = 0, []
+    for sp, blk in zip(bestiary["species"], beasts["species"]):
+        loads = len({p["load"] for p in sp["poses"]})
+        heights = len({p["height"] for p in sp["poses"]})
+        steps = len({p["step"] for p in sp["poses"]})
+        lines.append("  {%d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, 2, %d, %d, %d, %d}," % (
+            sp["width"], sp["height"], sp["box"]["x"], sp["box"]["y"], blk["cols"], blk["rows"],
+            sp["hitPoints"], sp["points"], sp["killPoints"], sp["solid"], sp["shotOnly"], loads, heights, steps, first))
+        first += len(blk["poses"])
+        poses += blk["poses"]
+    lines.append("};")
+    lines.append(f"static const u16 POSE_PICTURE[{len(poses)}] = {{%s}};" % ", ".join(str(p) for p in poses))
+    starts, flat = [], []
+    for picture in beasts["pictures"]:
+        starts.append(len(flat))
+        flat += picture
+    lines.append(f"static const u16 PICTURE_START[{len(starts)}] = {{%s}};" % ", ".join(str(v) for v in starts))
+    lines.append(f"static const u16 PICTURE_TILES[{len(flat)}] = {{%s}};" % ", ".join(str(v) for v in flat))
+    pins = max(len(level["creatures"]) for level in levels)
+    lines.append(f"#define PINS {pins}")
+    lines.append("static const u8 LEVEL_WALL_ROWS[LEVELS] = {%s};" % ", ".join(str(len(level["rows"])) for level in levels))
+    ids = [k["id"] for k in art.kinds]
+    lines.append(f"#define VINE_LAY_KIND {ids.index(str(bestiary['species'][names.index('vine')]['config'].get('layKind', '4'))) + 1}")
+    lines.append("typedef struct { u8 kind; s16 x, y; } pin_t;  // kind + 1, 0 for none")
+    lines.append("static const pin_t LEVEL_PINS[LEVELS][PINS] = {")
+    for level in levels:
+        row = [(names.index(c["kind"]) + 1, pin_x(c["x"]), pin_y(c["y"])) for c in level["creatures"] if c["kind"] in names]
+        row += [(0, 0, 0)] * (pins - len(row))
+        lines.append("  {%s}," % ", ".join("{%d, %d, %d}" % r for r in row))
+    lines.append("};")
+    lines.append("// A turn in 256 steps, sine x256.")
+    lines.append("static const s16 SINE[256] = {%s};" % ", ".join(str(round(math.sin(i / 256 * 2 * math.pi) * 256)) for i in range(256)))
+    lines.append("")
+    return lines
 
 
 def write_header(path, art):
@@ -562,6 +706,7 @@ def write_header(path, art):
     lines.append(f"#define PAL_EYE {PAL_EYE}")
     lines.append(f"#define PAL_FG0 {PAL_FG0}")
     lines.append(f"#define PAL_DIAL {PAL_DIAL}")
+    lines.append(f"#define PAL_THREAD {PAL_THREAD}")
     lines.append(f"#define EYE_FADE_STEPS {EYE_FADE_STEPS}")
     lines.append(f"#define PAL_TEXT {PAL_TEXT}")
     lines.append(f"#define PAL_WALL {PAL_WALL}")
@@ -655,6 +800,7 @@ def write_header(path, art):
         lines.append("  {%s}," % ", ".join(str(t) for t in picture))
     lines.append("};")
     lines.append("")
+    lines.extend(creature_header(art, levels))
     lines.append("// The twinkle: each star slot's place in its cycle, and each level's")
     lines.append("// star slots, from their tone to a paler one in TWINKLE_LEVELS steps.")
     lines.append(f"#define STAR_SLOT {neo_sky.STAR_SLOT}")
@@ -762,7 +908,10 @@ def write_header(path, art):
 def main():
     kinds = read_bricks()
     levels, themes = read_levels()
-    sheet, sprite_palettes, sprite_tiles, brick_tiles, paddle_tones, (dial, iris, sky) = paint_sheet(kinds, levels, themes)
+    bestiary = read_creatures()
+    sheet, sprite_palettes, sprite_tiles, brick_tiles, paddle_tones, (dial, iris, sky, beasts) = paint_sheet(
+        kinds, levels, themes, bestiary
+    )
     fix, fix_palettes, fix_tiles = paint_fix(kinds)
     (HERE / "assets").mkdir(exist_ok=True)
     (HERE / "build").mkdir(exist_ok=True)
@@ -770,7 +919,7 @@ def main():
     fix.putpalette([0, 0, 0] + [255, 255, 255] * 255)
     sheet.save(HERE / "assets/sprites.png")
     fix.save(HERE / "assets/fix.png")
-    art = Art(fix_palettes + sprite_palettes, sprite_tiles, fix_tiles, kinds, levels, brick_tiles, paddle_tones, dial, iris, sky, themes)
+    art = Art(fix_palettes + sprite_palettes, sprite_tiles, fix_tiles, kinds, levels, brick_tiles, paddle_tones, dial, iris, sky, beasts, bestiary, themes)
     write_header(HERE / "build/gfx.h", art)
     print(f"{len(levels)} levels from {LEVEL}, {len(kinds)} brick kinds")
 

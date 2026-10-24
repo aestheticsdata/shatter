@@ -152,6 +152,7 @@ static void reset_game(void) {
   build_wall();
   reset_sky();
   reset_eye();
+  reset_creatures();
   draw_hud();
   serve();
   sound(SND_THEME);
@@ -206,6 +207,7 @@ static void step(void) {
         build_wall();
         reset_sky();
         reset_eye();
+        reset_creatures();
         draw_hud();
         serve();
       }
@@ -219,6 +221,7 @@ static void step(void) {
   }
   step_wall();
   step_capsules();
+  step_creatures();
   step_eye();
 }
 
@@ -256,6 +259,7 @@ int main(void) {
   setup_wall();
   setup_deck();
   setup_capsules();
+  setup_creatures();
   draw_frame();
   reset_game();
 #ifdef PERF
@@ -280,6 +284,7 @@ int main(void) {
       hud_score(score);
     }
     render_eye();
+    render_creatures();
     render_deck();
     flush_sound();
 #ifdef PERF

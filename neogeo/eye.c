@@ -44,6 +44,16 @@ static s16 clamp(s16 v, s16 reach) {
   return v < -reach ? -reach : (v > reach ? reach : v);
 }
 
+// Where the eye is, for what circles it: 0 on a level without one.
+u8 eye_socket(s16 *x, s16 *y) {
+  if (spec->kind == EYE_NONE) {
+    return 0;
+  }
+  *x = eye_x;
+  *y = eye_y;
+  return 1;
+}
+
 void setup_eye(void) {
   setup_block(SPR_EYE, TILE_EYE, EYE_COLS, EYE_ROWS, PAL_EYE);
   setup_block(SPR_IRIS, TILE_IRIS, IRIS_TILES, IRIS_TILES, PAL_EYE);

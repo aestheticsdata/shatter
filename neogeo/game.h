@@ -19,6 +19,7 @@
 #define FIELD_L 16
 #define FIELD_R 304
 #define FIELD_T 24
+#define SCREEN_W 320
 #define SCREEN_H 224
 #define GRID_X 16
 #define GRID_Y 48
@@ -35,11 +36,14 @@
 #define SPR_IRIS (SPR_EYE + EYE_COLS)
 #define SPR_FG (SPR_IRIS + IRIS_TILES)
 #define SPR_BRICKS (SPR_FG + 20)
-#define SPR_PADDLE_GHOST (SPR_BRICKS + LEVEL_ROWS * LEVEL_COLS * 2)
+// The creatures stand in front of the wall, a spider's thread behind it.
+#define SPR_THREAD (SPR_BRICKS + LEVEL_ROWS * LEVEL_COLS * 2)
+#define SPR_CREATURE (SPR_THREAD + PINS)
+#define SPR_PADDLE_GHOST (SPR_CREATURE + PINS * 2)
 #define PADDLE_GHOSTS 2
 #define SPR_PADDLE (SPR_PADDLE_GHOST + PADDLE_GHOSTS * 4)
 #define SPR_CAPSULE (SPR_PADDLE + 4)
-#define SPR_BALL (SPR_CAPSULE + 6)
+#define SPR_BALL (SPR_CAPSULE + DROPS)
 #define BALLS 9
 // Debris last: past 96 sprites on a line the hardware drops the last ones in
 // this order, and a chip missing for a frame is the one thing nobody misses.
@@ -63,6 +67,9 @@ enum {
   SND_BRICK_ROWS = 5,
   SND_SPAWN = 18,
   SND_PICKUP = 19,
+  SND_STRUCK = 20,
+  SND_ARMOUR = 21,
+  SND_KILLED = 22,
 };
 
 // --- the run (main.c) -------------------------------------------------------------
@@ -82,6 +89,11 @@ extern u16 wall_size;
 void setup_wall(void);
 void build_wall(void);
 u8 strike_bricks(s16 x, s16 y);
+u8 wall_standing(s8 c, s8 r);
+void wall_mortar(u8 c, u8 r);
+void wall_peck(u8 c, u8 r);
+void wall_lay(u8 c, u8 r, u8 kind);
+void burst_at(s16 cx, s16 cy, u8 kind, u8 count);
 void step_wall(void);
 
 // --- the deck and the balls (deck.c) ----------------------------------------------
@@ -96,21 +108,35 @@ void setup_deck(void);
 void serve(void);
 void reset_deck(void);
 void widen_deck(u8 wide);
+void sting_deck(u16 ticks);
+void slime_rail(s16 x, s16 w, u16 ticks);
 void move_paddle(void);
 void step_balls(void);
 void hold_ball(void);
 void add_balls(u8 count);
 void render_deck(void);
 
+// --- the bestiary (creature.c) ---------------------------------------------------
+void setup_creatures(void);
+void reset_creatures(void);
+void step_creatures(void);
+void render_creatures(void);
+void strike_creatures(ball_t *ball);
+
 // --- the capsules (capsule.c) -----------------------------------------------------
 void setup_capsules(void);
 void reset_capsules(void);
+#define DROPS 6  // gameConfig.maxDrops
 void drop_capsule(s16 cx, s16 cy);
+void spawn_capsule(s16 cx, s16 cy);
+u8 snatch_capsules(s16 x, s16 y, s16 w, s16 h);
+u8 capsule_seen(u8 i, s16 *x, s16 *y);
 void step_capsules(void);
 
 // --- the Observer (eye.c) ---------------------------------------------------------
 void setup_eye(void);
 void reset_eye(void);
+u8 eye_socket(s16 *x, s16 *y);
 void step_eye(void);
 void render_eye(void);
 

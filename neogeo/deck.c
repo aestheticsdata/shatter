@@ -31,6 +31,19 @@ static u8 paddle_squash;
 static s16 paddle_target = PADDLE_W;
 static s16 dressed_w;         // the width the deck's tiles show
 static s8 deck_look = -1;     // the palette last loaded: flash step * 8 + glow
+
+// JELLYFISH's sting: the deck numb, easing in over six frames and out over
+// the last twelve, at worst half as quick to the stick.
+static u16 numb_ticks, numb_elapsed;
+// SLUG's slime: how long each pixel of the rail stays wet, and how much of the
+// deck stands on it, eased. On slime the stick moves a point and the deck
+// slides after it, carrying its speed.
+static u16 wet[SCREEN_W];
+static u16 wet_left;          // pixels of rail still wet, so a dry rail costs nothing
+static s32 slip;              // 0..4096
+static s32 slime_vx;          // 8.8
+static s32 slide_to;          // the point the deck slides after, 8.8
+static s32 sub_x;             // the deck's fraction of a pixel, 8.8, so a slow slide adds up
 static const u8 SQUASH[SQUASH_TICKS] = {0, 16, 40, 64, 64, 48, 24, 8};
 
 // The deck's four tiles at `width`, out of the rows of widths in the sheet.
@@ -78,10 +91,73 @@ void serve(void) {
 }
 
 void reset_deck(void) {
+  numb_ticks = 0;
+  slip = 0;
+  slime_vx = 0;
+  wet_left = 0;
+  for (u16 i = 0; i < SCREEN_W; i++) {
+    wet[i] = 0;
+  }
   paddle_w = paddle_target = PADDLE_W;
   paddle_x = (FIELD_L + FIELD_R - PADDLE_W) / 2;
   for (u8 i = 0; i < TRAIL; i++) {
     paddle_trail[i] = paddle_x;
+  }
+}
+
+void sting_deck(u16 ticks) {
+  if (state == STATE_SERVE) {
+    return;
+  }
+  if (!numb_ticks) {
+    numb_elapsed = 0;
+  }
+  if (ticks > numb_ticks) {
+    numb_ticks = ticks;
+  }
+}
+
+void slime_rail(s16 x, s16 w, u16 ticks) {
+  for (s16 i = x < 0 ? 0 : x; i < x + w && i < SCREEN_W; i++) {
+    if (!wet[i]) {
+      wet_left++;
+    }
+    if (ticks > wet[i]) {
+      wet[i] = ticks;
+    }
+  }
+}
+
+// Moves the deck by a fraction of a pixel too, carried to the next frame.
+static void shift_deck(s32 by) {
+  sub_x += by;
+  s16 whole = PX(sub_x);
+  paddle_x += whole;
+  sub_x -= FP(whole);
+}
+
+// What share of the stick reaches the deck, out of 4096: all of it free,
+// numbSlow less at the height of a sting.
+static s32 numb_factor(void) {
+  if (!numb_ticks) {
+    return 4096;
+  }
+  s32 blend = 4096;
+  s32 in = (s32)(numb_elapsed + 1) * 4096 / 6;
+  s32 out = (s32)numb_ticks * 4096 / 12;
+  blend = in < blend ? in : blend;
+  blend = out < blend ? out : blend;
+  return 4096 - (CFG_JELLYFISH_NUMB_SLOW * blend >> 12);
+}
+
+static void dry_rail(void) {
+  if (!wet_left) {
+    return;
+  }
+  for (u16 i = 0; i < SCREEN_W; i++) {
+    if (wet[i] && --wet[i] == 0) {
+      wet_left--;
+    }
   }
 }
 
@@ -90,6 +166,11 @@ void widen_deck(u8 wide) {
 }
 
 void move_paddle(void) {
+  if (numb_ticks) {
+    numb_ticks--;
+    numb_elapsed++;
+  }
+  dry_rail();
   // The telescope: a pixel off each edge a frame, the centre held.
   if (paddle_w < paddle_target) {
     paddle_w += 2;
@@ -98,11 +179,40 @@ void move_paddle(void) {
     paddle_w -= 2;
     paddle_x += 1;
   }
+  s32 delta = 0;
   if (pad_now & CNT_LEFT) {
-    paddle_x -= PADDLE_SPEED;
+    delta -= FP(PADDLE_SPEED);
   }
   if (pad_now & CNT_RIGHT) {
-    paddle_x += PADDLE_SPEED;
+    delta += FP(PADDLE_SPEED);
+  }
+  delta = delta * numb_factor() >> 12;
+
+  // How much of the deck is on wet rail, eased by slipRamp.
+  s32 under = 0;
+  if (wet_left) {
+    for (s16 i = paddle_x; i < paddle_x + paddle_w; i++) {
+      under += wet[i] ? 1 : 0;
+    }
+    under = under * 4096 / paddle_w;
+  }
+  slip += (under - slip) * CFG_SLUG_SLIP_RAMP >> 12;
+  s32 centre = FP(paddle_x + paddle_w / 2);
+  if (slip > 4096 / 100) {
+    slide_to += delta;
+    if (slide_to < FP(FIELD_L)) {
+      slide_to = FP(FIELD_L);
+    } else if (slide_to > FP(FIELD_R)) {
+      slide_to = FP(FIELD_R);
+    }
+    s32 carry = CFG_SLUG_SLIME_CARRY * slip >> 12;
+    s32 pull = 4096 + ((CFG_SLUG_SLIME_PULL - 4096) * slip >> 12);
+    slime_vx = (slime_vx * carry >> 12) + (((slide_to - centre) * pull >> 12) * numb_factor() >> 12);
+    shift_deck(slime_vx);
+  } else {
+    slide_to = centre + delta;
+    slime_vx = 0;
+    shift_deck(delta);
   }
   if (paddle_x < FIELD_L) {
     paddle_x = FIELD_L;
@@ -176,6 +286,7 @@ static void step_ball(ball_t *ball) {
     bounce_off_paddle(ball);
     sound(SND_PADDLE);
   }
+  strike_creatures(ball);
 }
 
 // Every ball a half-step; one that has fallen past the screen is gone, and

@@ -174,6 +174,19 @@ def pickup():
     return buf
 
 
+def beast_struck(form):
+    # A hit that lands (form 0), or one the armour turns (form 1), pitched up.
+    buf = blank(0.15)
+    arp(buf, [440 + form * 120, 660 + form * 120], 45)
+    return buf
+
+
+def beast_killed():
+    buf = blank(0.3)
+    arp(buf, [880, 1175, 1568], 70, pair=True)
+    return buf
+
+
 BANK = {
     "wall": wall,
     "paddle": paddle,
@@ -183,6 +196,9 @@ BANK = {
     "gameover": game_over,
     "spawn": spawn,
     "pickup": pickup,
+    "struck": lambda: beast_struck(0),
+    "armour": lambda: beast_struck(1),
+    "killed": beast_killed,
     **{f"brick{row}": (lambda r=row: brick(r)) for row in range(5)},
 }
 

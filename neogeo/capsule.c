@@ -11,7 +11,6 @@
 
 #include "game.h"
 
-#define DROPS 6                  // gameConfig.maxDrops
 #define DROP_CHANCE 77           // 0.3, out of 256
 #define DROP_FALL 256            // a pixel a frame, 8.8: the web's 1.3 x 0.77
 #define BAG_COPIES 3             // a common capsule's copies in the bag
@@ -63,9 +62,13 @@ void reset_capsules(void) {
 }
 
 void drop_capsule(s16 cx, s16 cy) {
-  if (rnd() % 256 >= DROP_CHANCE) {
-    return;
+  if ((rnd() & 255) < DROP_CHANCE) {
+    spawn_capsule(cx, cy);
   }
+}
+
+// A capsule that falls for certain: a moth letting go, a crab spilling.
+void spawn_capsule(s16 cx, s16 cy) {
   for (u8 i = 0; i < DROPS; i++) {
     drop_t *d = &drops[i];
     if (d->live) {
@@ -95,6 +98,31 @@ static void catch_capsule(u8 kind) {
       return;
     }
   }
+}
+
+// CRAB: every capsule in the box taken out of the air; how many.
+u8 snatch_capsules(s16 x, s16 y, s16 w, s16 h) {
+  u8 taken = 0;
+  for (u8 i = 0; i < DROPS; i++) {
+    drop_t *d = &drops[i];
+    s16 dy = PX(d->y);
+    if (d->live && d->x < x + w && d->x + CAPSULE_W > x && dy < y + h && dy + CAPSULE_H > y) {
+      d->live = 0;
+      sprite_hide(SPR_CAPSULE + i);
+      taken++;
+    }
+  }
+  return taken;
+}
+
+// What a creature sees of a capsule in the air: its centre, if it is one.
+u8 capsule_seen(u8 i, s16 *x, s16 *y) {
+  if (i >= DROPS || !drops[i].live) {
+    return 0;
+  }
+  *x = drops[i].x + CAPSULE_W / 2;
+  *y = PX(drops[i].y) + CAPSULE_H / 2;
+  return 1;
 }
 
 void step_capsules(void) {

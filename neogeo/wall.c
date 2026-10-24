@@ -57,6 +57,8 @@ static shard_t shards[SHARDS];
 static u8 col_at[WALL_W];
 static u8 row_at[WALL_H];
 
+static void settle(u8 r, u8 c);
+
 static u16 brick_sprite(u8 r, u8 c) {
   return SPR_BRICKS + (r * LEVEL_COLS + c) * 2;
 }
@@ -146,9 +148,7 @@ void build_wall(void) {
 // The web's brickDeathBurst: chips flung every way at 0.6 to 1.6 px a frame
 // from across the cell, falling at 0.12. A little longer-lived than its 15
 // ticks, because a Neo-Geo chip is three pixels and the web's is two.
-static void spawn_shards(u8 r, u8 c, u8 kind, u8 count) {
-  s16 cx = GRID_X + c * CELL_W + CELL_W / 2;
-  s16 cy = GRID_Y + r * CELL_H + CELL_H / 2;
+void burst_at(s16 cx, s16 cy, u8 kind, u8 count) {
   u8 spawned = 0;
   for (u8 i = 0; i < SHARDS && spawned < count; i++) {
     shard_t *s = &shards[i];
@@ -171,6 +171,51 @@ static void spawn_shards(u8 r, u8 c, u8 kind, u8 count) {
   }
 }
 
+// One hit on a standing brick. A ball's pays — score and the chance of a
+// capsule; a woodpecker's peck does not, the bird being an ally and not a
+// source of income.
+static void damage_brick(u8 r, u8 c, u8 pays) {
+  u8 kind = bricks[r][c];
+  if (--hits_left[r][c] == 0) {
+    // Gone from the field at once — the ball never bounces off a brick
+    // that is only still on screen — and bursts a few frames later.
+    bricks[r][c] = 0;
+    dead_kind[r][c] = kind;
+    if (flash[r][c]) {
+      flash[r][c] = 0;
+      animating--;
+    }
+    dying[r][c] = BURST_TICKS;
+    animating++;
+    dress_burst(r, c, 0);
+    place_brick(r, c);
+    u8 tough = KIND_HITS[kind - 1] > 1;
+    burst_at(GRID_X + c * CELL_W + CELL_W / 2, GRID_Y + r * CELL_H + CELL_H / 2, kind, tough ? TOUGH_CHIPS : CHIPS);
+    // Higher rows ring higher, as on the web; rows past the fifth share its note.
+    sound(SND_BRICK0 + (r < SND_BRICK_ROWS ? r : SND_BRICK_ROWS - 1));
+    if (pays) {
+      drop_capsule(GRID_X + c * CELL_W + CELL_W / 2, GRID_Y + r * CELL_H + CELL_H / 2);
+      score += KIND_POINTS[kind - 1];
+      score_dirty = 1;
+    }
+    remaining--;
+    if (remaining == 0) {
+      rattle(LAST_SHAKE_TICKS, LAST_SHAKE);
+    } else if (tough) {
+      rattle(TOUGH_SHAKE_TICKS, TOUGH_SHAKE);
+    }
+    return;
+  }
+  stage_of[r][c]++;
+  dress_brick(r, c);
+  if (!flash[r][c]) {
+    animating++;
+  }
+  flash[r][c] = BRICK_FLASH_TICKS;
+  paint_brick(r, c, brick_palette(kind, 0) + BRICK_FLASH);
+  sound(SND_WALL);
+}
+
 // The first live brick under any corner of the ball, damaged; 1 if it was hit.
 u8 strike_bricks(s16 x, s16 y) {
   // Most of the time a ball is nowhere near the wall's rows.
@@ -191,47 +236,51 @@ u8 strike_bricks(s16 x, s16 y) {
       if (!bricks[r][c]) {
         continue;
       }
-      u8 kind = bricks[r][c];
-      if (--hits_left[r][c] == 0) {
-        // Gone from the field at once — the ball never bounces off a brick
-        // that is only still on screen — and bursts a few frames later.
-        bricks[r][c] = 0;
-        dead_kind[r][c] = kind;
-        if (flash[r][c]) {
-          flash[r][c] = 0;
-          animating--;
-        }
-        dying[r][c] = BURST_TICKS;
-        animating++;
-        dress_burst(r, c, 0);
-        place_brick(r, c);
-        u8 tough = KIND_HITS[kind - 1] > 1;
-        spawn_shards(r, c, kind, tough ? TOUGH_CHIPS : CHIPS);
-        drop_capsule(GRID_X + c * CELL_W + CELL_W / 2, GRID_Y + r * CELL_H + CELL_H / 2);
-        // Higher rows ring higher, as on the web; rows past the fifth share its note.
-        sound(SND_BRICK0 + (r < SND_BRICK_ROWS ? r : SND_BRICK_ROWS - 1));
-        score += KIND_POINTS[kind - 1];
-        remaining--;
-        if (remaining == 0) {
-          rattle(LAST_SHAKE_TICKS, LAST_SHAKE);
-        } else if (tough) {
-          rattle(TOUGH_SHAKE_TICKS, TOUGH_SHAKE);
-        }
-        score_dirty = 1;
-      } else {
-        stage_of[r][c]++;
-        dress_brick(r, c);
-        if (!flash[r][c]) {
-          animating++;
-        }
-        flash[r][c] = BRICK_FLASH_TICKS;
-        paint_brick(r, c, brick_palette(kind, 0) + BRICK_FLASH);
-        sound(SND_WALL);
-      }
+      damage_brick(r, c, 1);
       return 1;
     }
   }
   return 0;
+}
+
+// --- what the creatures do to the wall (creature.c) ------------------------------
+
+u8 wall_standing(s8 c, s8 r) {
+  return c >= 0 && r >= 0 && c < LEVEL_COLS && r < LEVEL_ROWS && bricks[r][c];
+}
+
+// SNAIL: a hit point back on a worn brick, up to its kind's own.
+void wall_mortar(u8 c, u8 r) {
+  if (!wall_standing(c, r) || hits_left[r][c] >= KIND_HITS[bricks[r][c] - 1]) {
+    return;
+  }
+  hits_left[r][c]++;
+  stage_of[r][c]--;
+  dress_brick(r, c);
+  if (!flash[r][c]) {
+    settle(r, c);
+  }
+}
+
+// WOODPECKER: a hit point off it, paying nothing.
+void wall_peck(u8 c, u8 r) {
+  if (wall_standing(c, r)) {
+    damage_brick(r, c, 0);
+  }
+}
+
+// VINE: a brick of that kind in an empty cell, at its full hit points.
+void wall_lay(u8 c, u8 r, u8 kind) {
+  if (wall_standing(c, r) || dying[r][c]) {
+    return;
+  }
+  bricks[r][c] = kind;
+  hits_left[r][c] = KIND_HITS[kind - 1];
+  stage_of[r][c] = 0;
+  remaining++;
+  dress_brick(r, c);
+  place_brick(r, c);
+  settle(r, c);
 }
 
 static void step_shards(void) {

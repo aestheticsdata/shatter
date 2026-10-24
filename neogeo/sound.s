@@ -5,9 +5,11 @@
 ;;; game.h.
 ;;;
 ;;; Effects are ADPCM-A samples, one channel per kind so a brick never cuts
-;;; off a paddle bounce: 0 wall, 1 paddle, 2 brick, 3 launch and a capsule
-;;; dropping, 4 lost ball and a capsule caught, 5 jingles. The two tracks are ADPCM-B, looping, at 44.1 kHz: at 22.05
-;;; the codec's grain crackled through the soft game-over track.
+;;; off a paddle bounce: 0 wall, 1 paddle, 2 brick and a creature struck,
+;;; 3 launch and a capsule dropping, 4 lost ball and a capsule caught,
+;;; 5 jingles and a creature killed. The two tracks are ADPCM-B, looping, at
+;;; 44.1 kHz: at 22.05 the codec's grain crackled through the soft game-over
+;;; track.
 
         .include "helpers.inc"
         .area   CODE
@@ -33,6 +35,9 @@ cmd_jmptable::
         jp      play_brick4             ; 17
         jp      play_spawn              ; 18
         jp      play_pickup             ; 19
+        jp      play_struck             ; 20
+        jp      play_armour             ; 21
+        jp      play_killed             ; 22
         init_unused_cmd_jmptable
 
 
@@ -72,6 +77,9 @@ play_'name:
         effect  brick4
         effect  spawn
         effect  pickup
+        effect  struck
+        effect  armour
+        effect  killed
 
 
         ;; offsets of the samples in V-ROM, from vromtool
@@ -100,6 +108,9 @@ adpcm_a_'name:
         sample  spawn, SPAWN, 3
         sample  lost, LOST, 4
         sample  pickup, PICKUP, 4
+        sample  struck, STRUCK, 2
+        sample  armour, ARMOUR, 2
+        sample  killed, KILLED, 5
         sample  clear, CLEAR, 5
         sample  gameover, GAMEOVER, 5
 

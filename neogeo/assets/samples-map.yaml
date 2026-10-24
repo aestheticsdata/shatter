@@ -42,6 +42,15 @@
 - adpcm_a:
     name: pickup
     uri: file://assets/sfx/pickup.wav
+- adpcm_a:
+    name: struck
+    uri: file://assets/sfx/struck.wav
+- adpcm_a:
+    name: armour
+    uri: file://assets/sfx/armour.wav
+- adpcm_a:
+    name: killed
+    uri: file://assets/sfx/killed.wav
 - adpcm_b:
     name: theme
     uri: file://assets/music/theme.wav
