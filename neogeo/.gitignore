@@ -1,0 +1,19 @@
+build/
+assets/sprites.png
+assets/fix.png
+setup/ngdevkit-assets/rom/
+setup/ngdevkit-assets/*.gif
+setup/ngdevkit-assets/*.bmp
+setup/ngdevkit-assets/*.ihx
+setup/ngdevkit-assets/*.lib
+setup/ngdevkit-assets/*.rel
+setup/ngdevkit-assets/*.lst
+setup/ngdevkit-assets/*.map
+setup/ngdevkit-assets/*.inc
+setup/ngdevkit-assets/nss-*.s
+setup/ngdevkit-assets/instruments-*.s
+setup/ngdevkit-assets/tmp.*
+# MAME writes these beside the Makefile on every run.
+cfg/
+snap/
+nvram/
