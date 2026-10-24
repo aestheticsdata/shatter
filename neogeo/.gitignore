@@ -17,3 +17,5 @@ setup/ngdevkit-assets/tmp.*
 cfg/
 snap/
 nvram/
+assets/sfx/
+assets/music/

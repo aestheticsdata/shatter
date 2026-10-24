@@ -43,6 +43,7 @@ AES_BIOS=$(NGSHAREDIR)/aes.zip
 MVS_BIOS=$(NGSHAREDIR)/neogeo.zip
 
 CONVERT=convert
+SOX=sox
 RSYNC=rsync
 GNGEO=ngdevkit-gngeo
 GNGEO_DATA=$(BREW)/opt/ngdevkit-gngeo/share/ngdevkit-gngeo/gngeo_data.zip

@@ -236,6 +236,45 @@ static void spawn_shards(u8 r, u8 c, u8 kind) {
 
 static void draw_hud(void);
 
+// --- sound -----------------------------------------------------------------------
+
+// The commands sound.s answers; 0-3 are nullsound's own.
+enum {
+  SND_RESET = 3,
+  SND_THEME = 4,
+  SND_OVER = 5,
+  SND_WALL = 7,
+  SND_PADDLE = 8,
+  SND_LAUNCH = 9,
+  SND_LOST = 10,
+  SND_CLEAR = 11,
+  SND_GAMEOVER = 12,
+  SND_BRICK0 = 13,
+  SND_BRICK_ROWS = 5,
+};
+
+// A command written to REG_SOUND before the Z80 has read the last one replaces
+// it, so a brick and a bounce in the same frame would lose one: they queue,
+// and one leaves per frame. A full queue drops the newest.
+#define SOUND_QUEUE 8
+static u8 sound_queue[SOUND_QUEUE];
+static u8 sound_head, sound_tail;
+
+static void sound(u8 command) {
+  u8 next = (sound_tail + 1) % SOUND_QUEUE;
+  if (next != sound_head) {
+    sound_queue[sound_tail] = command;
+    sound_tail = next;
+  }
+}
+
+static void flush_sound(void) {
+  if (sound_head != sound_tail) {
+    *REG_SOUND = sound_queue[sound_head];
+    sound_head = (sound_head + 1) % SOUND_QUEUE;
+  }
+}
+
 // The first live brick under any corner of the ball, damaged; 1 if it was hit.
 static u8 strike_bricks(s16 x, s16 y) {
   const s16 xs[2] = {x, x + BALL - 1};
@@ -257,9 +296,13 @@ static u8 strike_bricks(s16 x, s16 y) {
         bricks[r][c] = 0;
         draw_brick(r, c);
         spawn_shards(r, c, kind);
+        // Higher rows ring higher, as on the web; rows past the fifth share its note.
+        sound(SND_BRICK0 + (r < SND_BRICK_ROWS ? r : SND_BRICK_ROWS - 1));
         score += KIND_POINTS[kind - 1];
         remaining--;
         draw_hud();
+      } else {
+        sound(SND_WALL);
       }
       return 1;
     }
@@ -312,6 +355,7 @@ static void reset_game(void) {
   build_wall();
   draw_hud();
   serve();
+  sound(SND_THEME);
 }
 
 static void move_paddle(void) {
@@ -345,9 +389,11 @@ static void step_ball(void) {
   if (PX(ball_x) < FIELD_L) {
     ball_x = FP(FIELD_L);
     ball_vx = -ball_vx;
+    sound(SND_WALL);
   } else if (PX(ball_x) + BALL > FIELD_R) {
     ball_x = FP(FIELD_R - BALL);
     ball_vx = -ball_vx;
+    sound(SND_WALL);
   } else if (strike_bricks(PX(ball_x), PX(ball_y))) {
     ball_x = old_x;
     ball_vx = -ball_vx;
@@ -360,6 +406,7 @@ static void step_ball(void) {
   if (PX(ball_y) < FIELD_T) {
     ball_y = FP(FIELD_T);
     ball_vy = -ball_vy;
+    sound(SND_WALL);
   } else if (strike_bricks(PX(ball_x), PX(ball_y))) {
     ball_y = old_y;
     ball_vy = -ball_vy;
@@ -367,6 +414,7 @@ static void step_ball(void) {
              PX(ball_x) < paddle_x + PADDLE_W) {
     ball_y = FP(PADDLE_Y - BALL);
     bounce_off_paddle();
+    sound(SND_PADDLE);
   }
 }
 
@@ -397,6 +445,7 @@ static void step(void) {
       ball_y = FP(PADDLE_Y - BALL);
       if (pressed & LAUNCH) {
         state = STATE_PLAY;
+        sound(SND_LAUNCH);
       }
       break;
     case STATE_PLAY:
@@ -408,14 +457,18 @@ static void step(void) {
         draw_hud();
         if (lives == 0) {
           state = STATE_OVER;
+          sound(SND_GAMEOVER);
+          sound(SND_OVER);
           ng_center_text(16, PAL_TEXT, "GAME OVER");
           ng_center_text(18, PAL_TEXT, "PRESS UP");
         } else {
+          sound(SND_LOST);
           serve();
         }
       } else if (remaining == 0) {
         state = STATE_CLEAR;
         timer = 120;
+        sound(SND_CLEAR);
         ng_center_text(16, PAL_TEXT, "LEVEL CLEAR");
       }
       break;
@@ -467,6 +520,7 @@ static u8 autopilot(void) {
 #endif
 
 int main(void) {
+  *REG_SOUND = SND_RESET;
   ng_cls();
   load_palettes();
   setup_sprites();
@@ -481,6 +535,7 @@ int main(void) {
 #endif
     step();
     render();
+    flush_sound();
   }
   return 0;
 }

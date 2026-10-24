@@ -9,13 +9,16 @@ open-source BIOS — no copyrighted ROM needed.
 - `tools/gen_assets.py`: draws every tile and writes the palettes, reading the
   level rows from `src/core/levels/levels.ts` and the brick tones from
   `src/core/config/bricks.ts`.
+- `sound.s`: the Z80 sound commands (nullsound). `tools/gen_sounds.py` renders
+  the web game's synthesised effects (`src/audio/SoundBank.ts`) to ADPCM-A
+  samples; the theme and game-over tracks are its MP3s, looped on ADPCM-B.
 - `config.mk`: Homebrew paths, written by hand (ngdevkit's `./configure` needs
   autoconf).
 
 ## Setup (once)
 
 ```bash
-brew tap dciabrin/ngdevkit && brew install ngdevkit ngdevkit-gngeo make
+brew tap dciabrin/ngdevkit && brew install ngdevkit ngdevkit-gngeo make mame sox
 ```
 
 ## Build and play

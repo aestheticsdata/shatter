@@ -108,8 +108,9 @@ $(CROM2): $(BUILDDIR)/assets/sprites.c2
 #
 # By default, this makefile uses the empty sound driver provided by ngdevkit
 # Note: build rules (%.s -> %.o -> %.ihx) are defined in Makefile.build
-SOUND_DRIVER=$(BUILDDIR)/assets/base-sound-driver.ihx
+SOUND_DRIVER=$(BUILDDIR)/sound.ihx
 $(MROM1): $(SOUND_DRIVER)
+$(SOUND_DRIVER): $(BUILDDIR)/assets/ngdevkit-eye-catcher.lib $(BUILDDIR)/sound.rel
 
 
 
@@ -165,3 +166,26 @@ $(BUILDDIR)/assets/fix.fix: assets/fix.png | $(BUILDDIR)/assets
 
 FORCE:
 .PHONY: FORCE
+
+# Sound (SHA-266). Effects are rendered from the web game's recipes; the two
+# tracks are the web game's own MP3s, mono at 22.05 kHz for ADPCM-B. vromtool
+# packs them all into the V-ROM and writes the offsets sound.s plays them from.
+# 2 x 3:20 of ADPCM-B is 4.4 MB: one 8 MB V-ROM holds it.
+VROMSIZE=8388608
+SFX=wall paddle launch lost clear gameover brick0 brick1 brick2 brick3 brick4
+SFX_WAVS=$(SFX:%=assets/sfx/%.wav)
+MUSIC_WAVS=assets/music/theme.wav assets/music/over.wav
+
+$(SFX_WAVS) &: tools/gen_sounds.py
+	$(PYTHON) tools/gen_sounds.py
+
+assets/music/theme.wav: ../src/audio/shatter-electro-funk-2.mp3
+	mkdir -p assets/music && $(SOX) -V1 $< -c 1 -r 22050 $@ gain -n -1
+assets/music/over.wav: ../src/audio/game-over-2.mp3
+	mkdir -p assets/music && $(SOX) -V1 $< -c 1 -r 22050 $@ gain -n -1
+
+$(BUILDDIR)/assets/samples.inc $(VROM1) &: assets/samples-map.yaml $(SFX_WAVS) $(MUSIC_WAVS) | $(ROM) $(BUILDDIR)/assets
+	$(VROMTOOL) --asm -s $(VROMSIZE) $< -o $(VROM1) -m $(BUILDDIR)/assets/samples.inc
+	$(VROMTOOL) --roms -s $(VROMSIZE) -n 1 $< -o $(ROM)/$(GAMEROM)-vX.vX
+
+$(BUILDDIR)/sound.rel: $(BUILDDIR)/assets/samples.inc

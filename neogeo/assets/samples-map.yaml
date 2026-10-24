@@ -1,0 +1,44 @@
+# Every sample in the V-ROM, placed by vromtool.py, which also writes the
+# offsets (build/assets/samples.inc) the sound driver plays them from.
+# Effects first: an ADPCM-A sample may not cross a 1 MB boundary.
+#
+# Effects come from tools/gen_sounds.py; the two tracks from src/audio/ by sox.
+- adpcm_a:
+    name: wall
+    uri: file://assets/sfx/wall.wav
+- adpcm_a:
+    name: paddle
+    uri: file://assets/sfx/paddle.wav
+- adpcm_a:
+    name: launch
+    uri: file://assets/sfx/launch.wav
+- adpcm_a:
+    name: lost
+    uri: file://assets/sfx/lost.wav
+- adpcm_a:
+    name: clear
+    uri: file://assets/sfx/clear.wav
+- adpcm_a:
+    name: gameover
+    uri: file://assets/sfx/gameover.wav
+- adpcm_a:
+    name: brick0
+    uri: file://assets/sfx/brick0.wav
+- adpcm_a:
+    name: brick1
+    uri: file://assets/sfx/brick1.wav
+- adpcm_a:
+    name: brick2
+    uri: file://assets/sfx/brick2.wav
+- adpcm_a:
+    name: brick3
+    uri: file://assets/sfx/brick3.wav
+- adpcm_a:
+    name: brick4
+    uri: file://assets/sfx/brick4.wav
+- adpcm_b:
+    name: theme
+    uri: file://assets/music/theme.wav
+- adpcm_b:
+    name: over
+    uri: file://assets/music/over.wav
