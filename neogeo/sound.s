@@ -6,7 +6,8 @@
 ;;;
 ;;; Effects are ADPCM-A samples, one channel per kind so a brick never cuts
 ;;; off a paddle bounce: 0 wall, 1 paddle, 2 brick, 3 launch, 4 lost ball,
-;;; 5 jingles. The two tracks are ADPCM-B, looping, at 22.05 kHz.
+;;; 5 jingles. The two tracks are ADPCM-B, looping, at 44.1 kHz: at 22.05
+;;; the codec's grain crackled through the soft game-over track.
 
         .include "helpers.inc"
         .area   CODE
@@ -96,14 +97,14 @@ adpcm_a_'name:
         sample  clear, CLEAR, 5
         sample  gameover, GAMEOVER, 5
 
-        ;; ADPCM-B: start, stop (>> 8), delta-N for 22.05 kHz, pan, volume
+        ;; ADPCM-B: start, stop (>> 8), delta-N for 44.1 kHz, pan, volume
         .macro  track name, upper
 adpcm_b_'name:
         .db     upper'_START_LSB
         .db     upper'_START_MSB
         .db     upper'_STOP_LSB
         .db     upper'_STOP_MSB
-        .dw     0x65b5
+        .dw     0xcb6a
         .db     0xc0
         .db     MUSIC_VOLUME
         .endm

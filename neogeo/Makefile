@@ -54,11 +54,13 @@ EXTRAOPTS=--vsync --p1control=UP=K82,DOWN=K81,LEFT=K80,RIGHT=K79,A=K32,B=K119,C=
 include emu.mk
 
 # How to play it (SHA-265). GnGeo drew about 28 distinct frames a second on
-# this Mac and the ball judders there; MAME paces properly. -syncrefresh runs
-# the 59.19 Hz machine at the display's 60 Hz, 1.4 % fast and never a dropped
-# frame. Keys are MAME's: arrows, Space (button C) or Up serves, Esc quits.
+# this Mac and the ball judders there; MAME paces properly. No -syncrefresh:
+# it throttles to the display instead of the machine's 59.19 Hz, the sound
+# drifts off its clock and crackles (MAME's docs warn of it), and the game-over
+# track's long notes made it plain. -audio_latency gives Bluetooth output room.
+# Keys are MAME's: arrows, Space (button C) or Up serves, Esc quits.
 play: cart bios
-	$(MAME) -w -resolution 960x672 -syncrefresh -waitvsync -noautosave -skip_gameinfo -hash $(ROM) -rp $(ROM) aes -cart $(GAMEROM)
+	$(MAME) -w -resolution 960x672 -waitvsync -audio_latency 3 -noautosave -skip_gameinfo -hash $(ROM) -rp $(ROM) aes -cart $(GAMEROM)
 .PHONY: play
 
 
@@ -69,7 +71,7 @@ play: cart bios
 # 
 # Note: build rules (%.c -> %.o -> %.elf) are defined in Makefile.build
 ELF=$(BUILDDIR)/rom.elf
-$(ELF):	$(BUILDDIR)/main.o
+$(ELF):	$(BUILDDIR)/main.o $(BUILDDIR)/video.o $(BUILDDIR)/sound.o $(BUILDDIR)/wall.o $(BUILDDIR)/deck.o $(BUILDDIR)/eye.o $(BUILDDIR)/hud.o $(BUILDDIR)/sky.o
 $(PROM1): $(ELF)
 
 
@@ -153,10 +155,10 @@ CUSTOM_GENERATE_TARGETS=
 
 # Shatter's art and level, generated from the web game's TypeScript sources.
 GFX=assets/sprites.png assets/fix.png $(BUILDDIR)/gfx.h
-$(GFX) &: tools/gen_assets.py ../src/core/levels/levels.ts ../src/core/config/bricks.ts $(if $(LEVEL),FORCE)
+$(GFX) &: tools/gen_assets.py tools/neo_art.py ../src/core/levels/levels.ts ../src/core/config/bricks.ts $(if $(LEVEL),FORCE)
 	$(PYTHON) tools/gen_assets.py $(LEVEL)
 
-$(BUILDDIR)/main.o: $(BUILDDIR)/gfx.h
+$(BUILDDIR)/main.o $(BUILDDIR)/video.o $(BUILDDIR)/sound.o $(BUILDDIR)/wall.o $(BUILDDIR)/deck.o $(BUILDDIR)/eye.o $(BUILDDIR)/hud.o $(BUILDDIR)/sky.o: $(BUILDDIR)/gfx.h game.h
 
 $(BUILDDIR)/assets/sprites.c1 $(BUILDDIR)/assets/sprites.c2 &: assets/sprites.png | $(BUILDDIR)/assets
 	$(TILETOOL) --sprite -c $< -o $(BUILDDIR)/assets/sprites.c1 $(BUILDDIR)/assets/sprites.c2
@@ -168,10 +170,11 @@ FORCE:
 .PHONY: FORCE
 
 # Sound (SHA-266). Effects are rendered from the web game's recipes; the two
-# tracks are the web game's own MP3s, mono at 22.05 kHz for ADPCM-B. vromtool
+# tracks are the web game's own MP3s, mono at 44.1 kHz for ADPCM-B —
+# at 22.05 the codec's grain crackled through the soft game-over track. vromtool
 # packs them all into the V-ROM and writes the offsets sound.s plays them from.
-# 2 x 3:20 of ADPCM-B is 4.4 MB: one 8 MB V-ROM holds it.
-VROMSIZE=8388608
+# 2 x 3:20 of ADPCM-B is 8.8 MB: one 16 MB V-ROM holds it.
+VROMSIZE=16777216
 SFX=wall paddle launch lost clear gameover brick0 brick1 brick2 brick3 brick4
 SFX_WAVS=$(SFX:%=assets/sfx/%.wav)
 MUSIC_WAVS=assets/music/theme.wav assets/music/over.wav
@@ -180,9 +183,9 @@ $(SFX_WAVS) &: tools/gen_sounds.py
 	$(PYTHON) tools/gen_sounds.py
 
 assets/music/theme.wav: ../src/audio/shatter-electro-funk-2.mp3
-	mkdir -p assets/music && $(SOX) -V1 $< -c 1 -r 22050 $@ gain -n -1
+	mkdir -p assets/music && $(SOX) -V1 $< -c 1 -r 44100 $@ gain -n -1
 assets/music/over.wav: ../src/audio/game-over-2.mp3
-	mkdir -p assets/music && $(SOX) -V1 $< -c 1 -r 22050 $@ gain -n -1
+	mkdir -p assets/music && $(SOX) -V1 $< -c 1 -r 44100 $@ gain -n -1
 
 $(BUILDDIR)/assets/samples.inc $(VROM1) &: assets/samples-map.yaml $(SFX_WAVS) $(MUSIC_WAVS) | $(ROM) $(BUILDDIR)/assets
 	$(VROMTOOL) --asm -s $(VROMSIZE) $< -o $(VROM1) -m $(BUILDDIR)/assets/samples.inc

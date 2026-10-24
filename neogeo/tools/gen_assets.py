@@ -16,12 +16,16 @@ themselves are uploaded by the game at boot. Index 0 is transparent.
 """
 
 import math
-import random
+from dataclasses import dataclass
 import re
 import sys
 from pathlib import Path
 
 from PIL import Image
+
+import neo_art
+import neo_font
+import neo_sky
 
 HERE = Path(__file__).resolve().parent.parent
 SHATTER = HERE.parent
@@ -35,14 +39,35 @@ TILES_PER_ROW = 20
 # Fix palettes 0..15 (the fix layer can only reach the first sixteen).
 PAL_TEXT = 0
 PAL_WALL = 1
-PAL_BRICK0 = 2
+# The HUD's lettering: one font, a face and a shadow, coloured per role after
+# the web game's tokens (css/tokens/colors.css).
+HUD_INK = "#0d0d24"  # --color-inset
+HUD_PALETTES = {
+    "LABEL": ("#7a7c90", HUD_INK),    # --color-panel-divider: the panel's labels
+    "SCORE": ("#ffcf1c", HUD_INK),    # --color-yellow
+    "LEVEL": ("#f07d10", HUD_INK),    # --color-orange: the level's name
+    "LIFE": ("#2d7fe0", HUD_INK),     # --color-blue: the reserve bars
+    "OVER": ("#e8384f", "#55000f"),   # --color-red on --color-red-shadow
+    "CLEAR": ("#ffffff", "#155c1f"),  # the level's name on --color-green-shadow
+    "HEAD": ("#3fbf4f", HUD_INK),     # --color-green: GRID CLEARED
+    "HINT": ("#8fd0ff", HUD_INK),     # --color-sky: the blinking prompts
+    "WHITE": ("#ffffff", HUD_INK),    # --color-white: the final score
+    "RULE": ("#2d7fe0", HUD_INK),     # --color-blue: the clear card's divider
+}
+PAL_HUD0 = 2
 # Sprite palettes.
 PAL_BG0 = 16
 PAL_FG0 = 30
 PAL_PADDLE = 40
 PAL_BALL = 41
 PAL_EYE = 42
-PAL_SHARD0 = 48
+PAL_PADDLE_GHOST = 43  # and 44: the deck's trail
+# Bricks are sprites since the look pass: per kind, its damage stages, then a
+# white flash, then the wall's sweeping shine for the first three stages.
+PAL_BRICKS = 64
+BRICK_PAL_STRIDE = 8
+BRICK_FLASH = 4
+BRICK_SHINE = 5
 
 
 def hex_rgb(value):
@@ -61,12 +86,28 @@ def ng_color(rgb):
 # --- the web game's data -----------------------------------------------------
 
 def read_bricks():
+    """The roster, one row per brick: tones, wear ramp, granite's grain, rivets."""
     text = (SHATTER / "src/core/config/bricks.ts").read_text()
     kinds = []
-    pattern = r'\{ id: "(.)", points: (\d+), hitPoints: (\d+).*?light: "(#\w+)", flat: "(#\w+)", dark: "(#\w+)"'
-    for match in re.finditer(pattern, text):
-        kid, points, hits, light, flat, dark = match.groups()
-        kinds.append({"id": kid, "points": int(points), "hits": int(hits), "tones": (light, flat, dark)})
+    for line in text.splitlines():
+        head = re.search(r'\{ id: "(.)", points: (\d+), hitPoints: (\d+)', line)
+        if not head:
+            continue
+        tone = lambda name: re.search(name + r': "(#\w+)"', line).group(1)
+        wear = re.search(r"wear: \[(.*?)\]", line).group(1)
+        grain = re.search(r'grain: \{ count: (\d+), pitsPerHit: (\d+), pit: "(#\w+)" \}', line)
+        kinds.append({
+            "id": head.group(1),
+            "points": int(head.group(2)),
+            "hits": int(head.group(3)),
+            "light": tone("light"),
+            "flat": tone("flat"),
+            "dark": tone("dark"),
+            "tones": (tone("light"), tone("flat"), tone("dark")),
+            "wear": re.findall(r'"(#\w+)"', wear),
+            "grain": grain and {"count": int(grain.group(1)), "pitsPerHit": int(grain.group(2)), "pit": grain.group(3)},
+            "rivets": "rivets: true" in line,
+        })
     return kinds
 
 
@@ -80,58 +121,7 @@ def read_level(name):
 
 # --- sprite sheet --------------------------------------------------------------
 
-HORIZON = int(SCREEN_H * 0.6)
-# The foreground strip: the ground and the dunes, drawn in front of the eye so
-# it sets behind the hills (SHA-267). From the tallest dune's top down.
-FG_TOP = 112
-CLEAR = (255, 0, 255)
-
-
-def paint_background():
-    """SUNRISE's horizon theme, redrawn at 320x224: the dark sky stepping into
-    the glow, the ground at sixty percent and two shallow dunes. Returns the sky
-    and, separately, the ground and dunes from FG_TOP down, CLEAR elsewhere."""
-    colors = {
-        "base": "#061019", "sky1": "#08161f", "sky2": "#0b1b26", "sky3": "#0e202c",
-        "glow": "#112733", "ground": "#040c12", "dune": "#020809", "star": "#2a4a5c",
-    }
-    c = {k: hex_rgb(v) for k, v in colors.items()}
-    img = Image.new("RGB", (SCREEN_W, SCREEN_H), c["base"])
-    px = img.load()
-    horizon = int(SCREEN_H * 0.6)
-    stops = [(horizon - 110, c["base"]), (horizon - 70, c["sky1"]), (horizon - 50, c["sky2"]),
-             (horizon - 30, c["sky3"]), (horizon - 12, c["glow"]), (horizon, c["glow"])]
-    bayer = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
-    for y in range(horizon):
-        for i in range(len(stops) - 1):
-            (y0, a), (y1, b) = stops[i], stops[i + 1]
-            if y0 <= y < y1:
-                t = (y - y0) / max(1, y1 - y0)
-                for x in range(SCREEN_W):
-                    px[x, y] = b if t * 16 > bayer[y % 4][x % 4] + 0.5 else a
-    rng = random.Random(7)
-    for _ in range(26):
-        x, y = rng.randrange(SCREEN_W), rng.randrange(24, horizon - 40)
-        px[x, y] = c["star"]
-    for y in range(horizon, SCREEN_H):
-        for x in range(SCREEN_W):
-            px[x, y] = c["ground"]
-    for fx, radius, rise in ((0.3, 90, 14), (0.72, 120, 20)):
-        dx = fx * SCREEN_W
-        dy = horizon + radius - rise
-        for y in range(horizon - rise, horizon + 2):
-            for x in range(SCREEN_W):
-                if math.hypot(x - dx, y - dy) <= radius:
-                    px[x, y] = c["dune"]
-    for x in range(SCREEN_W):
-        px[x, horizon - 1] = c["glow"] if px[x, horizon - 1] != c["dune"] else c["dune"]
-    front = Image.new("RGB", (SCREEN_W, SCREEN_H - FG_TOP), CLEAR)
-    fpx = front.load()
-    for y in range(FG_TOP, SCREEN_H):
-        for x in range(SCREEN_W):
-            if y >= horizon or px[x, y] == c["dune"]:
-                fpx[x, y - FG_TOP] = px[x, y]
-    return img, front
+HORIZON, FG_TOP, CLEAR = neo_sky.HORIZON, neo_sky.FG_TOP, neo_sky.CLEAR
 
 
 def quantize_rows(img, palette_base):
@@ -247,6 +237,39 @@ def paint_iris():
     return img
 
 
+# The iris's reach, as eyePupilPoint bounds it: the almond's half-width less
+# the iris and four, and the lid less the iris and one.
+IRIS_REACH_X = EYE_HW - round(EYE_HH * 0.8) - 4
+IRIS_REACH_Y = EYE_HH - round(EYE_HH * 0.8) - 1
+
+
+def iris_variants():
+    """The iris clipped to the almond at every offset it can look to.
+
+    The web game lets the iris travel the whole box above and clips it to the
+    lid. A Neo-Geo sprite cannot be clipped and its tiles are in ROM, so every
+    offset is drawn here already clipped — the iris kept only over the white,
+    under the lid's edge — and the game swaps the iris's 25 tiles as it moves.
+    Returns {offset: picture number} and the pictures, each 25 tiles."""
+    almond, iris = paint_almond(), paint_iris()
+    inside = {EYE_SLOTS["sclera"], EYE_SLOTS["scleraShade"]}
+    mask = almond.point(lambda v: 255 if v in inside else 0, "L")
+    half, size = IRIS_SIZE // 2, IRIS_SIZE
+    blank = Image.new("P", iris.size, 0)
+    offsets, pictures, seen = {}, [], {}
+    for dy in range(-IRIS_REACH_Y, IRIS_REACH_Y + 1):
+        for dx in range(-IRIS_REACH_X, IRIS_REACH_X + 1):
+            ox, oy = EYE_CX + dx - half, EYE_CY + dy - half
+            clipped = Image.composite(iris, blank, mask.crop((ox, oy, ox + size, oy + size)))
+            tiles = tuple(clipped.crop((x * 16, y * 16, x * 16 + 16, y * 16 + 16)) for y in range(size // 16) for x in range(size // 16))
+            key = b"".join(t.tobytes() for t in tiles)
+            if key not in seen:
+                seen[key] = len(pictures)
+                pictures.append(tiles)
+            offsets[(dx, dy)] = seen[key]
+    return offsets, pictures
+
+
 def eye_fades():
     """The eye's palette at EYE_FADE_STEPS opacities, mixed toward the sky."""
     back = hex_rgb(EYE_FADE_TO)
@@ -265,46 +288,78 @@ def paint_sheet(kinds):
     bg_rows, fg_rows = SCREEN_H // 16, (SCREEN_H - FG_TOP) // 16
     misc_row = bg_rows + fg_rows
     eye_row = misc_row + 1
-    rows = eye_row + EYE_H // 16
+    sky, front = neo_sky.paint_background()
+    indexed, palettes = neo_sky.index_sky([sky] + neo_sky.dial_frames(sky, front), PAL_BG0)
+    cells, pictures = neo_sky.dial_cells(indexed)
+    # The dial's cells at every step, each distinct picture once, in rows of
+    # their own under the bricks.
+    unique = {}
+    for step in pictures:
+        for picture in step:
+            unique.setdefault(picture.tobytes(), picture)
+    # A row for the bursts, then the bricks' two, then the dial's steps.
+    burst_row = eye_row + EYE_H // 16
+    dial_row = burst_row + 3
+    iris_offsets, iris_pictures = iris_variants()
+    iris_unique = {}
+    for picture in iris_pictures:
+        for tile in picture:
+            iris_unique.setdefault(tile.tobytes(), tile)
+    iris_row = dial_row + -(-len(unique) // TILES_PER_ROW)
+    rows = iris_row + -(-len(iris_unique) // TILES_PER_ROW)
     sheet = Image.new("P", (TILES_PER_ROW * 16, rows * 16), 0)
-    sky, front = paint_background()
-    bg, palettes = quantize_rows(sky, PAL_BG0)
-    sheet.paste(bg, (0, 0))
+    sheet.paste(indexed[0], (0, 0))
+    dial_tile = {}
+    for i, (key, picture) in enumerate(unique.items()):
+        x, y = (i % TILES_PER_ROW) * 16, (dial_row + i // TILES_PER_ROW) * 16
+        sheet.paste(picture, (x, y))
+        dial_tile[key] = SPRITE_TILE_BASE + (y // 16) * TILES_PER_ROW + x // 16
+    dial = (cells, [[dial_tile[p.tobytes()] for p in step] for step in pictures])
+    iris_tile = {}
+    for i, (key, tile) in enumerate(iris_unique.items()):
+        x, y = (i % TILES_PER_ROW) * 16, (iris_row + i // TILES_PER_ROW) * 16
+        sheet.paste(tile, (x, y))
+        iris_tile[key] = SPRITE_TILE_BASE + (y // 16) * TILES_PER_ROW + x // 16
+    iris = (iris_offsets, [[iris_tile[t.tobytes()] for t in picture] for picture in iris_pictures])
+    assert SPRITE_TILE_BASE + rows * TILES_PER_ROW < 65536, "the sheet outgrew 16-bit tile numbers"
     fg, fg_palettes = quantize_rows(front, PAL_FG0)
     sheet.paste(fg, (0, bg_rows * 16))
     palettes += fg_palettes
     sheet.paste(paint_almond(), (0, eye_row * 16))
     sheet.paste(paint_iris(), (EYE_W, eye_row * 16))
     y0 = misc_row * 16
-    # The paddle: 46 px in the web game, 36 here — blue deck, red caps, sheen
-    # along the top and shade along the bottom (palette slots 1..4).
-    paddle_w, paddle_h = 36, 6
-    for x in range(paddle_w):
-        for y in range(paddle_h):
-            cap = x < 4 or x >= paddle_w - 4
-            if y == 0:
-                v = 3
-            elif y == paddle_h - 1:
-                v = 4
-            else:
-                v = 2 if cap else 1
-            if (x in (0, paddle_w - 1)) and y in (0, paddle_h - 1):
-                v = 0
-            sheet.putpixel((x, y0 + y), v)
-    palettes.append((PAL_PADDLE, [None, hex_rgb("#2d7fe0"), hex_rgb("#e8384f"), hex_rgb("#a8d8ff"), hex_rgb("#0b3a78")]))
-    # The ball: 8 px there, 6 here, the same yellow with its highlight and shade.
-    ball = ["..11..", ".2111.", "121111", "111113", ".1113.", "..33.."]
-    for y, line in enumerate(ball):
-        for x, ch in enumerate(line):
-            if ch != ".":
-                sheet.putpixel((48 + x, y0 + y), int(ch))
-    palettes.append((PAL_BALL, [None, hex_rgb("#ffe14a"), hex_rgb("#fff9d0"), hex_rgb("#c98f0a")]))
-    # A shard: what a dead brick throws, three pixels of its own tones.
-    for y, line in enumerate(["12", "23"]):
-        for x, ch in enumerate(line):
-            sheet.putpixel((64 + x, y0 + y), int(ch))
-    for i, kind in enumerate(kinds):
-        palettes.append((PAL_SHARD0 + i, [None] + [hex_rgb(t) for t in kind["tones"]]))
+    paddle, paddle_tones = neo_art.paint_paddle()
+    sheet.paste(paddle, (0, y0))
+    palettes.append((PAL_PADDLE, [None] + paddle_tones))
+    ball, ball_tones = neo_art.paint_ball()
+    sheet.paste(ball, (48, y0))
+    palettes.append((PAL_BALL, [None] + ball_tones))
+    sheet.paste(neo_art.paint_shards(), (64, y0))
+    sheet.paste(neo_art.paint_burst(), (0, burst_row * 16))
+    # The deck's trail: itself again, sinking into the dark behind it.
+    dusk = hex_rgb("#061019")
+    for i, t in enumerate((0.55, 0.78)):
+        palettes.append((PAL_PADDLE_GHOST + i, [None] + [neo_art.mix(c, dusk, t) for c in paddle_tones]))
+    # Every brick kind at every damage stage: a tile pair each, and a palette.
+    brick_tiles = []
+    variant = 0
+    brick_row = dial_row - 2
+    for k, kind in enumerate(kinds):
+        stages = []
+        for stage in range(kind["hits"]):
+            img, tones = neo_art.paint_brick(kind, stage)
+            x, y = (variant % 10) * 32, (brick_row + variant // 10) * 16
+            sheet.paste(img, (x, y))
+            stages.append(SPRITE_TILE_BASE + (y // 16) * TILES_PER_ROW + x // 16)
+            variant += 1
+            base = PAL_BRICKS + k * BRICK_PAL_STRIDE
+            palettes.append((base + stage, [None] + tones))
+            if stage < 3:
+                palettes.append((base + BRICK_SHINE + stage, [None] + [neo_art.mix(c, neo_art.WHITE, 0.4) for c in tones]))
+            if stage == 0:
+                palettes.append((base + BRICK_FLASH, [None] + [neo_art.mix(c, neo_art.WHITE, 0.75) for c in tones]))
+        brick_tiles.append(stages)
+    assert variant <= 20, "brick variants overflow their two sheet rows"
     tiles = {
         "BG": SPRITE_TILE_BASE,
         "FG": SPRITE_TILE_BASE + bg_rows * TILES_PER_ROW,
@@ -313,54 +368,119 @@ def paint_sheet(kinds):
         "PADDLE": SPRITE_TILE_BASE + (y0 // 16) * TILES_PER_ROW,
         "BALL": SPRITE_TILE_BASE + (y0 // 16) * TILES_PER_ROW + 3,
         "SHARD": SPRITE_TILE_BASE + (y0 // 16) * TILES_PER_ROW + 4,
+        "BURST": SPRITE_TILE_BASE + burst_row * TILES_PER_ROW,
     }
-    return sheet, palettes, tiles
+    return sheet, palettes, tiles, brick_tiles, paddle_tones, (dial, iris)
 
 
 # --- fix tiles -------------------------------------------------------------------
 
+# The web game's HD rail (FRAME_RAILS in src/render/palette.ts), outer edge
+# inward, one tone a pixel across the fix tile's eight: its two held
+# wallLight pixels are one here. Then the rivet's catch of light.
+RAIL_TONES = ["#6f7aa8", "#eef2ff", "#dbe4ff", "#c9d2f2", "#b4bee6", "#a0aad6", "#8f9ac8", "#5c6690"]
+RIVET_LIGHT = len(RAIL_TONES) + 1
+RIVET_BODY = len(RAIL_TONES)       # the rail's innermost tone, as on the web
+RIVET_DARK = len(RAIL_TONES) - 1   # the wall's shade
+
+# Rivets, as (tile, orientation, along): a 3 px head across the rail's middle
+# tones, `along` pixels into the tile down (or across) the run. It may start
+# outside the tile — the top rail's middle rivet straddles two.
+RAIL_TILES = {
+    "WALL_L": ("L", None), "WALL_R": ("R", None), "WALL_T": ("T", None),
+    "CORNER_L": ("CL", None), "CORNER_R": ("CR", None),
+    "RIVET_L2": ("L", 2), "RIVET_L4": ("L", 4), "RIVET_R2": ("R", 2), "RIVET_R4": ("R", 4),
+    "RIVET_T2": ("T", 2), "RIVET_T3": ("T", 3), "RIVET_T6": ("T", 6), "RIVET_TM2": ("T", -2),
+}
+
+
+def rail_index(orientation, x, y):
+    """How far in from the rail's outer edge (x, y) is; the corners mitre."""
+    return {"L": x, "R": 7 - x, "T": y, "CL": min(x, y), "CR": min(7 - x, y)}[orientation]
+
+
 def paint_fix(kinds):
+    """The fix sheet: the rail, the HUD's lettering, a reserve bar and a rule.
+
+    Returns the sheet, its palettes and {name: first tile} for the header."""
     fix = Image.new("P", (2048, 8), 0)
-    # A brick is three fix tiles, 24x8, with a pixel of mortar right and below:
-    # sheen top and left (1), body (2), shade bottom and right (3).
-    for x in range(23):
-        for y in range(7):
-            v = 2
-            if y == 0 or x == 0:
-                v = 1
-            if y == 6 or x == 22:
-                v = 3
-            fix.putpixel((x, y), v)
-    # Walls: steel, lit from the field side.
-    def wall(tile, painter):
-        for x in range(8):
-            for y in range(8):
-                fix.putpixel((tile * 8 + x, y), painter(x, y))
-    wall(3, lambda x, y: 3 if x < 2 else (1 if x == 6 else (4 if x == 7 else 2)))
-    wall(4, lambda x, y: 3 if x > 5 else (1 if x == 1 else (4 if x == 0 else 2)))
-    wall(5, lambda x, y: 3 if y < 2 else (1 if y == 6 else (4 if y == 7 else 2)))
-    wall(6, lambda x, y: 3 if (x < 2 or y < 2) else (4 if (x == 7 or y == 7) else 2))
-    wall(7, lambda x, y: 3 if (x > 5 or y < 2) else (4 if (x == 0 or y == 7) else 2))
-    palettes = [(PAL_WALL, [None, hex_rgb("#c8d2e6"), hex_rgb("#7d8aa6"), hex_rgb("#3c4660"), hex_rgb("#1a2030")])]
-    for i, kind in enumerate(kinds):
-        palettes.append((PAL_BRICK0 + i, [None] + [hex_rgb(t) for t in kind["tones"]]))
-    return fix, palettes
+    names = {}
+    tile = 3
+
+    def put(cells):
+        nonlocal tile
+        for (x, y), color in cells.items():
+            fix.putpixel((tile * 8 + x, y), color)
+        tile += 1
+
+    for name, (orientation, along) in RAIL_TILES.items():
+        cells = {(x, y): rail_index(orientation, x, y) + 1 for x in range(8) for y in range(8)}
+        if along is not None:
+            across = [3, 4, 5] if orientation != "R" else [4, 3, 2]
+            run = range(along, along + 3)
+            head = [(u, a) if orientation == "T" else (a, u) for u in run for a in across]
+            # Lit from the upper left of the whole head, wherever the tile cuts it.
+            light = (min(x for x, _ in head), min(y for _, y in head))
+            dark = (max(x for x, _ in head), max(y for _, y in head))
+            for x, y in head:
+                if 0 <= x < 8 and 0 <= y < 8:
+                    cells[(x, y)] = RIVET_LIGHT if (x, y) == light else RIVET_DARK if (x, y) == dark else RIVET_BODY
+        names[name] = tile
+        put(cells)
+
+    for name, glyphs in neo_font.glyph_tiles():
+        names[name] = tile
+        for cells in glyphs:
+            put(cells)
+
+    # A reserve life: the web panel's 16x5 bar, here 14x5 across two tiles with
+    # a pixel of shadow under and right, so two bars stand 2 px apart.
+    bar = {(x, y): neo_font.FACE for x in range(1, 15) for y in range(2, 7)}
+    bar = {**{(x + 1, y + 1): neo_font.SHADOW for x, y in bar}, **bar}
+    names["LIFE"] = tile
+    for ox in (0, 8):
+        put({(x - ox, y): v for (x, y), v in bar.items() if 0 <= x - ox < 8 and y < 8})
+
+    # The cards' divider: a 1 px rule through the middle of the tile.
+    names["RULE"] = tile
+    put({(x, 3): neo_font.FACE for x in range(8)})
+
+    palettes = [(PAL_WALL, [None] + [hex_rgb(t) for t in RAIL_TONES] + [hex_rgb("#f4f7ff")])]
+    for slot, (face, shadow) in enumerate(HUD_PALETTES.values()):
+        palettes.append((PAL_HUD0 + slot, [None, hex_rgb(face), hex_rgb(shadow)]))
+    return fix, palettes, names
 
 
 # --- header ----------------------------------------------------------------------
 
-def write_header(path, palettes, sprite_tiles, kinds, rows):
+@dataclass
+class Art:
+    """Everything the header publishes: the drawn sheets' tiles and palettes,
+    the brick roster and the level."""
+
+    palettes: list
+    sprite_tiles: dict
+    fix_tiles: dict
+    kinds: list
+    rows: list
+    brick_tiles: list
+    paddle_tones: list
+    dial: tuple  # the cells the dial crosses, and each step's tile for each
+    iris: tuple  # {offset: picture}, and each picture's 25 tiles
+
+
+def write_header(path, art):
+    palettes, sprite_tiles, fix_tiles = art.palettes, art.sprite_tiles, art.fix_tiles
+    kinds, rows, brick_tiles, paddle_tones = art.kinds, art.rows, art.brick_tiles, art.paddle_tones
     ids = {k["id"]: i for i, k in enumerate(kinds)}
     lines = ["// Generated by tools/gen_assets.py — do not edit.", "#pragma once", ""]
     lines.append(f'#define LEVEL_NAME "{LEVEL}"')
     for name, value in sprite_tiles.items():
         lines.append(f"#define TILE_{name} {value}")
-    lines.append(f"#define FIX_BRICK {FIX_TILE_BASE}")
-    lines.append(f"#define FIX_WALL_L {FIX_TILE_BASE + 3}")
-    lines.append(f"#define FIX_WALL_R {FIX_TILE_BASE + 4}")
-    lines.append(f"#define FIX_WALL_T {FIX_TILE_BASE + 5}")
-    lines.append(f"#define FIX_CORNER_L {FIX_TILE_BASE + 6}")
-    lines.append(f"#define FIX_CORNER_R {FIX_TILE_BASE + 7}")
+    for name, tile in fix_tiles.items():
+        lines.append(f"#define FIX_{name} {FIX_TILE_BASE + tile}")
+    for slot, name in enumerate(HUD_PALETTES):
+        lines.append(f"#define PAL_HUD_{name} {PAL_HUD0 + slot}")
     lines.append(f"#define BG_ROWS {SCREEN_H // 16}")
     lines.append(f"#define FG_ROWS {(SCREEN_H - FG_TOP) // 16}")
     lines.append(f"#define FG_TOP {FG_TOP}")
@@ -375,16 +495,16 @@ def write_header(path, palettes, sprite_tiles, kinds, rows):
     lines.append(f"#define IRIS_TILES {IRIS_SIZE // 16}")
     lines.append(f"#define IRIS_HALF {IRIS_SIZE // 2}")
     lines.append(f"#define IRIS_RADIUS {round(EYE_HH * 0.8)}")
+    lines.append(f"#define IRIS_REACH_X {IRIS_REACH_X}")
+    lines.append(f"#define IRIS_REACH_Y {IRIS_REACH_Y}")
     lines.append(f"#define PAL_EYE {PAL_EYE}")
     lines.append(f"#define PAL_FG0 {PAL_FG0}")
     lines.append(f"#define EYE_FADE_STEPS {EYE_FADE_STEPS}")
     lines.append(f"#define PAL_TEXT {PAL_TEXT}")
     lines.append(f"#define PAL_WALL {PAL_WALL}")
-    lines.append(f"#define PAL_BRICK0 {PAL_BRICK0}")
     lines.append(f"#define PAL_BG0 {PAL_BG0}")
     lines.append(f"#define PAL_PADDLE {PAL_PADDLE}")
     lines.append(f"#define PAL_BALL {PAL_BALL}")
-    lines.append(f"#define PAL_SHARD0 {PAL_SHARD0}")
     lines.append(f"#define BRICK_KINDS {len(kinds)}")
     lines.append(f"#define LEVEL_ROWS {len(rows)}")
     lines.append(f"#define LEVEL_COLS {len(rows[0])}")
@@ -402,6 +522,80 @@ def write_header(path, palettes, sprite_tiles, kinds, rows):
     for row in eye_fades():
         words = [0x8000 if c is None else ng_color(c) for c in row] + [0] * (16 - len(row))
         lines.append("  {%s}," % ", ".join(f"0x{w:04x}" for w in words))
+    lines.append("};")
+    lines.append("")
+    cells, steps = art.dial
+    lines.append("// The zodiac dial: the sky's cells it crosses, and their tiles at each")
+    lines.append("// step of its turn; a step every DIAL_HOLD frames, one turn a minute.")
+    lines.append(f"#define DIAL_CELLS {len(cells)}")
+    lines.append(f"#define DIAL_STEPS {neo_sky.DIAL_STEPS}")
+    lines.append(f"#define DIAL_HOLD {neo_sky.DIAL_HOLD}")
+    lines.append("static const u8 DIAL_AT[DIAL_CELLS][2] = {%s};" % ", ".join("{%d, %d}" % cell for cell in cells))
+    lines.append("static const u16 DIAL_TILE[DIAL_STEPS][DIAL_CELLS] = {")
+    for step in steps:
+        lines.append("  {%s}," % ", ".join(str(t) for t in step))
+    lines.append("};")
+    lines.append("")
+    offsets, pictures = art.iris
+    lines.append("// The iris clipped to the almond: which picture each offset from the")
+    lines.append("// socket's centre wears, and each picture's tiles, row by row.")
+    lines.append(f"#define IRIS_PICTURES {len(pictures)}")
+    lines.append("static const u16 IRIS_AT[2 * IRIS_REACH_Y + 1][2 * IRIS_REACH_X + 1] = {")
+    for dy in range(-IRIS_REACH_Y, IRIS_REACH_Y + 1):
+        lines.append("  {%s}," % ", ".join(str(offsets[(dx, dy)]) for dx in range(-IRIS_REACH_X, IRIS_REACH_X + 1)))
+    lines.append("};")
+    lines.append("static const u16 IRIS_PICTURE[IRIS_PICTURES][IRIS_TILES * IRIS_TILES] = {")
+    for picture in pictures:
+        lines.append("  {%s}," % ", ".join(str(t) for t in picture))
+    lines.append("};")
+    lines.append("")
+    lines.append("// The twinkle: each star group's palette slot through its cycle.")
+    lines.append(f"#define STAR_SLOT {neo_sky.STAR_SLOT}")
+    lines.append(f"#define STAR_GROUPS {neo_sky.STAR_GROUPS}")
+    lines.append(f"#define STAR_BANDS {HORIZON // 16 + 1}")
+    lines.append(f"#define TWINKLE_STEPS {neo_sky.TWINKLE_STEPS}")
+    lines.append("static const u16 TWINKLE_PHASE[STAR_GROUPS] = {%s};" % ", ".join(str(p) for p in neo_sky.TWINKLE_PHASES))
+    lines.append("static const u16 TWINKLE[TWINKLE_STEPS] = {%s};" % ", ".join(f"0x{ng_color(c):04x}" for c in neo_sky.twinkle()))
+    lines.append("")
+    lines.append(f"#define PAL_BRICKS {PAL_BRICKS}")
+    lines.append(f"#define BRICK_PAL_STRIDE {BRICK_PAL_STRIDE}")
+    lines.append(f"#define BRICK_FLASH {BRICK_FLASH}")
+    lines.append(f"#define BRICK_SHINE {BRICK_SHINE}")
+    lines.append(f"#define PAL_PADDLE_GHOST {PAL_PADDLE_GHOST}")
+    lines.append(f"#define PADDLE_W {neo_art.PADDLE_W}")
+    lines.append(f"#define PADDLE_H {neo_art.PADDLE_H}")
+    lines.append(f"#define BALL {neo_art.BALL_SIZE}")
+    lines.append(f"#define CELL_W {neo_art.CELL_W}")
+    lines.append(f"#define CELL_H {neo_art.CELL_H}")
+    lines.append("// Directions a chip is flung in: sixteen round the circle, x and y x128.")
+    lines.append("#define CHIP_HEADINGS 16")
+    headings = [(round(math.cos(a) * 128), round(math.sin(a) * 128)) for a in (i / 16 * 2 * math.pi for i in range(16))]
+    lines.append("static const s16 CHIP_HEADING[CHIP_HEADINGS][2] = {%s};" % ", ".join("{%d, %d}" % h for h in headings))
+    lines.append(f"#define BURST_FRAMES {neo_art.BURST_FRAMES}")
+    lines.append(f"#define BURST_HOLD {neo_art.BURST_HOLD}")
+    lines.append(f"#define BURST_FLASH_FRAMES {neo_art.BURST_FLASH_FRAMES}")
+    lines.append("// Each kind's tile pair per damage stage.")
+    lines.append(f"static const u16 BRICK_TILE[{len(kinds)}][4] = {{")
+    for stages in brick_tiles:
+        lines.append("  {%s}," % ", ".join(str(t) for t in (stages + [stages[-1]] * 4)[:4]))
+    lines.append("};")
+    # The deck's palette per hit flash (4) and cap glow (8): a hit blows the
+    # whole deck toward white and lets go over a few frames; the caps breathe.
+    cap_names = ("capLight", "cap", "capDark")
+    lines.append("static const u16 PADDLE_PAL[4][8][16] = {")
+    for flash in range(4):
+        lines.append("  {")
+        for glow in range(8):
+            g = (1 - math.cos(glow / 8 * 2 * math.pi)) / 2 * 0.28
+            tones = []
+            for name, c in zip(neo_art.PADDLE_SLOTS, paddle_tones):
+                if name in cap_names:
+                    c = neo_art.mix(c, neo_art.WHITE, g)
+                tones.append(neo_art.mix(c, neo_art.WHITE, flash * 0.22))
+            words = [0x8000] + [ng_color(c) for c in tones]
+            words += [0] * (16 - len(words))
+            lines.append("    {%s}," % ", ".join(f"0x{w:04x}" for w in words))
+        lines.append("  },")
     lines.append("};")
     lines.append("")
     lines.append("// Per kind: points, hit points.")
@@ -438,15 +632,16 @@ def write_header(path, palettes, sprite_tiles, kinds, rows):
 def main():
     kinds = read_bricks()
     rows = read_level(LEVEL)
-    sheet, sprite_palettes, sprite_tiles = paint_sheet(kinds)
-    fix, fix_palettes = paint_fix(kinds)
+    sheet, sprite_palettes, sprite_tiles, brick_tiles, paddle_tones, (dial, iris) = paint_sheet(kinds)
+    fix, fix_palettes, fix_tiles = paint_fix(kinds)
     (HERE / "assets").mkdir(exist_ok=True)
     (HERE / "build").mkdir(exist_ok=True)
     sheet.putpalette([0, 0, 0] + [255, 255, 255] * 255)
     fix.putpalette([0, 0, 0] + [255, 255, 255] * 255)
     sheet.save(HERE / "assets/sprites.png")
     fix.save(HERE / "assets/fix.png")
-    write_header(HERE / "build/gfx.h", fix_palettes + sprite_palettes, sprite_tiles, kinds, rows)
+    art = Art(fix_palettes + sprite_palettes, sprite_tiles, fix_tiles, kinds, rows, brick_tiles, paddle_tones, dial, iris)
+    write_header(HERE / "build/gfx.h", art)
     print(f"{LEVEL}: {len(rows)}x{len(rows[0])} bricks, {len(kinds)} kinds")
 
 
