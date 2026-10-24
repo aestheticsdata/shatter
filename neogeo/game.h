@@ -27,10 +27,11 @@
 #define PADDLE_Y 204
 #define PADDLE_SPEED 4
 
-// Sprite slots, drawn in index order: the sky first, shards last. The bricks sit
+// Sprite slots, drawn in index order: the sky and its dial first, shards last. The bricks sit
 // in front of the eye — it is behind the wall — and behind the deck and ball.
 #define SPR_BG 1
-#define SPR_EYE 21
+#define SPR_DIAL 21
+#define SPR_EYE (SPR_DIAL + DIAL_COLS)
 #define SPR_IRIS (SPR_EYE + EYE_COLS)
 #define SPR_FG (SPR_IRIS + IRIS_TILES)
 #define SPR_BRICKS (SPR_FG + 20)
@@ -119,6 +120,7 @@ void flush_sound(void);
 
 // --- the sky (sky.c) ----------------------------------------------------------------
 void setup_sky(void);
+void reset_sky(void);
 void step_sky(void);
 
 // --- the HUD's lettering (hud.c) ---------------------------------------------------

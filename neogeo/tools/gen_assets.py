@@ -61,6 +61,7 @@ PAL_HUD0 = 2
 # Sprite palettes.
 PAL_BG0 = 16
 PAL_FG0 = 30
+PAL_DIAL = 37
 PAL_PADDLE = 40
 PAL_BALL = 41
 PAL_EYE = 42
@@ -135,8 +136,10 @@ CAPSULES = read_capsules(["E", "M"])
 
 
 def read_levels():
-    """Every level, in order, as tools/dump_levels.ts reads levels.ts."""
-    return json.loads((HERE / "build/levels.json").read_text())
+    """Every level, in order, as tools/dump_levels.ts reads levels.ts, and the
+    themes' tones from backgrounds.ts."""
+    dump = json.loads((HERE / "build/levels.json").read_text())
+    return dump["levels"], dump["themes"]
 
 
 # The web field is 372x300 and this screen 320x224; an eye's size scales by
@@ -167,33 +170,7 @@ def eye_spec(eye):
 
 # --- sprite sheet --------------------------------------------------------------
 
-HORIZON, FG_TOP, CLEAR = neo_sky.HORIZON, neo_sky.FG_TOP, neo_sky.CLEAR
-
-
-def quantize_rows(img, palette_base):
-    """Each 16-pixel band of the background gets its own fifteen colours.
-    CLEAR pixels become index 0, transparent."""
-    out = Image.new("P", img.size, 0)
-    palettes = []
-    for row in range(img.height // 16):
-        band = img.crop((0, row * 16, img.width, row * 16 + 16))
-        colors = sorted({band.getpixel((x, y)) for x in range(band.width) for y in range(band.height)} - {CLEAR})
-        if len(colors) > 15:
-            q = band.quantize(colors=15)
-            pal = q.getpalette()[: 15 * 3]
-            colors = [tuple(pal[i : i + 3]) for i in range(0, 45, 3)]
-            index = {}
-            for y in range(16):
-                for x in range(img.width):
-                    out.putpixel((x, row * 16 + y), q.getpixel((x, y)) + 1)
-        else:
-            index = {color: i + 1 for i, color in enumerate(colors)}
-            index[CLEAR] = 0
-            for y in range(16):
-                for x in range(img.width):
-                    out.putpixel((x, row * 16 + y), index[band.getpixel((x, y))])
-        palettes.append((palette_base + row, [None] + colors))
-    return out, palettes
+FG_TOP = neo_sky.FG_TOP
 
 
 # THE OBSERVER (SHA-267): SUNRISE's eye, the web game's socket scaled by 0.73
@@ -207,8 +184,6 @@ EYE_TONES = {
     "iris": "#2d7fe0", "irisEdge": "#1d47a8", "irisInner": "#63b0ff", "pupil": "#05050f", "glint": "#ffffff",
 }
 EYE_SLOTS = {name: i + 1 for i, name in enumerate(EYE_TONES)}
-# What a faint eye fades toward: the sky behind it, at the glow band.
-EYE_FADE_TO = "#0b1b26"
 EYE_FADE_STEPS = 16
 
 
@@ -316,9 +291,9 @@ def iris_variants():
     return offsets, pictures
 
 
-def eye_fades():
-    """The eye's palette at EYE_FADE_STEPS opacities, mixed toward the sky."""
-    back = hex_rgb(EYE_FADE_TO)
+def eye_fades(base):
+    """The eye's palette at EYE_FADE_STEPS opacities, mixed toward a theme's sky."""
+    back = hex_rgb(base)
     steps = []
     for step in range(EYE_FADE_STEPS):
         a = step / (EYE_FADE_STEPS - 1)
@@ -330,52 +305,82 @@ def eye_fades():
     return steps
 
 
-def paint_sheet(kinds):
-    bg_rows, fg_rows = SCREEN_H // 16, (SCREEN_H - FG_TOP) // 16
-    misc_row = bg_rows + fg_rows
+def paint_sheet(kinds, levels, themes):
+    misc_row = 0
     eye_row = misc_row + 1
-    sky, front = neo_sky.paint_background()
-    indexed, palettes = neo_sky.index_sky([sky] + neo_sky.dial_frames(sky, front), PAL_BG0)
-    cells, pictures = neo_sky.dial_cells(indexed)
-    # The dial's cells at every step, each distinct picture once, in rows of
-    # their own under the bricks.
-    unique = {}
-    for step in pictures:
-        for picture in step:
-            unique.setdefault(picture.tobytes(), picture)
-    # A row for the bursts, then the bricks' two, then the dial's steps.
+    # A row for the bursts, then the deck at every width WIDE telescopes
+    # through (four tiles each), the bricks' two rows, the dial's steps, the
+    # clipped irises, and last every level's sky and foreground.
     burst_row = eye_row + EYE_H // 16
-    # Then the deck at every width WIDE telescopes through, four tiles each.
     deck_row = burst_row + 1
     deck_widths = range(neo_art.PADDLE_W, neo_art.PADDLE_WIDE_W + 1)
     per_row = TILES_PER_ROW // 4
     brick_row0 = deck_row + -(-len(deck_widths) // per_row)
     dial_row = brick_row0 + 2
+    dial_steps = neo_sky.dial_frames()
+    dial_cols = neo_sky.DIAL_SIZE // 16
+    dial_unique = {}
+    for frame in dial_steps:
+        for ty in range(dial_cols):
+            for tx in range(dial_cols):
+                tile = frame.crop((tx * 16, ty * 16, tx * 16 + 16, ty * 16 + 16))
+                dial_unique.setdefault(tile.tobytes(), tile)
+    iris_row = dial_row + -(-len(dial_unique) // TILES_PER_ROW)
     iris_offsets, iris_pictures = iris_variants()
     iris_unique = {}
     for picture in iris_pictures:
         for tile in picture:
             iris_unique.setdefault(tile.tobytes(), tile)
-    iris_row = dial_row + -(-len(unique) // TILES_PER_ROW)
-    rows = iris_row + -(-len(iris_unique) // TILES_PER_ROW)
+    sky_row = iris_row + -(-len(iris_unique) // TILES_PER_ROW)
+    fronts = [i for i in range(len(levels)) if (HERE / f"build/bg/{i}-front.rgba").exists()]
+    front_row = sky_row + len(levels) * neo_sky.BANDS
+    rows = front_row + len(fronts) * neo_sky.FG_BANDS
+    assert SPRITE_TILE_BASE + rows * TILES_PER_ROW < 65536, "the sheet outgrew 16-bit tile numbers"
     sheet = Image.new("P", (TILES_PER_ROW * 16, rows * 16), 0)
-    sheet.paste(indexed[0], (0, 0))
+    palettes = []
+
+    def place(row, i):
+        x, y = (i % TILES_PER_ROW) * 16, (row + i // TILES_PER_ROW) * 16
+        return (x, y), SPRITE_TILE_BASE + (y // 16) * TILES_PER_ROW + x // 16
+
     dial_tile = {}
-    for i, (key, picture) in enumerate(unique.items()):
-        x, y = (i % TILES_PER_ROW) * 16, (dial_row + i // TILES_PER_ROW) * 16
-        sheet.paste(picture, (x, y))
-        dial_tile[key] = SPRITE_TILE_BASE + (y // 16) * TILES_PER_ROW + x // 16
-    dial = (cells, [[dial_tile[p.tobytes()] for p in step] for step in pictures])
+    for i, (key, tile) in enumerate(dial_unique.items()):
+        at, number = place(dial_row, i)
+        sheet.paste(tile, at)
+        dial_tile[key] = number
+    dial = [
+        [dial_tile[frame.crop((tx * 16, ty * 16, tx * 16 + 16, ty * 16 + 16)).tobytes()] for ty in range(dial_cols) for tx in range(dial_cols)]
+        for frame in dial_steps
+    ]
     iris_tile = {}
     for i, (key, tile) in enumerate(iris_unique.items()):
-        x, y = (i % TILES_PER_ROW) * 16, (iris_row + i // TILES_PER_ROW) * 16
-        sheet.paste(tile, (x, y))
-        iris_tile[key] = SPRITE_TILE_BASE + (y // 16) * TILES_PER_ROW + x // 16
+        at, number = place(iris_row, i)
+        sheet.paste(tile, at)
+        iris_tile[key] = number
     iris = (iris_offsets, [[iris_tile[t.tobytes()] for t in picture] for picture in iris_pictures])
-    assert SPRITE_TILE_BASE + rows * TILES_PER_ROW < 65536, "the sheet outgrew 16-bit tile numbers"
-    fg, fg_palettes = quantize_rows(front, PAL_FG0)
-    sheet.paste(fg, (0, bg_rows * 16))
-    palettes += fg_palettes
+
+    # Every level's sky: fourteen rows of twenty tiles, banded palettes, and
+    # its star slots' tones; and the dunes where its theme has a foreground.
+    sky = {"tile": [], "palettes": [], "stars": [], "front": [], "front_palettes": []}
+    for i, level in enumerate(levels):
+        image, twinkles, front = neo_sky.load_level(i, HERE)
+        specks = {hex_rgb(v) for k, v in themes[level["background"]]["speck"].items() if k != "dialTick"}
+        specks -= set(twinkles.values())
+        indexed, band_palettes, slot_tone = neo_sky.index_sky(image, twinkles, specks)
+        top = sky_row + i * neo_sky.BANDS
+        sheet.paste(indexed, (0, top * 16))
+        sky["tile"].append(SPRITE_TILE_BASE + top * TILES_PER_ROW)
+        sky["palettes"].append(band_palettes)
+        sky["stars"].append([neo_sky.twinkle_ramp(tone or hex_rgb(themes[level["background"]]["area"]["base"])) for tone in slot_tone])
+        if front is None:
+            sky["front"].append(-1)
+            continue
+        k = fronts.index(i)
+        strip, strip_palettes = neo_sky.index_front(front)
+        top = front_row + k * neo_sky.FG_BANDS
+        sheet.paste(strip, (0, top * 16))
+        sky["front"].append(k)
+        sky["front_palettes"].append((SPRITE_TILE_BASE + top * TILES_PER_ROW, strip_palettes))
     sheet.paste(paint_almond(), (0, eye_row * 16))
     sheet.paste(paint_iris(), (EYE_W, eye_row * 16))
     y0 = misc_row * 16
@@ -418,8 +423,6 @@ def paint_sheet(kinds):
         brick_tiles.append(stages)
     assert variant <= 20, "brick variants overflow their two sheet rows"
     tiles = {
-        "BG": SPRITE_TILE_BASE,
-        "FG": SPRITE_TILE_BASE + bg_rows * TILES_PER_ROW,
         "EYE": SPRITE_TILE_BASE + eye_row * TILES_PER_ROW,
         "IRIS": SPRITE_TILE_BASE + eye_row * TILES_PER_ROW + EYE_W // 16,
         "MISC": SPRITE_TILE_BASE + (y0 // 16) * TILES_PER_ROW,
@@ -429,7 +432,7 @@ def paint_sheet(kinds):
         "SHARD": SPRITE_TILE_BASE + (y0 // 16) * TILES_PER_ROW + 4,
         "BURST": SPRITE_TILE_BASE + burst_row * TILES_PER_ROW,
     }
-    return sheet, palettes, tiles, brick_tiles, paddle_tones, (dial, iris)
+    return sheet, palettes, tiles, brick_tiles, paddle_tones, (dial, iris, sky)
 
 
 # --- fix tiles -------------------------------------------------------------------
@@ -524,8 +527,10 @@ class Art:
     levels: list
     brick_tiles: list
     paddle_tones: list
-    dial: tuple  # the cells the dial crosses, and each step's tile for each
+    dial: list  # each step's 81 tiles
     iris: tuple  # {offset: picture}, and each picture's 25 tiles
+    sky: dict  # every level's sky and foreground tiles, palettes and stars
+    themes: dict  # backgrounds.ts's tones per theme
 
 
 def write_header(path, art):
@@ -539,11 +544,10 @@ def write_header(path, art):
         lines.append(f"#define FIX_{name} {FIX_TILE_BASE + tile}")
     for slot, name in enumerate(HUD_PALETTES):
         lines.append(f"#define PAL_HUD_{name} {PAL_HUD0 + slot}")
-    lines.append(f"#define BG_ROWS {SCREEN_H // 16}")
-    lines.append(f"#define FG_ROWS {(SCREEN_H - FG_TOP) // 16}")
+    lines.append(f"#define BG_ROWS {neo_sky.BANDS}")
+    lines.append(f"#define FG_ROWS {neo_sky.FG_BANDS}")
     lines.append(f"#define FG_TOP {FG_TOP}")
     lines.append(f"#define SHEET_STRIDE {TILES_PER_ROW}")
-    lines.append(f"#define HORIZON {HORIZON}")
     lines.append(f"#define EYE_COLS {EYE_W // 16}")
     lines.append(f"#define EYE_ROWS {EYE_H // 16}")
     lines.append(f"#define EYE_CX {EYE_CX}")
@@ -557,6 +561,7 @@ def write_header(path, art):
     lines.append(f"#define IRIS_REACH_Y {IRIS_REACH_Y}")
     lines.append(f"#define PAL_EYE {PAL_EYE}")
     lines.append(f"#define PAL_FG0 {PAL_FG0}")
+    lines.append(f"#define PAL_DIAL {PAL_DIAL}")
     lines.append(f"#define EYE_FADE_STEPS {EYE_FADE_STEPS}")
     lines.append(f"#define PAL_TEXT {PAL_TEXT}")
     lines.append(f"#define PAL_WALL {PAL_WALL}")
@@ -577,24 +582,65 @@ def write_header(path, art):
         lines.append("  {%d, {%s}}," % (slot, ", ".join(f"0x{w:04x}" for w in words)))
     lines.append("};")
     lines.append("")
-    lines.append("// The eye's palette from faint (0) to fully lit, mixed toward the sky.")
-    lines.append(f"static const u16 EYE_FADE[EYE_FADE_STEPS][16] = {{")
-    for row in eye_fades():
-        words = [0x8000 if c is None else ng_color(c) for c in row] + [0] * (16 - len(row))
-        lines.append("  {%s}," % ", ".join(f"0x{w:04x}" for w in words))
+    theme_names = list(art.themes)
+    lines.append(f"#define THEMES {len(theme_names)}")
+    lines.append("static const u8 LEVEL_THEME[LEVELS] = {%s};" % ", ".join(str(theme_names.index(level["background"])) for level in levels))
+    lines.append("// The eye's palette from faint (0) to fully lit, mixed toward each theme's sky.")
+    lines.append("static const u16 EYE_FADE[THEMES][EYE_FADE_STEPS][16] = {")
+    for name in theme_names:
+        lines.append("  {")
+        for row in eye_fades(art.themes[name]["area"]["base"]):
+            words = [0x8000 if c is None else ng_color(c) for c in row] + [0] * (16 - len(row))
+            lines.append("    {%s}," % ", ".join(f"0x{w:04x}" for w in words))
+        lines.append("  },")
     lines.append("};")
     lines.append("")
-    cells, steps = art.dial
-    lines.append("// The zodiac dial: the sky's cells it crosses, and their tiles at each")
-    lines.append("// step of its turn; a step every DIAL_HOLD frames, one turn a minute.")
-    lines.append(f"#define DIAL_CELLS {len(cells)}")
+    sky = art.sky
+
+    def palette_words(colors):
+        words = [0x8000 if c is None else ng_color(c) for c in colors]
+        return ", ".join(f"0x{w:04x}" for w in words + [0] * (16 - len(words)))
+
+    lines.append("// Every level's sky: its first tile, fourteen rows of twenty, and a")
+    lines.append("// palette a band; and its foreground, -1 where its theme has none.")
+    lines.append("static const u16 SKY_TILE[LEVELS] = {%s};" % ", ".join(str(t) for t in sky["tile"]))
+    lines.append("static const u16 SKY_PALETTES[LEVELS][BG_ROWS][16] = {")
+    for bands in sky["palettes"]:
+        lines.append("  {%s}," % ", ".join("{%s}" % palette_words(p) for p in bands))
+    lines.append("};")
+    lines.append("static const s8 LEVEL_FRONT[LEVELS] = {%s};" % ", ".join(str(k) for k in sky["front"]))
+    lines.append(f"#define FRONTS {len(sky['front_palettes'])}")
+    lines.append("static const u16 FRONT_TILE[FRONTS] = {%s};" % ", ".join(str(t) for t, _ in sky["front_palettes"]))
+    lines.append("static const u16 FRONT_PALETTES[FRONTS][FG_ROWS][16] = {")
+    for _, bands in sky["front_palettes"]:
+        lines.append("  {%s}," % ", ".join("{%s}" % palette_words(p) for p in bands))
+    lines.append("};")
+    lines.append("")
+    lines.append("// The zodiac dial: a 9x9 block of sprites over the sky, its tiles at each")
+    lines.append("// step of its turn; a step every DIAL_HOLD frames, one turn a minute. Its")
+    lines.append("// three tones are each theme's own, and it stands at the field's middle,")
+    lines.append("// or round the socket on a level with an observer.")
+    lines.append(f"#define DIAL_COLS {neo_sky.DIAL_SIZE // 16}")
+    lines.append(f"#define DIAL_HALF {neo_sky.DIAL_SIZE // 2}")
     lines.append(f"#define DIAL_STEPS {neo_sky.DIAL_STEPS}")
     lines.append(f"#define DIAL_HOLD {neo_sky.DIAL_HOLD}")
-    lines.append("static const u8 DIAL_AT[DIAL_CELLS][2] = {%s};" % ", ".join("{%d, %d}" % cell for cell in cells))
-    lines.append("static const u16 DIAL_TILE[DIAL_STEPS][DIAL_CELLS] = {")
-    for step in steps:
+    lines.append("static const u16 DIAL_TILE[DIAL_STEPS][DIAL_COLS * DIAL_COLS] = {")
+    for step in art.dial:
         lines.append("  {%s}," % ", ".join(str(t) for t in step))
     lines.append("};")
+    lines.append("static const u16 DIAL_TONES[THEMES][16] = {")
+    for name in theme_names:
+        t = art.themes[name]
+        lines.append("  {%s}," % palette_words([None, hex_rgb(t["area"]["dialRing"]), hex_rgb(t["area"]["dialBand"]), hex_rgb(t["speck"]["dialTick"])]))
+    lines.append("};")
+    centres = []
+    for level in levels:
+        eye = level["eye"]
+        if level["observer"] and eye:
+            centres.append((round(eye["x"] * FIELD_X), round(eye["y"] * FIELD_Y)))
+        else:
+            centres.append((SCREEN_W // 2, round(150 * FIELD_Y)))
+    lines.append("static const s16 DIAL_CENTRE[LEVELS][2] = {%s};" % ", ".join("{%d, %d}" % c for c in centres))
     lines.append("")
     offsets, pictures = art.iris
     lines.append("// The iris clipped to the almond: which picture each offset from the")
@@ -609,13 +655,18 @@ def write_header(path, art):
         lines.append("  {%s}," % ", ".join(str(t) for t in picture))
     lines.append("};")
     lines.append("")
-    lines.append("// The twinkle: each star group's palette slot through its cycle.")
+    lines.append("// The twinkle: each star slot's place in its cycle, and each level's")
+    lines.append("// star slots, from their tone to a paler one in TWINKLE_LEVELS steps.")
     lines.append(f"#define STAR_SLOT {neo_sky.STAR_SLOT}")
     lines.append(f"#define STAR_GROUPS {neo_sky.STAR_GROUPS}")
-    lines.append(f"#define STAR_BANDS {HORIZON // 16 + 1}")
     lines.append(f"#define TWINKLE_STEPS {neo_sky.TWINKLE_STEPS}")
+    lines.append(f"#define TWINKLE_LEVELS {neo_sky.TWINKLE_LEVELS}")
     lines.append("static const u16 TWINKLE_PHASE[STAR_GROUPS] = {%s};" % ", ".join(str(p) for p in neo_sky.TWINKLE_PHASES))
-    lines.append("static const u16 TWINKLE[TWINKLE_STEPS] = {%s};" % ", ".join(f"0x{ng_color(c):04x}" for c in neo_sky.twinkle()))
+    lines.append("static const u8 TWINKLE[TWINKLE_STEPS] = {%s};" % ", ".join(str(v) for v in neo_sky.twinkle_shape()))
+    lines.append("static const u16 STAR_RAMP[LEVELS][STAR_GROUPS][TWINKLE_LEVELS] = {")
+    for ramps in sky["stars"]:
+        lines.append("  {%s}," % ", ".join("{%s}" % ", ".join(f"0x{ng_color(c):04x}" for c in ramp) for ramp in ramps))
+    lines.append("};")
     lines.append("")
     lines.append(f"#define PAL_BRICKS {PAL_BRICKS}")
     lines.append(f"#define BRICK_PAL_STRIDE {BRICK_PAL_STRIDE}")
@@ -710,8 +761,8 @@ def write_header(path, art):
 
 def main():
     kinds = read_bricks()
-    levels = read_levels()
-    sheet, sprite_palettes, sprite_tiles, brick_tiles, paddle_tones, (dial, iris) = paint_sheet(kinds)
+    levels, themes = read_levels()
+    sheet, sprite_palettes, sprite_tiles, brick_tiles, paddle_tones, (dial, iris, sky) = paint_sheet(kinds, levels, themes)
     fix, fix_palettes, fix_tiles = paint_fix(kinds)
     (HERE / "assets").mkdir(exist_ok=True)
     (HERE / "build").mkdir(exist_ok=True)
@@ -719,7 +770,7 @@ def main():
     fix.putpalette([0, 0, 0] + [255, 255, 255] * 255)
     sheet.save(HERE / "assets/sprites.png")
     fix.save(HERE / "assets/fix.png")
-    art = Art(fix_palettes + sprite_palettes, sprite_tiles, fix_tiles, kinds, levels, brick_tiles, paddle_tones, dial, iris)
+    art = Art(fix_palettes + sprite_palettes, sprite_tiles, fix_tiles, kinds, levels, brick_tiles, paddle_tones, dial, iris, sky, themes)
     write_header(HERE / "build/gfx.h", art)
     print(f"{len(levels)} levels from {LEVEL}, {len(kinds)} brick kinds")
 

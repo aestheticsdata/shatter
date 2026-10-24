@@ -150,6 +150,7 @@ static void reset_game(void) {
   reset_capsules();
   hud_clear(CARD_ROW, CARD_ROWS);
   build_wall();
+  reset_sky();
   reset_eye();
   draw_hud();
   serve();
@@ -203,6 +204,7 @@ static void step(void) {
         level = (level + 1) % LEVELS;
         reset_capsules();
         build_wall();
+        reset_sky();
         reset_eye();
         draw_hud();
         serve();
@@ -249,10 +251,8 @@ int main(void) {
   *REG_SOUND = SND_RESET;
   ng_cls();
   load_palettes();
-  setup_band(SPR_BG, TILE_BG, BG_ROWS, PAL_BG0, 0);
   setup_sky();
   setup_eye();
-  setup_band(SPR_FG, TILE_FG, FG_ROWS, PAL_FG0, FG_TOP);
   setup_wall();
   setup_deck();
   setup_capsules();

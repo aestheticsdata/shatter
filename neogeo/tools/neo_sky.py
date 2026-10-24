@@ -1,60 +1,57 @@
-"""SUNRISE's sky (SHA-270): the web game's HD horizon theme at 320x224, its
-zodiac dial, and the twinkle.
+"""Every level's field art (SHA-270, SHA-269): the web game's own painters,
+its zodiac dial, and the twinkle.
 
-The web paints this field in `src/render/backgrounds.ts` (`paintHorizon`,
-`paintHorizonGround`) and turns the dial in `drawZodiac`. Its rule is that the
-field art never moves, so a static layer is never mistaken for a game object;
-the dial is the one exception it makes, turning once a minute. Here the dial
-turns the same way — by swapping the sky's own tiles, pre-drawn at every step,
-so it costs no sprite — and the stars, the only other thing that changes, do it
-in the palette: one pixel each, never moving, brightening now and then.
+tools/render_backgrounds.ts runs `paintBackground` and `paintForeground` from
+src/render/backgrounds.ts for each level and leaves them, at 320x224, in
+build/bg/. Here each becomes sprite tiles: sixteen-pixel bands of the sky, each
+on its own palette of up to fifteen colours, the specks kept exact.
+
+The web's rule is that the field art never moves, so a static layer is never
+mistaken for a game object; the dial is the one thing on it that does, turning
+once a minute. Here it is a sprite layer of its own over the sky, drawn once at
+every step of its turn and tinted with each theme's dial ink. The stars are the
+only other thing that changes, and only in the palette: one pixel each, never
+moving, brightening now and then.
 """
 
 import math
-import random
 
 from PIL import Image
 
 SCREEN_W, SCREEN_H = 320, 224
+BAND = 16
+BANDS = SCREEN_H // BAND
 HORIZON = int(SCREEN_H * 0.6)
 # The foreground strip: the ground and the dunes, drawn in front of the eye so
 # it sets behind the hills (SHA-267). From the tallest dune's top down.
 FG_TOP = 112
+FG_BANDS = (SCREEN_H - FG_TOP) // BAND
 CLEAR = (255, 0, 255)
-BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
 
-# BACKGROUND_COLORS.horizon.
-TONES = {
-    "base": "#061019", "sky1": "#08161f", "sky2": "#0b1b26", "sky3": "#0e202c",
-    "glow": "#112733", "ground": "#040c12", "dune": "#020809", "star": "#2a4a5c",
-    "dialRing": "#0f2436", "dialBand": "#11283a", "dialTick": "#2a4a5c",
-}
-
-# The web field is 372x300 game pixels and this sky 320x224: everything round
-# is scaled by 0.75 on both axes, as the eye is, so a circle stays a circle.
-ROUND = 0.75
-
-# The dial (gameConfig.observer.ring.field): radii 82 and 86, twelve ticks, at
-# the field's middle, one turn a minute; the inner circle dashed four on, two
-# off. Sixty dashes, five to a tick, so the picture repeats every 30 degrees:
-# DIAL_STEPS drawings of that, each shown DIAL_HOLD frames, is 3600 a turn.
-DIAL_CX, DIAL_CY = SCREEN_W // 2, 112
-DIAL_INNER, DIAL_OUTER = round(82 * ROUND), round(86 * ROUND)
+# The dial (gameConfig.observer.ring.field): radii 82 and 86, twelve ticks,
+# one turn a minute; the inner circle dashed four on, two off. Sixty dashes,
+# five to a tick, so the picture repeats every 30 degrees: DIAL_STEPS drawings
+# of that, each shown DIAL_HOLD frames, is 3600 a turn. Scaled by the eye's
+# 0.75 so it stays a circle.
+DIAL_INNER, DIAL_OUTER = round(82 * 0.75), round(86 * 0.75)
 DIAL_TICKS = 12
 DIAL_DASHES = 60
 DIAL_STEPS = 30
 DIAL_HOLD = 3600 // (DIAL_TICKS * DIAL_STEPS)
+DIAL_SIZE = 144  # nine sprites square, the ring centred in it
+DIAL_RING, DIAL_BAND, DIAL_TICK = 1, 2, 3
 
-# The twinkle: four groups of stars, each on its own palette slot. A group
-# rests at the star's tone and swells toward a paler one once a cycle, the
-# groups out of step so the sky is never all lit at once.
+# The twinkle: palette slots 12..15 of every sky band hold the stars. A theme
+# with one star tone has four groups of it, out of step; with more tones, the
+# slots are shared out among them.
 STAR_GROUPS = 4
-STAR_SLOT = 16 - STAR_GROUPS  # palette slots 12..15 in every sky band
-STAR_SENTINELS = [(255, 0, 240 + g) for g in range(STAR_GROUPS)]
+STAR_SLOT = 16 - STAR_GROUPS
 TWINKLE_STEPS = 512
 TWINKLE_SWELL = 56
-TWINKLE_PEAK = "#7f9cb4"
 TWINKLE_PHASES = [0, 141, 283, 397]
+TWINKLE_LEVELS = 16      # steps from a star's tone to its peak
+TWINKLE_TOWARD = "#dbe4ff"
+TWINKLE_REACH = 0.45
 
 
 def hex_rgb(value):
@@ -66,149 +63,159 @@ def mix(a, b, t):
     return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 
-def paint_background():
-    """The sky, and separately the ground and dunes from FG_TOP down (CLEAR
-    elsewhere). Stars are painted in their group's sentinel colour."""
-    c = {k: hex_rgb(v) for k, v in TONES.items()}
-    img = Image.new("RGB", (SCREEN_W, SCREEN_H), c["base"])
-    px = img.load()
-    line = HORIZON
-    # The four bands as one dithered gradient, from the bands' own edges.
-    stops = [(line - 70, c["base"]), (line - 40, c["sky1"]), (line - 30, c["sky2"]),
-             (line - 20, c["sky3"]), (line - 10, c["glow"]), (line, c["glow"])]
-    for y in range(line):
-        for i in range(len(stops) - 1):
-            (y0, a), (y1, b) = stops[i], stops[i + 1]
-            if y0 <= y < y1:
-                t = (y - y0) / max(1, y1 - y0)
-                for x in range(SCREEN_W):
-                    px[x, y] = b if t * 16 > BAYER[y % 4][x % 4] + 0.5 else a
-    # The dome: the light standing over where the sun will come up, dithered
-    # radially from nothing at its edge through sky3 to the glow.
-    cx, radius = round(SCREEN_W * 0.56), 87 * ROUND
-    tones = [None, c["sky3"], c["glow"]]
-    for y in range(max(0, round(line - radius)), line):
+def load_level(index, here):
+    """A level's sky (RGB), its twinkling pixels {(x, y): tone}, and its
+    foreground (RGBA, holes transparent) or None."""
+    raw = (here / f"build/bg/{index}.rgba").read_bytes()
+    rgba = Image.frombytes("RGBA", (SCREEN_W, SCREEN_H), raw)
+    twinkles = {}
+    px = rgba.load()
+    for y in range(SCREEN_H):
         for x in range(SCREEN_W):
-            d = math.hypot(x + 0.5 - cx, y + 0.5 - line)
-            if d >= radius:
+            if px[x, y][3] == 254:
+                twinkles[(x, y)] = px[x, y][:3]
+    front_path = here / f"build/bg/{index}-front.rgba"
+    front = Image.frombytes("RGBA", (SCREEN_W, SCREEN_H), front_path.read_bytes()) if front_path.exists() else None
+    return rgba.convert("RGB"), twinkles, front
+
+
+def star_slots(twinkles):
+    """Each twinkling tone's slots, and each twinkling pixel's slot: the
+    tones share the four out, and a tone's pixels take its slots in turn."""
+    tones = sorted(set(twinkles.values()), key=sum)[:STAR_GROUPS]
+    per = STAR_GROUPS // max(1, len(tones))
+    slots = {tone: [STAR_SLOT + i * per + k for k in range(per)] for i, tone in enumerate(tones)}
+    pixel_slot = {}
+    for n, (pos, tone) in enumerate(sorted(twinkles.items())):
+        if tone in slots:
+            pixel_slot[pos] = slots[tone][n % len(slots[tone])]
+    slot_tone = [None] * STAR_GROUPS
+    for tone, owned in slots.items():
+        for s in owned:
+            slot_tone[s - STAR_SLOT] = tone
+    return pixel_slot, slot_tone
+
+
+def index_sky(sky, twinkles, specks):
+    """The sky as palette indexes, band by band, and the band palettes.
+
+    A band's own colours take slots 1..11: the theme's specks exactly, and the
+    rest of the band — its gradients and texture — quantized into what is left.
+    The twinkling pixels take their star slots."""
+    pixel_slot, slot_tone = star_slots(twinkles)
+    out = Image.new("P", sky.size, 0)
+    palettes = []
+    for band in range(BANDS):
+        box = (0, band * BAND, SCREEN_W, band * BAND + BAND)
+        img = sky.crop(box)
+        colours = {}
+        for c in img.getdata():
+            colours[c] = colours.get(c, 0) + 1
+        exact = [c for c in colours if c in specks]
+        room = STAR_SLOT - 1 - len(exact)
+        rest = [c for c in colours if c not in specks]
+        if len(rest) <= room:
+            table = exact + rest
+            mapping = {c: table.index(c) + 1 for c in table}
+            data = [mapping[c] for c in img.getdata()]
+        else:
+            # Quantize what is not a speck; the specks keep their own slots.
+            q = img.quantize(colors=room, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.FLOYDSTEINBERG)
+            pal = q.getpalette()[: room * 3]
+            qtable = [tuple(pal[i : i + 3]) for i in range(0, room * 3, 3)]
+            table = qtable + exact
+            data = []
+            for c, qi in zip(img.getdata(), q.getdata()):
+                data.append(len(qtable) + exact.index(c) + 1 if c in specks else qi + 1)
+        band_img = Image.new("P", img.size)
+        band_img.putdata(data)
+        bpx = band_img.load()
+        for (x, y), slot in pixel_slot.items():
+            if band * BAND <= y < band * BAND + BAND:
+                bpx[x, y - band * BAND] = slot
+        out.paste(band_img, box)
+        slots = table + [table[0]] * (STAR_SLOT - 1 - len(table))
+        stars = [tone or table[0] for tone in slot_tone]
+        palettes.append([None] + slots + stars)
+    return out, palettes, slot_tone
+
+
+def index_front(front):
+    """The foreground strip from FG_TOP down, holes transparent, banded."""
+    strip = front.crop((0, FG_TOP, SCREEN_W, SCREEN_H))
+    out = Image.new("P", strip.size, 0)
+    palettes = []
+    for band in range(FG_BANDS):
+        box = (0, band * BAND, SCREEN_W, band * BAND + BAND)
+        img = strip.crop(box)
+        solid = [p[:3] for p in img.getdata() if p[3]]
+        table = sorted(set(solid))
+        if len(table) > 15:
+            q = Image.new("RGB", (len(solid), 1))
+            q.putdata(solid)
+            q = q.quantize(colors=15, method=Image.Quantize.MEDIANCUT)
+            pal = q.getpalette()[:45]
+            table = [tuple(pal[i : i + 3]) for i in range(0, 45, 3)]
+        nearest = {}
+        data = []
+        for p in img.getdata():
+            if not p[3]:
+                data.append(0)
                 continue
-            position = (1 - d / radius) * 2
-            band = min(1, int(position))
-            tone = tones[band + 1] if BAYER[y & 3][x & 3] < (position - band) * 16 else tones[band]
-            if tone is not None:
-                px[x, y] = tone
-    for x in range(SCREEN_W):
-        px[x, line - 1] = mix(c["glow"], c["ground"], 0.45)
-    rng = random.Random(7)
-    for i in range(18):
-        x, y = rng.randrange(4, SCREEN_W - 4), rng.randrange(4, line - 50)
-        px[x, y] = STAR_SENTINELS[i % STAR_GROUPS]
-    for y in range(line, SCREEN_H):
-        for x in range(SCREEN_W):
-            px[x, y] = c["ground"]
-    dust = mix(c["ground"], (0, 0, 0), 0.45)
-    for _ in range(90):
-        px[rng.randrange(SCREEN_W), rng.randrange(line + 1, SCREEN_H)] = dust
-    # Two shallow dunes, each with a rim of shadow a pixel outside it, so one
-    # passing in front of the other reads as two hills.
-    rim = mix(c["dune"], (0, 0, 0), 0.45)
-    for fx, r, rise in ((0.3, 90, 14), (0.72, 120, 20)):
-        dx, dy = fx * SCREEN_W, line + r - rise
-        for color, reach in ((rim, r + 1), (c["dune"], r)):
-            for y in range(line - rise - 1, line + 2):
-                for x in range(SCREEN_W):
-                    if math.hypot(x - dx, y - dy) <= reach and (color == c["dune"] or px[x, y] != c["dune"]):
-                        px[x, y] = color
-    front = Image.new("RGB", (SCREEN_W, SCREEN_H - FG_TOP), CLEAR)
-    fpx = front.load()
-    for y in range(FG_TOP, SCREEN_H):
-        for x in range(SCREEN_W):
-            if y >= line or px[x, y] in (c["dune"], rim):
-                fpx[x, y - FG_TOP] = px[x, y]
-    return img, front
+            c = p[:3]
+            if c not in nearest:
+                nearest[c] = min(range(len(table)), key=lambda i: sum((c[k] - table[i][k]) ** 2 for k in range(3))) + 1
+            data.append(nearest[c])
+        band_img = Image.new("P", img.size)
+        band_img.putdata(data)
+        out.paste(band_img, box)
+        palettes.append([None] + table)
+    return out, palettes
 
 
-def dial_frames(sky, front):
-    """The sky with the dial on it, at each of DIAL_STEPS steps of its turn.
-
-    Only where the dial shows: above the ground and dunes, which stand in front
-    of it as they stand in front of the eye."""
-    c = {k: hex_rgb(v) for k, v in TONES.items()}
-    covered = lambda x, y: y >= FG_TOP and front.getpixel((x, y - FG_TOP)) != CLEAR
+def dial_frames():
+    """The dial at each of DIAL_STEPS steps of its 30-degree period, on a
+    transparent 144x144: the outer circle, the dashed inner one and the ticks
+    across the band between them, in the three dial slots."""
+    c = DIAL_SIZE / 2
     frames = []
     for step in range(DIAL_STEPS):
         spin = step / DIAL_STEPS * (2 * math.pi / DIAL_TICKS)
-        img = sky.copy()
+        img = Image.new("P", (DIAL_SIZE, DIAL_SIZE), 0)
         px = img.load()
 
         def dot(r, angle, tone):
-            x = round(DIAL_CX + math.cos(angle) * r)
-            y = round(DIAL_CY + math.sin(angle) * r)
-            if 0 <= x < SCREEN_W and 0 <= y < SCREEN_H and not covered(x, y) and px[x, y] not in STAR_SENTINELS:
+            x, y = round(c + math.cos(angle) * r), round(c + math.sin(angle) * r)
+            if 0 <= x < DIAL_SIZE and 0 <= y < DIAL_SIZE:
                 px[x, y] = tone
 
         walk = 2  # two steps a pixel, so a hairline never skips one
         outer = round(2 * math.pi * DIAL_OUTER) * walk
         for i in range(outer):
-            dot(DIAL_OUTER, i / outer * 2 * math.pi, c["dialRing"])
+            dot(DIAL_OUTER, i / outer * 2 * math.pi, DIAL_RING)
         inner = round(2 * math.pi * DIAL_INNER) * walk
         for i in range(inner):
-            # Four on, two off: the dash measured round the circle, sixty to it.
             if (i * DIAL_DASHES * 6 // inner) % 6 < 4:
-                dot(DIAL_INNER, i / inner * 2 * math.pi + spin, c["dialBand"])
+                dot(DIAL_INNER, i / inner * 2 * math.pi + spin, DIAL_BAND)
         for t in range(DIAL_TICKS):
             angle = t / DIAL_TICKS * 2 * math.pi + spin
             for r in range(DIAL_INNER, DIAL_OUTER + 1):
-                dot(r, angle, c["dialTick"])
+                dot(r, angle, DIAL_TICK)
         frames.append(img)
     return frames
 
 
-def index_sky(images, palette_base):
-    """Every image of the sky as palette indexes, each 16 px band on its own
-    palette: the colours any of them uses in that band, slots 1..11, and the
-    star groups always in 12..15 so the twinkle can rewrite them."""
-    star = hex_rgb(TONES["star"])
-    out = [Image.new("P", images[0].size, 0) for _ in images]
-    palettes = []
-    for row in range(SCREEN_H // 16):
-        seen = set()
-        for img in images:
-            band = img.crop((0, row * 16, SCREEN_W, row * 16 + 16))
-            seen |= {band.getpixel((x, y)) for x in range(SCREEN_W) for y in range(16)}
-        colors = sorted(seen - set(STAR_SENTINELS))
-        assert len(colors) < STAR_SLOT, f"sky band {row} needs {len(colors)} colours"
-        index = {color: i + 1 for i, color in enumerate(colors)}
-        index.update({s: STAR_SLOT + g for g, s in enumerate(STAR_SENTINELS)})
-        for img, o in zip(images, out):
-            for y in range(row * 16, row * 16 + 16):
-                for x in range(SCREEN_W):
-                    o.putpixel((x, y), index[img.getpixel((x, y))])
-        slots = colors + [colors[0]] * (STAR_SLOT - 1 - len(colors)) + [star] * STAR_GROUPS
-        palettes.append((palette_base + row, [None] + slots))
-    return out, palettes
-
-
-def dial_cells(indexed):
-    """The 16x16 cells of the sky that any step of the dial changes, and each
-    step's picture of them."""
-    base, steps = indexed[0], indexed[1:]
-    cells = []
-    for row in range(SCREEN_H // 16):
-        for col in range(SCREEN_W // 16):
-            box = (col * 16, row * 16, col * 16 + 16, row * 16 + 16)
-            if any(step.crop(box).tobytes() != base.crop(box).tobytes() for step in steps):
-                cells.append((col, row))
-    pictures = [[step.crop((c * 16, r * 16, c * 16 + 16, r * 16 + 16)) for c, r in cells] for step in steps]
-    return cells, pictures
-
-
-def twinkle():
-    """One group's cycle, TWINKLE_STEPS colours: the star's tone, and once a
+def twinkle_shape():
+    """One group's cycle, 0..TWINKLE_LEVELS-1 a step: resting, and once a
     cycle a swell to the peak and back, eased."""
-    star, peak = hex_rgb(TONES["star"]), hex_rgb(TWINKLE_PEAK)
     cycle = []
     for i in range(TWINKLE_STEPS):
         t = math.sin(math.pi * i / TWINKLE_SWELL) ** 2 if i < TWINKLE_SWELL else 0
-        cycle.append(mix(star, peak, t))
+        cycle.append(round(t * (TWINKLE_LEVELS - 1)))
     return cycle
+
+
+def twinkle_ramp(tone):
+    """A star tone's TWINKLE_LEVELS steps toward its peak."""
+    peak = mix(tone, hex_rgb(TWINKLE_TOWARD), TWINKLE_REACH)
+    return [mix(tone, peak, i / (TWINKLE_LEVELS - 1)) for i in range(TWINKLE_LEVELS)]

@@ -80,7 +80,7 @@ void step_eye(void) {
   s8 fade = spec->fade + (s8)(((s32)(spec->fade_to - spec->fade) * eye_frac) / EYE_ONE);
   if (fade != eye_fade) {
     eye_fade = fade;
-    load_palette(PAL_EYE, EYE_FADE[fade]);
+    load_palette(PAL_EYE, EYE_FADE[LEVEL_THEME[level]][fade]);
   }
 
   u8 awake = spec->kind == EYE_STATIC || eye_frac >= (s32)spec->wake * EYE_ONE / 255;

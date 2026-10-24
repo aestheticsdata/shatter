@@ -155,8 +155,12 @@ CUSTOM_GENERATE_TARGETS=
 
 # Shatter's art and level, generated from the web game's TypeScript sources.
 GFX=assets/sprites.png assets/fix.png $(BUILDDIR)/gfx.h
-$(GFX) &: tools/gen_assets.py tools/neo_art.py tools/neo_sky.py tools/neo_font.py $(BUILDDIR)/levels.json ../src/core/config/bricks.ts ../src/core/config/powerUps.ts $(if $(LEVEL),FORCE)
+$(GFX) &: tools/gen_assets.py tools/neo_art.py tools/neo_sky.py tools/neo_font.py $(BUILDDIR)/levels.json $(BUILDDIR)/bg/.stamp ../src/core/config/bricks.ts ../src/core/config/powerUps.ts $(if $(LEVEL),FORCE)
 	$(PYTHON) tools/gen_assets.py $(LEVEL)
+
+# Every level's field art, painted by the web game's own backgrounds.ts.
+$(BUILDDIR)/bg/.stamp: tools/render_backgrounds.ts ../src/render/backgrounds.ts ../src/render/pix.ts ../src/core/levels/levels.ts | $(BUILDDIR)
+	cd .. && npx --no-install tsx neogeo/tools/render_backgrounds.ts && touch neogeo/$@
 
 # The levels, read by the web game's own module (tools/dump_levels.ts).
 $(BUILDDIR)/levels.json: tools/dump_levels.ts ../src/core/levels/levels.ts | $(BUILDDIR)

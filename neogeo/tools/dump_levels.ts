@@ -1,10 +1,12 @@
 // The web game's levels as JSON for tools/gen_assets.py: the cartridge bakes
-// what levels.ts says, read by the game's own module rather than by regex.
+// what levels.ts says, read by the game's own module rather than by regex —
+// and the themes' tones beside them, from backgrounds.ts.
 import { LEVELS } from "../../src/core/levels/levels";
+import { BACKGROUND_COLORS } from "../../src/render/backgrounds";
 
 process.stdout.write(
-  JSON.stringify(
-    LEVELS.map((level) => ({
+  JSON.stringify({
+    levels: LEVELS.map((level) => ({
       name: level.name,
       background: level.background,
       rows: level.rows,
@@ -12,5 +14,6 @@ process.stdout.write(
       creatures: level.creatures ?? [],
       observer: level.observer ? true : false,
     })),
-  ),
+    themes: BACKGROUND_COLORS,
+  }),
 );
