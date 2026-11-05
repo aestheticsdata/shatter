@@ -1,9 +1,15 @@
-/* No elastic bounce anywhere, on any scroller: the vertical rubber band is the
-   part being refused, and `contain` would only stop it chaining to the parent
-   while keeping it locally. On `*` so a scroller added later is covered without
-   anyone remembering. The horizontal axis is the browser's back gesture and is
-   left alone. */
-* {
+/* No elastic bounce: `none`, not `contain` — `contain` only stops the gesture
+   chaining to the parent and keeps the local rubber band, which is the part
+   being refused. The vertical axis only; the horizontal one is the browser's
+   back gesture and is left alone.
+
+   On the page only, NOT on `*`: any element whose overflow is not `visible`
+   (every `overflow: hidden` box — #app, the dev console's roster) is a scroll
+   container, and with `none` it keeps the wheel instead of handing it to the
+   page. Shatter has no vertical scroller of its own; one added later goes in
+   this list by name. */
+html,
+body {
   overscroll-behavior-y: none;
 }
 
