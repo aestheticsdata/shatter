@@ -132,7 +132,9 @@ require_clean_tree() {
 # registered in the shared repo when a deploy is interrupted. Removed on exit, success or not.
 pin_build_source() {
   BUILD_DIR=$(mktemp -d "${TMPDIR:-/tmp}/shatter-deploy.XXXXXX")
-  trap 'rm -rf "$BUILD_DIR"' EXIT
+  # Chained, not replaced: `deploy` already set `clean_local_build` on EXIT, and a bare trap here
+  # would silently drop it.
+  trap 'rm -rf "$BUILD_DIR"; clean_local_build' EXIT
 
   log "➡️  Building from a snapshot of ${VERIFIED_COMMIT:0:7}, not from the working tree"
   git -C "$PROJECT_DIR" archive "$VERIFIED_COMMIT" | tar -x -C "$BUILD_DIR"
@@ -323,6 +325,39 @@ EOF
 write_zeus_marker() {
   ssh "$REMOTE_USER_HOST" \
     "mkdir -p '$RELEASES_DIR' && printf '%s\n' '$ZEUS_COMMIT' > '$ZEUS_MARKER'"
+}
+
+# The laptop is short on disk: a deploy leaves no build output behind, whether it succeeds or not.
+# The release is built in the snapshot (`pin_build_source`), which goes with its own node_modules,
+# so nothing here is the checkout's — but a `pnpm build` or a demo-film take from an earlier session
+# leaves `dist` and `test-results` in it, and its node_modules weighs more than either. The film
+# itself (`e2e/demo/out`) and the Neo Geo port's `neogeo/build` are products of their own, not this
+# deploy's build output, and are never touched; neither is `server/`, which `deploy-api.sh` owns.
+clean_local_build() {
+  # Runs on exit, after a failure too: the ERR trap must not report the deploy a second time.
+  trap - ERR
+  local dir="$PROJECT_DIR" target
+  local freed=()
+  for target in dist test-results; do
+    if [ -d "$dir/$target" ]; then
+      freed+=("$(du -sh "$dir/$target" 2>/dev/null | cut -f1 || true) $target")
+      rm -rf -- "${dir:?}/$target"
+    fi
+  done
+  [ ${#freed[@]} -gt 0 ] && log "🧹 Local build output removed: ${freed[*]}"
+  # node_modules too (and a stray `.vite` cache): `pnpm install` restores it from the lockfile. Kept
+  # while a Vite dev server runs from this checkout, which loads from it — matched on this
+  # checkout's own vite binary, so another project's Vite does not count.
+  if pgrep -f "$dir/node_modules/.*vite/bin/vite.js" > /dev/null 2>&1; then
+    log "ℹ️  vite is running: local node_modules kept"
+  else
+    if [ -d "$dir/node_modules" ]; then
+      log "🧹 Removing $(du -sh "$dir/node_modules" 2>/dev/null | cut -f1 || true) node_modules"
+      rm -rf -- "${dir:?}/node_modules"
+    fi
+    rm -rf -- "${dir:?}/.vite"
+  fi
+  return 0
 }
 
 prepare_local_build() {
@@ -527,6 +562,7 @@ __REMOTE_LIST__
 }
 
 deploy() {
+  trap clean_local_build EXIT
   require_command git
   require_command pnpm
   require_command ssh

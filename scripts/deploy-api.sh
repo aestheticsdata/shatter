@@ -87,7 +87,9 @@ require_clean_tree() {
 # `git archive` for the same reasons as the front's `pin_build_source`; removed on exit.
 pin_server_source() {
   SOURCE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/shatter-deploy-api.XXXXXX")
-  trap 'rm -rf "$SOURCE_DIR"' EXIT
+  # Chained, not replaced: `clean_local_build` is already set on EXIT, and a bare trap here would
+  # silently drop it.
+  trap 'rm -rf "$SOURCE_DIR"; clean_local_build' EXIT
 
   git -C "$PROJECT_DIR" archive "$VERIFIED_COMMIT" server | tar -x -C "$SOURCE_DIR"
   SERVER_DIR="$SOURCE_DIR/server"
@@ -266,10 +268,39 @@ write_zeus_marker() {
     "mkdir -p '$REMOTE_APP_DIR/data' && printf '%s\n' '$ZEUS_COMMIT' > '$ZEUS_MARKER'"
 }
 
+# The laptop is short on disk: a deploy leaves no local dependencies behind, whether it succeeds or
+# not. Nothing here builds (the server runs the source as is, and installs its own production
+# dependencies), so the only weight is `server/node_modules`, the local install `pnpm api` runs on;
+# `pnpm install --ignore-workspace` in server/ restores it from its lockfile. Kept while that API
+# runs from this checkout, which loads from it. `pnpm api` starts it as `node server/src/index.js`,
+# a relative path that names no project, so a match counts only when the process's working
+# directory is this checkout. The front's folders are `deploy.sh`'s business.
+local_api_running() {
+  local pid
+  for pid in $(pgrep -f "server/src/index.js" 2>/dev/null); do
+    [ "$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')" = "$PROJECT_DIR" ] && return 0
+  done
+  return 1
+}
+
+clean_local_build() {
+  # Runs on exit, after a failure too: the ERR trap must not report the deploy a second time.
+  trap - ERR
+  local dir="$PROJECT_DIR/server"
+  if local_api_running; then
+    log "ℹ️  the API is running locally: server/node_modules kept"
+  elif [ -d "$dir/node_modules" ]; then
+    log "🧹 Removing $(du -sh "$dir/node_modules" 2>/dev/null | cut -f1 || true) server/node_modules"
+    rm -rf -- "${dir:?}/node_modules"
+  fi
+  return 0
+}
+
 ######################################
 # Deploy
 ######################################
 
+trap clean_local_build EXIT
 cd "$PROJECT_DIR"
 
 # Before any ssh or rsync. Everything below names `VERIFIED_COMMIT` and never asks HEAD again —
